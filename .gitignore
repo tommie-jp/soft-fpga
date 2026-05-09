@@ -39,7 +39,6 @@ Thumbs.db
 
 # Claude Code (個人環境用)
 .claude/
-verif/dormann/obj_dir/
 .playwright-mcp/
 
 # テストフィクスチャ（バイナリでも追跡対象）
