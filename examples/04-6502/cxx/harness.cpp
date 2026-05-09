@@ -1,6 +1,10 @@
 #include "Vapple1_top.h"
 #include "verilated.h"
+#ifdef __EMSCRIPTEN__
 #include <emscripten.h>
+#else
+#define EMSCRIPTEN_KEEPALIVE
+#endif
 #include <stdint.h>
 #include <string.h>
 

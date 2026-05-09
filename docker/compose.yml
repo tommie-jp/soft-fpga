@@ -1,7 +1,7 @@
-name: sfr
+name: sfa
 
 x-base: &base
-  image: sfr-dev:local
+  image: sfa-dev:local
   build:
     context: .
     dockerfile: Dockerfile
@@ -10,7 +10,7 @@ x-base: &base
       USER_GID: ${USER_GID:-1000}
   volumes:
     - ../:/work
-    - sfr-ccache:/ccache
+    - sfa-ccache:/ccache
   working_dir: /work
   environment:
     - CCACHE_DIR=/ccache
@@ -22,63 +22,17 @@ services:
     stdin_open: true
     command: ["bash"]
 
-  firmware:
+  build-sim:
+    # examples/<EXAMPLE> をネイティブ Linux バイナリ (build/sim) にビルドする。
+    # scripts/build-sim.sh から EXAMPLE 環境変数で呼び出す。
     <<: *base
-    command: ["bash", "-lc", "scripts/_build-pico-inner.sh"]
-
-  build-host:
-    <<: *base
-    # Pico SDK 非依存のホスト版 (host/) ビルド & 実行用。
-    # stdin/stdout を流したいので tty 無効、stdin_open は有効。
-    # init: true で tini を PID 1 にし、^C (SIGINT) をプロセスに転送する。
-    init: true
-    stdin_open: true
-    entrypoint: ["scripts/_build-host-inner.sh"]
+    entrypoint: ["scripts/_build-sim-inner.sh"]
     command: []
 
-  flash:
+  dormann:
+    # Klaus Dormann 6502 機能テストをネイティブで実行する。
     <<: *base
-    user: "0"
-    devices:
-      - /dev/bus/usb:/dev/bus/usb
-    command: ["bash", "-lc", "scripts/_flash-inner.sh ${ELF:-firmware/build/firmware.elf}"]
-
-  test-hil:
-    <<: *base
-    user: "0"
-    # /dev をバインドする理由:
-    #   - openocd は /dev/bus/usb 経由で Probe (CMSIS-DAP) を叩く
-    #   - pyserial は /dev/ttyACM0 を開く。フラッシュ後の Pico 再列挙で
-    #     ttyACM の minor 番号が変わるため、static な devices: ではなく
-    #     /dev 全体をバインドして live に追従させる
-    privileged: true
-    volumes:
-      - ../:/work
-      - sfr-ccache:/ccache
-      - sfr-hil-venv:/opt/hil-venv
-      - /dev:/dev
-    environment:
-      - CCACHE_DIR=/ccache
-      - SFR_IN_CONTAINER=1
-      - PIP_CACHE_DIR=/ccache/pip
-    command: ["scripts/_test-hil-inner.sh"]
-
-  test-unit:
-    <<: *base
-    # Verilator + cocotb のユニット検証。Pico SDK / USB は使わない。
-    # 名前付きボリュームの初期 owner が root なので test-hil と同じく root 実行。
-    user: "0"
-    volumes:
-      - ../:/work
-      - sfr-ccache:/ccache
-      - sfr-unit-venv:/opt/unit-venv
-    environment:
-      - CCACHE_DIR=/ccache
-      - PIP_CACHE_DIR=/ccache/pip
-    entrypoint: ["scripts/_test-unit-inner.sh"]
-    command: []
+    command: ["bash", "-lc", "verif/dormann/run.sh"]
 
 volumes:
-  sfr-ccache:
-  sfr-hil-venv:
-  sfr-unit-venv:
+  sfa-ccache:
