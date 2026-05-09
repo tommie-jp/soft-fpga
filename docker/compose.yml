@@ -26,13 +26,14 @@ services:
     # examples/<EXAMPLE> をネイティブ Linux バイナリ (build/sim) にビルドする。
     # scripts/build-sim.sh から EXAMPLE 環境変数で呼び出す。
     <<: *base
+    init: true
     entrypoint: ["scripts/_build-sim-inner.sh"]
     command: []
 
   dormann:
     # Klaus Dormann 6502 機能テストをネイティブで実行する。
     <<: *base
-    command: ["bash", "-lc", "verif/dormann/run.sh"]
+    command: ["bash", "-c", "verif/dormann/run.sh"]
 
 volumes:
   sfa-ccache:

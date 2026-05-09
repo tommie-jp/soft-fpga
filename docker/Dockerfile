@@ -6,14 +6,13 @@ FROM ubuntu:24.04
 ARG USER_UID=1000
 ARG USER_GID=1000
 
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        ca-certificates curl git \
+RUN DEBIAN_FRONTEND=noninteractive apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates git \
         build-essential cmake ninja-build pkg-config \
         autoconf automake libtool texinfo \
         flex bison libfl-dev help2man perl perl-doc \
-        python3 python3-venv python3-pip \
+        python3 \
         ccache \
     && rm -rf /var/lib/apt/lists/*
 
@@ -27,7 +26,8 @@ RUN git clone --branch ${VERILATOR_TAG} --depth 1 \
     && make install \
     && cd / && rm -rf /tmp/verilator
 
-ENV CCACHE_DIR=/ccache \
+ENV VERILATOR_ROOT=/usr/local/share/verilator \
+    CCACHE_DIR=/ccache \
     PATH=/usr/lib/ccache:/usr/local/bin:/usr/bin:/bin
 
 RUN if ! getent group ${USER_GID} >/dev/null; then groupadd -g ${USER_GID} dev; fi \
