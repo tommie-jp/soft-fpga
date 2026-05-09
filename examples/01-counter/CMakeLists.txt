@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.19)
+cmake_minimum_required(VERSION 3.27)
 project(sim_01_counter CXX)
 
 if(NOT CMAKE_BUILD_TYPE)

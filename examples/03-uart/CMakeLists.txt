@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.19)
+cmake_minimum_required(VERSION 3.27)
 project(sim_03_uart CXX)
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -13,6 +13,7 @@ add_executable(sim cxx/harness.cpp cxx/main_linux.cpp)
 target_compile_features(sim PRIVATE cxx_std_17)
 
 verilate(sim
+    PREFIX Vuart_top
     SOURCES
         ${CMAKE_CURRENT_SOURCE_DIR}/verilog/uart_top.v
         ${CMAKE_CURRENT_SOURCE_DIR}/verilog/uart_tx.v

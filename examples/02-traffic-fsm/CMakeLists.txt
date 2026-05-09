@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.19)
+cmake_minimum_required(VERSION 3.27)
 project(sim_02_traffic_fsm CXX)
 
 if(NOT CMAKE_BUILD_TYPE)

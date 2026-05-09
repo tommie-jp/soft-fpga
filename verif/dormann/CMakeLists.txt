@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.19)
+cmake_minimum_required(VERSION 3.27)
 project(test_dormann CXX)
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -15,6 +15,7 @@ target_compile_features(test_dormann PRIVATE cxx_std_17)
 set(VERILOG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../examples/04-6502/verilog)
 
 verilate(test_dormann
+    PREFIX Vapple1_top
     SOURCES
         ${VERILOG_DIR}/apple1_top.v
         ${VERILOG_DIR}/hoglet/cpu_65c02.v
