@@ -1,0 +1,44 @@
+- generic [ref=e1]:
+  - heading "04-6502 Apple-I (Woz Monitor)" [level=2] [ref=e2]
+  - generic [ref=e3]:
+    - button "Pause" [ref=e4] [cursor=pointer]
+    - button "Reset" [ref=e5] [cursor=pointer]
+    - button "Step Inst" [ref=e6] [cursor=pointer]
+    - generic [ref=e7]:
+      - text: "速度:"
+      - slider "速度:" [ref=e8]: "8000"
+    - generic [ref=e9]: 24,000 cycles
+  - generic [ref=e10]:
+    - generic [ref=e15]:
+      - textbox "Terminal input" [active] [ref=e16]
+      - generic [ref=e19]: \
+    - generic [ref=e41]:
+      - generic [ref=e42]:
+        - heading "CPU Registers" [level=3] [ref=e43]
+        - generic [ref=e44]: "PC : FF2C"
+        - generic [ref=e45]: "A : 00"
+        - generic [ref=e46]: "X : 00"
+        - generic [ref=e47]: "Y : 00"
+        - generic [ref=e48]: "SP : FD"
+        - generic [ref=e49]: "P : 33"
+        - generic [ref=e50]:
+          - generic [ref=e51]:
+            - generic [ref=e52]: "N"
+            - generic [ref=e53]: V
+            - generic [ref=e54]: "-"
+            - generic [ref=e55]: "-"
+            - generic [ref=e56]: D
+            - generic [ref=e57]: I
+            - generic [ref=e58]: Z
+            - generic [ref=e59]: C
+          - generic [ref=e60]:
+            - generic [ref=e61]: "0"
+            - generic [ref=e62]: "0"
+            - generic [ref=e63]: "1"
+            - generic [ref=e64]: "1"
+            - generic [ref=e65]: "0"
+            - generic [ref=e66]: "0"
+            - generic [ref=e67]: "1"
+            - generic [ref=e68]: "1"
+      - generic [ref=e69]: "State: FETCH (13)"
+  - generic [ref=e71]: \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\

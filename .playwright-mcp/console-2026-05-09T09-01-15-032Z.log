@@ -1,0 +1,2 @@
+[      47ms] [ERROR] xterm.js: Parsing error:  {position: 0, code: 127, currentState: 0, collect: 0, params: s} @ https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js:0
+[ 1368794ms] [ERROR] xterm.js: Parsing error:  {position: 0, code: 127, currentState: 0, collect: 0, params: s} @ https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js:0

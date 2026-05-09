@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>04-6502 Apple-I — rtlscope</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
+  <style>
+    body { background:#1a1a1a; color:#eee; font-family:monospace; margin:20px; }
+    h2   { margin:0 0 10px; font-size:16px; color:#aaa; }
+    .controls { display:flex; align-items:center; gap:14px; margin-bottom:8px; flex-wrap:wrap; }
+    button { background:#2a2a2a; color:#eee; border:1px solid #555; padding:4px 14px; cursor:pointer; }
+    button:hover { background:#3a3a3a; }
+    label { font-size:12px; color:#aaa; }
+    #cycle-info { font-size:12px; color:#666; }
+    canvas { display:block; border:1px solid #333; }
+    .main-row { display:flex; gap:12px; align-items:flex-start; margin-bottom:8px; }
+    #terminal-wrap { border:1px solid #444; flex-shrink:0; }
+    #reg-panel {
+      border:1px solid #333; padding:10px 16px;
+      font-size:13px; line-height:2.2; color:#ccc; min-width:200px;
+    }
+    #reg-panel h3      { font-size:11px; color:#555; margin:0 0 4px; padding-bottom:4px; border-bottom:1px solid #333; }
+    #reg-panel .val    { color:#eee; font-weight:bold; }
+    #reg-panel .label  { color:#666; }
+    #reg-panel .flags  { display:flex; gap:6px; margin-top:4px; }
+    #reg-panel .f      { font-size:11px; text-align:center; width:16px; }
+    #reg-panel .f-name { color:#555; }
+    #reg-panel .f-on   { color:#0f0; font-weight:bold; }
+    #reg-panel .f-off  { color:#333; }
+    #reg-panel .f-fix  { color:#444; }
+    #state-panel {
+      border:1px solid #333; padding:8px 16px;
+      font-size:11px; color:#555; margin-top:6px;
+    }
+    #state-panel .s-val { color:#88ccff; }
+  </style>
+</head>
+<body>
+  <h2>04-6502 Apple-I (Woz Monitor)</h2>
+  <div class="controls">
+    <button id="btn-run">Pause</button>
+    <button id="btn-reset">Reset</button>
+    <button id="btn-step">Step Inst</button>
+    <label>速度: <input id="speed" type="range" min="100" max="50000" step="100" value="8000"></label>
+    <span id="cycle-info">0 cycles</span>
+  </div>
+
+  <div class="main-row">
+    <div id="terminal-wrap">
+      <div id="terminal"></div>
+    </div>
+
+    <div>
+      <div id="reg-panel">
+        <h3>CPU Registers</h3>
+        <div><span class="label">PC : </span><span class="val" id="r-pc">----</span></div>
+        <div><span class="label">A  : </span><span class="val" id="r-a">--</span></div>
+        <div><span class="label">X  : </span><span class="val" id="r-x">--</span></div>
+        <div><span class="label">Y  : </span><span class="val" id="r-y">--</span></div>
+        <div><span class="label">SP : </span><span class="val" id="r-sp">--</span></div>
+        <div><span class="label">P  : </span><span class="val" id="r-p">--</span></div>
+        <div style="margin-top:2px;">
+          <div class="flags" id="r-flags-names"></div>
+          <div class="flags" id="r-flags-vals"></div>
+        </div>
+      </div>
+      <div id="state-panel">
+        State: <span class="s-val" id="r-state">--</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Logic Analyzer -->
+  <canvas id="la" width="900" height="160"></canvas>
+
+  <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+  <script>
+  // ── ring buffer レイアウト ────────────────────────────────────────
+  // Word0: [15:0]=AB  [23:16]=DB  [24]=WE  [25]=SYNC  [26]=reset
+  // Word1: [7:0]=A    [15:8]=X    [23:16]=Y [31:24]=SP
+  // 各サンプルは uint32_t × 2。head はサンプル数でインクリメント。
+
+  // ── Logic Analyzer 定義 ──────────────────────────────────────────
+  const LA_SIGNALS = [
+    { label: 'addr', word: 0, bit: 0,  type: 'hex16', width: 16, color: '#88ccff' },
+    { label: 'data', word: 0, bit: 16, type: 'hex',   width: 8,  color: '#88ff88' },
+    { label: 'we',   word: 0, bit: 24, type: 'bit',   width: 1,  color: '#ff8888' },
+    { label: 'sync', word: 0, bit: 25, type: 'bit',   width: 1,  color: '#ffaa00' },
+  ];
+
+  const LA_H    = 160;
+  const LA_W    = 900;
+  const LABEL_W = 56;
+  const VIEW_W  = LA_W - LABEL_W;
+  const TRACK_H = LA_H / LA_SIGNALS.length;
+
+  function drawLA(ctx, heapu32, ringBase, head, ringSize) {
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(0, 0, LA_W, LA_H);
+
+    const samples   = Math.min(head, VIEW_W, ringSize);
+    const startSamp = head - samples;
+
+    for (let t = 0; t < LA_SIGNALS.length; t++) {
+      const sig   = LA_SIGNALS[t];
+      const yBase = t * TRACK_H;
+      const MASK  = (sig.width < 32) ? ((1 << sig.width) - 1) : 0xFFFFFFFF;
+
+      // 区切り線
+      ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(0, yBase + TRACK_H); ctx.lineTo(LA_W, yBase + TRACK_H);
+      ctx.stroke();
+
+      // ラベル
+      ctx.fillStyle = '#555'; ctx.font = '10px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(sig.label, 3, yBase + TRACK_H * 0.65);
+
+      if (samples === 0) continue;
+
+      // サンプル i の指定 word を返す
+      const getWord = (i) => {
+        const idx = (startSamp + i) & (ringSize - 1);
+        return heapu32[ringBase + (idx << 1) + (sig.word | 0)];
+      };
+
+      if (sig.type === 'bit') {
+        const yHigh = yBase + 4;
+        const yLow  = yBase + TRACK_H - 4;
+        ctx.strokeStyle = sig.color; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        const first = (getWord(0) >> sig.bit) & 1;
+        ctx.moveTo(LABEL_W, first ? yHigh : yLow);
+        for (let i = 0; i < samples; i++) {
+          const val = (getWord(i) >> sig.bit) & 1;
+          const x   = LABEL_W + i;
+          const y   = val ? yHigh : yLow;
+          ctx.lineTo(x, y);
+          ctx.lineTo(x + 1, y);
+        }
+        ctx.stroke();
+
+      } else {
+        // hex / hex16: セグメント (値が変わるたびに区切り線 + ラベル)
+        const labelOf = (val) => {
+          if (sig.type === 'hex16') return val.toString(16).toUpperCase().padStart(4, '0');
+          return '0x' + val.toString(16).toUpperCase().padStart(2, '0');
+        };
+        const minLabelW = sig.type === 'hex16' ? 32 : 24;
+
+        const yTop = yBase + 4;
+        const yMid = yBase + TRACK_H / 2;
+        const yBot = yBase + TRACK_H - 4;
+
+        let prevVal  = (getWord(0) >> sig.bit) & MASK;
+        let segStart = LABEL_W;
+        const segs   = [];
+
+        for (let i = 1; i < samples; i++) {
+          const val = (getWord(i) >> sig.bit) & MASK;
+          if (val !== prevVal) {
+            segs.push({ x: segStart, w: LABEL_W + i - segStart, val: prevVal });
+            segStart = LABEL_W + i;
+            prevVal  = val;
+          }
+        }
+        segs.push({ x: segStart, w: LABEL_W + samples - segStart, val: prevVal });
+
+        ctx.lineWidth = 1;
+        for (const seg of segs) {
+          ctx.strokeStyle = sig.color;
+          ctx.beginPath(); ctx.moveTo(seg.x, yTop); ctx.lineTo(seg.x + seg.w, yTop); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(seg.x, yBot); ctx.lineTo(seg.x + seg.w, yBot); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(seg.x, yTop); ctx.lineTo(seg.x, yBot);         ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(seg.x + seg.w, yTop); ctx.lineTo(seg.x + seg.w, yBot); ctx.stroke();
+          if (seg.w > minLabelW) {
+            ctx.fillStyle = sig.color; ctx.font = '9px monospace'; ctx.textAlign = 'center';
+            ctx.fillText(labelOf(seg.val), seg.x + seg.w / 2, yMid + 3);
+          }
+        }
+      }
+    }
+  }
+
+  // ── フラグパネル初期化 ────────────────────────────────────────────
+  // P = { N, V, 2'b11, D, I, Z, C }  bit7=N … bit0=C
+  const FLAG_DEFS = [
+    { name:'N', bit:7, fix:false },
+    { name:'V', bit:6, fix:false },
+    { name:'-', bit:5, fix:true  },
+    { name:'-', bit:4, fix:true  },
+    { name:'D', bit:3, fix:false },
+    { name:'I', bit:2, fix:false },
+    { name:'Z', bit:1, fix:false },
+    { name:'C', bit:0, fix:false },
+  ];
+
+  function initFlagPanel() {
+    const namesEl = document.getElementById('r-flags-names');
+    const valsEl  = document.getElementById('r-flags-vals');
+    namesEl.innerHTML = FLAG_DEFS.map(f =>
+      `<div class="f f-name">${f.name}</div>`).join('');
+    valsEl.innerHTML = FLAG_DEFS.map(f =>
+      `<div class="f ${f.fix ? 'f-fix' : 'f-off'}" id="flag-${f.name}${f.bit}">-</div>`).join('');
+  }
+
+  function updateFlags(p) {
+    for (const f of FLAG_DEFS) {
+      if (f.fix) continue;
+      const el  = document.getElementById(`flag-${f.name}${f.bit}`);
+      const on  = (p >> f.bit) & 1;
+      el.textContent = on ? '1' : '0';
+      el.className   = 'f ' + (on ? 'f-on' : 'f-off');
+    }
+    // fixed bits: always 1
+    for (const f of FLAG_DEFS.filter(x => x.fix)) {
+      const el = document.getElementById(`flag-${f.name}${f.bit}`);
+      el.textContent = '1';
+    }
+  }
+
+  // Matches hoglet/cpu_65c02.v parameter values (6'd0 … 6'd53)
+  const STATE_NAMES = [
+    'ABS0','ABS1','ABSX0','ABSX1','ABSX2',          // 0-4
+    'BRA0','BRA1','BRA2',                            // 5-7
+    'BRK0','BRK1','BRK2','BRK3',                    // 8-11
+    'DECODE','FETCH',                                // 12-13
+    'INDX0','INDX1','INDX2','INDX3',                // 14-17
+    'INDY0','INDY1','INDY2','INDY3',                // 18-21
+    'JMP0','JMP1','JMPI0','JMPI1',                  // 22-25
+    'JSR0','JSR1','JSR2','JSR3',                    // 26-29
+    'PULL0','PULL1','PULL2',                         // 30-32
+    'PUSH0','PUSH1',                                 // 33-34
+    'READ','REG',                                    // 35-36
+    'RTI0','RTI1','RTI2','RTI3','RTI4',             // 37-41
+    'RTS0','RTS1','RTS2','RTS3',                    // 42-45
+    'WRITE','ZP0',                                   // 46-47
+    'ZPX0','ZPX1',                                   // 48-49
+    'IND0',                                          // 50
+    'JMPIX0','JMPIX1','JMPIX2',                     // 51-53
+  ];
+
+  // ── メイン ───────────────────────────────────────────────────────
+  var Module = {
+    onRuntimeInitialized: function () {
+      initFlagPanel();
+
+      const term = new Terminal({
+        cols: 40, rows: 20,
+        theme: {
+          background: '#000000',
+          foreground: '#00dd00',
+          cursor:     '#00dd00',
+        },
+        fontSize: 14,
+        fontFamily: 'Courier New, monospace',
+        cursorBlink: true,
+        convertEol: true,
+      });
+      term.open(document.getElementById('terminal'));
+
+      Module._sim_init();
+
+      term.onData(function (data) {
+        for (let i = 0; i < data.length; i++) {
+          Module._send_key(data.charCodeAt(i));
+        }
+      });
+
+      const laCanvas  = document.getElementById('la');
+      const laCtx     = laCanvas.getContext('2d');
+      const RING_SIZE = Module._get_ring_size();
+      const ringBase  = Module._get_ring_ptr() >>> 2;
+
+      let running = true;  // 起動直後から実行
+
+      function drainDisplay() {
+        let ch;
+        while ((ch = Module._get_display_char()) !== -1) {
+          term.write(String.fromCharCode(ch));
+        }
+      }
+
+      function updateRegPanel() {
+        const pc = Module._get_pc() >>> 0;
+        const a  = Module._get_a()  >>> 0;
+        const x  = Module._get_x()  >>> 0;
+        const y  = Module._get_y()  >>> 0;
+        const sp = Module._get_sp() >>> 0;
+        const p  = Module._get_p()  >>> 0;
+        const st = Module._get_state() >>> 0;
+
+        document.getElementById('r-pc').textContent = pc.toString(16).toUpperCase().padStart(4, '0');
+        document.getElementById('r-a').textContent  = a.toString(16).toUpperCase().padStart(2, '0');
+        document.getElementById('r-x').textContent  = x.toString(16).toUpperCase().padStart(2, '0');
+        document.getElementById('r-y').textContent  = y.toString(16).toUpperCase().padStart(2, '0');
+        document.getElementById('r-sp').textContent = sp.toString(16).toUpperCase().padStart(2, '0');
+        document.getElementById('r-p').textContent  = p.toString(16).toUpperCase().padStart(2, '0');
+        document.getElementById('r-state').textContent =
+          (STATE_NAMES[st] || ('?' + st)) + ' (' + st + ')';
+
+        updateFlags(p);
+      }
+
+      function loop() {
+        if (running) {
+          const steps = parseInt(document.getElementById('speed').value);
+          for (let i = 0; i < steps; i++) Module._step();
+        }
+
+        drainDisplay();
+        updateRegPanel();
+
+        const head    = Module._get_head() >>> 0;
+        const heapu32 = Module.HEAPU32;
+
+        drawLA(laCtx, heapu32, ringBase, head, RING_SIZE);
+        document.getElementById('cycle-info').textContent = head.toLocaleString() + ' cycles';
+
+        requestAnimationFrame(loop);
+      }
+
+      document.getElementById('btn-run').addEventListener('click', function () {
+        running = !running;
+        this.textContent = running ? 'Pause' : 'Run';
+      });
+
+      document.getElementById('btn-reset').addEventListener('click', function () {
+        Module._reset_sim();
+        running = false;
+        document.getElementById('btn-run').textContent = 'Run';
+        term.reset();
+        term.focus();
+      });
+
+      document.getElementById('btn-step').addEventListener('click', function () {
+        running = false;
+        document.getElementById('btn-run').textContent = 'Run';
+        Module._step_instruction();
+        drainDisplay();
+        updateRegPanel();
+      });
+
+      term.focus();
+      requestAnimationFrame(loop);
+    }
+  };
+  </script>
+  <script src="sim.js"></script>
+</body>
+</html>

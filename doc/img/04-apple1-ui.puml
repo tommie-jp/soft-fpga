@@ -1,0 +1,52 @@
+@startsalt 04-apple1-ui
+skinparam backgroundColor #ffffff
+
+{
+  <b>04-6502 / Apple-I</b>
+  ==
+  {
+    [  Run  ] |
+    [ Pause ] |
+    [ Reset ] |
+    [  Step ] |
+    "速度: " |
+    ^──●──^ |
+    "123456 cycles"
+  }
+  ==
+  {
+    {+
+      <b>Terminal (xterm.js)                  </b>
+      --
+      "  \                                "
+      "  0000: A9 42 4C 00 03               "
+      "  0300: _                              "
+      .
+      .
+    } |
+    {+
+      <b>Registers                            </b>
+      --
+      "  PC: $FF00                            "
+      "  A:  $00    X:  $00                   "
+      "  Y:  $00    SP: $FF                   "
+      --
+      "  Flags: N V - B D I Z C              "
+      "         0 0 1 0 0 1 0 0              "
+      --
+      "  Opcode: $A9  LDA #imm               "
+      "  Cycles: 123456                       "
+    }
+  }
+  ==
+  {+
+    <b>Logic Analyzer                                                         </b>
+    --
+    "  addr  [$FF00]  [$FF01]  [$FF02]  [$FF03]  [$FF04]  ...              "
+    "  data  [  A9 ]  [  42 ]  [  4C ]  [  00 ]  [  03 ]  ...              "
+    "  we    _______  _______  _______  _______  _______  ...              "
+    "  sync  ▔▔▔▁▁▁▁  _______  ▔▔▔▁▁▁▁  _______  _______  ...              "
+  }
+}
+
+@endsalt
