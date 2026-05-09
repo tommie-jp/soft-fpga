@@ -52,23 +52,18 @@ verilator --cc \
     ${VFLAGS} \
     --Mdir "${OBJ_DIR}"
 
-echo "=== Compile ===" >&2
-CFLAGS="-O2 -std=c++17 -I${VERILATOR_ROOT}/include -I${OBJ_DIR}"
+echo "=== Build (Verilator Makefile) ===" >&2
+make -C "${OBJ_DIR}" -f "V${TOP}.mk" -j"$(nproc)" \
+    OPT_FAST="-O3" OPT_SLOW="-O3" OPT_GLOBAL="-O3"
+
+echo "=== Link ===" >&2
+CFLAGS="-O3 -std=c++17 -I${VERILATOR_ROOT}/include -I${OBJ_DIR}"
 
 g++ ${CFLAGS} \
-    -c "${VERILATOR_ROOT}/include/verilated.cpp" \
-    -o "${OBJ_DIR}/verilated.o"
-
-g++ ${CFLAGS} \
-    -c "${VERILATOR_ROOT}/include/verilated_threads.cpp" \
-    -o "${OBJ_DIR}/verilated_threads.o"
-
-g++ ${CFLAGS} \
-    "${OBJ_DIR}"/V*.cpp \
-    "${OBJ_DIR}/verilated.o" \
-    "${OBJ_DIR}/verilated_threads.o" \
     "${EXAMPLE_DIR}/cxx/harness.cpp" \
     "${EXAMPLE_DIR}/cxx/main_linux.cpp" \
+    "${OBJ_DIR}/V${TOP}__ALL.a" \
+    "${OBJ_DIR}/libverilated.a" \
     -lpthread \
     -o "${BUILD_DIR}/sim"
 

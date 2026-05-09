@@ -1,9 +1,8 @@
 #!/bin/bash
 # Klaus Dormann functional test — ネイティブ Verilator ビルド & 実行
 #
-# Usage: ./run.sh [6502]
-#   6502   : 6502_functional_test.bin を実行（デフォルト）
-#            成功 → PC=$3469 でトラップ
+# Usage: ./run.sh
+#   成功 → PC=$3469 でトラップ
 #
 # 注意:
 #   65C02_extended_opcodes_test.bin は Rockwell 拡張命令（BBR/BBS/RMB/SMB）を
@@ -34,22 +33,17 @@ verilator --cc \
     -Wno-CASEOVERLAP \
     --Mdir "$OBJ_DIR"
 
-echo "=== Compile ==="
-CFLAGS="-O2 -std=c++17 -I$VERILATOR_ROOT/include -I$OBJ_DIR"
+echo "=== Build (Verilator Makefile) ==="
+make -C "$OBJ_DIR" -f Vapple1_top.mk -j"$(nproc)" \
+    OPT_FAST="-O3" OPT_SLOW="-O3" OPT_GLOBAL="-O3"
+
+echo "=== Link test harness ==="
+CFLAGS="-O3 -std=c++17 -I$VERILATOR_ROOT/include -I$OBJ_DIR"
 
 g++ $CFLAGS \
-    -c "$VERILATOR_ROOT/include/verilated.cpp" \
-    -o "$OBJ_DIR/verilated.o"
-
-g++ $CFLAGS \
-    -c "$VERILATOR_ROOT/include/verilated_threads.cpp" \
-    -o "$OBJ_DIR/verilated_threads.o"
-
-g++ $CFLAGS \
-    "$OBJ_DIR"/V*.cpp \
-    "$OBJ_DIR/verilated.o" \
-    "$OBJ_DIR/verilated_threads.o" \
     "$SCRIPT_DIR/test_dormann.cpp" \
+    "$OBJ_DIR/Vapple1_top__ALL.a" \
+    "$OBJ_DIR/libverilated.a" \
     -lpthread \
     -o "$OBJ_DIR/test_dormann"
 

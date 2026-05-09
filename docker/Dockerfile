@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ccache \
     && rm -rf /var/lib/apt/lists/*
 
-ARG VERILATOR_TAG=v5.042
+ARG VERILATOR_TAG=v5.048
 RUN git clone --branch ${VERILATOR_TAG} --depth 1 \
         https://github.com/verilator/verilator.git /tmp/verilator \
     && cd /tmp/verilator \
