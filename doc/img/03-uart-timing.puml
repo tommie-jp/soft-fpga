@@ -1,0 +1,61 @@
+@startuml 03-uart-timing
+' UART 8N1 タイミング図  送信例: 'A' = 0x41 = 01000001b  (LSB first)
+' 1 時間単位 = CLKS_PER_BIT クロックサイクル
+skinparam backgroundColor white
+
+binary  "TXD / RXD" as T
+robust  "TX State"  as TS
+robust  "RX State"  as RS
+
+@-1
+T  is high
+TS is IDLE
+RS is IDLE
+
+@0
+T  is low
+TS is START
+
+@0.5
+RS is START
+
+@1
+T  is high
+TS is DATA
+
+@1.5
+RS is DATA
+
+@2
+T  is low
+
+@3
+T  is low
+
+@4
+T  is low
+
+@5
+T  is low
+
+@6
+T  is low
+
+@7
+T  is high
+
+@8
+T  is low
+
+@9
+T  is high
+TS is STOP
+
+@9.5
+RS is STOP
+
+@10
+TS is IDLE
+RS is IDLE
+
+@enduml

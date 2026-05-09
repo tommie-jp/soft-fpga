@@ -1,0 +1,27 @@
+@startuml 03-uart-rx-state
+skinparam backgroundColor white
+skinparam state {
+  BackgroundColor LightGray
+  BorderColor DarkGray
+  FontSize 12
+  FontName Monospace
+}
+skinparam ArrowColor DarkGray
+skinparam ArrowFontSize 11
+skinparam ArrowFontName Monospace
+
+[*] --> IDLE : rst
+
+state IDLE  : rx_valid = 0\nrxd 立下り待ち
+state START : [CLKS_PER_BIT/2]\n中央サンプリング確認
+state DATA  : rxd サンプリング\n[CLKS_PER_BIT × 8 bits]
+state STOP  : ストップビット確認\n[CLKS_PER_BIT]
+
+IDLE  --> START : rxd 立下りエッジ
+START --> DATA  : timer = 0 / rxd = 0\nbit_idx = 0
+START --> IDLE  : timer = 0 / rxd = 1\n(フォールスタート)
+DATA  --> DATA  : timer = 0\nbit_idx < 7\ndata_buf[bit_idx] = rxd\nbit_idx++
+DATA  --> STOP  : timer = 0\nbit_idx = 7\ndata_buf[7] = rxd
+STOP  --> IDLE  : timer = 0 / rxd = 1\nrx_data = data_buf\nrx_valid パルス
+STOP  --> IDLE  : timer = 0 / rxd = 0\nrx_error = 1
+@enduml

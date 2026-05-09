@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>03-uart — rtlscope</title>
+  <style>
+    body { background:#1a1a1a; color:#eee; font-family:monospace; margin:20px; }
+    h2   { margin:0 0 10px; font-size:16px; color:#aaa; }
+    .controls { display:flex; align-items:center; gap:14px; margin-bottom:8px; flex-wrap:wrap; }
+    button { background:#2a2a2a; color:#eee; border:1px solid #555; padding:4px 14px; cursor:pointer; }
+    button:hover { background:#3a3a3a; }
+    label { font-size:12px; color:#aaa; }
+    #cycle-info { font-size:12px; color:#666; }
+    canvas { display:block; border:1px solid #333; }
+    .send-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+    #send-input {
+      background:#111; color:#0f0; border:1px solid #444;
+      font-family:monospace; font-size:13px; padding:3px 8px; width:240px;
+    }
+    #btn-send { border-color:#00c853; color:#00c853; }
+    #btn-send:hover { background:#003a1a; }
+    .bottom-row { display:flex; gap:12px; align-items:flex-start; margin-top:8px; }
+    #reg-panel {
+      border:1px solid #333; padding:10px 16px;
+      font-size:13px; line-height:2; color:#ccc; min-width:180px;
+    }
+    #reg-panel .val   { color:#eee; }
+    #reg-panel .label { color:#666; }
+    #rx-history {
+      border:1px solid #333; padding:8px 12px;
+      font-size:12px; min-width:140px; max-height:160px;
+      overflow-y:auto; line-height:1.6; color:#aaa;
+    }
+    #rx-history .title { color:#666; margin-bottom:4px; }
+    #rx-history .byte  { color:#88ccff; }
+  </style>
+</head>
+<body>
+  <h2>03-uart (loopback)</h2>
+  <div class="controls">
+    <button id="btn-run">Run</button>
+    <button id="btn-reset">Reset</button>
+    <label>速度: <input id="speed" type="range" min="1" max="500" value="60"></label>
+    <span id="cycle-info">0 cycles</span>
+  </div>
+  <div class="send-row">
+    <input id="send-input" type="text" placeholder='送信文字列 (例: Hello)' maxlength="32">
+    <button id="btn-send">Send</button>
+    <span style="font-size:11px;color:#555;">または Enter キー</span>
+  </div>
+
+  <!-- Logic Analyzer (メイン) -->
+  <canvas id="la" width="900" height="200"></canvas>
+
+  <div class="bottom-row">
+    <!-- Register Panel -->
+    <div id="reg-panel">
+      <div><span class="label">TX Data : </span><span class="val" id="r-txdata">-</span></div>
+      <div><span class="label">RX Data : </span><span class="val" id="r-rxdata">-</span></div>
+      <div><span class="label">TX State: </span><span class="val" id="r-txstate">-</span></div>
+      <div><span class="label">RX State: </span><span class="val" id="r-rxstate">-</span></div>
+      <div><span class="label">tx_ready: </span><span class="val" id="r-txrdy">-</span></div>
+      <div><span class="label">rx_error: </span><span class="val" id="r-rxerr">-</span></div>
+    </div>
+    <!-- 受信履歴 -->
+    <div id="rx-history">
+      <div class="title">受信履歴</div>
+    </div>
+  </div>
+
+  <script>
+  // ── 定数 ─────────────────────────────────────────────────
+  const UART_STATE_NAMES = ['IDLE', 'START', 'DATA', 'STOP'];
+  const UART_STATE_COLORS = ['#666666', '#ffaa00', '#00cc88', '#8888ff'];
+
+  const BIT_TXD      = 0;
+  const BIT_RXD      = 1;
+  const BIT_TX_VALID = 2;
+  const BIT_TX_READY = 3;
+  const BIT_RX_VALID = 4;
+  const BIT_RX_ERROR = 5;
+  const BIT_TX_STATE = 6;
+  const BIT_RX_STATE = 8;
+  const BIT_TX_BIT   = 10;
+  const BIT_RX_BIT   = 13;
+  const BIT_TX_DATA  = 16;
+  const BIT_RX_DATA  = 24;
+
+  const LA_SIGNALS = [
+    { label: 'txd',      bit: BIT_TXD,      type: 'bit',   color: '#00ff88' },
+    { label: 'rxd',      bit: BIT_RXD,      type: 'bit',   color: '#88aaff' },
+    { label: 'tx_rdy',   bit: BIT_TX_READY, type: 'bit',   color: '#ffaa00' },
+    { label: 'rx_vld',   bit: BIT_RX_VALID, type: 'bit',   color: '#ff88ff' },
+    { label: 'tx_state', bit: BIT_TX_STATE, type: 'state', width: 2, names: UART_STATE_NAMES, colors: UART_STATE_COLORS },
+    { label: 'rx_state', bit: BIT_RX_STATE, type: 'state', width: 2, names: UART_STATE_NAMES, colors: UART_STATE_COLORS },
+    { label: 'tx_data',  bit: BIT_TX_DATA,  type: 'hex',   width: 8, color: '#88ff88' },
+    { label: 'rx_data',  bit: BIT_RX_DATA,  type: 'hex',   width: 8, color: '#8888ff' },
+  ];
+
+  // ── Logic Analyzer 描画 ───────────────────────────────────
+  const LA_H    = 200;
+  const LA_W    = 900;
+  const LABEL_W = 56;
+  const VIEW_W  = LA_W - LABEL_W;
+  const TRACK_H = LA_H / LA_SIGNALS.length;
+
+  function drawLA(ctx, heapu32, ringBase, head, ringSize) {
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(0, 0, LA_W, LA_H);
+
+    const samples   = Math.min(head, VIEW_W, ringSize);
+    const startSamp = head - samples;
+
+    for (let t = 0; t < LA_SIGNALS.length; t++) {
+      const sig   = LA_SIGNALS[t];
+      const yBase = t * TRACK_H;
+
+      // 区切り線
+      ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(0, yBase + TRACK_H); ctx.lineTo(LA_W, yBase + TRACK_H);
+      ctx.stroke();
+
+      // ラベル
+      ctx.fillStyle = '#555'; ctx.font = '10px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(sig.label, 3, yBase + TRACK_H * 0.65);
+
+      if (samples === 0) continue;
+
+      if (sig.type === 'bit') {
+        // 0/1 矩形波
+        const yHigh = yBase + 3;
+        const yLow  = yBase + TRACK_H - 3;
+        const firstIdx = startSamp & (ringSize - 1);
+        const firstVal = (heapu32[ringBase + firstIdx] >> sig.bit) & 1;
+        ctx.strokeStyle = sig.color; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(LABEL_W, firstVal ? yHigh : yLow);
+        for (let i = 0; i < samples; i++) {
+          const idx = (startSamp + i) & (ringSize - 1);
+          const val = (heapu32[ringBase + idx] >> sig.bit) & 1;
+          const x   = LABEL_W + i;
+          const y   = val ? yHigh : yLow;
+          ctx.lineTo(x, y);
+          ctx.lineTo(x + 1, y);
+        }
+        ctx.stroke();
+
+      } else if (sig.type === 'state' || sig.type === 'hex') {
+        // セグメント表示（state: 状態名ラベル / hex: 16進数ラベル）
+        const MASK   = (1 << sig.width) - 1;
+        const yTop   = yBase + 3;
+        const yMid   = yBase + TRACK_H / 2;
+        const yBot   = yBase + TRACK_H - 3;
+
+        const labelOf = (val) => {
+          if (sig.type === 'hex') {
+            return '0x' + val.toString(16).toUpperCase().padStart(2, '0');
+          }
+          const names = sig.names || UART_STATE_NAMES;
+          return names[val] !== undefined ? names[val] : String(val);
+        };
+        const colorOf = (val) => {
+          if (sig.color) return sig.color;
+          const colors = sig.colors || [];
+          return colors[val] || '#aaaaaa';
+        };
+
+        let prevVal  = (heapu32[ringBase + (startSamp & (ringSize - 1))] >> sig.bit) & MASK;
+        let segStart = LABEL_W;
+        const segments = [];
+
+        for (let i = 1; i < samples; i++) {
+          const idx = (startSamp + i) & (ringSize - 1);
+          const val = (heapu32[ringBase + idx] >> sig.bit) & MASK;
+          if (val !== prevVal) {
+            segments.push({ x: segStart, w: LABEL_W + i - segStart, val: prevVal });
+            segStart = LABEL_W + i;
+            prevVal  = val;
+          }
+        }
+        segments.push({ x: segStart, w: LABEL_W + samples - segStart, val: prevVal });
+
+        for (const seg of segments) {
+          const c = colorOf(seg.val);
+          ctx.strokeStyle = c; ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(seg.x, yTop); ctx.lineTo(seg.x + seg.w, yTop); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(seg.x, yBot); ctx.lineTo(seg.x + seg.w, yBot); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(seg.x, yTop); ctx.lineTo(seg.x, yBot); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(seg.x + seg.w, yTop); ctx.lineTo(seg.x + seg.w, yBot); ctx.stroke();
+          const label = labelOf(seg.val);
+          const cx = seg.x + seg.w / 2;
+          if (seg.w > label.length * 6 + 4) {
+            ctx.fillStyle = c; ctx.font = '9px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(label, cx, yMid + 3);
+          }
+        }
+      }
+    }
+  }
+
+  // ── メイン ──────────────────────────────────────────────
+  var Module = {
+    onRuntimeInitialized: function () {
+      Module._sim_init();
+
+      const laCanvas = document.getElementById('la');
+      const laCtx    = laCanvas.getContext('2d');
+
+      const RING_SIZE = Module._get_ring_size();
+      const ringBase  = Module._get_ring_ptr() >>> 2;
+
+      let running      = false;
+      let prevRxCount  = 0;
+      const rxHistory  = document.getElementById('rx-history');
+
+      function loop() {
+        if (running) {
+          const steps = parseInt(document.getElementById('speed').value);
+          for (let i = 0; i < steps; i++) Module._step();
+        }
+
+        const head    = Module._get_head() >>> 0;
+        const heapu32 = Module.HEAPU32;
+
+        // 最新サンプル読み取り
+        const latestIdx = head > 0 ? (head - 1) & (RING_SIZE - 1) : 0;
+        const latest    = head > 0 ? heapu32[ringBase + latestIdx] : 0;
+
+        const txState  = (latest >> BIT_TX_STATE) & 0x3;
+        const rxState  = (latest >> BIT_RX_STATE) & 0x3;
+        const txData   = (latest >> BIT_TX_DATA)  & 0xFF;
+        const rxData   = (latest >> BIT_RX_DATA)  & 0xFF;
+        const txReady  = (latest >> BIT_TX_READY) & 0x1;
+        const rxError  = (latest >> BIT_RX_ERROR) & 0x1;
+
+        const fmtByte = v => '0x' + v.toString(16).toUpperCase().padStart(2, '0') +
+                             (v >= 0x20 && v < 0x7F ? " '" + String.fromCharCode(v) + "'" : '');
+
+        // Register Panel
+        if (head > 0) {
+          document.getElementById('r-txdata').textContent  = fmtByte(txData);
+          document.getElementById('r-rxdata').textContent  = fmtByte(rxData);
+          document.getElementById('r-txstate').textContent = UART_STATE_NAMES[txState];
+          document.getElementById('r-rxstate').textContent = UART_STATE_NAMES[rxState];
+          document.getElementById('r-txrdy').textContent   = txReady;
+          document.getElementById('r-rxerr').textContent   = rxError ? '⚠ ERROR' : '0';
+        }
+
+        // 受信履歴
+        const rxCount = Module._get_rx_valid_count() >>> 0;
+        if (rxCount !== prevRxCount) {
+          const b = Module._get_rx_data();
+          const line = document.createElement('div');
+          line.className = 'byte';
+          line.textContent = '> ' + fmtByte(b);
+          rxHistory.appendChild(line);
+          rxHistory.scrollTop = rxHistory.scrollHeight;
+          prevRxCount = rxCount;
+        }
+
+        // Logic Analyzer
+        drawLA(laCtx, heapu32, ringBase, head, RING_SIZE);
+        document.getElementById('cycle-info').textContent = head + ' cycles';
+
+        requestAnimationFrame(loop);
+      }
+
+      function sendString(s) {
+        for (let i = 0; i < s.length; i++) {
+          Module._send_byte(s.charCodeAt(i));
+        }
+      }
+
+      document.getElementById('btn-run').addEventListener('click', function () {
+        running = !running;
+        this.textContent = running ? 'Pause' : 'Run';
+      });
+
+      document.getElementById('btn-reset').addEventListener('click', function () {
+        Module._reset_sim();
+        running = false;
+        document.getElementById('btn-run').textContent = 'Run';
+        prevRxCount = 0;
+        // 履歴は残す（意図的）
+      });
+
+      document.getElementById('btn-send').addEventListener('click', function () {
+        const s = document.getElementById('send-input').value;
+        if (s.length > 0) sendString(s);
+      });
+
+      document.getElementById('send-input').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+          const s = this.value;
+          if (s.length > 0) sendString(s);
+        }
+      });
+
+      requestAnimationFrame(loop);
+    }
+  };
+  </script>
+  <script src="sim.js"></script>
+</body>
+</html>

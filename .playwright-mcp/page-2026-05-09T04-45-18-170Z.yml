@@ -1,0 +1,22 @@
+- generic [ref=e1]:
+  - heading "03-uart (loopback)" [level=2] [ref=e2]
+  - generic [ref=e3]:
+    - button "Pause" [ref=e24] [cursor=pointer]
+    - button "Reset" [ref=e5] [cursor=pointer]
+    - generic [ref=e6]:
+      - text: "速度:"
+      - slider "速度:" [ref=e7]: "1"
+    - generic [ref=e8]: 16245 cycles
+  - generic [ref=e9]:
+    - 'textbox "送信文字列 (例: Hello)" [active] [ref=e10]': Hello
+    - button "Send" [ref=e11] [cursor=pointer]
+    - generic [ref=e12]: または Enter キー
+  - generic [ref=e14]:
+    - generic [ref=e15]:
+      - generic [ref=e16]: "TX Data : 0x48 'H'"
+      - generic [ref=e17]: "RX Data : 0x00"
+      - generic [ref=e18]: "TX State: DATA"
+      - generic [ref=e19]: "RX State: DATA"
+      - generic [ref=e20]: "tx_ready: 0"
+      - generic [ref=e21]: "rx_error: 0"
+    - generic [ref=e23]: 受信履歴
