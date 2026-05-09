@@ -1,0 +1,41 @@
+# Build
+build/
+obj_dir/
+
+# Verilator ランタイム（インストール済み Verilator からビルド時にコピー）
+cxx/verilated.cpp
+*.o
+*.a
+*.uf2
+*.elf
+*.elf.map
+*.bin
+*.hex
+*.dis
+
+# Emscripten 生成物
+examples/*/web/sim.js
+examples/*/web/sim.wasm
+
+# Verilator / cocotb
+*.vcd
+*.fst
+sim_build/
+results.xml
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+29-soft-FPGA-reversi.code-workspace
+*-ignore.md
+
+# Claude Code (個人環境用)
+.claude/

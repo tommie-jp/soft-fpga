@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>01-counter — rtlscope</title>
+  <style>
+    body { background: #1a1a1a; color: #eee; font-family: monospace; margin: 20px; }
+    h2   { margin: 0 0 12px; font-size: 16px; color: #aaa; }
+    .controls { display: flex; align-items: center; gap: 16px; margin-bottom: 10px; }
+    button {
+      background: #2a2a2a; color: #eee;
+      border: 1px solid #555; padding: 4px 14px; cursor: pointer;
+    }
+    button:hover { background: #3a3a3a; }
+    label { font-size: 12px; color: #aaa; }
+    #cycle-info { font-size: 12px; color: #666; }
+    canvas { display: block; border: 1px solid #333; }
+  </style>
+</head>
+<body>
+  <h2>01-counter</h2>
+  <div class="controls">
+    <button id="btn-run">Run</button>
+    <button id="btn-reset">Reset</button>
+    <label>速度: <input id="speed" type="range" min="1" max="2000" value="200"></label>
+    <span id="cycle-info">0 cycles</span>
+  </div>
+  <canvas id="la" width="800" height="240"></canvas>
+
+  <script>
+  var Module = {
+    onRuntimeInitialized: function () {
+      Module._sim_init();
+
+      const canvas   = document.getElementById('la');
+      const ctx      = canvas.getContext('2d');
+      const W        = 8;
+      const TRACK_H  = canvas.height / W;   // 30px per track
+      const LABEL_W  = 32;
+      const VIEW_W   = canvas.width - LABEL_W;
+      const RING_SIZE = Module._get_ring_size();
+      const ringBase  = Module._get_ring_ptr() >>> 2;  // byte → uint32 index
+
+      let running = false;
+
+      function draw() {
+        const head    = Module._get_head() >>> 0;
+        const heapu32 = Module.HEAPU32;
+        const samples = Math.min(head, VIEW_W, RING_SIZE);
+        const startSample = head - samples;
+
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        for (let bit = W - 1; bit >= 0; bit--) {
+          const track = W - 1 - bit;
+          const yBase = track * TRACK_H;
+          const yHigh = yBase + 4;
+          const yLow  = yBase + TRACK_H - 4;
+
+          // トラック区切り線
+          ctx.strokeStyle = '#2a2a2a';
+          ctx.lineWidth = 0.5;
+          ctx.beginPath();
+          ctx.moveTo(0, yBase + TRACK_H);
+          ctx.lineTo(canvas.width, yBase + TRACK_H);
+          ctx.stroke();
+
+          // ビットラベル
+          ctx.fillStyle = '#555';
+          ctx.font = '11px monospace';
+          ctx.fillText('b' + bit, 4, yBase + TRACK_H * 0.65);
+
+          if (samples === 0) continue;
+
+          // 波形
+          ctx.strokeStyle = '#00e676';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+
+          const firstIdx = startSample & (RING_SIZE - 1);
+          const firstVal = (heapu32[ringBase + firstIdx] >> bit) & 1;
+          ctx.moveTo(LABEL_W, firstVal ? yHigh : yLow);
+
+          for (let i = 0; i < samples; i++) {
+            const idx = (startSample + i) & (RING_SIZE - 1);
+            const val = (heapu32[ringBase + idx] >> bit) & 1;
+            const x   = LABEL_W + i;
+            const y   = val ? yHigh : yLow;
+            ctx.lineTo(x, y);      // 遷移（同値なら垂直ゼロ線）
+            ctx.lineTo(x + 1, y);  // 水平
+          }
+          ctx.stroke();
+        }
+
+        document.getElementById('cycle-info').textContent =
+          (Module._get_head() >>> 0) + ' cycles';
+      }
+
+      function loop() {
+        if (running) {
+          const steps = parseInt(document.getElementById('speed').value);
+          for (let i = 0; i < steps; i++) Module._step();
+        }
+        draw();
+        requestAnimationFrame(loop);
+      }
+
+      document.getElementById('btn-run').addEventListener('click', function () {
+        running = !running;
+        this.textContent = running ? 'Pause' : 'Run';
+      });
+
+      document.getElementById('btn-reset').addEventListener('click', function () {
+        Module._reset_sim();
+        running = false;
+        document.getElementById('btn-run').textContent = 'Run';
+      });
+
+      requestAnimationFrame(loop);
+    }
+  };
+  </script>
+  <script src="sim.js"></script>
+</body>
+</html>
