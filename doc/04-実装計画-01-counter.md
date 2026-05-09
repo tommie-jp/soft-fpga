@@ -110,6 +110,50 @@ Linux 用の `pthread_getaffinity_np` 呼び出しがコンパイルされてし
 
 ---
 
+## ブラウザ起動からカウンタ動作までの流れ
+
+```text
+① index.html をブラウズ
+     ├─ HTML/CSS パース → ボタン・スライダー・canvas が表示される
+     └─ <script> を順に実行
+
+② index.html:31  Module オブジェクトを定義
+     └─ onRuntimeInitialized コールバックを登録するだけ（まだ動かない）
+
+③ index.html:124  <script src="sim.js"> を実行
+     └─ Emscripten グルーが起動
+          ├─ fetch("sim.wasm") で Wasm バイナリをダウンロード
+          └─ WebAssembly.instantiate() でコンパイル・インスタンス化
+
+④ Wasm ロード完了 → Module.onRuntimeInitialized() が呼ばれる
+     ├─ Module._sim_init()          harness.cpp:15
+     │    ├─ new Vcounter()         DUT インスタンス生成
+     │    ├─ rst=1 → clk↑↓ → rst=0 リセットシーケンス
+     │    └─ head = 0               ring buffer 初期化
+     ├─ RING_SIZE = Module._get_ring_size()     → 1024
+     ├─ ringBase  = Module._get_ring_ptr()>>>2  Wasm メモリ上のアドレス
+     └─ requestAnimationFrame(loop) を最初の 1 回だけ呼ぶ
+
+⑤ 毎フレーム loop() が呼ばれ続ける（≈60Hz）  index.html:100
+     ├─ running == true なら
+     │    └─ step() を speed 回繰り返す        index.html:103
+     │         ├─ clk=0→eval, clk=1→eval       Verilator シミュレーション
+     │         └─ ring[head & 1023] = count     ring buffer に書き込み
+     ├─ draw()                                  index.html:46
+     │    ├─ Module.HEAPU32 で ring buffer をゼロコピー参照
+     │    └─ bit7〜bit0 を canvas に描画
+     └─ requestAnimationFrame(loop) で自分を再予約 → ⑤ に戻る
+
+⑥ Run ボタンを押す
+     └─ running = true → ⑤ の step() が実行されカウンタが動き出す
+```
+
+> **ポイント**: Run 前も `draw()` は毎フレーム動いている（サンプル 0 件なので何も描かない）。
+> `requestAnimationFrame` がブラウザの描画タイミングに同期するため、
+> `step()` と `draw()` は同一ループ内で完結する。
+
+---
+
 ## 実装ステップ
 
 | # | 作業 | 完了条件 |

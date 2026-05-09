@@ -8,19 +8,80 @@ verilog ソース → Verilator → C++ → Emscripten → WebAssembly バイナ
 ## ビルドパイプライン
 
 ```text
-examples/01-counter/verilog/counter.v
+examples/XX/verilog/top.v
   │
-  ▼ verilator --cc --exe
+  ▼ verilator --cc --Mdir obj_dir
   │
-obj_dir/Vcounter.cpp + verilated.cpp
+obj_dir/V*.cpp
   │
-  + cxx/rtlscope.cpp          ← 共有ライブラリ（ring buffer, RTLScope クラス）
-  + examples/01-counter/cxx/harness.cpp  ← 観測信号バインド・I/O コールバック
+  + cxx/verilated.cpp  ← Verilator ランタイム（Wasm 向けビルド、後述）
+  + examples/XX/cxx/harness.cpp  ← ring buffer サンプリング・エクスポート関数
   │
-  ▼ em++ -O3 -s EXPORTED_FUNCTIONS=[step,reset,get_ring_ptr,...]
+  ▼ em++ -O2 -s EXPORTED_FUNCTIONS=[...] -s EXIT_RUNTIME=0
   │
-examples/01-counter/web/sim.wasm + sim.js  ← Emscripten グルー
+examples/XX/web/sim.js + sim.wasm  ← Emscripten グルー
 ```
+
+---
+
+## verilated.cpp の Wasm 向けビルド
+
+システムの Verilator ランタイム（`$VERILATOR_ROOT/include/verilated.cpp`）はそのままでは
+Emscripten でビルドできない。主な理由は以下の 2 点。
+
+### 問題 1: スレッド／トレースヘッダ
+
+`verilated.cpp` は `verilated_threads.h` と `verilated_trace.h` をインクルードするが、
+これらはホスト OS 依存の型を要求する。
+
+**対策**: `cxx/wasm_compat.h` を `-include` で差し込み、両ヘッダのインクルードガードを
+先取りして取り込みを防ぐ。同時に `VlThreadPool` / `VerilatedTraceBaseC` の
+最小スタブを定義する。
+
+### 問題 2: `pthread_getaffinity_np`（Linux 専用）
+
+`verilated.cpp` 末尾でインクルードされる `verilatedos_c.h` が
+`getProcessAvailableParallelism()` 内で `pthread_getaffinity_np` を呼び出す。
+Emscripten の `<thread>` → `<pthread.h>` → `<sched.h>` 経由で `CPU_ZERO` が定義され、
+Linux 向けのコードパスがコンパイルされてリンクエラーになる。
+
+**対策**: `cxx/verilatedos_c.h` に Wasm 向けスタブを用意し、
+コンパイル時に `-I$ROOT/cxx` を先頭に追加してシステム版より優先させる。
+
+| 関数 | Wasm スタブの動作 |
+| --- | --- |
+| `getProcessAvailableParallelism()` | 1 を返す（シングルスレッド） |
+| `getProcessDefaultParallelism()` | 1 を返す |
+| `memUsageBytes()` | 0 を返す（`/proc/self/status` 不在） |
+| `getcpu()` | 0 を返す |
+| `DeltaCpuTime::gettime()` | `clock_gettime` を使用（Emscripten 提供） |
+| `DeltaWallTime::gettime()` | `clock_gettime` を使用 |
+| `getenvStr()` | `getenv()` を使用（Emscripten 提供） |
+
+### 実際のコンパイル手順（`build-wasm.sh` 抜粋）
+
+```bash
+# 1. verilated.cpp をシステムからコピー（バージョンを Verilator に合わせる）
+cp "$VERILATOR_ROOT/include/verilated.cpp" "$ROOT/cxx/verilated.cpp"
+
+# 2. verilated.cpp のみ Wasm 互換フラグ付きで個別コンパイル
+em++ $COMMON_FLAGS \
+    -I"$ROOT/cxx" \           # cxx/verilatedos_c.h を優先
+    -include "$ROOT/cxx/wasm_compat.h" \
+    -c "$ROOT/cxx/verilated.cpp" \
+    -o "$OBJ_DIR/verilated.wasm.o"
+
+# 3. 生成済み V*.cpp + harness.cpp とリンク
+em++ $COMMON_FLAGS \
+    "$OBJ_DIR"/V*.cpp \
+    "$OBJ_DIR/verilated.wasm.o" \
+    "$EXAMPLE/cxx/harness.cpp" \
+    -s EXPORTED_FUNCTIONS='[...]' \
+    -o "$EXAMPLE/web/sim.js"
+```
+
+`cxx/verilated.cpp` はビルド生成物のため `.gitignore` に追加済み。
+`cxx/wasm_compat.h` と `cxx/verilatedos_c.h` はリポジトリで管理する。
 
 ---
 
