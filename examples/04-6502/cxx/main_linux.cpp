@@ -38,7 +38,8 @@ int main() {
 
     struct termios raw = g_saved_termios;
     cfmakeraw(&raw);
-    raw.c_cc[VMIN]  = 0;  // 非ブロッキング read
+    raw.c_oflag |= OPOST;  // cfmakeraw が落とす OPOST を復元: \n → \r\n に変換される
+    raw.c_cc[VMIN]  = 0;   // 非ブロッキング read
     raw.c_cc[VTIME] = 0;
     tcsetattr(STDIN_FILENO, TCSANOW, &raw);
 
