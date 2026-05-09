@@ -1,0 +1,48 @@
+@startsalt 02-traffic-fsm-ui
+
+skinparam backgroundColor #ffffff
+
+{
+  <b>02-traffic-fsm</b>
+  ==
+  {
+    [  Run  ] |
+    [ Reset ] |
+    [ 🚶 歩行者ボタン ] |
+    "速度: " |
+    ^──○────^ |
+    "36200 cycles"
+  }
+  ==
+  {+
+    <b>State Diagram                                    </b>
+    .
+    .
+    "  [S_GREEN] ──▶ [S_YELLOW] ──▶ [S_RED] ──┐  "
+    "       ↑               │                  │  "
+    "       │               ▼                  │  "
+    "       └────── [S_WALK] ◀──────────────── ┘  "
+    .
+  }
+  ==
+  {
+    {+
+      <b>Register Panel      </b>
+      --
+      "  State   :  GREEN  "
+      "  Timer   :    287  "
+      "  btn_req :      0  "
+      .
+    } |
+    {+
+      <b>Logic Analyzer               </b>
+      --
+      "  red  ▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔  "
+      "  ylw  _____________________ "
+      "  grn  _____________________ "
+      "  walk _____________________ "
+    }
+  }
+}
+
+@endsalt
