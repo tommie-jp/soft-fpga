@@ -12,6 +12,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <cassert>
+#include <chrono>
 
 static uint8_t ram[0x10000];
 
@@ -88,6 +89,8 @@ int main(int argc, char* argv[]) {
     uint64_t report      = 1'000'000;
     uint16_t last_sync_ab = 0xFFFF;
 
+    auto t_start = std::chrono::high_resolution_clock::now();
+
     while (cycles < MAX_CYCLES) {
         step();
         cycles++;
@@ -108,15 +111,20 @@ int main(int argc, char* argv[]) {
             // 実際のオペコードアドレス = o_pc - 1。
             uint16_t pc = (uint16_t)top->o_pc - 1u;
             if (pc == last_sync_ab) {
+                auto t_end = std::chrono::high_resolution_clock::now();
+                double wall_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
                 fprintf(stderr, "\n");
                 if (pc == success_pc) {
-                    fprintf(stdout, "PASS: trapped at $%04X after %llu cycles\n",
-                            pc, (unsigned long long)cycles);
+                    fprintf(stdout, "PASS: trapped at $%04X after %llu cycles  (%.0f ms wall)\n",
+                            pc, (unsigned long long)cycles, wall_ms);
+                    fprintf(stdout, "BENCH: cycles=%llu  wall_ms=%.1f  @1MHz_ms=%.2f  @1.023MHz_ms=%.2f\n",
+                            (unsigned long long)cycles, wall_ms,
+                            cycles / 1000.0, cycles / 1023.0);
                     delete top;
                     return 0;
                 } else {
-                    fprintf(stdout, "FAIL: trapped at $%04X (expected $%04X) after %llu cycles\n",
-                            pc, success_pc, (unsigned long long)cycles);
+                    fprintf(stdout, "FAIL: trapped at $%04X (expected $%04X) after %llu cycles  (%.0f ms wall)\n",
+                            pc, success_pc, (unsigned long long)cycles, wall_ms);
                     delete top;
                     return 1;
                 }
@@ -125,9 +133,11 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    auto t_end = std::chrono::high_resolution_clock::now();
+    double wall_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
     fprintf(stderr, "\n");
-    fprintf(stdout, "TIMEOUT: %llu cycles elapsed, PC=$%04X\n",
-            (unsigned long long)MAX_CYCLES, (unsigned)top->o_pc);
+    fprintf(stdout, "TIMEOUT: %llu cycles elapsed, PC=$%04X  (%.0f ms wall)\n",
+            (unsigned long long)MAX_CYCLES, (unsigned)top->o_pc, wall_ms);
     delete top;
     return 1;
 }

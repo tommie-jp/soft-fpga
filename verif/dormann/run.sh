@@ -12,7 +12,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUILD_DIR="${SCRIPT_DIR}/build"
 
 echo "=== CMake Build ==="
-cmake -S "${SCRIPT_DIR}" -B "${BUILD_DIR}" -G Ninja
+cmake --log-level=WARNING -S "${SCRIPT_DIR}" -B "${BUILD_DIR}" -G Ninja
 cmake --build "${BUILD_DIR}" --parallel "$(nproc)"
 
 echo "=== Run: 6502 functional test ==="

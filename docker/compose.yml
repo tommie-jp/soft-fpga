@@ -35,5 +35,17 @@ services:
     <<: *base
     command: ["bash", "-c", "verif/dormann/run.sh"]
 
+  wozmon:
+    # Woz Monitor インテグレーションテストをネイティブで実行する。
+    <<: *base
+    command: ["bash", "-c", "verif/wozmon/run.sh"]
+
+  test-cocotb:
+    # cocotb + pytest による RTL 単体回帰テスト。
+    # scripts/test-cocotb.sh または直接 docker compose run test-cocotb で実行。
+    <<: *base
+    entrypoint: ["scripts/_test-cocotb-inner.sh"]
+    command: []
+
 volumes:
   sfa-ccache:

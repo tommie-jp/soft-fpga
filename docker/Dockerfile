@@ -12,9 +12,13 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update \
         build-essential cmake ninja-build pkg-config \
         autoconf automake libtool texinfo \
         flex bison libfl-dev help2man perl perl-doc \
-        python3 \
+        python3 python3-dev python3-pip \
         ccache \
     && rm -rf /var/lib/apt/lists/*
+
+ARG COCOTB_VERSION=2.0.0
+RUN pip3 install --no-cache-dir --break-system-packages \
+        cocotb==${COCOTB_VERSION} pytest
 
 ARG VERILATOR_TAG=v5.048
 RUN git clone --branch ${VERILATOR_TAG} --depth 1 \

@@ -29,7 +29,10 @@ static void on_signal(int) {
     _exit(0);
 }
 
-int main() {
+// argv[1] が与えられた場合、sim_init 後にその文字列を自動入力する（例: "E000R"）
+int main(int argc, char* argv[]) {
+    const char* boot_cmd = (argc > 1) ? argv[1] : nullptr;
+
     // raw モードに切り替え
     tcgetattr(STDIN_FILENO, &g_saved_termios);
     atexit(restore_terminal);
@@ -48,6 +51,15 @@ int main() {
     fcntl(STDIN_FILENO, F_SETFL, fl | O_NONBLOCK);
 
     sim_init();
+
+    if (boot_cmd) {
+        for (const char* p = boot_cmd; *p; ++p) {
+            uint8_t k = (uint8_t)*p;
+            if (k == '\n') k = '\r';
+            send_key(k);
+        }
+        send_key('\r');
+    }
 
     // Apple-1 は大文字のみ / CR で確定
     // Ctrl+C はシグナル経由でなく read() で拾う (raw モードなので SIG_INT はマスクされる)
