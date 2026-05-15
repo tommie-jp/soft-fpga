@@ -72,6 +72,7 @@ jobs:
       - name: Stage web content
         run: |
           mkdir _site
+          cp index.html _site/index.html
           cp -r examples _site/examples
           cp -r docs _site/docs
 

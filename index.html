@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>soft-FPGA × WebAssembly — rtlscope</title>
+  <style>
+    body { background:#1a1a1a; color:#eee; font-family:monospace; margin:0; padding:20px 24px; }
+    h1 { font-size:18px; color:#ccc; margin:0 0 4px; }
+    .subtitle { font-size:12px; color:#666; margin-bottom:28px; }
+    .subtitle a { color:#555; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; }
+    .card { border:1px solid #333; padding:16px; text-decoration:none; color:inherit; display:block; }
+    .card:hover { border-color:#666; background:#222; }
+    .card-id { font-size:11px; color:#555; margin-bottom:4px; }
+    .card-title { font-size:14px; color:#ddd; margin-bottom:8px; }
+    .card-desc { font-size:12px; color:#666; line-height:1.6; }
+    .tag { display:inline-block; font-size:10px; color:#555; border:1px solid #333; padding:1px 6px; margin-top:8px; margin-right:4px; }
+    .status-done { color:#4a4; }
+  </style>
+</head>
+<body>
+  <h1>soft-FPGA × WebAssembly</h1>
+  <p class="subtitle">
+    Verilog → Verilator → Emscripten → Browser &nbsp;|&nbsp;
+    <a href="https://github.com/tommie-jp/soft-fpga">GitHub</a>
+  </p>
+
+  <div class="grid">
+    <a class="card" href="examples/01-counter/web/index.html">
+      <div class="card-id">01 <span class="status-done">✓</span></div>
+      <div class="card-title">Binary Counter</div>
+      <div class="card-desc">8-bit counter waveforms observed in Logic Analyzer. Minimal ring buffer → TypedArray → Canvas pipeline.</div>
+      <span class="tag">Logic Analyzer</span>
+    </a>
+
+    <a class="card" href="examples/02-traffic-fsm/web/index.html">
+      <div class="card-id">02 <span class="status-done">✓</span></div>
+      <div class="card-title">Traffic Light FSM</div>
+      <div class="card-desc">FSM state highlighted in real time on a State Diagram. Watch combinational transitions live.</div>
+      <span class="tag">State Diagram</span>
+    </a>
+
+    <a class="card" href="examples/03-uart/web/index.html">
+      <div class="card-id">03 <span class="status-done">✓</span></div>
+      <div class="card-title">UART Transceiver</div>
+      <div class="card-desc">TX/RX bus waveforms and bit-timing captured by Logic Analyzer at full RTL resolution.</div>
+      <span class="tag">Logic Analyzer</span>
+    </a>
+
+    <a class="card" href="examples/04-6502/web/index.html">
+      <div class="card-id">04 <span class="status-done">✓</span></div>
+      <div class="card-title">6502 / Apple-I</div>
+      <div class="card-desc">Interactive Woz Monitor and Integer BASIC on a cycle-accurate 6502. CPU registers and bus signals live.</div>
+      <span class="tag">CPU</span><span class="tag">xterm.js</span>
+    </a>
+  </div>
+</body>
+</html>
