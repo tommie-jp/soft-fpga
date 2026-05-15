@@ -3,8 +3,9 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$SCRIPT_DIR/.."
-EXAMPLE="$ROOT/examples/04-6502"
-OBJ_DIR="$ROOT/obj_dir"
+EXAMPLE="$ROOT/examples/05-dormann"
+EXAMPLE_04="$ROOT/examples/04-6502"
+OBJ_DIR="$ROOT/obj_dir_05"
 VERILATOR_ROOT="${VERILATOR_ROOT:-$(verilator --getenv VERILATOR_ROOT)}"
 
 VERILATED_CPP="$ROOT/cxx/verilated.cpp"
@@ -13,7 +14,6 @@ if [ ! -f "$VERILATED_CPP" ]; then
 fi
 WASM_COMPAT="$ROOT/cxx/wasm_compat.h"
 
-# source emsdk if em++ not in PATH
 if ! command -v em++ &>/dev/null; then
     EMSDK_ENV=""
     for candidate in \
@@ -25,16 +25,15 @@ if ! command -v em++ &>/dev/null; then
         # shellcheck disable=SC1090
         source "$EMSDK_ENV" 2>/dev/null
     else
-        echo "ERROR: em++ not found. Install emsdk and source emsdk_env.sh" >&2
-        exit 1
+        echo "ERROR: em++ not found." >&2; exit 1
     fi
 fi
 
-HOGLET="$EXAMPLE/verilog/hoglet"
+HOGLET="$EXAMPLE_04/verilog/hoglet"
 
 echo "=== Verilator ==="
 verilator --cc \
-    "$EXAMPLE/verilog/apple1_top.v" \
+    "$EXAMPLE_04/verilog/apple1_top.v" \
     "$HOGLET/cpu_65c02.v" \
     "$HOGLET/ALU.v" \
     --top-module apple1_top \
@@ -55,16 +54,17 @@ em++ $COMMON_FLAGS \
     -c "$VERILATED_CPP" \
     -o "$OBJ_DIR/verilated.wasm.o"
 
-BIN="$ROOT/verif/dormann/6502_functional_test.bin"
-
 echo "=== Emscripten: link ==="
+BIN="$ROOT/verif/dormann/6502_functional_test.bin"
 # shellcheck disable=SC2086
 em++ $COMMON_FLAGS \
     "$OBJ_DIR"/V*.cpp \
     "$OBJ_DIR/verilated.wasm.o" \
     "$EXAMPLE/cxx/harness.cpp" \
+    -I"$ROOT/cxx" \
+    -include "$WASM_COMPAT" \
     --embed-file "$BIN@/6502_functional_test.bin" \
-    -s EXPORTED_FUNCTIONS='["_sim_init","_step","_step_instruction","_reset_sim","_send_key","_get_display_char","_get_display_count","_get_pc","_get_a","_get_x","_get_y","_get_sp","_get_p","_get_state","_get_ring_ptr","_get_head","_get_ring_size","_dormann_init","_step_n","_is_trapped","_is_passed"]' \
+    -s EXPORTED_FUNCTIONS='["_sim_init","_step","_get_pc","_get_cycles_lo","_get_cycles_hi","_is_trapped","_is_passed","_get_ring_ptr","_get_ring_size","_get_head"]' \
     -s EXPORTED_RUNTIME_METHODS='["HEAPU32"]' \
     -s ALLOW_MEMORY_GROWTH=1 \
     -s EXIT_RUNTIME=0 \
@@ -73,5 +73,3 @@ em++ $COMMON_FLAGS \
 echo "=== Done ==="
 echo "  $EXAMPLE/web/sim.js"
 echo "  $EXAMPLE/web/sim.wasm"
-echo ""
-echo "Serve: cd $EXAMPLE/web && python3 -m http.server"

@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>05 — Klaus Dormann 6502 Functional Test — rtlscope</title>
+  <style>
+    body { background:#1a1a1a; color:#eee; font-family:monospace; margin:20px; }
+    h2   { margin:0 0 4px; font-size:16px; color:#aaa; }
+    .sub { font-size:12px; color:#555; margin-bottom:20px; }
+    .controls { display:flex; align-items:center; gap:14px; margin-bottom:16px; flex-wrap:wrap; }
+    button { background:#2a2a2a; color:#eee; border:1px solid #555; padding:4px 14px; cursor:pointer; }
+    button:hover { background:#3a3a3a; }
+    label  { font-size:12px; color:#aaa; }
+    input[type=range] { width:160px; }
+
+    /* status */
+    #status-box {
+      display:inline-block; padding:12px 28px; border:2px solid #444;
+      font-size:28px; font-weight:bold; letter-spacing:2px;
+      margin-bottom:16px; min-width:180px; text-align:center;
+    }
+    #status-box.running { border-color:#888; color:#888; }
+    #status-box.pass    { border-color:#4a4; color:#4a4; }
+    #status-box.fail    { border-color:#a44; color:#a44; }
+
+    /* metrics */
+    .metrics { display:flex; gap:32px; margin-bottom:16px; flex-wrap:wrap; }
+    .metric  { font-size:13px; color:#888; }
+    .metric span { color:#eee; font-size:15px; display:block; margin-top:2px; }
+
+    /* progress */
+    #prog-wrap { background:#222; width:600px; max-width:100%; height:8px; margin-bottom:16px; border:1px solid #333; }
+    #prog-bar  { background:#555; height:100%; width:0%; transition:width 0.2s; }
+    #prog-bar.pass { background:#4a4; }
+    #prog-bar.fail { background:#a44; }
+
+    /* canvas */
+    canvas { display:block; border:1px solid #333; }
+    .sig-label { font-size:11px; color:#555; margin-bottom:2px; }
+  </style>
+</head>
+<body>
+  <h2>05 — Klaus Dormann 6502 Functional Test</h2>
+  <p class="sub">Success: PC traps at $3469 after ~96 M cycles &nbsp;|&nbsp; hoglet cpu_65c02.v (Verilog RTL → WASM)</p>
+
+  <div class="controls">
+    <button id="btn-run">Run</button>
+    <button id="btn-reset">Reset</button>
+    <label>速度: <input type="range" id="speed" min="1000" max="500000" step="1000" value="100000"></label>
+    <span id="cycle-info" style="font-size:12px;color:#666;"></span>
+  </div>
+
+  <div id="status-box" class="running">READY</div>
+  <br>
+
+  <div class="metrics">
+    <div class="metric">Cycles<span id="m-cycles">—</span></div>
+    <div class="metric">PC<span id="m-pc">—</span></div>
+    <div class="metric">Speed<span id="m-speed">—</span></div>
+    <div class="metric">Wall time<span id="m-wall">—</span></div>
+  </div>
+
+  <div id="prog-wrap"><div id="prog-bar"></div></div>
+
+  <div class="sig-label">Bus Analyzer (addr / data / we / sync)</div>
+  <canvas id="cv" width="760" height="120"></canvas>
+
+<script src="sim.js"></script>
+<script>
+const SUCCESS_PC  = 0x3469;
+const EXPECT_CYCLES = 96_241_373;
+
+let running   = false;
+let rafId     = null;
+let startMs   = null;
+let frameMs   = null;
+
+const btnRun   = document.getElementById('btn-run');
+const btnReset = document.getElementById('btn-reset');
+const slider   = document.getElementById('speed');
+const cycInfo  = document.getElementById('cycle-info');
+const statusBox= document.getElementById('status-box');
+const mCycles  = document.getElementById('m-cycles');
+const mPc      = document.getElementById('m-pc');
+const mSpeed   = document.getElementById('m-speed');
+const mWall    = document.getElementById('m-wall');
+const progBar  = document.getElementById('prog-bar');
+const cv       = document.getElementById('cv');
+const ctx      = cv.getContext('2d');
+
+function getCycles() {
+  const lo = Module._get_cycles_lo() >>> 0;
+  const hi = Module._get_cycles_hi() >>> 0;
+  return hi * 0x100000000 + lo;
+}
+
+function fmtCycles(n) {
+  if (n >= 1e6) return (n / 1e6).toFixed(2) + ' M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + ' K';
+  return n.toString();
+}
+
+function setStatus(text, cls) {
+  statusBox.textContent = text;
+  statusBox.className = cls;
+}
+
+function updateMetrics() {
+  const c = getCycles();
+  const pc = Module._get_pc() >>> 0;
+  const elapsed = startMs ? (performance.now() - startMs) / 1000 : 0;
+  const cps = elapsed > 0 ? c / elapsed : 0;
+
+  mCycles.textContent  = fmtCycles(c) + ' cycles';
+  mPc.textContent      = '$' + pc.toString(16).toUpperCase().padStart(4, '0');
+  mSpeed.textContent   = fmtCycles(cps) + '/s';
+  mWall.textContent    = elapsed.toFixed(1) + ' s';
+  cycInfo.textContent  = fmtCycles(c) + ' cycles';
+
+  const pct = Math.min(c / EXPECT_CYCLES * 100, 100);
+  progBar.style.width = pct + '%';
+}
+
+// ── Logic Analyzer ────────────────────────────────────────────────────────
+const RING_SIZE = 4096;
+const SIG_ROWS  = [
+  { label:'addr', shift:0,  mask:0xFFFF, height:28, color:'#5af' },
+  { label:'data', shift:16, mask:0xFF,   height:20, color:'#4d4' },
+  { label:'we',   shift:24, mask:0x1,    height:16, color:'#f84' },
+  { label:'sync', shift:25, mask:0x1,    height:16, color:'#fa4' },
+];
+const TOTAL_H = SIG_ROWS.reduce((s, r) => s + r.height + 4, 0);
+const W = cv.width;
+cv.height = TOTAL_H + 4;
+
+function drawAnalyzer() {
+  ctx.clearRect(0, 0, W, cv.height);
+  const ringPtr  = Module._get_ring_ptr() >>> 0;
+  const head     = Module._get_head() >>> 0;
+  const samples  = Math.min(head, RING_SIZE);
+  const buf      = Module.HEAPU32;
+  const base     = ringPtr / 4;
+
+  let y = 2;
+  for (const sig of SIG_ROWS) {
+    ctx.strokeStyle = sig.color;
+    ctx.lineWidth   = 1;
+    ctx.beginPath();
+    for (let i = 0; i < W; i++) {
+      const idx  = ((head - samples + Math.floor(i * samples / W)) & (RING_SIZE - 1)) * 2;
+      const word = buf[base + idx];
+      const val  = (word >>> sig.shift) & sig.mask;
+      const norm = sig.mask > 1 ? val / sig.mask : val;
+      const py   = y + sig.height - norm * (sig.height - 2);
+      if (i === 0) ctx.moveTo(i, py); else ctx.lineTo(i, py);
+    }
+    ctx.stroke();
+    y += sig.height + 4;
+  }
+}
+
+// ── Main loop ──────────────────────────────────────────────────────────────
+function frame() {
+  if (!running) return;
+
+  const prevMs = frameMs ?? performance.now();
+  frameMs = performance.now();
+
+  const n = parseInt(slider.value);
+  Module._step(n);
+
+  const trapped = Module._is_trapped();
+  if (trapped) {
+    running = false;
+    const ok = Module._is_passed();
+    setStatus(ok ? 'PASS ✓' : 'FAIL ✗', ok ? 'pass' : 'fail');
+    progBar.className = ok ? 'pass' : 'fail';
+    btnRun.textContent = 'Run';
+  }
+
+  updateMetrics();
+  drawAnalyzer();
+
+  if (running) rafId = requestAnimationFrame(frame);
+}
+
+function doReset() {
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  running = false;
+  startMs = null;
+  frameMs = null;
+  Module._sim_init();
+  setStatus('READY', 'running');
+  progBar.style.width = '0%';
+  progBar.className   = '';
+  btnRun.textContent  = 'Run';
+  mCycles.textContent = '—';
+  mPc.textContent     = '—';
+  mSpeed.textContent  = '—';
+  mWall.textContent   = '—';
+  cycInfo.textContent = '';
+  ctx.clearRect(0, 0, W, cv.height);
+}
+
+btnRun.addEventListener('click', () => {
+  if (Module._is_trapped()) return;
+  if (running) {
+    running = false;
+    if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    btnRun.textContent = 'Run';
+    setStatus('PAUSED', 'running');
+  } else {
+    running = true;
+    if (!startMs) startMs = performance.now() - getCycles() / 1e6 * 0; // reset wall
+    startMs = performance.now() - (getCycles() > 0 ? getCycles() / 1e6 * 1000 : 0);
+    btnRun.textContent = 'Pause';
+    setStatus('RUNNING...', 'running');
+    rafId = requestAnimationFrame(frame);
+  }
+});
+
+btnReset.addEventListener('click', doReset);
+
+Module.onRuntimeInitialized = () => {
+  Module._sim_init();
+  setStatus('READY', 'running');
+};
+</script>
+</body>
+</html>

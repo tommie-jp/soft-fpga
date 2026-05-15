@@ -34,6 +34,12 @@ static int       disp_q_head = 0;
 static int       disp_q_tail = 0;
 static uint32_t  disp_count  = 0;
 
+// ROM mode: false = Apple-I, true = Dormann flat RAM
+static bool     dormann_mode = false;
+static uint16_t prev_pc_trap = 0xFFFF;
+static bool     trapped      = false;
+static bool     passed       = false;
+
 // Apple-1 Integer BASIC ROM ($E000-$EFFF, 4096 bytes)
 // Source: whscullin/apple1js js/roms/basic.ts (standard Apple-1 Integer BASIC)
 // Start: type "E000R" in Woz Monitor to launch BASIC
@@ -324,7 +330,7 @@ static inline bool is_pia(uint16_t addr) {
 }
 
 static uint8_t memory_read(uint16_t addr) {
-    if (is_pia(addr)) {
+    if (!dormann_mode && is_pia(addr)) {
         switch (addr & 3u) {
             case 0: {
                 uint8_t d = kbd_data;
@@ -341,7 +347,7 @@ static uint8_t memory_read(uint16_t addr) {
 }
 
 static void memory_write(uint16_t addr, uint8_t data) {
-    if (is_pia(addr)) {
+    if (!dormann_mode && is_pia(addr)) {
         if ((addr & 3u) == 2u) {  // DSP write
             uint8_t ch = data & 0x7F;
             if (ch == 0x0D) ch = 0x0A;  // CR → LF for xterm.js
@@ -356,7 +362,7 @@ static void memory_write(uint16_t addr, uint8_t data) {
         }
         return;
     }
-    if (addr < 0xE000) {  // RAM only; $E000+ は ROM
+    if (dormann_mode || addr < 0xE000) {  // Dormann: flat 64KB; Apple-I: RAM のみ
         ram[addr] = data;
     }
 }
@@ -384,6 +390,10 @@ static void write_ring() {
 extern "C" {
 
 EMSCRIPTEN_KEEPALIVE void sim_init() {
+    dormann_mode = false;
+    prev_pc_trap = 0xFFFF;
+    trapped      = false;
+    passed       = false;
     top = new Vapple1_top();
     memset(ram, 0xFF, sizeof(ram));  // uninitialized ROM areas = $FF (NOP-ish)
     memset(ram, 0x00, 0xD000);       // RAM area = 0
@@ -469,6 +479,63 @@ EMSCRIPTEN_KEEPALIVE void reset_sim() {
     top->i_di = memory_read(top->o_ab);
     top->eval();
 }
+
+EMSCRIPTEN_KEEPALIVE void dormann_init() {
+    dormann_mode = true;
+    prev_pc_trap = 0xFFFF;
+    trapped      = false;
+    passed       = false;
+
+    memset(ram, 0, sizeof(ram));
+    FILE* f = fopen("/6502_functional_test.bin", "rb");
+    if (f) { fread(ram, 1, sizeof(ram), f); fclose(f); }
+    ram[0xFFFC] = 0x00;
+    ram[0xFFFD] = 0x04;
+
+    kbd_data    = 0; kbd_cr = 0;
+    kbd_q_head  = 0; kbd_q_tail = 0;
+    disp_q_head = 0; disp_q_tail = 0;
+    disp_count  = 0;
+    head        = 0;
+
+    top = new Vapple1_top();
+    top->reset = 1;
+    top->i_irq = 0;
+    top->i_nmi = 0;
+    top->i_rdy = 1;
+    top->i_di  = 0xFF;
+    top->clk   = 0;
+    top->eval();
+    for (int i = 0; i < 8; i++) {
+        top->clk = 1; top->eval();
+        top->clk = 0; top->eval();
+    }
+    top->reset = 0;
+    top->eval();
+    top->i_di = memory_read(top->o_ab);
+    top->eval();
+}
+
+// n クロック進めてトラップを検出（Dormann モード用）
+EMSCRIPTEN_KEEPALIVE void step_n(int n) {
+    if (trapped) return;
+    for (int i = 0; i < n; i++) {
+        step();
+        if (top->o_sync) {
+            // SYNC=1 時 PC は既に +1 されている（FETCH・JMP1 共通）
+            uint16_t pc = (uint16_t)top->o_pc - 1u;
+            if (pc == prev_pc_trap) {
+                trapped = true;
+                passed  = (pc == 0x3469);
+                return;
+            }
+            prev_pc_trap = pc;
+        }
+    }
+}
+
+EMSCRIPTEN_KEEPALIVE int is_trapped() { return trapped ? 1 : 0; }
+EMSCRIPTEN_KEEPALIVE int is_passed()  { return passed  ? 1 : 0; }
 
 EMSCRIPTEN_KEEPALIVE void send_key(uint8_t ch) {
     if (ch >= 'a' && ch <= 'z') ch -= 32;  // Apple-1: uppercase only
