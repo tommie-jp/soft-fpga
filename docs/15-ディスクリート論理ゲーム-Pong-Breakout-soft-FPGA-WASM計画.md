@@ -1,0 +1,162 @@
+# 15. ディスクリート論理ゲーム（Pong / Breakout）× soft-FPGA WASM 計画
+
+## 1. 概要・意義
+
+Pong（1972）や Breakout（1976）はCPUもROMも持たない**純ディスクリート論理回路**で作られたゲームである。
+Verilog は 1984年以降の技術なのでオリジナルのソースは存在せず、回路図のみが残っている。
+
+このカテゴリを soft-FPGA で動かす固有の価値：
+
+- 「CPUなしのカウンタ・ゲートだけでゲームが成立する」という命題を回路信号レベルで実証できる
+- CPU コアと比べて規模が小さく、Verilator→Emscripten→WASM パイプラインの **足回り確立**に最適
+- rtlscope で観測する信号がゲーム状態（ボール座標・ブロック残数・スコア）と 1対1 で対応し、**可視化ショーケース**として映える
+- Pong→Breakout→6502(Apple-I) という流れがビデオゲーム史の王道軸になり、プロジェクト全体の**教材的一貫性**が生まれる
+
+## 2. 候補比較と選定
+
+### 2.1 調査対象
+
+| タイトル | 年 | MiSTer 実装 | Verilog比率 | SV比率 | ROM | 歴史的重要度 | 可視化の豊富さ |
+| -------- | --- | ----------- | ---------- | ------ | --- | ----------- | ------------ |
+| **Pong** | 1972 | [Arcade-Pong_MiSTer](https://github.com/MiSTer-devel/Arcade-Pong_MiSTer) ★7 / fork 12 | 59% | 21% | 不要 | ★★★ 商業ゲームの原点 | 低（ボール・パドルのみ） |
+| **Breakout** | 1976 | [Arcade-Breakout_MiSTer](https://github.com/MiSTer-devel/Arcade-Breakout_MiSTer) ★3 / fork 7 | 47% | 33% | 不要 | ★★ Woz設計、Apple前夜 | **高**（Brick RAM・BCD・衝突判定） |
+| Ultratank | 1976 | Arcade-Ultratank_MiSTer ★2 | 44% | 20% | **必要** | ★ | 中 |
+| Sprint 2 | 1976 | Arcade-Sprint2_MiSTer ★2 | 42% | 19% | **必要** | ★ | 中（CPU混在） |
+
+- Quartus IP（pll.qip 等）はいずれも要 stub 差し替え。
+- Tank（1974 Atari）は MiSTer 実装なし。
+- Ultratank・Sprint 2 は ROM 必須または CPU 混在のため対象外。
+
+### 2.2 Pong vs Breakout
+
+**結論: 第一弾は Pong、第二弾で Breakout。**
+
+| 視点 | Pong が優位な理由 | Breakout が優位な理由 |
+| ---- | --------------- | -------------------- |
+| 歴史的第一義性 | 商業ビデオゲームの起点（1972） | Woz 設計・Apple 誕生の前夜という物語性 |
+| Verilator 移植難度 | TTL ゲートレベルで最易 | SV 33% が障壁、Quartus IP 2 種 |
+| WASM 化リスク | 低 | 中 |
+| rtlscope 可視化 | 信号が少なく地味 | Brick RAM grid が絵になる、信号が豊富 |
+| MiSTer 実績 | ★7 / fork 12（高） | ★3 / fork 7（低め） |
+
+Pong でパイプラインを固めてから Breakout に進むのが最低リスク。
+Breakout から始めると SystemVerilog 33% の処理で詰まる可能性がある。
+
+## 3. 推奨実装順序
+
+```text
+Pong (1972)
+  └─ 最小 viable 例
+  └─ video pump / audio pump パイプライン確立
+  └─ Verilator→Emscripten→Canvas の足回りを最も低コストで通す
+      ↓
+Breakout (1976)
+  └─ Brick RAM 可視化で rtlscope ショーケース完成
+  └─ Woz/Jobs 物語と接続、Apple-I への歴史的導線
+      ↓
+6502 / Apple-I
+  └─ CPU 有りの世界へ（Pong→Breakout→6502 = ビデオゲーム史の王道軸）
+```
+
+6502/Apple-I を主軸としつつ、Pong を **video 系足回り検証**の並行サブプロジェクトとして先行させる。
+video pump / audio pump のコードは後続 CPU コア（video out 持ちもの全般）で再利用できる。
+
+## 4. 技術設計
+
+### 4.1 ブラウザ統合アーキテクチャ
+
+```text
+Browser
+├─ Canvas2D / WebGL  ← video out (RGB + HS/VS)
+├─ Web Audio API     ← sound out (1-bit tone)
+├─ Mouse / Keys      ← paddle pot, coin, serve, start
+└─ WASM module (Emscripten)
+    ├─ Verilator 化された MiSTer RTL
+    ├─ C++ harness（クロック駆動・フレームポンプ）
+    ├─ rtlscope ring buffer（信号観測）
+    └─ PLL 代替の clock divider
+```
+
+CP/M-on-8080 との違いは出力先が「UART → xterm」ではなく「video + audio + analog input」になる点のみ。
+
+### 4.2 実装フェーズ
+
+| フェーズ | 内容 |
+| ------- | ---- |
+| 1 | MiSTer RTL のclean化（Quartus IP stub 差し替え、`verilator --lint-only` エラーゼロ） |
+| 2 | C++ harness 実装（`step_cycles` 構造は CP/M と同じ、出力先だけ変える） |
+| 3 | ブラウザ I/O（video → ImageData/Canvas、audio → AudioWorklet、paddle → マウス X 座標） |
+| 4 | rtlscope 統合（信号タップ追加・可視化パネル実装） |
+| 5 | Pico 2 への移植（規模小さく 6502 より余裕） |
+
+### 4.3 rtlscope 観測対象（Breakout）
+
+| 観測対象 | 表示パネル |
+| ------- | --------- |
+| Ball X/Y カウンタ | XY スコープ（残像つき） |
+| Brick RAM の各ビット | 6×N グリッド bitmap |
+| Paddle カウンタ | 横バー |
+| Score BCD | 7 セグ風表示 |
+| Sound timer | 矩形波 scope |
+| HSYNC/VSYNC | timing diagram |
+
+`RTLSCOPE_TAP` を Rev.F のシート番号と対応付ければ「回路図ページと画面の信号が 1対1 で光るビュー」が作れる。
+
+### 4.4 リスク
+
+- MiSTer 特有ラッパー剥がしが最難所（最悪 Rev.F 回路図から別実装を参照も検討）
+- アナログ paddle の再現精度はコアの実装次第
+- カラーオーバーレイを白黒で出すか筐体風 CSS で重ねるかは表現の選択
+
+## 5. 参考資料
+
+### 5.1 8bitworkshop / Verilog IDE
+
+`https://8bitworkshop.com/?platform=verilog`
+
+- Verilog コードをブラウザ内でクロック単位実行。scope view（波形）+ CRT view（映像）を統合。
+- `presets/verilog/ball_paddle.v` / `ball_slip_counter.v` が Pong/Breakout 原器に近い。
+- ソース: `https://github.com/sehugg/8bitworkshop` / 書籍: *Designing Video Game Hardware in Verilog*
+
+**Verilog→WASM ワークフロー（2経路）:**
+
+旧経路（初期）— Icarus Verilog を Emscripten ビルドし、vvp ランタイムで解釈実行。汎用だが低速。
+
+現経路（2021年刷新）:
+
+```text
+Verilog source
+  ↓ Verilator.wasm（ブラウザ内で実行）
+AST 抽出（C++ コード生成はしない）
+  ↓ カスタム AST ウォーカー
+.wasm バイトコード直接 emit → instantiate → clk pump
+```
+
+| 項目 | 8bitworkshop | このプロジェクト |
+| ---- | ----------- | --------------- |
+| Verilog frontend | Verilator 4（WASM 化） | Verilator（native） |
+| Backend | AST → WASM direct emit（JIT） | C++ → Emscripten → WASM（AOT） |
+| 用途 | 教育・即時編集 | 高忠実度実コア実行 |
+| Pico 2 移植 | 不可 | 同じ harness で可 |
+| 性能 | 複雑コアで 60fps 厳しい | C++ 最適化フル活用 |
+
+**設計知見 — scanline 単位バッファリング:**
+
+JS↔WASM 間の関数呼び出しコストが大きいため、cycle 単位でなく scanline 単位でまとめて渡す。
+
+```javascript
+// ✅ 速い: WASM 内で 256 クロック分回してから JS に戻す
+wasm.tick_scanline(scanline_buf_ptr);
+copyFromWasmMemory(scanline_buf_ptr, framebuffer, 256);
+```
+
+→ rtlscope harness でも `step_cycles(N)` を粗粒度にし、ring buffer への書き込みは WASM 側メモリで完結させる。
+JS からは 1 スキャンライン or 1 フレームごとに `Uint8Array` ビューでまとめて読む。
+
+### 5.2 その他ブラウザサンプル
+
+| サービス | 備考 |
+| ------- | ---- |
+| Internet Archive / Internet Arcade | MAME-WASM。Breakout netlist 版の収録有無は要確認 |
+| MAME netlist simulation | v0.208 以降でチップ単位シミュレーション。ローカル専用 |
+| breakout76.com 等クローン | 回路再現ではなくUI見た目のみ。目視リファレンス用途 |

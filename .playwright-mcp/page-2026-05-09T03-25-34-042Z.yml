@@ -1,9 +1,0 @@
-- generic [active] [ref=e1]:
-  - heading "01-counter" [level=2] [ref=e2]
-  - generic [ref=e3]:
-    - button "Run" [ref=e4] [cursor=pointer]
-    - button "Reset" [ref=e5] [cursor=pointer]
-    - generic [ref=e6]:
-      - text: "速度:"
-      - slider "速度:" [ref=e7]: "200"
-    - generic [ref=e8]: 0 cycles
