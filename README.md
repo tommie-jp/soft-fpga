@@ -28,6 +28,13 @@ Verilog (RTL)
                                              └─ Canvas (Logic Analyzer / State Diagram / Memory Heatmap)
 ```
 
+## Gallery
+
+| 01-counter | 02-traffic-fsm | 04-6502 Apple-I |
+| --- | --- | --- |
+| ![Binary counter — Logic Analyzer](docs/img/ss/01-counter.png) | ![Traffic light FSM — State Diagram](docs/img/ss/02-traffic-fsm.png) | ![Apple-I — Woz Monitor + CPU Registers](docs/img/ss/04-6502-wozmon.png) |
+| 8-bit counter waveforms in Logic Analyzer | FSM state highlighted in real time | 6502 CPU registers and bus signals live |
+
 ## Roadmap
 
 | Phase | Subject | Goal | Status |

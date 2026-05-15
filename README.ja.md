@@ -27,6 +27,13 @@ Verilog (RTL)
                                              └─ Canvas（Logic Analyzer / State Diagram / Memory Heatmap）
 ```
 
+## ギャラリー
+
+| 01-counter | 02-traffic-fsm | 04-6502 Apple-I |
+| --- | --- | --- |
+| ![二進カウンタ — Logic Analyzer](docs/img/ss/01-counter.png) | ![信号機 FSM — State Diagram](docs/img/ss/02-traffic-fsm.png) | ![Apple-I — Woz Monitor + CPU レジスタ](docs/img/ss/04-6502-wozmon.png) |
+| 8bit カウンタの波形を Logic Analyzer で観測 | 現在の FSM 状態をリアルタイムにハイライト | 6502 CPU レジスタとバス信号をリアルタイム表示 |
+
 ## ロードマップ
 
 | フェーズ | 題材 | 目的 | 状態 |
