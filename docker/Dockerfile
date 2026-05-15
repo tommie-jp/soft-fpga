@@ -33,7 +33,7 @@ RUN git clone --branch ${VERILATOR_TAG} --depth 1 \
 
 ENV VERILATOR_ROOT=/usr/local/share/verilator \
     CCACHE_DIR=/ccache \
-    PATH=/usr/lib/ccache:/usr/local/bin:/usr/bin:/bin
+    PATH=/usr/lib/ccache:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 RUN if ! getent group ${USER_GID} >/dev/null; then groupadd -g ${USER_GID} dev; fi \
     && if ! id -u ${USER_UID} >/dev/null 2>&1; then \
