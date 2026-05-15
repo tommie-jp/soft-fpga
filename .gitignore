@@ -40,6 +40,8 @@ Thumbs.db
 # Claude Code (個人環境用)
 .claude/
 .playwright-mcp/
+CLAUDE.md
+.mcp.json
 
 # テストフィクスチャ（バイナリでも追跡対象）
 !verif/dormann/*.bin
