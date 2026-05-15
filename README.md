@@ -30,10 +30,10 @@ Verilog (RTL)
 
 ## Gallery
 
-| 01-counter | 02-traffic-fsm | 04-6502 Apple-I |
-| --- | --- | --- |
-| ![Binary counter — Logic Analyzer](docs/img/ss/01-counter.png) | ![Traffic light FSM — State Diagram](docs/img/ss/02-traffic-fsm.png) | ![Apple-I — Woz Monitor + CPU Registers](docs/img/ss/04-6502-wozmon.png) |
-| 8-bit counter waveforms in Logic Analyzer | FSM state highlighted in real time | 6502 CPU registers and bus signals live |
+| 01-counter | 02-traffic-fsm | 04-6502 Woz Monitor | 04-6502 Integer BASIC |
+| --- | --- | --- | --- |
+| [![Binary counter — Logic Analyzer](docs/img/ss/01-counter.png)](docs/img/ss/01-counter.png) | [![Traffic light FSM — State Diagram](docs/img/ss/02-traffic-fsm.png)](docs/img/ss/02-traffic-fsm.png) | [![Apple-I — Woz Monitor + CPU Registers](docs/img/ss/04-6502-wozmon.png)](docs/img/ss/04-6502-wozmon.png) | [![Apple-I — Integer BASIC](docs/img/ss/04-6502-basic.png)](docs/img/ss/04-6502-basic.png) |
+| 8-bit counter waveforms in Logic Analyzer | FSM state highlighted in real time | 6502 CPU registers and bus signals live | Integer BASIC running on the simulated 6502 |
 
 ## Roadmap
 
