@@ -260,6 +260,7 @@
         convertEol: true,
       });
       term.open(document.getElementById('terminal'));
+      window._sftTerm = term;  // テスト用グローバル公開
 
       Module._sim_init();
 
