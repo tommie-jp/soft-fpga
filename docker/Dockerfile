@@ -13,6 +13,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update \
         autoconf automake libtool texinfo \
         flex bison libfl-dev help2man perl perl-doc \
         python3 python3-dev python3-pip \
+        passwd \
         ccache \
     && rm -rf /var/lib/apt/lists/*
 

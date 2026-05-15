@@ -17,23 +17,63 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    env:
+      VERILATOR_VERSION: v5.042
+      EMSDK_VERSION: 5.0.7
+
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Install Verilator
+      # ── Verilator v5.042（ソースビルド） ──────────────────────────────────
+      - name: Install Verilator build deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y verilator
+          sudo apt-get install -y \
+            git autoconf flex bison help2man \
+            libfl2 libfl-dev zlib1g-dev
 
-      - name: Setup emsdk
+      - name: Cache Verilator ${{ env.VERILATOR_VERSION }}
+        id: verilator-cache
+        uses: actions/cache@v4
+        with:
+          path: /usr/local
+          key: verilator-${{ env.VERILATOR_VERSION }}-ubuntu-24.04
+
+      - name: Build Verilator ${{ env.VERILATOR_VERSION }}
+        if: steps.verilator-cache.outputs.cache-hit != 'true'
+        run: |
+          git clone https://github.com/verilator/verilator.git /tmp/verilator
+          cd /tmp/verilator
+          git checkout ${{ env.VERILATOR_VERSION }}
+          autoconf
+          ./configure
+          make -j$(nproc)
+          sudo make install
+
+      - name: Verify Verilator version
+        run: verilator --version
+
+      # ── emsdk 5.0.7 ──────────────────────────────────────────────────────
+      - name: Setup emsdk ${{ env.EMSDK_VERSION }}
         uses: mymindstorm/setup-emsdk@v14
         with:
-          version: '5.0.7'
+          version: ${{ env.EMSDK_VERSION }}
 
+      - name: Verify em++ version
+        run: em++ --version
+
+      # ── WASM ビルド ───────────────────────────────────────────────────────
       - name: Build all WASM
         run: ./doBuildWasm.sh
+
+      # ── Pages アーティファクト作成 ────────────────────────────────────────
+      - name: Stage web content
+        run: |
+          mkdir _site
+          cp -r examples _site/examples
+          cp -r docs _site/docs
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -41,7 +81,7 @@ jobs:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
+          path: '_site'
 
   deploy:
     needs: build
