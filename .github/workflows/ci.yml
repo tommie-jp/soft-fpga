@@ -7,11 +7,13 @@ on:
     branches: [main]
 
 jobs:
-  # rtl/ の Verilog だけを syntax + lint チェック (Docker 抜きで素早く)
+  # verilog/ および examples/ の Verilog を syntax + lint チェック (Docker 抜きで素早く)
   lint-rtl:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Install Verilator
         run: |
@@ -20,9 +22,9 @@ jobs:
 
       - name: Verilator lint-only
         run: |
-          # rtl/ 配下の全 Verilog に対して --lint-only。
-          # Pico 向けビルドと違い verilator ランタイムは要らない。
-          for v in rtl/*.v rtl/*.sv; do
+          # verilog/ および examples/*/verilog/ 配下の Verilog に --lint-only。
+          # サブモジュール (hoglet/) は upstream 管理なので対象外。
+          for v in verilog/*.v verilog/*.sv examples/*/verilog/*.v examples/*/verilog/*.sv; do
             [ -e "$v" ] || continue
             verilator --lint-only -Wall -Wno-DECLFILENAME "$v"
           done

@@ -49,7 +49,15 @@ Verilog (RTL)
 | [`firmware/`](firmware/) | Pico SDK ファームウェア（将来の Pico 2 ターゲット） |
 | [`scripts/`](scripts/) | ビルド補助スクリプト |
 | [`docker/`](docker/) | 開発環境（Verilator + Emscripten + cocotb） |
-| `doc/` | 設計ドキュメント |
+| [`docs/`](docs/) | 設計ドキュメント |
+
+## Getting started
+
+```bash
+git clone https://github.com/tommie-jp/soft-fpga.git
+cd soft-fpga
+git submodule update --init
+```
 
 ## Build (planned)
 
@@ -63,7 +71,7 @@ scripts/build-wasm.sh    # → host/wasm/
 
 ## 関連資料
 
-- [`doc/01-soft-FPGA-WebAssembly-設計議論メモ.md`](doc/01-soft-FPGA-WebAssembly-設計議論メモ.md) — 設計方針・ロードマップ・ライブラリ構想
+- [`docs/01-soft-FPGA-WebAssembly-設計議論メモ.md`](docs/01-soft-FPGA-WebAssembly-設計議論メモ.md) — 設計方針・ロードマップ・ライブラリ構想
 
 ## License
 
