@@ -1,4 +1,4 @@
-# 13. Integer BASIC 動作検証サンプル
+# 12. Integer BASIC 動作検証サンプル
 
 Apple-1 Integer BASIC の動作確認用プログラム集。
 
