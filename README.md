@@ -7,26 +7,24 @@ and run them in the browser. The core value is not speed but **real-time visuali
 of internal signals** — T-states, microsequencers, bus waveforms — things no
 instruction-level emulator can show.
 
+## Subject selection criteria
+
+- **Historically significant architecture** — CPUs and circuits that changed industry or culture in their era
+- **Proven Verilog source available** — verified RTL obtainable (decap-derived, MiSTer implementations, etc.)
+- **Fun for me (tommie.jp)** — satisfying to build, exciting to run
+
 ## Visualization library: rtlscope
 
 A library for declaratively observing RTL internal signals in the browser.
 
 | Layer | Role |
 | --- | --- |
-| Verilog | Declare observation points with the `` `OBSERVE `` macro |
 | C++ harness | Sample every clock cycle into a ring buffer |
 | JS rendering | Zero-copy read via TypedArray view, 60 Hz canvas rendering |
 
 ## Architecture
 
-```text
-Verilog (RTL)
-  └─ Verilator ──▶ C++ harness (ring buffer)
-                     └─ Emscripten ──▶ .wasm
-                                        └─ Web Worker
-                                             ├─ xterm.js (console I/O)
-                                             └─ Canvas (Logic Analyzer / State Diagram / Memory Heatmap)
-```
+![soft-FPGA architecture](docs/img/00-softfpga-arch.png)
 
 ## Gallery
 

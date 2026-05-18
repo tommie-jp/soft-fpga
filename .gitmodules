@@ -1,3 +1,6 @@
 [submodule "examples/04-6502/verilog/hoglet"]
 	path = examples/04-6502/verilog/hoglet
 	url = https://github.com/tommie-jp/verilog-6502.git
+[submodule "examples/06-8080/verilog/vm80a"]
+	path = examples/06-8080/verilog/vm80a
+	url = https://github.com/1801BM1/vm80a

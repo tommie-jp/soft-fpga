@@ -1,0 +1,37 @@
+@startuml 00-softfpga-arch
+skinparam backgroundColor white
+skinparam defaultFontColor #222222
+skinparam ArrowColor #444444
+skinparam componentStyle rectangle
+skinparam component {
+    BackgroundColor #f5f5f5
+    BorderColor #555555
+}
+skinparam packageBackgroundColor transparent
+
+package "Verilog RTL" #EEF4FF {
+    component [CPU / Circuit\n.v / .sv] as rtl
+}
+
+package "Build Pipeline" #FFF8EE {
+    component [Verilator] as verilator
+    component [C++ Harness\n(ring buffer)] as harness
+    component [Emscripten] as emcc
+}
+
+package "Browser" #EEFFEE {
+    component [.wasm\n(Web Worker)] as wasm
+    component [xterm.js\n(Console I/O)] as xterm
+    component [Canvas\n(Logic Analyzer /\nState Diagram /\nMemory Heatmap)] as canvas
+}
+
+rtl --> verilator : compile
+verilator --> harness : generate C++
+harness --> emcc : compile
+emcc --> wasm : generate
+
+wasm --> xterm : postMessage (char)
+xterm --> wasm : postMessage (key)
+wasm --> canvas : TypedArray (ring buffer)
+
+@enduml
