@@ -1,11 +1,14 @@
 // main_linux.cpp — CP/M 8080 Linux ターミナルフロントエンド
 // 04-6502/cxx/main_linux.cpp と同じ構造
 
+#include "version.h"
 #include <cstdio>
 #include <cstdlib>
 #include <csignal>
 #include <cstring>
 #include <string>
+#include <vector>
+#include <cctype>
 #include <termios.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -14,6 +17,9 @@
 extern "C" {
     int      sim_init(const char* bios_path, const char* cpm_path, const char* dsk_path);
     int      sim_load_disk_file(int drive, const char* path);
+    bool     sim_get_disk_dirty(int drive);
+    int      sim_save_disk(int drive, const char* path);
+    void     sim_set_disk_readonly(int drive, bool ro);
     void     step();
     void     send_key(uint8_t ch);
     int      get_display_char();
@@ -22,15 +28,126 @@ extern "C" {
     int      sim_run_bare(const uint8_t* prog, int prog_size, long long max_cycles, int idle_timeout_cycles);
     uint16_t get_pc();
     uint8_t  sim_read_byte(uint16_t addr);
+    int      sim_get_cur_drive();
+    int      sim_get_disk_track();
+    int      sim_get_disk_sector();
+    uint16_t sim_get_disk_dma();
+    int      sim_con_in_space();
 }
 
 static struct termios g_saved_termios;
+
+// 終了時に書き込まれたドライブを元のイメージファイルへ保存する
+static const char*  g_dsk_paths[4]   = {};
+static std::string  g_mounted_paths[4];  // !mount で動的に変更されたパス
+static bool         g_no_save = false;
+
+// !cap — コンソール出力キャプチャ
+static FILE* g_cap_file = nullptr;
+
+// !paste — テキストファイルをキーボード入力として流し込む
+static uint8_t g_paste_buf[65536];
+static int     g_paste_pos = 0;
+static int     g_paste_len = 0;
+
+// コマンドヒストリ (↑↓矢印キー)
+static const int HISTORY_MAX = 100;
+static std::vector<std::string> g_history;
+static int         g_hist_idx  = -1;   // -1: 通常入力, 0+: ヒストリ参照中
+static std::string g_input_line;       // 現在の入力行
+static std::string g_saved_line;       // ヒストリ参照開始時に退避した入力
+static int         g_esc_state = 0;    // ESC シーケンス解析状態 (0=通常, 1=ESC受信, 2=ESC[受信)
+
+static void save_dirty_disks() {
+    if (g_no_save) return;
+    static const char* labels[] = {"A", "B", "C", "D"};
+    for (int i = 0; i < 4; i++) {
+        if (g_dsk_paths[i] && sim_get_disk_dirty(i)) {
+            if (sim_save_disk(i, g_dsk_paths[i]) == 0)
+                fprintf(stderr, "[saved %s: %s]\n", labels[i], g_dsk_paths[i]);
+        }
+    }
+}
+
+// !cap [file|off]
+static void cmd_cap(const char* arg) {
+    while (*arg == ' ') arg++;
+    if (*arg == '\0' || strcmp(arg, "off") == 0) {
+        if (g_cap_file) {
+            fclose(g_cap_file); g_cap_file = nullptr;
+            fputs("\r\n[cap] stopped\r\n", stderr);
+        }
+        return;
+    }
+    if (g_cap_file) fclose(g_cap_file);
+    g_cap_file = fopen(arg, "w");
+    if (g_cap_file) fprintf(stderr, "[cap] capturing to: %s\r\n", arg);
+    else            fprintf(stderr, "[cap] cannot open: %s\r\n", arg);
+}
+
+// !paste <file>
+static void cmd_paste(const char* arg) {
+    while (*arg == ' ') arg++;
+    FILE* f = fopen(arg, "r");
+    if (!f) { fprintf(stderr, "[paste] cannot open: %s\r\n", arg); return; }
+    g_paste_len = (int)fread(g_paste_buf, 1, sizeof(g_paste_buf) - 1, f);
+    fclose(f);
+    for (int i = 0; i < g_paste_len; i++)
+        if (g_paste_buf[i] == '\n') g_paste_buf[i] = '\r';
+    g_paste_pos = 0;
+    fprintf(stderr, "[paste] %d bytes queued: %s\r\n", g_paste_len, arg);
+}
+
+// !mount <A-D>[:] <path>
+static void cmd_mount(const char* arg) {
+    while (*arg == ' ') arg++;
+    if (!arg[0] || !arg[1]) { fprintf(stderr, "[mount] usage: !mount A: path\r\n"); return; }
+    int drive = toupper((unsigned char)arg[0]) - 'A';
+    if (drive < 0 || drive > 3) { fprintf(stderr, "[mount] invalid drive: %c\r\n", arg[0]); return; }
+    const char* path = arg + 1;
+    if (*path == ':') path++;
+    while (*path == ' ') path++;
+    if (!*path) { fprintf(stderr, "[mount] no path specified\r\n"); return; }
+    if (sim_load_disk_file(drive, path) != 0) return;
+    g_mounted_paths[drive] = path;
+    g_dsk_paths[drive]     = g_mounted_paths[drive].c_str();
+    static const char* DRV[] = {"A", "B", "C", "D"};
+    fprintf(stderr, "[mount] %s: → %s\r\n", DRV[drive], path);
+}
+
+static void print_status() {
+    auto pc_region = [](uint16_t pc) -> const char* {
+        if (pc < 0x0100) return "page0";
+        if (pc < 0xDC00) return "TPA";
+        if (pc < 0xE400) return "CCP";
+        if (pc < 0xF200) return "BDOS";
+        return "BIOS";
+    };
+    auto dsk_label = [](const char* p) -> const char* {
+        if (!p) return "(blank)";
+        const char* s = strrchr(p, '/');
+        return s ? s + 1 : p;
+    };
+    static const char* DRV[] = {"A", "B", "C", "D"};
+    uint16_t pc = get_pc();
+    fprintf(stderr, "\r--- [Ctrl+T] status ---\n");
+    fprintf(stderr, "CPU   PC=%04X  [%s]\n", pc, pc_region(pc));
+    fprintf(stderr, "Disk  drive=%s  trk=%d  sec=%d  dma=%04X\n",
+            DRV[sim_get_cur_drive()], sim_get_disk_track(),
+            sim_get_disk_sector(), sim_get_disk_dma());
+    for (int i = 0; i < 4; i++)
+        fprintf(stderr, "      %s: %-20s%s\n", DRV[i], dsk_label(g_dsk_paths[i]),
+                sim_get_disk_dirty(i) ? " [dirty]" : "");
+    fprintf(stderr, "\n");
+}
 
 static void restore_terminal() {
     tcsetattr(STDIN_FILENO, TCSANOW, &g_saved_termios);
 }
 
 static void on_signal(int) {
+    if (g_cap_file) { fclose(g_cap_file); g_cap_file = nullptr; }
+    save_dirty_disks();
     restore_terminal();
     _exit(0);
 }
@@ -57,6 +174,25 @@ static void init_base_dir()
 
 static std::string def(const char* rel) { return g_base + rel; }
 
+// "foo.dsk" → "foo.orig.dsk"
+static std::string to_orig_path(const std::string& p) {
+    size_t dot = p.rfind('.');
+    if (dot != std::string::npos)
+        return p.substr(0, dot) + ".orig" + p.substr(dot);
+    return p + ".orig";
+}
+
+// .orig.dsk が存在しなければ src からコピーして原本を作成する
+static void ensure_orig_file(const char* orig, const char* src) {
+    if (access(orig, F_OK) == 0) return;
+    FILE* in  = fopen(src,  "rb"); if (!in)  return;
+    FILE* out = fopen(orig, "wb"); if (!out) { fclose(in); return; }
+    char buf[4096]; size_t n;
+    while ((n = fread(buf, 1, sizeof(buf), in)) > 0) fwrite(buf, 1, n, out);
+    fclose(in); fclose(out);
+    fprintf(stderr, "[orig] created: %s\n", orig);
+}
+
 int main(int argc, char* argv[]) {
     init_base_dir();
 
@@ -80,6 +216,9 @@ int main(int argc, char* argv[]) {
     const char* dsk_c_path   = nullptr;
     const char* dsk_d_path   = nullptr;
     bool        dsk_b_explicit = false;
+    bool        opt_no_save    = false;
+    bool        opt_ro         = false;
+    bool        opt_orig       = false;
 
     bool        run_test         = false;
     bool        boot_test        = false;
@@ -89,14 +228,54 @@ int main(int argc, char* argv[]) {
     const char* exec_cmd     = nullptr;
     const char* bare_test    = nullptr;
     for (int i = 1; i < argc; i++) {
-        if      (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
+        if      (!strcmp(argv[i], "-hj")) {
             fprintf(stdout,
-                "soft-FPGA CP/M 2.2 Simulator  (C) 2026 tommie.jp  https://github.com/tommie-jp/soft-fpga\n"
+                CPM_SIM_BANNER "\n"
+                "\n"
+                "使い方: cpm [オプション]\n"
+                "\n"
+                "動作モード (省略時: インタラクティブ CP/M):\n"
+                "  -h, --help               英語ヘルプを表示して終了\n"
+                "  -hj                      日本語ヘルプを表示して終了\n"
+                "  --test                   ハーネス動作確認 (MVI+OUT+HLT)\n"
+                "  --boot-test              CP/M 起動テスト (A> プロンプト検出)\n"
+                "  --run-test [ファイル]    ベアメタルバイナリを実行して合否判定\n"
+                "                           (省略時: <binary>/../test/test_all.bin)\n"
+                "  --bare-test <ファイル>   ベアメタルバイナリを実行 (タイムアウト延長)\n"
+                "  --exec <コマンド>        CP/M 起動後にコマンドを実行して出力を表示\n"
+                "\n"
+                "ファイルオプション (省略時はバイナリの親ディレクトリ基準):\n"
+                "  --bios <パス>            BIOS バイナリ     (省略時: <binary>/../sw/cpm/bios/bios.bin)\n"
+                "  --cpm  <パス>            CCP+BDOS バイナリ (省略時: <binary>/../rom/cpm22.bin)\n"
+                "  --disk <パス>            ドライブ A: イメージ (省略時: .../sw/cpm/disks/cpm22.dsk)\n"
+                "  --disk-b <パス>          ドライブ B: イメージ (省略時: bdsc.dsk)\n"
+                "  --disk-c <パス>          ドライブ C: イメージ (省略時: ブランク)\n"
+                "  --disk-d <パス>          ドライブ D: イメージ (省略時: ブランク)\n"
+                "  --orig                   .orig.dsk から読み込み・保存先は .dsk (原本を常に保持)\n"
+                "                           初回実行時に .dsk → .orig.dsk をコピーして原本を作成\n"
+                "  --no-save                終了時にディスクイメージを上書きしない\n"
+                "  --ro                     全ドライブ読み取り専用 (書き込み無視・保存なし)\n"
+                "\n"
+                "使用例:\n"
+                "  cpm                                  インタラクティブ CP/M\n"
+                "  cpm --test                           動作確認\n"
+                "  cpm --boot-test                      起動テスト\n"
+                "  cpm --run-test                       命令テストスイート実行\n"
+                "  cpm --exec 8080EX1                   CPU エクササイザ実行\n"
+                "  cpm --exec DIR                       DIR コマンド実行\n"
+                "  cpm --bare-test prog.bin             ベアメタルテスト実行\n"
+                "  cpm --orig                           原本ディスクで起動\n");
+            return 0;
+        }
+        else if (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
+            fprintf(stdout,
+                CPM_SIM_BANNER "\n"
                 "\n"
                 "Usage: cpm [options]\n"
                 "\n"
                 "Modes (default: interactive CP/M):\n"
                 "  -h, --help               Show this help and exit\n"
+                "  -hj                      Show this help in Japanese and exit\n"
                 "  --test                   Harness smoke test (MVI+OUT+HLT)\n"
                 "  --boot-test              CP/M boot test (detect A> prompt)\n"
                 "  --run-test [file]        Run bare-metal binary and report pass/fail\n"
@@ -108,9 +287,13 @@ int main(int argc, char* argv[]) {
                 "  --bios <path>            BIOS binary     (default: <binary>/../sw/cpm/bios/bios.bin)\n"
                 "  --cpm  <path>            CCP+BDOS binary (default: <binary>/../rom/cpm22.bin)\n"
                 "  --disk <path>            Drive A: image  (default: <binary>/../sw/cpm/disks/cpm22.dsk)\n"
-                "  --disk-b <path>          Drive B: image  (default: blank)\n"
+                "  --disk-b <path>          Drive B: image  (default: bdsc.dsk)\n"
                 "  --disk-c <path>          Drive C: image  (default: blank)\n"
                 "  --disk-d <path>          Drive D: image  (default: blank)\n"
+                "  --orig                   Load from .orig.dsk (pristine original); save to .dsk\n"
+                "                           On first use, copies .dsk -> .orig.dsk to create the original\n"
+                "  --no-save                Do not overwrite disk images on exit\n"
+                "  --ro                     All drives read-only (writes ignored, no save)\n"
                 "\n"
                 "Examples:\n"
                 "  cpm                                  Interactive CP/M\n"
@@ -119,7 +302,8 @@ int main(int argc, char* argv[]) {
                 "  cpm --run-test                       Run instruction test suite\n"
                 "  cpm --exec 8080EX1                   Run CPU exerciser\n"
                 "  cpm --exec DIR                       Run DIR command\n"
-                "  cpm --bare-test prog.bin             Run bare-metal test\n");
+                "  cpm --bare-test prog.bin             Run bare-metal test\n"
+                "  cpm --orig                           Start with pristine disk\n");
             return 0;
         }
         else if (!strcmp(argv[i], "--test"))       run_test     = true;
@@ -138,6 +322,9 @@ int main(int argc, char* argv[]) {
         else if (!strcmp(argv[i], "--disk-b")    && i+1<argc) { dsk_b_path = argv[++i]; dsk_b_explicit = true; }
         else if (!strcmp(argv[i], "--disk-c")    && i+1<argc)  dsk_c_path = argv[++i];
         else if (!strcmp(argv[i], "--disk-d")    && i+1<argc)  dsk_d_path = argv[++i];
+        else if (!strcmp(argv[i], "--orig"))                   opt_orig    = true;
+        else if (!strcmp(argv[i], "--no-save"))                opt_no_save = true;
+        else if (!strcmp(argv[i], "--ro"))                     opt_ro      = true;
     }
 
     // デフォルトの B: ディスク (bdsc.dsk) が存在しない場合は黙って B: ブランクにする。
@@ -431,13 +618,45 @@ int main(int argc, char* argv[]) {
     int fl = fcntl(STDIN_FILENO, F_GETFL);
     fcntl(STDIN_FILENO, F_SETFL, fl | O_NONBLOCK);
 
-    if (sim_init(bios_path, cpm_path, dsk_path) != 0) {
+    // --orig: .orig.dsk から読み込む。なければ現在の .dsk を原本としてコピー作成。
+    // 保存先は通常の .dsk のままなので g_dsk_paths は変更しない。
+    std::string orig_a, orig_b, orig_c, orig_d;
+    const char* load_a = dsk_path;
+    const char* load_b = dsk_b_path;
+    const char* load_c = dsk_c_path;
+    const char* load_d = dsk_d_path;
+    if (opt_orig) {
+        auto prep = [](const char* src, std::string& buf) -> const char* {
+            if (!src) return nullptr;
+            buf = to_orig_path(src);
+            ensure_orig_file(buf.c_str(), src);
+            return buf.c_str();
+        };
+        load_a = prep(dsk_path,   orig_a);
+        load_b = prep(dsk_b_path, orig_b);
+        load_c = prep(dsk_c_path, orig_c);
+        load_d = prep(dsk_d_path, orig_d);
+    }
+
+    if (sim_init(bios_path, cpm_path, load_a) != 0) {
         restore_terminal();
         return 1;
     }
-    if (dsk_b_path && sim_load_disk_file(1, dsk_b_path) != 0) { restore_terminal(); return 1; }
-    if (dsk_c_path && sim_load_disk_file(2, dsk_c_path) != 0) { restore_terminal(); return 1; }
-    if (dsk_d_path && sim_load_disk_file(3, dsk_d_path) != 0) { restore_terminal(); return 1; }
+    if (load_b && sim_load_disk_file(1, load_b) != 0) { restore_terminal(); return 1; }
+    if (load_c && sim_load_disk_file(2, load_c) != 0) { restore_terminal(); return 1; }
+    if (load_d && sim_load_disk_file(3, load_d) != 0) { restore_terminal(); return 1; }
+
+    // --no-save / --ro フラグを適用（--orig は保存あり）
+    g_no_save = opt_no_save || opt_ro;
+    if (opt_ro) {
+        for (int i = 0; i < 4; i++) sim_set_disk_readonly(i, true);
+    }
+
+    // 終了時保存のためパスを登録（--orig でも保存先は通常の .dsk）
+    g_dsk_paths[0] = dsk_path;
+    g_dsk_paths[1] = dsk_b_path;
+    g_dsk_paths[2] = dsk_c_path;
+    g_dsk_paths[3] = dsk_d_path;
 
     // パスからファイル名だけを取り出すヘルパー
     auto dsk_name = [](const char* p) -> const char* {
@@ -445,11 +664,21 @@ int main(int argc, char* argv[]) {
         const char* s = strrchr(p, '/');
         return s ? s + 1 : p;
     };
-    fprintf(stderr, "soft-FPGA CP/M 2.2 Simulator  (C) 2026 tommie.jp  https://github.com/tommie-jp/soft-fpga\n");
+    fprintf(stderr, CPM_SIM_BANNER "\n");
     fprintf(stderr, "[quit: Ctrl+\\]\n");
     fprintf(stderr, "  A: %-16s B: %-16s C: %-16s D: %s\n",
             dsk_name(dsk_path), dsk_name(dsk_b_path),
             dsk_name(dsk_c_path), dsk_name(dsk_d_path));
+    if (opt_ro)           fprintf(stderr, "  [read-only: writes ignored]\n");
+    else if (opt_orig)    fprintf(stderr, "  [orig: load from .orig.dsk / save to .dsk]\n");
+    else if (opt_no_save) fprintf(stderr, "  [no-save: disk images will not be saved on exit]\n");
+
+    // ! シェルエスケープ用バッファ
+    // chars_sent: 最後の \r 以降に CP/M へ送った文字数
+    // shell_len>0 の間はシェルコマンド蓄積中
+    char shell_buf[256];
+    int  shell_len  = 0;
+    int  chars_sent = 0;
 
     for (;;) {
         for (int i = 0; i < 1000; i++) step();
@@ -458,17 +687,140 @@ int main(int argc, char* argv[]) {
         while ((ch = get_display_char()) >= 0) {
             char c = (char)(ch & 0x7F);
             fputc(c, stdout);
+            if (g_cap_file) fputc(c, g_cap_file);
             fflush(stdout);
+        }
+        if (g_cap_file) fflush(g_cap_file);
+
+        // !paste ドリップ: con_in に空きがある分だけ流し込む
+        if (g_paste_pos < g_paste_len) {
+            int space = sim_con_in_space();
+            int feed  = g_paste_len - g_paste_pos;
+            if (feed > space) feed = space;
+            if (feed > 16)    feed = 16;
+            for (int j = 0; j < feed; j++) send_key(g_paste_buf[g_paste_pos++]);
+            if (g_paste_pos >= g_paste_len) {
+                g_paste_len = g_paste_pos = 0;
+                fprintf(stderr, "\r\n[paste] done\r\n");
+            }
         }
 
         char buf[64];
         ssize_t n = read(STDIN_FILENO, buf, sizeof(buf));
         for (ssize_t i = 0; i < n; i++) {
             uint8_t k = (uint8_t)buf[i];
-            if (k == 28) { on_signal(0); }   // Ctrl+\ でシミュレータ終了
+            if (k == 28)   { on_signal(0); }    // Ctrl+\ — quit
+            if (k == 0x14) { print_status(); continue; }  // Ctrl+T — status
+
+            // ---- ! シェルエスケープ ----
+            if (shell_len > 0) {
+                if (k == '\r' || k == '\n') {
+                    shell_buf[shell_len] = '\0';
+                    fputs("\r\n", stdout); fflush(stdout);
+                    const char* cmd = shell_buf + 1;
+                    while (*cmd == ' ') cmd++;
+                    // ---- ビルトインコマンド ----
+                    if (strncmp(cmd, "cap", 3) == 0 && (cmd[3] == ' ' || cmd[3] == '\0'))
+                        cmd_cap(cmd + 3);
+                    else if (strncmp(cmd, "paste ", 6) == 0)
+                        cmd_paste(cmd + 6);
+                    else if (strncmp(cmd, "mount ", 6) == 0)
+                        cmd_mount(cmd + 6);
+                    else {
+                        // シェルコマンド
+                        std::string shell_cmd = std::string(cmd) + " 2>&1";
+                        FILE* fp = popen(shell_cmd.c_str(), "r");
+                        if (fp) {
+                            char line[512];
+                            while (fgets(line, sizeof(line), fp)) {
+                                for (char* p = line; *p; p++) {
+                                    if (*p == '\n') fputs("\r\n", stdout);
+                                    else            fputc(*p, stdout);
+                                }
+                            }
+                            pclose(fp);
+                        } else {
+                            fputs("!: failed to execute\r\n", stdout);
+                        }
+                        fflush(stdout);
+                    }
+                    shell_len  = 0;
+                    chars_sent = 0;
+                    g_input_line.clear();
+                    g_hist_idx = -1;
+                    send_key('\r');   // CP/M に空行を送って再プロンプト
+                } else if ((k == 127 || k == 8) && shell_len > 1) {
+                    shell_len--;
+                    fputs("\b \b", stdout); fflush(stdout);
+                } else if (k >= 0x20 && shell_len < (int)sizeof(shell_buf) - 2) {
+                    shell_buf[shell_len++] = (char)k;
+                    fputc(k, stdout); fflush(stdout);
+                }
+                continue;
+            }
+
+            if (k == '!' && chars_sent == 0) {
+                // ! が行頭 → シェルエスケープ開始
+                shell_buf[0] = '!';
+                shell_len    = 1;
+                fputc('!', stdout); fflush(stdout);
+                continue;
+            }
+
+            // ---- ESC シーケンス解析 (↑↓矢印でヒストリ) ----
+            if (g_esc_state == 1) {
+                g_esc_state = (k == '[') ? 2 : 0;
+                continue;
+            }
+            if (g_esc_state == 2) {
+                g_esc_state = 0;
+                int hist_size = (int)g_history.size();
+                if ((k == 'A' || k == 'B') && hist_size > 0) {
+                    int new_idx;
+                    if (k == 'A') {  // ↑: 古いエントリへ
+                        if (g_hist_idx >= hist_size - 1) { continue; }
+                        if (g_hist_idx == -1) g_saved_line = g_input_line;
+                        new_idx = g_hist_idx + 1;
+                    } else {         // ↓: 新しいエントリへ
+                        if (g_hist_idx <= -1) { continue; }
+                        new_idx = g_hist_idx - 1;
+                    }
+                    // 現在の入力を消去 (CP/M に BS を送る)
+                    for (size_t j = 0; j < g_input_line.size(); j++) send_key(0x08);
+                    g_hist_idx   = new_idx;
+                    g_input_line = (g_hist_idx == -1)
+                                   ? g_saved_line
+                                   : g_history[hist_size - 1 - g_hist_idx];
+                    for (uint8_t c : g_input_line) send_key(c);
+                    chars_sent = (int)g_input_line.size();
+                }
+                continue;
+            }
+            if (k == 0x1B) { g_esc_state = 1; continue; }
+
+            // ---- 通常の CP/M 入力 ----
             if (k == 127) k = 8;
             if (k == '\n') k = '\r';
-            send_key(k);                      // Ctrl+C (0x03) はエミュレータに渡す
+            if (k == '\r') {
+                // Enter: ヒストリに追加 (空行・直前と同じ内容は除外)
+                if (!g_input_line.empty() &&
+                    (g_history.empty() || g_history.back() != g_input_line)) {
+                    g_history.push_back(g_input_line);
+                    if ((int)g_history.size() > HISTORY_MAX)
+                        g_history.erase(g_history.begin());
+                }
+                g_input_line.clear();
+                g_hist_idx = -1;
+                chars_sent = 0;
+            } else if (k == 8) {
+                if (!g_input_line.empty()) g_input_line.pop_back();
+                if (chars_sent > 0) chars_sent--;
+            } else if (k >= 0x20) {
+                g_input_line += (char)k;
+                g_hist_idx = -1;  // 文字入力でヒストリナビ終了
+                chars_sent++;
+            }
+            send_key(k);
         }
     }
 

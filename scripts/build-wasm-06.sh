@@ -30,6 +30,8 @@ if ! command -v em++ &>/dev/null; then
 fi
 
 echo "=== Verilator ==="
+# バージョン混在を防ぐため毎回クリーンビルド
+rm -rf "$OBJ_DIR"
 verilator --cc \
     "$EXAMPLE/verilog/cpm_top.v" \
     "$EXAMPLE/verilog/vm80a/org/rtl/vm80a.v" \
@@ -54,6 +56,14 @@ CPM="$EXAMPLE/rom/cpm22.bin"
 DSK="$EXAMPLE/sw/cpm/disks/cpm22.dsk"
 BDSC="$EXAMPLE/sw/cpm/disks/bdsc.dsk"
 
+# *.C / *.H を WASM 仮想 FS に埋め込む — CP/M 内から R.COM で転送可能になる
+C_H_EMBEDS=""
+for f in "$EXAMPLE"/*.C "$EXAMPLE"/*.H; do
+    [ -f "$f" ] || continue
+    base=$(basename "$f")
+    C_H_EMBEDS="$C_H_EMBEDS --embed-file $f@/$base"
+done
+
 echo "=== Emscripten: link ==="
 # __Dpi.cpp は vm80a が DPI を使わないため不要。除外しないと svdpi.h の uint8_t エラーになる。
 V_SRCS=$(ls "$OBJ_DIR"/V*.cpp | grep -v '__Dpi\.cpp')
@@ -66,8 +76,9 @@ em++ $COMMON_FLAGS \
     --embed-file "$CPM@/cpm22.bin" \
     --embed-file "$DSK@/cpm22.dsk" \
     --embed-file "$BDSC@/bdsc.dsk" \
-    -s EXPORTED_FUNCTIONS='["_sim_init","_sim_init_wasm","_sim_init_disk","_step","_send_key","_get_display_char","_get_pc","_sim_read_byte","_load_disk","_load_disk_drive","_sim_load_disk_file","_sim_test","_sim_run_bare","_get_ring_ptr","_get_head","_get_ring_size"]' \
-    -s EXPORTED_RUNTIME_METHODS='["HEAPU32"]' \
+    $C_H_EMBEDS \
+    -s EXPORTED_FUNCTIONS='["_sim_init","_sim_init_wasm","_sim_init_disk","_step","_send_key","_get_display_char","_get_pc","_sim_read_byte","_load_disk","_load_disk_drive","_sim_load_disk_file","_sim_test","_sim_run_bare","_get_ring_ptr","_get_head","_get_ring_size","_sim_get_disk_ptr","_sim_get_disk_size","_sim_get_disk_dirty","_sim_clear_disk_dirty","_malloc","_free"]' \
+    -s EXPORTED_RUNTIME_METHODS='["HEAPU32","HEAPU8","FS"]' \
     -s ALLOW_MEMORY_GROWTH=1 \
     -s EXIT_RUNTIME=0 \
     -o "$EXAMPLE/web/sim.js"

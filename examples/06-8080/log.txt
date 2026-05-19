@@ -1,0 +1,26 @@
+
+A>dir
+A: MOVCPM   COM : SYSGEN   COM : CPM62    SYS : 8080EX1  COM
+A: MAC      COM : TEST     COM : DUMMY    COM : HELLO    COM
+A: DUMP     COM : STAT     COM : CLS      COM : XSUB     COM
+A: PIP      COM : SUBMIT   COM : DDT      COM : ASM      COM
+A: ED       COM : LOAD     COM : MBASIC   COM : MEMMAP   COM
+A: R        COM : COPY     COM : SDIR     COM : HAMURABI BAS
+A: SURVEY   COM : BLACKJCK BAS : CHECKERS BAS : MICRO80  COM
+A: FORMAT   COM : AWARI    BAS : WM       HLP : XDIR     COM
+A: WM       COM : KSCOPE   COM : VIEW     COM : HELLO    C  
+A: BYE      COM : W        COM
+A>b:
+B>dir
+B: CC2      COM : C        CCC : CC       COM : CLINK    COM
+B: DEFF2    CRL : DEFF     CRL : ED       COM : HELLO    C  
+B: HELLO    CRL : HELLO    COM : R        COM : W        COM
+B: INPUT    C   : INPUT    CRL : INPUT    COM : STRING   C  
+B: STRING   CRL : STRING   COM : ARGS     C   : ARGS     CRL
+B: ARGS     COM : CALC     C   : CALC     CRL : CALC     COM
+B>
+B>
+B>
+B>
+B>
+B>

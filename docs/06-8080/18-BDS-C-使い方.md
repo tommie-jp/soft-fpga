@@ -73,6 +73,7 @@ Hello, CP/M!
 ### 3.1 Hello, CP/M!（ディスク収録済み）
 
 ```c
+/* HELLO.C */
 main()
 {
     printf("Hello, CP/M!\n");
@@ -84,11 +85,12 @@ main()
 ### 3.2 文字入出力
 
 ```c
+/* INPUT.C */
 main()
 {
     int c;
     printf("Name: ");
-    while ((c = getchar()) != '\r')   /* CP/M は CR で行末 */
+    while ((c = getchar()) != '\n')   /* BDS C getchar() returns '\n', not '\r' */
         putchar(c);
     putchar('\n');
 }
@@ -97,6 +99,7 @@ main()
 ### 3.3 文字列操作
 
 ```c
+/* STRING.C */
 main()
 {
     char buf[64];
@@ -115,6 +118,7 @@ main()
 ### 3.4 コマンドライン引数
 
 ```c
+/* ARGS.C */
 main(argc, argv)
 int argc;
 char *argv[];
@@ -129,6 +133,7 @@ char *argv[];
 ### 3.5 簡易電卓
 
 ```c
+/* CALC.C */
 main()
 {
     int a, b;
@@ -163,7 +168,7 @@ main()
 | プロトタイプ | 関数宣言省略可（K&R スタイル） |
 | `char` | デフォルトで **unsigned** |
 | 浮動小数点 | DEFF2.CRL が必要。精度は単精度相当 |
-| 行末 | CP/M は `\r\n`。`getchar()` は `\r`(0x0D) を返す |
+| 行末 | CP/M は `\r\n`。`getchar()` は BDOS fn10 経由で `\n`(0x0A) を返す（`\r` は除去される） |
 | スタック | 約 4KB。深い再帰は不可 |
 | `int` サイズ | 16 ビット（−32768 〜 32767） |
 

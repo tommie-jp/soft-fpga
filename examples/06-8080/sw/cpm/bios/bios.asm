@@ -112,7 +112,8 @@ WBOOT:
     xor a
     out (PORT_WBOOT), a
 
-    ld  c, 0
+    ld  a, (0x0004)     ; CCP が保存した現在ドライブ番号を継承
+    ld  c, a
     call SELDSK
     jp  CCP_BASE + 3    ; ウォームエントリ: ディスク再読み込みをスキップ
 

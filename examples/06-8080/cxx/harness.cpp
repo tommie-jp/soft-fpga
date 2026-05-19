@@ -17,6 +17,7 @@
 #include <cstring>
 #include <stdint.h>
 #include <string>
+#include <chrono>
 
 static Vcpm_top* top;
 
@@ -46,20 +47,37 @@ static const int DISK_BYTES = 77 * 26 * 128;
 static uint8_t   disk_image[N_DRIVES][DISK_BYTES];
 static int       disk_size[N_DRIVES];
 static int       cur_drive   = 0;
+static bool      disk_dirty[N_DRIVES];     // WRITE が発生したドライブを記録
+static bool      disk_readonly[N_DRIVES];  // 読み取り専用フラグ (--ro)
 
 // ディスクアクセス状態
 static int       disk_track  = 0;
 static int       disk_sector = 0;
 static uint16_t  disk_dma    = 0x0080;
 
-// WBOOT 時に CCP を復元するための保存イメージ (0xDC00-0xE3FF = 2KB)
-static uint8_t   saved_ccp[0x0800];
+// WBOOT 時に CCP+BDOS を復元するための保存イメージ (0xDC00-0xF1FF = 5.5KB)
+// BDS C 起動コードは SP=BDOS+6=$E406 にセットするため、CALL スタックが
+// $E400-$E405 (BDOS 先頭) を上書きする。実機 CP/M は WBOOT で CCP+BDOS を
+// ディスクから再読み込みするため、ここでも同じ範囲を復元する。
+static uint8_t   saved_ccp[0x1600];
 
 // 前回の io_req 値 (立ち上がり検出用)
 static uint8_t   prev_io_req = 0;
 // IN 命令の二重読み取りを防ぐため、前回の io_active && io_dbin 状態を保持
 static bool      prev_io_in_active = false;
 
+
+// サイクルカウンタ (T ステート)
+// OUT 30h でリセット。IN 30h でラッチ＆bits 0-7 取得。IN 31h-33h で残バイト取得。
+static uint32_t  cycle_count = 0;
+static uint32_t  cycle_latch = 0;
+
+// 等価クロック周波数計測 (Hz 精度)
+// OUT 34h: タイマー開始  OUT 38h: 計算＆ラッチ
+// IN 34h/35h: 総 MHz  IN 36h: kHz 端数 0-999  IN 37h: Hz 端数 0-999
+static std::chrono::steady_clock::time_point freq_start_tp;
+static uint32_t  freq_start_cyc = 0;
+static uint64_t  freq_latch_hz  = 0;
 
 // ポート $A1h: ホストファイル転送状態（R.COM / W.COM 用）
 static FILE*     host_file      = nullptr;
@@ -80,7 +98,7 @@ static void load_cpm_image(
     if (cpm_bin && cpm_size > 0)
         memcpy(mem + 0xDC00, cpm_bin, cpm_size);
 
-    // WBOOT 用に CCP 部分 (0xDC00-0xE3FF) を保存
+    // WBOOT 用に CCP+BDOS (0xDC00-0xF1FF) を保存
     memcpy(saved_ccp, mem + 0xDC00, sizeof(saved_ccp));
 
     // BIOS を $F200 に配置
@@ -126,7 +144,7 @@ static void handle_io(uint8_t port, bool is_write, uint8_t data)
             con_out_buf[con_out_tail & 1023] = data;
             con_out_tail++;
             break;
-        case 0x20: // WBOOT: CCP を初期イメージから復元
+        case 0x20: // WBOOT: CCP+BDOS を初期イメージから復元
             for (int i = 0; i < (int)sizeof(saved_ccp); i++)
                 top->cpm_top->ram[0xDC00 + i] = saved_ccp[i];
             break;
@@ -137,8 +155,11 @@ static void handle_io(uint8_t port, bool is_write, uint8_t data)
                 for (int j = 0; j < 128 && offset + j < (uint32_t)disk_size[cur_drive]; j++)
                     top->cpm_top->ram[(disk_dma + j) & 0xFFFF] = disk_image[cur_drive][offset + j];
             } else { // WRITE: RAM → disk
-                for (int j = 0; j < 128 && offset + j < (uint32_t)disk_size[cur_drive]; j++)
-                    disk_image[cur_drive][offset + j] = top->cpm_top->ram[(disk_dma + j) & 0xFFFF];
+                if (!disk_readonly[cur_drive]) {
+                    for (int j = 0; j < 128 && offset + j < (uint32_t)disk_size[cur_drive]; j++)
+                        disk_image[cur_drive][offset + j] = top->cpm_top->ram[(disk_dma + j) & 0xFFFF];
+                    disk_dirty[cur_drive] = true;
+                }
             }
             break;
         }
@@ -149,6 +170,19 @@ static void handle_io(uint8_t port, bool is_write, uint8_t data)
             break;
         case 0x13: disk_dma    = (disk_dma & 0xFF00) | data; break;
         case 0x14: disk_dma    = (disk_dma & 0x00FF) | (data << 8); break;
+        case 0x30: cycle_count = 0; cycle_latch = 0; break;  // reset counter
+        case 0x34:  // freq_start: ウォールクロック + サイクルカウンタを記録
+            freq_start_tp  = std::chrono::steady_clock::now();
+            freq_start_cyc = cycle_count;
+            break;
+        case 0x38: {  // freq_latch: 経過時間を計算して Hz を確定
+            auto now = std::chrono::steady_clock::now();
+            auto ns  = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                           now - freq_start_tp).count();
+            uint64_t dc = (uint64_t)(cycle_count - freq_start_cyc);
+            freq_latch_hz = (ns > 0) ? (dc * 1000000000ULL / (uint64_t)ns) : 0;
+            break;
+        }
         case 0xA1: { // ホストファイル転送（R.COM / W.COM）
             // r.com / w.com は C レジスタに BDOS 関数番号をセットして ~C を OUT する
             uint8_t cmd = (uint8_t)(~data);
@@ -234,6 +268,14 @@ static uint8_t read_io(uint8_t port)
         return (con_in_head != con_in_tail) ? 1 : 0;
     case 0x10: // DSTS: 常に OK
         return 0;
+    case 0x30: cycle_latch = cycle_count; return (uint8_t)(cycle_latch        & 0xFF);
+    case 0x31:                            return (uint8_t)((cycle_latch >>  8) & 0xFF);
+    case 0x32:                            return (uint8_t)((cycle_latch >> 16) & 0xFF);
+    case 0x33:                            return (uint8_t)((cycle_latch >> 24) & 0xFF);
+    case 0x34: return (uint8_t)( (freq_latch_hz / 1000000)          & 0xFF);  // MHz lo
+    case 0x35: return (uint8_t)(((freq_latch_hz / 1000000) >>  8)  & 0xFF);  // MHz hi
+    case 0x36: return (uint8_t)(((freq_latch_hz % 1000000) / 1000) & 0xFF);  // kHz 端数 0-999
+    case 0x37: return (uint8_t)( (freq_latch_hz % 1000)            & 0xFF);  // Hz 端数 0-999
     case 0xA1: // ホストファイル転送結果（R.COM / W.COM）
         return last_a1_result;
     }
@@ -290,11 +332,16 @@ int sim_init(const char* bios_path, const char* cpm_path, const char* dsk_path)
     con_out_head = con_out_tail = 0;
     ring_head = 0;
     cur_drive = 0;
+    memset(disk_dirty,    0, sizeof(disk_dirty));
+    memset(disk_readonly, 0, sizeof(disk_readonly));
     disk_track = 0; disk_sector = 0; disk_dma = 0x0080;
     prev_io_req      = 0;
     prev_io_in_active = false;
     if (host_file) { fclose(host_file); host_file = nullptr; }
     last_a1_result = 0x00;
+    cycle_count = 0; cycle_latch = 0;
+    freq_start_tp  = std::chrono::steady_clock::now();
+    freq_start_cyc = 0; freq_latch_hz  = 0;
 
     if (top) { top->final(); delete top; }
     top = new Vcpm_top;
@@ -324,6 +371,7 @@ void step()
 
     top->clk = 0; top->eval();
     top->clk = 1; top->eval();
+    cycle_count++;
 
     // IO 要求の立ち上がりで OUT 処理
     if (top->io_req && top->io_wr)
@@ -524,6 +572,13 @@ EMSCRIPTEN_KEEPALIVE uint32_t* get_ring_ptr()  { return ring; }
 EMSCRIPTEN_KEEPALIVE uint32_t  get_head()       { return ring_head; }
 EMSCRIPTEN_KEEPALIVE int       get_ring_size()  { return RING_SIZE; }
 
+EMSCRIPTEN_KEEPALIVE int      sim_get_cur_drive()   { return cur_drive; }
+EMSCRIPTEN_KEEPALIVE int      sim_get_disk_track()  { return disk_track; }
+EMSCRIPTEN_KEEPALIVE int      sim_get_disk_sector() { return disk_sector; }
+EMSCRIPTEN_KEEPALIVE uint16_t sim_get_disk_dma()    { return disk_dma; }
+EMSCRIPTEN_KEEPALIVE int      sim_con_in_space()     { return 255 - (con_in_tail - con_in_head); }
+EMSCRIPTEN_KEEPALIVE uint32_t sim_get_cycle_count() { return cycle_count; }
+
 // WASM 用ラッパー: JS から const char* を直接渡せないため埋め込みパスを使用
 EMSCRIPTEN_KEEPALIVE
 int sim_init_wasm() {
@@ -549,6 +604,48 @@ int sim_init_disk(int disk_id) {
             fclose(f);
         }
     }
+    return 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+const uint8_t* sim_get_disk_ptr(int drive) {
+    if (drive < 0 || drive >= N_DRIVES) return nullptr;
+    return disk_image[drive];
+}
+
+EMSCRIPTEN_KEEPALIVE
+int sim_get_disk_size(int drive) { (void)drive; return DISK_BYTES; }
+
+EMSCRIPTEN_KEEPALIVE
+void sim_clear_disk_dirty(int drive) {
+    if (drive >= 0 && drive < N_DRIVES) disk_dirty[drive] = false;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void sim_set_disk_readonly(int drive, bool ro)
+{
+    if (drive >= 0 && drive < N_DRIVES) disk_readonly[drive] = ro;
+}
+
+EMSCRIPTEN_KEEPALIVE
+bool sim_get_disk_dirty(int drive)
+{
+    return (drive >= 0 && drive < N_DRIVES) && disk_dirty[drive];
+}
+
+EMSCRIPTEN_KEEPALIVE
+int sim_save_disk(int drive, const char* path)
+{
+    if (drive < 0 || drive >= N_DRIVES) return -1;
+    FILE* f = fopen(path, "wb");
+    if (!f) { fprintf(stderr, "cannot save disk[%d]: %s\n", drive, path); return -1; }
+    size_t n = fwrite(disk_image[drive], 1, DISK_BYTES, f);
+    fclose(f);
+    if (n != (size_t)DISK_BYTES) {
+        fprintf(stderr, "disk[%d] write incomplete: %s\n", drive, path);
+        return -1;
+    }
+    disk_dirty[drive] = false;
     return 0;
 }
 
