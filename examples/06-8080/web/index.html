@@ -12,6 +12,9 @@
     button:hover { background:#3a3a3a; }
     label { font-size:12px; color:#aaa; }
     canvas { display:block; border:1px solid #333; }
+    .disk-sel { margin-bottom:10px; display:flex; gap:20px; align-items:center; flex-wrap:wrap; }
+    .disk-sel label { cursor:pointer; font-size:13px; color:#ccc; display:flex; align-items:center; gap:6px; }
+    .disk-sel input { accent-color:#888; cursor:pointer; width:14px; height:14px; }
     .main-row { display:flex; gap:12px; align-items:flex-start; margin-bottom:8px; }
     #terminal-wrap { border:1px solid #444; flex-shrink:0; }
     #reg-panel {
@@ -28,6 +31,13 @@
   <h2>06 — Intel 8080 / CP/M 2.2 RTL Simulator</h2>
 
   <p style="font-size:12px;color:#888;margin:0 0 8px;">vm80a (デキャップ起こし RTL) → Verilator → WASM &nbsp;|&nbsp; CP/M 2.2 + カスタム BIOS</p>
+
+  <!-- ディスクセレクター -->
+  <div class="disk-sel">
+    <label><input type="radio" name="disk" value="0" checked> CP/M 標準 (ユーティリティ + MBASIC)</label>
+    <label><input type="radio" name="disk" value="1"> BDS C (CC + CLINK + DEFF)</label>
+    <label><input type="radio" name="disk" value="2"> ブランク (空フォーマット)</label>
+  </div>
 
   <div class="controls">
     <button id="btn-run">Pause</button>
@@ -157,16 +167,24 @@
       });
 
       function drainDisplay() {
+        let out = '';
         let ch;
         while ((ch = Module._get_display_char()) !== -1) {
-          term.write(String.fromCharCode(ch & 0x7F));
+          out += String.fromCharCode(ch & 0x7F);
         }
+        if (out) term.write(out);
       }
 
       function loop() {
         if (running) {
           const steps = parseInt(document.getElementById('speed').value);
-          for (let i = 0; i < steps; i++) Module._step();
+          try {
+            for (let i = 0; i < steps; i++) Module._step();
+          } catch (e) {
+            console.error('[WASM] step() threw:', e);
+            running = false;
+            document.getElementById('btn-run').textContent = 'Run';
+          }
         }
         drainDisplay();
 
@@ -176,6 +194,8 @@
         document.getElementById('cycle-info').textContent =
           (Module._get_head() >>> 0).toLocaleString() + ' cycles';
 
+        // ALLOW_MEMORY_GROWTH=1 のとき WASM ヒープ拡張で Module.HEAPU32 が
+        // detach されることがあるため、毎フレーム参照を取り直す
         drawLA(laCtx, Module.HEAPU32, ringBase, Module._get_head() >>> 0, RING_SIZE);
         requestAnimationFrame(loop);
       }
@@ -186,11 +206,22 @@
       });
 
       document.getElementById('btn-reset').addEventListener('click', function () {
-        Module._sim_init_wasm();
+        const diskId = parseInt(document.querySelector('input[name="disk"]:checked').value);
+        Module._sim_init_disk(diskId);
         running = false;
         document.getElementById('btn-run').textContent = 'Run';
         term.reset();
         term.focus();
+      });
+
+      document.querySelectorAll('input[name="disk"]').forEach(function (radio) {
+        radio.addEventListener('change', function () {
+          Module._sim_init_disk(parseInt(this.value));
+          running = false;
+          document.getElementById('btn-run').textContent = 'Run';
+          term.reset();
+          term.focus();
+        });
       });
 
       term.focus();

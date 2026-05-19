@@ -4,13 +4,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$SCRIPT_DIR/.."
 EXAMPLE="$ROOT/examples/06-8080"
-OBJ_DIR="$ROOT/obj_dir_06"
+OBJ_DIR="$ROOT/obj_dir_06_wasm"
 VERILATOR_ROOT="${VERILATOR_ROOT:-$(verilator --getenv VERILATOR_ROOT)}"
 
 VERILATED_CPP="$ROOT/cxx/verilated.cpp"
-if [ ! -f "$VERILATED_CPP" ]; then
-    cp "$VERILATOR_ROOT/include/verilated.cpp" "$VERILATED_CPP"
-fi
+# Verilator バージョンと obj_dir の生成コードを常に合わせるため上書きコピーする
+cp "$VERILATOR_ROOT/include/verilated.cpp" "$VERILATED_CPP"
 WASM_COMPAT="$ROOT/cxx/wasm_compat.h"
 
 # source emsdk if em++ not in PATH
@@ -51,7 +50,9 @@ em++ $COMMON_FLAGS \
     -o "$OBJ_DIR/verilated.wasm.o"
 
 BIOS="$EXAMPLE/sw/cpm/bios/bios.bin"
+CPM="$EXAMPLE/rom/cpm22.bin"
 DSK="$EXAMPLE/sw/cpm/disks/cpm22.dsk"
+BDSC="$EXAMPLE/sw/cpm/disks/bdsc.dsk"
 
 echo "=== Emscripten: link ==="
 # __Dpi.cpp は vm80a が DPI を使わないため不要。除外しないと svdpi.h の uint8_t エラーになる。
@@ -62,8 +63,10 @@ em++ $COMMON_FLAGS \
     "$OBJ_DIR/verilated.wasm.o" \
     "$EXAMPLE/cxx/harness.cpp" \
     --embed-file "$BIOS@/bios.bin" \
+    --embed-file "$CPM@/cpm22.bin" \
     --embed-file "$DSK@/cpm22.dsk" \
-    -s EXPORTED_FUNCTIONS='["_sim_init","_sim_init_wasm","_step","_send_key","_get_display_char","_get_pc","_sim_read_byte","_load_disk","_sim_test","_sim_run_bare","_get_ring_ptr","_get_head","_get_ring_size"]' \
+    --embed-file "$BDSC@/bdsc.dsk" \
+    -s EXPORTED_FUNCTIONS='["_sim_init","_sim_init_wasm","_sim_init_disk","_step","_send_key","_get_display_char","_get_pc","_sim_read_byte","_load_disk","_load_disk_drive","_sim_load_disk_file","_sim_test","_sim_run_bare","_get_ring_ptr","_get_head","_get_ring_size"]' \
     -s EXPORTED_RUNTIME_METHODS='["HEAPU32"]' \
     -s ALLOW_MEMORY_GROWTH=1 \
     -s EXIT_RUNTIME=0 \

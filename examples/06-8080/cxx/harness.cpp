@@ -39,9 +39,13 @@ static uint8_t   con_out_buf[1024];
 static int       con_out_head = 0;
 static int       con_out_tail = 0;
 
-// ディスクイメージ (最大 2 MB — DSK ファイルをここに展開)
-static uint8_t   disk_image[2 * 1024 * 1024];
-static int       disk_size   = 0;
+// マルチドライブディスクイメージ (IBM 3740 SSSD: 77×26×128 = 256,256 bytes/ドライブ)
+static const int N_DRIVES   = 4;
+static const int DISK_BYTES = 77 * 26 * 128;
+
+static uint8_t   disk_image[N_DRIVES][DISK_BYTES];
+static int       disk_size[N_DRIVES];
+static int       cur_drive   = 0;
 
 // ディスクアクセス状態
 static int       disk_track  = 0;
@@ -55,6 +59,7 @@ static uint8_t   saved_ccp[0x0800];
 static uint8_t   prev_io_req = 0;
 // IN 命令の二重読み取りを防ぐため、前回の io_active && io_dbin 状態を保持
 static bool      prev_io_in_active = false;
+
 
 // ポート $A1h: ホストファイル転送状態（R.COM / W.COM 用）
 static FILE*     host_file      = nullptr;
@@ -127,18 +132,21 @@ static void handle_io(uint8_t port, bool is_write, uint8_t data)
             break;
         case 0x10: { // DCMD: ディスクコマンド
             // disk_sector は BIOS SECTRAN が返す物理セクタ番号 (0-indexed, 0-25)
-            uint32_t offset = (disk_track * 26 + disk_sector) * 128;
+            uint32_t offset = (uint32_t)(disk_track * 26 + disk_sector) * 128;
             if (data == 0) { // READ: disk → RAM
-                for (int j = 0; j < 128 && offset + j < (uint32_t)disk_size; j++)
-                    top->cpm_top->ram[(disk_dma + j) & 0xFFFF] = disk_image[offset + j];
+                for (int j = 0; j < 128 && offset + j < (uint32_t)disk_size[cur_drive]; j++)
+                    top->cpm_top->ram[(disk_dma + j) & 0xFFFF] = disk_image[cur_drive][offset + j];
             } else { // WRITE: RAM → disk
-                for (int j = 0; j < 128 && offset + j < (uint32_t)disk_size; j++)
-                    disk_image[offset + j] = top->cpm_top->ram[(disk_dma + j) & 0xFFFF];
+                for (int j = 0; j < 128 && offset + j < (uint32_t)disk_size[cur_drive]; j++)
+                    disk_image[cur_drive][offset + j] = top->cpm_top->ram[(disk_dma + j) & 0xFFFF];
             }
             break;
         }
         case 0x11: disk_track  = data;          break;
         case 0x12: disk_sector = data;          break;
+        case 0x15: // DDRV: ドライブ選択 (BIOS SELDSK から通知)
+            cur_drive = (data < N_DRIVES) ? (int)data : 0;
+            break;
         case 0x13: disk_dma    = (disk_dma & 0xFF00) | data; break;
         case 0x14: disk_dma    = (disk_dma & 0x00FF) | (data << 8); break;
         case 0xA1: { // ホストファイル転送（R.COM / W.COM）
@@ -263,14 +271,32 @@ int sim_init(const char* bios_path, const char* cpm_path, const char* dsk_path)
         fclose(f);
     }
 
-    // DSK
+    // ディスク — 全ドライブをブランク (IBM 3740 初期値: 0xE5) で初期化
+    memset(disk_image, 0xE5, sizeof(disk_image));
+    for (int i = 0; i < N_DRIVES; i++)
+        disk_size[i] = DISK_BYTES;
+
+    // ドライブ A にディスクイメージをロード
     if (dsk_path) {
         FILE* f = fopen(dsk_path, "rb");
         if (!f) { fprintf(stderr, "cannot open DSK: %s\n", dsk_path); return -1; }
-        disk_size = (int)fread(disk_image, 1, sizeof(disk_image), f);
+        if (fread(disk_image[0], 1, DISK_BYTES, f) == 0)
+            fprintf(stderr, "warning: DSK read 0 bytes: %s\n", dsk_path);
         fclose(f);
     }
 
+    // I/O バッファ・ディスクアクセス状態をリセット
+    con_in_head  = con_in_tail  = 0;
+    con_out_head = con_out_tail = 0;
+    ring_head = 0;
+    cur_drive = 0;
+    disk_track = 0; disk_sector = 0; disk_dma = 0x0080;
+    prev_io_req      = 0;
+    prev_io_in_active = false;
+    if (host_file) { fclose(host_file); host_file = nullptr; }
+    last_a1_result = 0x00;
+
+    if (top) { top->final(); delete top; }
     top = new Vcpm_top;
 
     // リセット前に RAM を配置
@@ -341,11 +367,31 @@ uint8_t sim_read_byte(uint16_t addr)
 }
 
 EMSCRIPTEN_KEEPALIVE
+void load_disk_drive(int drive, const uint8_t* data, int size)
+{
+    if (drive < 0 || drive >= N_DRIVES) return;
+    if (size > DISK_BYTES) size = DISK_BYTES;
+    memcpy(disk_image[drive], data, size);
+    disk_size[drive] = size;
+}
+
+EMSCRIPTEN_KEEPALIVE
 void load_disk(const uint8_t* data, int size)
 {
-    if (size > (int)sizeof(disk_image)) size = sizeof(disk_image);
-    memcpy(disk_image, data, size);
-    disk_size = size;
+    load_disk_drive(0, data, size);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int sim_load_disk_file(int drive, const char* path)
+{
+    if (drive < 0 || drive >= N_DRIVES) return -1;
+    FILE* f = fopen(path, "rb");
+    if (!f) { fprintf(stderr, "cannot open disk[%d]: %s\n", drive, path); return -1; }
+    if (fread(disk_image[drive], 1, DISK_BYTES, f) == 0 && !feof(f))
+        fprintf(stderr, "disk[%d] read error: %s\n", drive, path);
+    disk_size[drive] = DISK_BYTES;
+    fclose(f);
+    return 0;
 }
 
 // ------------------------------------------------------------------
@@ -481,7 +527,29 @@ EMSCRIPTEN_KEEPALIVE int       get_ring_size()  { return RING_SIZE; }
 // WASM 用ラッパー: JS から const char* を直接渡せないため埋め込みパスを使用
 EMSCRIPTEN_KEEPALIVE
 int sim_init_wasm() {
-    return sim_init("/bios.bin", nullptr, "/cpm22.dsk");
+    return sim_init("/bios.bin", "/cpm22.bin", "/cpm22.dsk");
+}
+
+// ディスク構成付きリセット
+// disk_id=0: A:=cpm22.dsk, B:-D:=ブランク
+// disk_id=1: A:=cpm22.dsk, B:=bdsc.dsk, C:-D:=ブランク
+// disk_id=2: A:-D:=ブランク
+EMSCRIPTEN_KEEPALIVE
+int sim_init_disk(int disk_id) {
+    if (disk_id == 2) {
+        return sim_init("/bios.bin", "/cpm22.bin", nullptr);
+    }
+    int r = sim_init("/bios.bin", "/cpm22.bin", "/cpm22.dsk");
+    if (r != 0) return r;
+    if (disk_id == 1) {
+        FILE* f = fopen("/bdsc.dsk", "rb");
+        if (f) {
+            if (fread(disk_image[1], 1, DISK_BYTES, f) == 0)
+                fprintf(stderr, "warning: bdsc.dsk read 0 bytes\n");
+            fclose(f);
+        }
+    }
+    return 0;
 }
 
 } // extern "C"

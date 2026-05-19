@@ -34,7 +34,10 @@ PORT_DTRK:   equ 0x11
 PORT_DSEC:   equ 0x12
 PORT_DDMA_L: equ 0x13
 PORT_DDMA_H: equ 0x14
+PORT_DDRV:   equ 0x15   ; ドライブ番号 (0=A, 1=B, 2=C, 3=D)
 PORT_WBOOT:  equ 0x20   ; WBOOT 信号: ハーネスに CCP 再ロードを要求
+
+N_DRIVES:    equ 4
 
     org BIOS_BASE
 
@@ -199,9 +202,18 @@ SETTRK:
 SELDSK:
     ld  a, c
     ld  (CUR_DRV), a
-    or  a
-    jp  nz, SELDSK_ERR
-    ld  hl, DPH_A
+    out (PORT_DDRV), a      ; ハーネスにドライブ番号を通知
+    cp  N_DRIVES
+    jp  nc, SELDSK_ERR
+    ld  hl, DPH_TABLE
+    ld  b, 0
+    ld  e, c
+    add hl, de
+    add hl, de              ; HL = DPH_TABLE + drive*2
+    ld  e, (hl)
+    inc hl
+    ld  d, (hl)
+    ex  de, hl              ; HL = DPH アドレス
     ret
 SELDSK_ERR:
     ld  hl, 0
@@ -262,6 +274,15 @@ SECTRAN:
     ret
 
 ; ==============================================================
+; DPH テーブル — ドライブ A-D (各エントリ 2 バイト LE ポインタ)
+; ==============================================================
+DPH_TABLE:
+    defw DPH_A
+    defw DPH_B
+    defw DPH_C
+    defw DPH_D
+
+; ==============================================================
 ; DPH — ドライブ A
 ; ==============================================================
 DPH_A:
@@ -269,10 +290,43 @@ DPH_A:
     defw 0          ; scratch 1
     defw 0          ; scratch 2
     defw 0          ; scratch 3
-    defw DIR_BUF    ; DIRBUF
-    defw DPB_A      ; DPB
+    defw DIR_BUF    ; DIRBUF (全ドライブ共用 — 同時アクセスなし)
+    defw DPB_A      ; DPB    (全ドライブ共用 — 同一フォーマット)
     defw CSV_A      ; CSV
     defw ALV_A      ; ALV
+
+; DPH — ドライブ B
+DPH_B:
+    defw SKEW_TABLE
+    defw 0
+    defw 0
+    defw 0
+    defw DIR_BUF
+    defw DPB_A
+    defw CSV_B
+    defw ALV_B
+
+; DPH — ドライブ C
+DPH_C:
+    defw SKEW_TABLE
+    defw 0
+    defw 0
+    defw 0
+    defw DIR_BUF
+    defw DPB_A
+    defw CSV_C
+    defw ALV_C
+
+; DPH — ドライブ D
+DPH_D:
+    defw SKEW_TABLE
+    defw 0
+    defw 0
+    defw 0
+    defw DIR_BUF
+    defw DPB_A
+    defw CSV_D
+    defw ALV_D
 
 ; ==============================================================
 ; DPB — 標準 8インチ SSSD
@@ -302,4 +356,10 @@ SKEW_TABLE:
 ; ==============================================================
 DIR_BUF: defs 128
 CSV_A:   defs 16
+CSV_B:   defs 16
+CSV_C:   defs 16
+CSV_D:   defs 16
 ALV_A:   defs 31
+ALV_B:   defs 31
+ALV_C:   defs 31
+ALV_D:   defs 31

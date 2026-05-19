@@ -13,6 +13,7 @@
 
 extern "C" {
     int      sim_init(const char* bios_path, const char* cpm_path, const char* dsk_path);
+    int      sim_load_disk_file(int drive, const char* path);
     void     step();
     void     send_key(uint8_t ch);
     int      get_display_char();
@@ -63,16 +64,22 @@ int main(int argc, char* argv[]) {
     std::string bios_def     = def("sw/cpm/bios/bios.bin");
     std::string cpm_def      = def("rom/cpm22.bin");
     std::string dsk_def      = def("sw/cpm/disks/cpm22.dsk");
+    std::string dsk_b_def    = def("sw/cpm/disks/bdsc.dsk");
     std::string run_test_def = def("test/test_all.bin");
 
     const char* DEFAULT_BIOS     = bios_def.c_str();
     const char* DEFAULT_CPM      = cpm_def.c_str();
     const char* DEFAULT_DSK      = dsk_def.c_str();
+    const char* DEFAULT_DSK_B    = dsk_b_def.c_str();
     const char* DEFAULT_RUN_TEST = run_test_def.c_str();
 
     const char* bios_path    = DEFAULT_BIOS;
     const char* cpm_path     = DEFAULT_CPM;
     const char* dsk_path     = DEFAULT_DSK;
+    const char* dsk_b_path   = DEFAULT_DSK_B;
+    const char* dsk_c_path   = nullptr;
+    const char* dsk_d_path   = nullptr;
+    bool        dsk_b_explicit = false;
 
     bool        run_test         = false;
     bool        boot_test        = false;
@@ -84,30 +91,35 @@ int main(int argc, char* argv[]) {
     for (int i = 1; i < argc; i++) {
         if      (!strcmp(argv[i], "-h") || !strcmp(argv[i], "--help")) {
             fprintf(stdout,
-                "使い方: cpm [オプション]\n"
+                "soft-FPGA CP/M 2.2 Simulator  (C) 2026 tommie.jp  https://github.com/tommie-jp/soft-fpga\n"
                 "\n"
-                "動作モード（省略時: 対話型 CP/M 起動）:\n"
-                "  -h, --help               このヘルプを表示して終了\n"
-                "  --test                   ハーネス内蔵スモークテスト (MVI+OUT+HLT)\n"
-                "  --boot-test              CP/M ブートテスト (A> プロンプト検出)\n"
-                "  --run-test [file]        ベアメタルバイナリを実行して P/F 判定\n"
-                "                           (省略時の既定: <binary>/../test/test_all.bin)\n"
-                "  --bare-test <file>       ベアメタルバイナリを実行 (長時間タイムアウト)\n"
-                "  --exec <cmd>             CP/M 起動後にコマンドを実行し出力を表示\n"
+                "Usage: cpm [options]\n"
                 "\n"
-                "ファイル指定（省略時はデフォルトパスを使用）:\n"
-                "  --bios <path>            BIOS バイナリ        (既定: <binary>/../sw/cpm/bios/bios.bin)\n"
-                "  --cpm  <path>            CCP+BDOS バイナリ    (既定: <binary>/../rom/cpm22.bin)\n"
-                "  --disk <path>            DSK イメージ         (既定: <binary>/../sw/cpm/disks/cpm22.dsk)\n"
+                "Modes (default: interactive CP/M):\n"
+                "  -h, --help               Show this help and exit\n"
+                "  --test                   Harness smoke test (MVI+OUT+HLT)\n"
+                "  --boot-test              CP/M boot test (detect A> prompt)\n"
+                "  --run-test [file]        Run bare-metal binary and report pass/fail\n"
+                "                           (default: <binary>/../test/test_all.bin)\n"
+                "  --bare-test <file>       Run bare-metal binary (extended timeout)\n"
+                "  --exec <cmd>             Boot CP/M, run command, print output\n"
                 "\n"
-                "使用例:\n"
-                "  cpm                                  対話型 CP/M\n"
-                "  cpm --test                           スモークテスト\n"
-                "  cpm --boot-test                      ブートテスト\n"
-                "  cpm --run-test                       命令テストスイート実行\n"
-                "  cpm --exec 8080EX1                   CPU エクササイザ実行\n"
-                "  cpm --exec DIR                       DIR コマンド実行\n"
-                "  cpm --bare-test prog.bin             ベアメタルテスト実行\n");
+                "File options (defaults resolved relative to binary):\n"
+                "  --bios <path>            BIOS binary     (default: <binary>/../sw/cpm/bios/bios.bin)\n"
+                "  --cpm  <path>            CCP+BDOS binary (default: <binary>/../rom/cpm22.bin)\n"
+                "  --disk <path>            Drive A: image  (default: <binary>/../sw/cpm/disks/cpm22.dsk)\n"
+                "  --disk-b <path>          Drive B: image  (default: blank)\n"
+                "  --disk-c <path>          Drive C: image  (default: blank)\n"
+                "  --disk-d <path>          Drive D: image  (default: blank)\n"
+                "\n"
+                "Examples:\n"
+                "  cpm                                  Interactive CP/M\n"
+                "  cpm --test                           Smoke test\n"
+                "  cpm --boot-test                      Boot test\n"
+                "  cpm --run-test                       Run instruction test suite\n"
+                "  cpm --exec 8080EX1                   Run CPU exerciser\n"
+                "  cpm --exec DIR                       Run DIR command\n"
+                "  cpm --bare-test prog.bin             Run bare-metal test\n");
             return 0;
         }
         else if (!strcmp(argv[i], "--test"))       run_test     = true;
@@ -120,10 +132,18 @@ int main(int argc, char* argv[]) {
         else if (!strcmp(argv[i], "--exec")      && i+1<argc)  exec_cmd  = argv[++i];
         else if (!strcmp(argv[i], "--bare-test") && i+1<argc)  bare_test = argv[++i];
         else if (!strcmp(argv[i], "--ddt-ctrlc-test")) ddt_ctrlc_test = true;
-        else if (!strcmp(argv[i], "--bios")      && i+1<argc)  bios_path = argv[++i];
-        else if (!strcmp(argv[i], "--cpm")       && i+1<argc)  cpm_path  = argv[++i];
-        else if (!strcmp(argv[i], "--disk")      && i+1<argc)  dsk_path  = argv[++i];
+        else if (!strcmp(argv[i], "--bios")      && i+1<argc)  bios_path  = argv[++i];
+        else if (!strcmp(argv[i], "--cpm")       && i+1<argc)  cpm_path   = argv[++i];
+        else if (!strcmp(argv[i], "--disk")      && i+1<argc)  dsk_path   = argv[++i];
+        else if (!strcmp(argv[i], "--disk-b")    && i+1<argc) { dsk_b_path = argv[++i]; dsk_b_explicit = true; }
+        else if (!strcmp(argv[i], "--disk-c")    && i+1<argc)  dsk_c_path = argv[++i];
+        else if (!strcmp(argv[i], "--disk-d")    && i+1<argc)  dsk_d_path = argv[++i];
     }
+
+    // デフォルトの B: ディスク (bdsc.dsk) が存在しない場合は黙って B: ブランクにする。
+    // 明示指定 (--disk-b) の場合はファイルなしをエラーとする。
+    if (!dsk_b_explicit && dsk_b_path && access(dsk_b_path, R_OK) != 0)
+        dsk_b_path = nullptr;
 
     if (run_test) {
         int n = sim_test(100000);
@@ -132,6 +152,9 @@ int main(int argc, char* argv[]) {
 
     if (boot_test) {
         if (sim_init(bios_path, cpm_path, dsk_path) != 0) return 1;
+        if (dsk_b_path && sim_load_disk_file(1, dsk_b_path) != 0) return 1;
+        if (dsk_c_path && sim_load_disk_file(2, dsk_c_path) != 0) return 1;
+        if (dsk_d_path && sim_load_disk_file(3, dsk_d_path) != 0) return 1;
 
         char   output[8192] = {};
         int    out_pos       = 0;
@@ -171,6 +194,7 @@ int main(int argc, char* argv[]) {
     // stderr に [DBG] CONOUT '.' PC=... が出ればその PC が原因特定できる
     if (ddt_ctrlc_test) {
         if (sim_init(bios_path, cpm_path, dsk_path) != 0) return 1;
+        if (dsk_b_path && sim_load_disk_file(1, dsk_b_path) != 0) return 1;
 
         char output[65536] = {};
         int  out_pos = 0;
@@ -226,6 +250,9 @@ int main(int argc, char* argv[]) {
     // 終了条件: "Tests complete" が現れるか、無出力タイムアウト
     if (exec_cmd) {
         if (sim_init(bios_path, cpm_path, dsk_path) != 0) return 1;
+        if (dsk_b_path && sim_load_disk_file(1, dsk_b_path) != 0) return 1;
+        if (dsk_c_path && sim_load_disk_file(2, dsk_c_path) != 0) return 1;
+        if (dsk_d_path && sim_load_disk_file(3, dsk_d_path) != 0) return 1;
 
         char   output[524288] = {};  // 512KB 出力バッファ
         int    out_pos        = 0;
@@ -408,8 +435,21 @@ int main(int argc, char* argv[]) {
         restore_terminal();
         return 1;
     }
+    if (dsk_b_path && sim_load_disk_file(1, dsk_b_path) != 0) { restore_terminal(); return 1; }
+    if (dsk_c_path && sim_load_disk_file(2, dsk_c_path) != 0) { restore_terminal(); return 1; }
+    if (dsk_d_path && sim_load_disk_file(3, dsk_d_path) != 0) { restore_terminal(); return 1; }
 
-    fprintf(stderr, "[CP/M 2.2 simulator — 終了: Ctrl+\\]\n");
+    // パスからファイル名だけを取り出すヘルパー
+    auto dsk_name = [](const char* p) -> const char* {
+        if (!p) return "(blank)";
+        const char* s = strrchr(p, '/');
+        return s ? s + 1 : p;
+    };
+    fprintf(stderr, "soft-FPGA CP/M 2.2 Simulator  (C) 2026 tommie.jp  https://github.com/tommie-jp/soft-fpga\n");
+    fprintf(stderr, "[quit: Ctrl+\\]\n");
+    fprintf(stderr, "  A: %-16s B: %-16s C: %-16s D: %s\n",
+            dsk_name(dsk_path), dsk_name(dsk_b_path),
+            dsk_name(dsk_c_path), dsk_name(dsk_d_path));
 
     for (;;) {
         for (int i = 0; i < 1000; i++) step();
