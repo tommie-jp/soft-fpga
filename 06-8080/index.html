@@ -132,9 +132,14 @@
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;padding-bottom:4px;border-bottom:1px solid #ccc;">
         <span style="font-size:11px;color:#888;">WASM FS</span>
-        <button id="btn-save-fs" class="btn-dl" style="padding:1px 6px;font-size:10px;" title="Save WASM FS to IndexedDB">Save</button>
+        <div style="display:flex;gap:4px;">
+          <label class="btn-dl" style="padding:1px 6px;font-size:10px;cursor:pointer;" title="Upload files to WASM FS">
+            Upload<input id="fs-upload" type="file" multiple style="display:none;">
+          </label>
+          <button id="btn-save-fs" class="btn-dl" style="padding:1px 6px;font-size:10px;" title="Save WASM FS to IndexedDB">Save</button>
+        </div>
       </div>
-      <div id="drop-hint">Drop here → WASM FS &nbsp;|&nbsp; CP/M: <b>R filename</b></div>
+      <div id="drop-hint">Drop / Upload → WASM FS &nbsp;|&nbsp; CP/M: <b>R filename</b></div>
       <div id="drop-status"></div>
       <div id="fs-list"></div>
     </div>
@@ -736,7 +741,7 @@
         for (let d=0; d<4; d++) updateDirtyBtn(d);
       });
 
-      // ---- ファイルドロップ ----
+      // ---- ファイル書き込み（ドロップ・Upload 共通） ----
       var dropWrap   = document.getElementById('fs-list');
       var dropStatus = document.getElementById('drop-status');
       var dropFadeTimer = null;
@@ -749,19 +754,7 @@
         dropFadeTimer = setTimeout(function() { dropStatus.style.opacity = '0'; }, 4000);
       }
 
-      dropWrap.addEventListener('dragover', function(e) {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'copy';
-        dropWrap.classList.add('drop-active');
-      });
-      dropWrap.addEventListener('dragleave', function(e) {
-        if (!dropWrap.contains(e.relatedTarget))
-          dropWrap.classList.remove('drop-active');
-      });
-      dropWrap.addEventListener('drop', function(e) {
-        e.preventDefault();
-        dropWrap.classList.remove('drop-active');
-        var files = e.dataTransfer.files;
+      function writeFilesToFS(files) {
         if (!files.length) return;
         var msgs = [];
         var remaining = files.length;
@@ -785,6 +778,28 @@
             reader.readAsArrayBuffer(file);
           })(files[fi]);
         }
+      }
+
+      // ドロップ
+      dropWrap.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+        dropWrap.classList.add('drop-active');
+      });
+      dropWrap.addEventListener('dragleave', function(e) {
+        if (!dropWrap.contains(e.relatedTarget))
+          dropWrap.classList.remove('drop-active');
+      });
+      dropWrap.addEventListener('drop', function(e) {
+        e.preventDefault();
+        dropWrap.classList.remove('drop-active');
+        writeFilesToFS(e.dataTransfer.files);
+      });
+
+      // Upload ボタン（モバイル含む）
+      document.getElementById('fs-upload').addEventListener('change', function() {
+        writeFilesToFS(this.files);
+        this.value = ''; // 同じファイルを再選択可能にする
       });
 
       term.focus();
