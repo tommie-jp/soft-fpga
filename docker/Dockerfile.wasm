@@ -1,0 +1,22 @@
+FROM sfa-dev:local AS base
+
+# ターゲット: WebAssembly ビルド (Verilator + Emscripten)
+# ベースイメージ (sfa-dev:local) に Emscripten を追加する。
+
+USER root
+
+ARG EMSCRIPTEN_VERSION=5.0.7
+
+RUN git clone --depth 1 https://github.com/emscripten-core/emsdk.git /emsdk \
+    && /emsdk/emsdk install ${EMSCRIPTEN_VERSION} \
+    && /emsdk/emsdk activate ${EMSCRIPTEN_VERSION} \
+    && ln -s "$(find /emsdk/node -name 'node' -type f | head -1)" /usr/local/bin/node \
+    && chmod -R 755 /emsdk
+
+ENV EMSDK=/emsdk \
+    EM_CONFIG=/emsdk/.emscripten \
+    PATH="/emsdk/upstream/emscripten:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+USER 1000:1000
+WORKDIR /work
+CMD ["bash"]

@@ -47,5 +47,23 @@ services:
     entrypoint: ["scripts/_test-cocotb-inner.sh"]
     command: []
 
+  build-wasm:
+    # WASM ビルド (Verilator + Emscripten)。
+    # scripts/build-wasm-06.sh などを直接呼び出す。
+    image: sfa-dev-wasm:local
+    build:
+      context: .
+      dockerfile: Dockerfile.wasm
+      args:
+        USER_UID: ${USER_UID:-1000}
+        USER_GID: ${USER_GID:-1000}
+    volumes:
+      - ../:/work
+      - sfa-ccache:/ccache
+    working_dir: /work
+    init: true
+    entrypoint: ["bash", "-c"]
+    command: ["scripts/build-wasm-06.sh"]
+
 volumes:
   sfa-ccache:

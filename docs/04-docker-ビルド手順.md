@@ -104,12 +104,45 @@ USER_UID="$(id -u)" USER_GID="$(id -g)" \
 
 ---
 
+## 6. WebAssembly をビルドする
+
+### 6.1. イメージをビルドする（初回・Emscripten バージョン変更時）
+
+```bash
+USER_UID="$(id -u)" USER_GID="$(id -g)" \
+  docker compose -f docker/compose.yml build build-wasm
+```
+
+- `sfa-dev:local`（ネイティブ用）を先にビルドしておく必要がある
+- Emscripten のダウンロードで **10〜20 分**かかる
+- Emscripten バージョンは `docker/Dockerfile.wasm` の `EMSCRIPTEN_VERSION` で管理
+
+### 6.2. WASM をビルドする
+
+```bash
+USER_UID="$(id -u)" USER_GID="$(id -g)" \
+  docker compose -f docker/compose.yml run --rm build-wasm
+```
+
+成果物: `examples/06-8080/web/sim.js`, `examples/06-8080/web/sim.wasm`
+
+### 6.3. ブラウザで動作確認する
+
+```bash
+cd examples/06-8080/web
+python3 -m http.server
+# → http://localhost:8000
+```
+
+---
+
 ## ファイル構成
 
 ```text
 docker/
   Dockerfile          # Ubuntu 24.04 + Verilator v5.048 + g++ + ccache
-  compose.yml         # dev / build-sim / dormann サービス
+  Dockerfile.wasm     # sfa-dev:local + Emscripten 5.0.7
+  compose.yml         # dev / build-sim / dormann / build-wasm サービス
 scripts/
   build-sim.sh        # Docker ラッパー（ホストから呼ぶ）
   _build-sim-inner.sh # コンテナ内ビルドスクリプト（cmake -S/-B + cmake --build）

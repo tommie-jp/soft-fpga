@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>06-8080 CP/M 2.2 — rtlscope</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
+  <style>
+    body { background:#1a1a1a; color:#eee; font-family:monospace; margin:20px; }
+    h2   { margin:0 0 10px; font-size:16px; color:#aaa; }
+    .controls { display:flex; align-items:center; gap:14px; margin-bottom:8px; flex-wrap:wrap; }
+    button { background:#2a2a2a; color:#eee; border:1px solid #555; padding:4px 14px; cursor:pointer; }
+    button:hover { background:#3a3a3a; }
+    label { font-size:12px; color:#aaa; }
+    canvas { display:block; border:1px solid #333; }
+    .main-row { display:flex; gap:12px; align-items:flex-start; margin-bottom:8px; }
+    #terminal-wrap { border:1px solid #444; flex-shrink:0; }
+    #reg-panel {
+      border:1px solid #333; padding:10px 16px;
+      font-size:13px; line-height:2.2; color:#ccc; min-width:140px;
+    }
+    #reg-panel h3   { font-size:11px; color:#555; margin:0 0 4px; padding-bottom:4px; border-bottom:1px solid #333; }
+    #reg-panel .val { color:#eee; font-weight:bold; }
+    #reg-panel .label { color:#666; }
+    .sig-label { font-size:11px; color:#555; margin-bottom:2px; }
+  </style>
+</head>
+<body>
+  <h2>06 — Intel 8080 / CP/M 2.2 RTL Simulator</h2>
+
+  <p style="font-size:12px;color:#888;margin:0 0 8px;">vm80a (デキャップ起こし RTL) → Verilator → WASM &nbsp;|&nbsp; CP/M 2.2 + カスタム BIOS</p>
+
+  <div class="controls">
+    <button id="btn-run">Pause</button>
+    <button id="btn-reset">Reset</button>
+    <label>速度: <input id="speed" type="range" min="100" max="100000" step="100" value="10000"></label>
+    <span id="cycle-info" style="font-size:12px;color:#666;">0 cycles</span>
+  </div>
+
+  <div class="main-row">
+    <div id="terminal-wrap">
+      <div id="terminal"></div>
+    </div>
+    <div id="reg-panel">
+      <h3>CPU</h3>
+      <div><span class="label">PC : </span><span class="val" id="r-pc">----</span></div>
+    </div>
+  </div>
+
+  <div class="sig-label">I/O Bus Analyzer (port / data / io_req / io_wr)</div>
+  <canvas id="la" width="900" height="120"></canvas>
+
+  <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+  <script>
+  // ring buffer レイアウト (harness.cpp より)
+  // [15:0]=io_addr  [23:16]=io_dout  [24]=io_req  [25]=io_wr
+  // 1サンプル = 1ワード
+
+  const LA_SIGNALS = [
+    { label: 'port',   bit: 0,  type: 'hex',  width: 8,  color: '#88ccff' },
+    { label: 'data',   bit: 16, type: 'hex',  width: 8,  color: '#88ff88' },
+    { label: 'io_req', bit: 24, type: 'bit',  width: 1,  color: '#ffaa00' },
+    { label: 'io_wr',  bit: 25, type: 'bit',  width: 1,  color: '#ff8888' },
+  ];
+  const LA_H    = 120;
+  const LA_W    = 900;
+  const LABEL_W = 56;
+  const VIEW_W  = LA_W - LABEL_W;
+  const TRACK_H = LA_H / LA_SIGNALS.length;
+
+  function drawLA(ctx, heapu32, ringBase, head, ringSize) {
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(0, 0, LA_W, LA_H);
+    const samples   = Math.min(head, VIEW_W, ringSize);
+    const startSamp = head - samples;
+    for (let t = 0; t < LA_SIGNALS.length; t++) {
+      const sig   = LA_SIGNALS[t];
+      const yBase = t * TRACK_H;
+      const MASK  = (sig.width < 32) ? ((1 << sig.width) - 1) : 0xFFFFFFFF;
+      ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      ctx.moveTo(0, yBase + TRACK_H); ctx.lineTo(LA_W, yBase + TRACK_H);
+      ctx.stroke();
+      ctx.fillStyle = '#555'; ctx.font = '10px monospace'; ctx.textAlign = 'left';
+      ctx.fillText(sig.label, 3, yBase + TRACK_H * 0.65);
+      if (samples === 0) continue;
+      const getWord = (i) => heapu32[ringBase + ((startSamp + i) & (ringSize - 1))];
+      if (sig.type === 'bit') {
+        const yHigh = yBase + 4;
+        const yLow  = yBase + TRACK_H - 4;
+        ctx.strokeStyle = sig.color; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        const first = (getWord(0) >> sig.bit) & 1;
+        ctx.moveTo(LABEL_W, first ? yHigh : yLow);
+        for (let i = 0; i < samples; i++) {
+          const val = (getWord(i) >> sig.bit) & 1;
+          const x   = LABEL_W + i;
+          const y   = val ? yHigh : yLow;
+          ctx.lineTo(x, y); ctx.lineTo(x + 1, y);
+        }
+        ctx.stroke();
+      } else {
+        const yTop = yBase + 4;
+        const yMid = yBase + TRACK_H / 2;
+        const yBot = yBase + TRACK_H - 4;
+        let prevVal  = (getWord(0) >> sig.bit) & MASK;
+        let segStart = LABEL_W;
+        const segs   = [];
+        for (let i = 1; i < samples; i++) {
+          const val = (getWord(i) >> sig.bit) & MASK;
+          if (val !== prevVal) {
+            segs.push({ x: segStart, w: LABEL_W + i - segStart, val: prevVal });
+            segStart = LABEL_W + i;
+            prevVal  = val;
+          }
+        }
+        segs.push({ x: segStart, w: LABEL_W + samples - segStart, val: prevVal });
+        ctx.lineWidth = 1;
+        for (const seg of segs) {
+          ctx.strokeStyle = sig.color;
+          ctx.beginPath(); ctx.moveTo(seg.x, yTop); ctx.lineTo(seg.x + seg.w, yTop); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(seg.x, yBot); ctx.lineTo(seg.x + seg.w, yBot); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(seg.x, yTop); ctx.lineTo(seg.x, yBot);         ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(seg.x + seg.w, yTop); ctx.lineTo(seg.x + seg.w, yBot); ctx.stroke();
+          if (seg.w > 24) {
+            ctx.fillStyle = sig.color; ctx.font = '9px monospace'; ctx.textAlign = 'center';
+            ctx.fillText('0x' + seg.val.toString(16).toUpperCase().padStart(2, '0'),
+                         seg.x + seg.w / 2, yMid + 3);
+          }
+        }
+      }
+    }
+  }
+
+  var Module = {
+    onRuntimeInitialized: function () {
+      const term = new Terminal({
+        cols: 80, rows: 24,
+        theme: { background: '#000000', foreground: '#cccccc', cursor: '#cccccc' },
+        fontSize: 13,
+        fontFamily: 'Courier New, monospace',
+        cursorBlink: true,
+        convertEol: true,
+      });
+      term.open(document.getElementById('terminal'));
+
+      const RING_SIZE = Module._get_ring_size();
+      const ringBase  = Module._get_ring_ptr() >>> 2;
+      const laCanvas  = document.getElementById('la');
+      const laCtx     = laCanvas.getContext('2d');
+
+      let running = true;
+
+      Module._sim_init_wasm();
+
+      term.onData(function (data) {
+        for (let i = 0; i < data.length; i++) Module._send_key(data.charCodeAt(i));
+      });
+
+      function drainDisplay() {
+        let ch;
+        while ((ch = Module._get_display_char()) !== -1) {
+          term.write(String.fromCharCode(ch & 0x7F));
+        }
+      }
+
+      function loop() {
+        if (running) {
+          const steps = parseInt(document.getElementById('speed').value);
+          for (let i = 0; i < steps; i++) Module._step();
+        }
+        drainDisplay();
+
+        const pc = Module._get_pc() >>> 0;
+        document.getElementById('r-pc').textContent =
+          pc.toString(16).toUpperCase().padStart(4, '0');
+        document.getElementById('cycle-info').textContent =
+          (Module._get_head() >>> 0).toLocaleString() + ' cycles';
+
+        drawLA(laCtx, Module.HEAPU32, ringBase, Module._get_head() >>> 0, RING_SIZE);
+        requestAnimationFrame(loop);
+      }
+
+      document.getElementById('btn-run').addEventListener('click', function () {
+        running = !running;
+        this.textContent = running ? 'Pause' : 'Run';
+      });
+
+      document.getElementById('btn-reset').addEventListener('click', function () {
+        Module._sim_init_wasm();
+        running = false;
+        document.getElementById('btn-run').textContent = 'Run';
+        term.reset();
+        term.focus();
+      });
+
+      term.focus();
+      requestAnimationFrame(loop);
+    }
+  };
+  </script>
+  <script src="sim.js"></script>
+</body>
+</html>

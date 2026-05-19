@@ -3,19 +3,17 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$SCRIPT_DIR/.."
-EXAMPLE="$ROOT/examples/01-counter"
-OBJ_DIR="$ROOT/obj_dir"
+EXAMPLE="$ROOT/examples/06-8080"
+OBJ_DIR="$ROOT/obj_dir_06"
 VERILATOR_ROOT="${VERILATOR_ROOT:-$(verilator --getenv VERILATOR_ROOT)}"
 
-# Verilator ランタイムを cxx/ にコピーして使用（システムパスに直接依存しない）
-# Wasm 互換パッチ(wasm_compat.h)を -include で当てながらコンパイルする。
 VERILATED_CPP="$ROOT/cxx/verilated.cpp"
 if [ ! -f "$VERILATED_CPP" ]; then
     cp "$VERILATOR_ROOT/include/verilated.cpp" "$VERILATED_CPP"
 fi
 WASM_COMPAT="$ROOT/cxx/wasm_compat.h"
 
-# emsdk が未設定なら自動でソース
+# source emsdk if em++ not in PATH
 if ! command -v em++ &>/dev/null; then
     EMSDK_ENV=""
     for candidate in \
@@ -33,15 +31,18 @@ if ! command -v em++ &>/dev/null; then
 fi
 
 echo "=== Verilator ==="
-verilator --cc "$EXAMPLE/verilog/counter.v" \
+verilator --cc \
+    "$EXAMPLE/verilog/cpm_top.v" \
+    "$EXAMPLE/verilog/vm80a/org/rtl/vm80a.v" \
+    --top-module cpm_top \
+    -Wno-WIDTHEXPAND \
+    -Wno-WIDTHTRUNC \
+    -Wno-UNOPTFLAT \
     --Mdir "$OBJ_DIR"
 
-COMMON_FLAGS="-O2 -std=c++17 -DVL_IGNORE_UNKNOWN_ARCH -I$VERILATOR_ROOT/include -I$OBJ_DIR"
+COMMON_FLAGS="-O2 -std=c++17 -DVL_IGNORE_UNKNOWN_ARCH -I$VERILATOR_ROOT/include -I$VERILATOR_ROOT/include/vltstd -I$OBJ_DIR"
 
 echo "=== Emscripten: verilated.cpp ==="
-# verilated.cpp のみ wasm_compat.h を -include して別コンパイル。
-# -I$ROOT/cxx を先頭に置くことで cxx/verilatedos_c.h が優先され、
-# Linux 固有の pthread_getaffinity_np 呼び出しを回避する。
 # shellcheck disable=SC2086
 em++ $COMMON_FLAGS \
     -I"$ROOT/cxx" \
@@ -49,13 +50,20 @@ em++ $COMMON_FLAGS \
     -c "$VERILATED_CPP" \
     -o "$OBJ_DIR/verilated.wasm.o"
 
+BIOS="$EXAMPLE/sw/cpm/bios/bios.bin"
+DSK="$EXAMPLE/sw/cpm/disks/cpm22.dsk"
+
 echo "=== Emscripten: link ==="
+# __Dpi.cpp は vm80a が DPI を使わないため不要。除外しないと svdpi.h の uint8_t エラーになる。
+V_SRCS=$(ls "$OBJ_DIR"/V*.cpp | grep -v '__Dpi\.cpp')
 # shellcheck disable=SC2086
 em++ $COMMON_FLAGS \
-    "$OBJ_DIR"/V*.cpp \
+    $V_SRCS \
     "$OBJ_DIR/verilated.wasm.o" \
     "$EXAMPLE/cxx/harness.cpp" \
-    -s EXPORTED_FUNCTIONS='["_sim_init","_step","_reset_sim","_get_ring_ptr","_get_head","_get_ring_size"]' \
+    --embed-file "$BIOS@/bios.bin" \
+    --embed-file "$DSK@/cpm22.dsk" \
+    -s EXPORTED_FUNCTIONS='["_sim_init","_sim_init_wasm","_step","_send_key","_get_display_char","_get_pc","_sim_read_byte","_load_disk","_sim_test","_sim_run_bare","_get_ring_ptr","_get_head","_get_ring_size"]' \
     -s EXPORTED_RUNTIME_METHODS='["HEAPU32"]' \
     -s ALLOW_MEMORY_GROWTH=1 \
     -s EXIT_RUNTIME=0 \
@@ -66,7 +74,3 @@ echo "  $EXAMPLE/web/sim.js"
 echo "  $EXAMPLE/web/sim.wasm"
 echo ""
 echo "Serve: cd $EXAMPLE/web && python3 -m http.server"
-
-echo ""
-echo "========================================"
-bash "$SCRIPT_DIR/build-wasm-06.sh"

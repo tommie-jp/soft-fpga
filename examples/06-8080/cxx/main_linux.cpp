@@ -409,6 +409,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    fprintf(stderr, "[CP/M 2.2 simulator — 終了: Ctrl+\\]\n");
+
     for (;;) {
         for (int i = 0; i < 1000; i++) step();
 

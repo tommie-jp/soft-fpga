@@ -6,6 +6,7 @@
 
 #include "Vcpm_top.h"
 #include "Vcpm_top_cpm_top.h"     // ram[], f1, f2 public アクセスに必要
+#include "Vcpm_top_vm80a_core.h"  // cpu->acc 書き換え（ポート $A1h 戻り値）
 #include "verilated.h"
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -15,6 +16,7 @@
 #include <cstdio>
 #include <cstring>
 #include <stdint.h>
+#include <string>
 
 static Vcpm_top* top;
 
@@ -54,6 +56,10 @@ static uint8_t   prev_io_req = 0;
 // IN 命令の二重読み取りを防ぐため、前回の io_active && io_dbin 状態を保持
 static bool      prev_io_in_active = false;
 
+// ポート $A1h: ホストファイル転送状態（R.COM / W.COM 用）
+static FILE*     host_file      = nullptr;
+static uint8_t   last_a1_result = 0x00;
+
 // --------------------------------------------------------------
 // CP/M イメージを RAM に配置する
 // bios_bin: BIOS バイナリ, bios_size: サイズ
@@ -85,6 +91,22 @@ static void load_cpm_image(
     // RAM を Verilator 側にコピー
     for (int i = 0; i < 0x10000; i++)
         top->cpm_top->ram[i] = mem[i];
+}
+
+// FCB ($005C) からホストファイル名を生成する
+// FCB レイアウト: [drive(1)][name(8)][ext(3)], スペースパディング・高ビットは 0x7F でマスク
+static std::string fcb_to_filename() {
+    char name[9] = {};
+    char ext[4]  = {};
+    for (int i = 0; i < 8; i++)
+        name[i] = (char)(top->cpm_top->ram[0x005C + 1 + i] & 0x7F);
+    for (int i = 0; i < 3; i++)
+        ext[i]  = (char)(top->cpm_top->ram[0x005C + 9 + i] & 0x7F);
+    for (int i = 7; i >= 0 && name[i] == ' '; i--) name[i] = '\0';
+    for (int i = 2; i >= 0 && ext[i]  == ' '; i--) ext[i]  = '\0';
+    std::string result(name);
+    if (ext[0] != '\0') result += std::string(".") + ext;
+    return result;
 }
 
 // --------------------------------------------------------------
@@ -119,6 +141,70 @@ static void handle_io(uint8_t port, bool is_write, uint8_t data)
         case 0x12: disk_sector = data;          break;
         case 0x13: disk_dma    = (disk_dma & 0xFF00) | data; break;
         case 0x14: disk_dma    = (disk_dma & 0x00FF) | (data << 8); break;
+        case 0xA1: { // ホストファイル転送（R.COM / W.COM）
+            // r.com / w.com は C レジスタに BDOS 関数番号をセットして ~C を OUT する
+            uint8_t cmd = (uint8_t)(~data);
+            switch (cmd) {
+            case 0x1A: // SET_DMA: 常に $0080 を使用するため noop
+                last_a1_result = 0x00;
+                break;
+            case 0x0F: { // OPEN: ホストファイルを読み込み用に開く（R.COM）
+                if (host_file) { fclose(host_file); host_file = nullptr; }
+                std::string fname = fcb_to_filename();
+                if (fname.find('/') != std::string::npos ||
+                    fname.find('\\') != std::string::npos) {
+                    last_a1_result = 0xFF; break;
+                }
+                host_file = fopen(fname.c_str(), "rb");
+                last_a1_result = host_file ? 0x00 : 0xFF;
+                if (!host_file)
+                    fprintf(stderr, "[R] open failed: %s\n", fname.c_str());
+                break;
+            }
+            case 0x16: { // CREATE: ホストファイルを書き込み用に開く（W.COM）
+                if (host_file) { fclose(host_file); host_file = nullptr; }
+                std::string fname = fcb_to_filename();
+                if (fname.find('/') != std::string::npos ||
+                    fname.find('\\') != std::string::npos) {
+                    last_a1_result = 0xFF; break;
+                }
+                host_file = fopen(fname.c_str(), "wb");
+                last_a1_result = host_file ? 0x00 : 0xFF;
+                if (!host_file)
+                    fprintf(stderr, "[W] create failed: %s\n", fname.c_str());
+                break;
+            }
+            case 0x14: { // READ: ホスト → CP/M RAM $0080（128 バイト）
+                if (!host_file) { last_a1_result = 0xFF; break; }
+                uint8_t buf[128] = {};
+                size_t n = fread(buf, 1, 128, host_file);
+                if (n == 0) { last_a1_result = 0xFF; break; } // EOF
+                for (int i = 0; i < 128; i++)
+                    top->cpm_top->ram[0x0080 + i] = buf[i];
+                last_a1_result = 0x00;
+                break;
+            }
+            case 0x15: { // WRITE: CP/M RAM $0080 → ホスト（128 バイト）
+                if (!host_file) { last_a1_result = 0xFF; break; }
+                uint8_t buf[128];
+                for (int i = 0; i < 128; i++)
+                    buf[i] = (uint8_t)top->cpm_top->ram[0x0080 + i];
+                size_t n = fwrite(buf, 1, 128, host_file);
+                last_a1_result = (n == 128) ? 0x00 : 0xFF;
+                break;
+            }
+            case 0x10: // CLOSE
+                if (host_file) { fclose(host_file); host_file = nullptr; }
+                last_a1_result = 0x00;
+                break;
+            default:
+                last_a1_result = 0xFF;
+                break;
+            }
+            // OUT 命令の次命令で A レジスタを参照するため acc に結果を書き込む
+            top->cpm_top->cpu->acc = last_a1_result;
+            break;
+        }
         }
     } else {
         // IN 命令: トップモジュールの io_din に値を設定
@@ -140,6 +226,8 @@ static uint8_t read_io(uint8_t port)
         return (con_in_head != con_in_tail) ? 1 : 0;
     case 0x10: // DSTS: 常に OK
         return 0;
+    case 0xA1: // ホストファイル転送結果（R.COM / W.COM）
+        return last_a1_result;
     }
     return 0xFF;
 }
@@ -384,6 +472,16 @@ int sim_run_bare(const uint8_t* prog, int prog_size,
     delete top;
     top = nullptr;
     return con_out_tail;
+}
+
+EMSCRIPTEN_KEEPALIVE uint32_t* get_ring_ptr()  { return ring; }
+EMSCRIPTEN_KEEPALIVE uint32_t  get_head()       { return ring_head; }
+EMSCRIPTEN_KEEPALIVE int       get_ring_size()  { return RING_SIZE; }
+
+// WASM 用ラッパー: JS から const char* を直接渡せないため埋め込みパスを使用
+EMSCRIPTEN_KEEPALIVE
+int sim_init_wasm() {
+    return sim_init("/bios.bin", nullptr, "/cpm22.dsk");
 }
 
 } // extern "C"
