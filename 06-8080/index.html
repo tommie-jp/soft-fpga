@@ -315,6 +315,21 @@
       <option value="paper">White</option>
       <option value="light">Light</option>
     </select>
+    <label for="sel-fontsize" style="font-size:12px;color:#555;">Font:</label>
+    <select id="sel-fontsize" style="font-size:12px;padding:2px 4px;cursor:pointer;">
+      <option value="7">7px</option>
+      <option value="8">8px</option>
+      <option value="9">9px</option>
+      <option value="10">10px</option>
+      <option value="11">11px</option>
+      <option value="12">12px</option>
+      <option value="13">13px</option>
+      <option value="14">14px</option>
+      <option value="15">15px</option>
+      <option value="16">16px</option>
+      <option value="18">18px</option>
+      <option value="20">20px</option>
+    </select>
   </div>
 
   <div id="page-body">
@@ -844,6 +859,26 @@
     selTheme.addEventListener('change', function() { applyTheme(this.value); });
   }
 
+  var currentFontSize = parseInt(localStorage.getItem('cpm-fontsize'), 10) || 13;
+
+  function applyFontSize(size) {
+    size = Math.max(7, Math.min(20, size));
+    currentFontSize = size;
+    localStorage.setItem('cpm-fontsize', size);
+    if (term) {
+      term._core.optionsService.options.fontSize = size;
+      term.refresh(0, term.rows - 1);
+    }
+    var sel = document.getElementById('sel-fontsize');
+    if (sel) sel.value = size;
+  }
+
+  var selFont = document.getElementById('sel-fontsize');
+  if (selFont) {
+    selFont.value = currentFontSize;
+    selFont.addEventListener('change', function() { applyFontSize(parseInt(this.value, 10)); });
+  }
+
   // ---- Worker セットアップ ----
   const RING_SIZE = 4096; // harness.cpp: static const int RING_SIZE = 4096
   var term;
@@ -965,29 +1000,25 @@
     term = new Terminal({
       cols: 80, rows: 24,
       theme: THEMES[currentTheme],
-      fontSize: 13, fontFamily: 'Courier New, monospace',
+      fontSize: currentFontSize, fontFamily: 'Courier New, monospace',
       cursorBlink: true, convertEol: true,
       scrollback: 0,
     });
     term.open(document.getElementById('terminal'));
 
-    // 「幅をあわせる」ボタン: xterm-screen の実幅と列幅の比から fontSize を算出
+    // 「幅をあわせる」ボタン: xterm-screen の実幅と利用可能幅の比から fontSize を算出
     document.getElementById('btn-fit-term').addEventListener('click', function() {
       var col    = document.getElementById('terminal-col');
-      // xterm は .xterm-screen に style.width を直接セットする → parseInt が最も正確
       var screen = col.querySelector('.xterm-screen');
       var termW  = (screen && parseInt(screen.style.width, 10))
                    || (screen && screen.offsetWidth)
                    || col.scrollWidth;
       var availW = col.clientWidth - 4;
-      console.log('[FIT] termW=' + termW + ' availW=' + availW + ' fontSize=' + term.options.fontSize);
       if (!termW || availW <= 0 || termW <= availW) return;
-      var cur     = term.options.fontSize || 13;
-      var newSize = Math.max(5, Math.min(20, Math.floor(cur * availW / termW)));
-      console.log('[FIT] newSize=' + newSize);
+      var cur     = currentFontSize;
+      var newSize = Math.max(7, Math.min(20, Math.floor(cur * availW / termW)));
       if (newSize === cur) return;
-      term._core.optionsService.options.fontSize = newSize;
-      term.refresh(0, term.rows - 1);
+      applyFontSize(newSize);
     });
 
     // ターミナルは常に 80 桁固定。モバイルは水平スクロール可・自動スクロール無効。
