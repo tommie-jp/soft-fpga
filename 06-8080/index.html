@@ -973,15 +973,17 @@
 
     // 「幅をあわせる」ボタン: canvas 幅と利用可能幅から fontSize を算出
     document.getElementById('btn-fit-term').addEventListener('click', function() {
-      var col = document.getElementById('terminal-col');
+      var col  = document.getElementById('terminal-col');
       var canvas = col.querySelector('canvas');
       if (!canvas) return;
-      var termW  = canvas.offsetWidth;           // 現在の 80 桁分 canvas 幅
-      var availW = col.clientWidth - 4;          // スクロールバー・ボーダー分を引く
+      var termW  = canvas.offsetWidth;   // 80 桁の現在の CSS 幅
+      var availW = col.clientWidth - 4;  // 利用可能幅（スクロールバー除く）
       if (termW <= 0 || availW <= 0) return;
-      var newSize = Math.max(6, Math.min(20,
-        Math.floor(term.options.fontSize * availW / termW)));
-      term.options.fontSize = newSize;
+      var cur    = term.options.fontSize;
+      var newSize = Math.max(6, Math.min(20, Math.floor(cur * availW / termW)));
+      if (newSize === cur) return;
+      // xterm v5: setter 経由で変更ハンドラを正しく発火させる
+      term.options = { fontSize: newSize };
     });
 
     // ターミナルは常に 80 桁固定。モバイルは水平スクロール可・自動スクロール無効。
