@@ -966,14 +966,19 @@
     term.open(document.getElementById('terminal'));
 
     // ターミナルは常に 80 桁固定（モバイルは #terminal-col の overflow-x:auto でスクロール）
-    // モバイル: 書き込みのたびに右端（80 桁目）にスクロール
+    // モバイル: カーソル X 位置で左右スクロールを切り替える
+    //   col < 40 (プロンプト・入力中) → 左端表示
+    //   col >= 40 (長い出力行) → 右端表示
     if (window.innerWidth <= 500) {
       var _termCol = document.getElementById('terminal-col');
-      function _scrollRight() {
+      term.onWriteParsed(function() {
+        if (!_termCol) return;
+        var cx = term.buffer.active.cursorX;
+        _termCol.scrollLeft = cx < 40 ? 0 : _termCol.scrollWidth;
+      });
+      setTimeout(function() {
         if (_termCol) _termCol.scrollLeft = _termCol.scrollWidth;
-      }
-      term.onWriteParsed(_scrollRight);
-      setTimeout(_scrollRight, 400); // open 後の初回描画を待つ
+      }, 400);
     }
 
     applyTheme(currentTheme);
