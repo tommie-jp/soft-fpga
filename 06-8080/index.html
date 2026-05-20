@@ -974,15 +974,18 @@
     // 「幅をあわせる」ボタン: xterm-screen の実幅と列幅の比から fontSize を算出
     document.getElementById('btn-fit-term').addEventListener('click', function() {
       var col    = document.getElementById('terminal-col');
-      // .xterm-screen は overflow 親に関係なく offsetWidth が実際の canvas 幅を返す
+      // xterm は .xterm-screen に style.width を直接セットする → parseInt が最も正確
       var screen = col.querySelector('.xterm-screen');
-      var termW  = screen ? screen.offsetWidth : col.scrollWidth;
+      var termW  = (screen && parseInt(screen.style.width, 10))
+                   || (screen && screen.offsetWidth)
+                   || col.scrollWidth;
       var availW = col.clientWidth - 4;
-      if (availW <= 0 || termW <= availW) return;      // すでに収まっている
+      console.log('[FIT] termW=' + termW + ' availW=' + availW + ' fontSize=' + term.options.fontSize);
+      if (!termW || availW <= 0 || termW <= availW) return;
       var cur     = term.options.fontSize || 13;
       var newSize = Math.max(5, Math.min(20, Math.floor(cur * availW / termW)));
+      console.log('[FIT] newSize=' + newSize);
       if (newSize === cur) return;
-      // xterm v5 内部 Proxy 経由が最も確実にオプション変更ハンドラを発火する
       term._core.optionsService.options.fontSize = newSize;
       term.refresh(0, term.rows - 1);
     });
