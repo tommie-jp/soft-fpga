@@ -131,7 +131,18 @@
   <div class="controls">
     <button id="btn-run">Pause</button>
     <button id="btn-reset">Reset</button>
-    <label>Speed: <input id="speed" type="range" min="100" max="100000" step="100" value="100000"></label>
+    <label>Speed:
+      <select id="speed-sel">
+        <option value="8333">500 KHz (実機 25%)</option>
+        <option value="16667">1.0 MHz (実機 50%)</option>
+        <option value="33333">2.0 MHz (実機相当)</option>
+        <option value="0" selected>最高速度</option>
+        <option value="custom">カスタム...</option>
+      </select>
+      <input id="speed-num" type="number" min="100" max="1000000" step="100"
+             title="steps/frame" placeholder="steps/frame"
+             style="width:100px;display:none;">
+    </label>
     <span id="cycle-info" style="font-size:12px;color:#555;">0 cycles</span>
     <span style="font-size:12px;color:#555;">Theme:</span>
     <button class="btn-theme" data-theme="green" title="Green phosphor (P39)">Green</button>
@@ -741,7 +752,7 @@
 
       function loop() {
         if (running) {
-          const steps = parseInt(document.getElementById('speed').value);
+          const steps = getSteps();
           try {
             for (let i=0; i<steps; i++) Module._step();
           } catch(e) {
@@ -774,6 +785,33 @@
         requestAnimationFrame(loop);
       }
 
+      function getSteps() {
+        const sel = document.getElementById('speed-sel');
+        if (sel.value === '0') return 100000;
+        if (sel.value === 'custom') {
+          return parseInt(document.getElementById('speed-num').value) || 33333;
+        }
+        return parseInt(sel.value);
+      }
+
+      document.getElementById('speed-sel').addEventListener('change', function() {
+        const num = document.getElementById('speed-num');
+        if (this.value === 'custom') {
+          num.style.display = '';
+          num.value = num.value || '33333';
+          num.focus();
+        } else {
+          num.style.display = 'none';
+        }
+      });
+
+      document.getElementById('speed-num').addEventListener('change', function() {
+        const sel = document.getElementById('speed-sel');
+        const v = parseInt(this.value);
+        const match = Array.from(sel.options).find(o => parseInt(o.value) === v);
+        if (match) sel.value = match.value;
+      });
+
       document.getElementById('btn-run').addEventListener('click', function() {
         running = !running;
         this.textContent = running ? 'Pause' : 'Run';
@@ -782,8 +820,8 @@
       document.getElementById('btn-reset').addEventListener('click', function() {
         Module._sim_init_disk(curPreset);
         applyCustomDisks();
-        running = false;
-        document.getElementById('btn-run').textContent = 'Run';
+        running = true;
+        document.getElementById('btn-run').textContent = 'Pause';
         term.reset(); term.focus();
         for (let d=0; d<4; d++) updateDirtyBtn(d);
       });

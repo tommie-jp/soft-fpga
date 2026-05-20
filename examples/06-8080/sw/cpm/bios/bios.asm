@@ -88,9 +88,26 @@ BOOT:
     ld  hl, BDOS_BASE + 6
     ld  (0x0006), hl
 
+    ; サインオンメッセージ（コールドブートのみ）
+    ld  hl, SIGNON_MSG
+BOOT_PRINT:
+    ld  a, (hl)
+    or  a
+    jp  z, BOOT_DONE
+    out (PORT_CONOUT), a
+    inc hl
+    jp  BOOT_PRINT
+BOOT_DONE:
+
     ld  c, 0
     call SELDSK
     jp  CCP_BASE
+
+SIGNON_MSG:
+    include 'signon.inc'          ; make linux / make wasm で生成
+    defb 0x0D, 0x0A
+    defm 'BIOS (C) 2026 tommie.jp'
+    defb 0x0D, 0x0A, 0x00
 
 ; ==============================================================
 ; WBOOT: ウォームブート

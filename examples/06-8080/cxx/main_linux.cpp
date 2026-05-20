@@ -362,7 +362,7 @@ int main(int argc, char* argv[]) {
                     found_prompt = true;
                 }
             }
-            if (last_out_step >= 0 && (s - last_out_step) > 200000)
+            if (last_out_step >= 0 && (s - last_out_step) > 2000000)
                 break;
         }
         output[out_pos] = '\0';
@@ -454,7 +454,7 @@ int main(int argc, char* argv[]) {
             int ch;
             while ((ch = get_display_char()) >= 0 && out_pos < (int)sizeof(output) - 1) {
                 char c = (char)(ch & 0x7F);
-    
+
                 output[out_pos++] = c;
                 last_out_step = s;
                 if (out_pos >= 2 &&
@@ -463,7 +463,7 @@ int main(int argc, char* argv[]) {
                     found_prompt = true;
                 }
             }
-            if (last_out_step >= 0 && (s - last_out_step) > 200000) break;
+            if (last_out_step >= 0 && (s - last_out_step) > 2000000) break;
         }
 
         if (!found_prompt) {
