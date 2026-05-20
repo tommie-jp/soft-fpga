@@ -51,6 +51,13 @@
     .btn-theme[data-theme="light"] { background:#e8e8e8; color:#111; border:2px solid #aaa; }
     .btn-theme.active { border-color:#0077cc !important; }
 
+    /* ---- Ctrl bar ---- */
+    .ctrl-bar { display:flex; gap:4px; margin-top:4px; flex-wrap:wrap; }
+    .ctrl-btn { background:#e8e8e8; color:#333; border:1px solid #aaa;
+                padding:5px 12px; cursor:pointer; font-size:12px; font-family:monospace; }
+    .ctrl-btn:hover { background:#d0d0d0; }
+    .ctrl-btn:active { background:#bbb; }
+
     /* ---- Controls ---- */
     .controls { display:flex; align-items:center; gap:14px; margin-bottom:8px; flex-wrap:wrap; }
 
@@ -70,6 +77,16 @@
     #reg-panel h3    { font-size:11px; color:#888; margin:0 0 4px; padding-bottom:4px; border-bottom:1px solid #ccc; }
     #reg-panel .val  { color:#111; font-weight:bold; font-size:13px; }
     #reg-panel .label{ color:#888; }
+    .pc-region {
+      display:inline-block; font-size:9px; font-weight:bold;
+      padding:1px 5px; border-radius:2px; vertical-align:middle;
+      margin-left:6px; letter-spacing:.03em;
+    }
+    .pc-region.r-page0 { background:#ddd;    color:#555; }
+    .pc-region.r-tpa   { background:#c8e8c8; color:#2a6a2a; }
+    .pc-region.r-ccp   { background:#c8d8f0; color:#1a4a90; }
+    .pc-region.r-bdos  { background:#fde8b0; color:#7a5000; }
+    .pc-region.r-bios  { background:#f8c8c8; color:#8a1a1a; }
     /* FS table: 名前 | サイズ | 時刻 */
     .fs-thead, .fs-row {
       display:grid;
@@ -124,11 +141,20 @@
   </div>
 
   <div class="main-row">
-    <div id="terminal-wrap"><div id="terminal"></div></div>
+    <div style="display:flex;flex-direction:column;flex-shrink:0;">
+      <div id="terminal-wrap"><div id="terminal"></div></div>
+      <div class="ctrl-bar">
+        <button class="ctrl-btn" data-key="3">^C</button>
+        <button class="ctrl-btn" data-key="4">^D</button>
+        <button class="ctrl-btn" data-key="26">^Z</button>
+        <button class="ctrl-btn" data-key="27">ESC</button>
+        <button class="ctrl-btn" data-key="9">TAB</button>
+      </div>
+    </div>
     <div id="reg-panel">
       <h3>CPU</h3>
       <div style="margin-bottom:10px;line-height:2.2;">
-        <span class="label">PC : </span><span class="val" id="r-pc">----</span>
+        <span class="label">PC : </span><span class="val" id="r-pc">----</span><span class="pc-region" id="r-pc-region"></span>
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;padding-bottom:4px;border-bottom:1px solid #ccc;">
         <span style="font-size:11px;color:#888;">WASM FS</span>
@@ -261,6 +287,25 @@
     if (khz > 0)
       return khz + ',' + String(h).padStart(3,'0') + ' Hz';
     return h + ' Hz';
+  }
+
+  // CP/M 2.2 メモリ領域判定（docs/06-8080/52-メモリマップ.md 参照）
+  var PC_REGIONS = [
+    { lo: 0x0000, hi: 0x00FF, cls: 'r-page0', label: 'PAGE0' },
+    { lo: 0x0100, hi: 0xDBFF, cls: 'r-tpa',   label: 'TPA'   },
+    { lo: 0xDC00, hi: 0xE3FF, cls: 'r-ccp',   label: 'CCP'   },
+    { lo: 0xE400, hi: 0xF1FF, cls: 'r-bdos',  label: 'BDOS'  },
+    { lo: 0xF200, hi: 0xFFFF, cls: 'r-bios',  label: 'BIOS'  },
+  ];
+  var _pcRegionEl = null;
+  function updatePcRegion(addr) {
+    if (!_pcRegionEl) _pcRegionEl = document.getElementById('r-pc-region');
+    var r = null;
+    for (var i = 0; i < PC_REGIONS.length; i++) {
+      if (addr >= PC_REGIONS[i].lo && addr <= PC_REGIONS[i].hi) { r = PC_REGIONS[i]; break; }
+    }
+    _pcRegionEl.className = 'pc-region' + (r ? ' ' + r.cls : '');
+    _pcRegionEl.textContent = r ? r.label : '';
   }
 
   var fsSort = { col: 'name', asc: true };
@@ -708,8 +753,10 @@
         drainDisplay();
 
         const head = Module._get_head() >>> 0;
+        const pcVal = Module._get_pc() >>> 0;
         document.getElementById('r-pc').textContent =
-          (Module._get_pc()>>>0).toString(16).toUpperCase().padStart(4,'0');
+          pcVal.toString(16).toUpperCase().padStart(4,'0');
+        updatePcRegion(pcVal);
 
         frameCount++;
         if (frameCount % 60 === 0) {
@@ -807,6 +854,16 @@
 
       document.getElementById('btn-save-fs').addEventListener('click', function() {
         idbSaveFS();
+      });
+
+      // ---- Ctrl bar ----
+      document.querySelectorAll('.ctrl-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var code = parseInt(this.getAttribute('data-key'));
+          if (code === 3 || code === 26) { histIdx = -1; inputBuf = ''; }
+          Module._send_key(code);
+          term.focus();
+        });
       });
 
       // 起動時復元（200ms 遅延でターミナル描画後に確認ダイアログを出す）
