@@ -58,6 +58,8 @@
                 padding:5px 12px; cursor:pointer; font-size:12px; font-family:monospace; }
     .ctrl-btn:hover { background:#d0d0d0; }
     .ctrl-btn:active { background:#bbb; }
+    .wm-sep       { color:#ccc; font-size:14px; align-self:center; margin:0 1px; user-select:none; }
+    .wm-group-lbl { font-size:10px; color:#999; align-self:center; margin-right:2px; user-select:none; }
 
     /* ---- Controls ---- */
     .controls { display:flex; align-items:center; gap:14px; margin-bottom:8px; flex-wrap:wrap; }
@@ -239,6 +241,7 @@
       <a href="#" onclick="openDoc('20-サイクルカウンタ.md');return false;">20 サイクルカウンタ</a>
       <a href="#" onclick="openDoc('22-クロック計測とベンチマーク手順.md');return false;">22 クロック計測・ベンチマーク</a>
       <a href="#" onclick="openDoc('23-WordMaster-使い方.md');return false;">23 WordMaster 使い方</a>
+      <a href="#" onclick="openDoc('30-BIOS実装.md');return false;">30 カスタム BIOS 実装</a>
       <a href="#" onclick="openDoc('52-メモリマップ.md');return false;">52 メモリマップ &amp; I/O ポート</a>
     </div><!-- /#docs-panel -->
   </div><!-- /.top-row -->
@@ -275,6 +278,29 @@
         <button class="ctrl-btn" data-key="26">^Z</button>
         <button class="ctrl-btn" data-key="27">ESC</button>
         <button class="ctrl-btn" data-key="9">TAB</button>
+        <button id="btn-wm-toggle" class="ctrl-btn" title="WordMaster キー表示切替" style="color:#666;">WM ▼</button>
+      </div>
+      <!-- WordMaster コントロールキー -->
+      <div class="ctrl-bar" id="wm-bar" style="display:none;margin-top:2px;">
+        <span class="wm-group-lbl">Cursor:</span>
+        <button class="ctrl-btn" data-key="5"  title="上 (^E)">^E ↑</button>
+        <button class="ctrl-btn" data-key="19" title="左 (^S)">^S ←</button>
+        <button class="ctrl-btn" data-key="24" title="下 (^X)">^X ↓</button>
+        <button class="ctrl-btn" data-key="4"  title="右 (^D)">^D →</button>
+        <button class="ctrl-btn" data-key="1"  title="左1単語 (^A)">^A ←w</button>
+        <button class="ctrl-btn" data-key="6"  title="右1単語 (^F)">^F →w</button>
+        <span class="wm-sep">|</span>
+        <span class="wm-group-lbl">Edit:</span>
+        <button class="ctrl-btn" data-key="7"  title="文字削除 (^G)">^G Del</button>
+        <button class="ctrl-btn" data-key="25" title="行削除 (^Y)">^Y 行Del</button>
+        <button class="ctrl-btn" data-key="22" title="挿入/上書き切替 (^V)">^V Ins</button>
+        <button class="ctrl-btn" data-key="21" title="中断 (^U)">^U 中断</button>
+        <button class="ctrl-btn" data-key="10" title="ヘルプ (^J)">^J Help</button>
+        <span class="wm-sep">|</span>
+        <span class="wm-group-lbl">File:</span>
+        <button class="ctrl-btn" data-seq="11,83" title="保存して継続 (^KS)">^KS 保存</button>
+        <button class="ctrl-btn" data-seq="11,68" title="保存して終了 (^KD)">^KD 終了</button>
+        <button class="ctrl-btn" data-seq="11,81" title="破棄して終了 (^KQ)">^KQ 破棄</button>
       </div>
     </div>
     <div id="reg-panel">
@@ -1053,13 +1079,26 @@
     document.getElementById('btn-save-fs').addEventListener('click', function() { idbSaveFS(); });
 
     // ---- Ctrl bar ----
-    document.querySelectorAll('.ctrl-btn').forEach(function(btn) {
+    document.querySelectorAll('.ctrl-btn[data-key], .ctrl-btn[data-seq]').forEach(function(btn) {
       btn.addEventListener('click', function() {
-        var code = parseInt(this.getAttribute('data-key'));
-        if (code === 3 || code === 26) { histIdx = -1; inputBuf = ''; }
-        workerSend({ type: 'sendKey', ch: code });
+        var seq = this.getAttribute('data-seq');
+        if (seq) {
+          seq.split(',').forEach(function(c) { workerSend({ type: 'sendKey', ch: parseInt(c) }); });
+        } else {
+          var code = parseInt(this.getAttribute('data-key'));
+          if (code === 3 || code === 26) { histIdx = -1; inputBuf = ''; }
+          workerSend({ type: 'sendKey', ch: code });
+        }
         term.focus();
       });
+    });
+
+    // ---- WM キーバー トグル ----
+    document.getElementById('btn-wm-toggle').addEventListener('click', function() {
+      var bar = document.getElementById('wm-bar');
+      var visible = bar.style.display !== 'none';
+      bar.style.display = visible ? 'none' : 'flex';
+      this.textContent = visible ? 'WM ▼' : 'WM ▲';
     });
 
     // ---- 起動時復元（200ms 遅延） ----
