@@ -88,13 +88,27 @@
         width: 100vw;
         margin-left: -10px;
         overflow-x: scroll;
+        padding-bottom: 4px;
       }
-      #fit-term-bar { display:block !important; padding-left:6px; }
-      .ctrl-bar, #wm-bar { padding-left:6px; }
       /* terminal-wrap をキャンバス幅に合わせ、背景が 80 桁分を覆うようにする */
       #terminal-wrap { width:max-content; }
       #reg-panel { width:100%; box-sizing:border-box; margin-top:8px; }
       #la { max-width:100%; height:auto; }
+
+      /* ^C ^D 等のボタンを画面下部に固定 */
+      #ctrl-zone {
+        position: fixed;
+        bottom: env(safe-area-inset-bottom, 0px);
+        left: 0; right: 0;
+        z-index: 200;
+        background: #ebebeb;
+        border-top: 1px solid #bbb;
+        padding: 4px 6px;
+      }
+      #ctrl-zone .ctrl-bar { margin-top: 0; }
+      #ctrl-zone #wm-bar   { margin-top: 4px; border-top: 1px solid #ccc; padding-top: 4px; }
+      /* 固定バー分の余白（1 行 ≒ 44px、WM バー表示時は増える） */
+      #page-body { padding-bottom: 56px; }
     }
 
     #terminal-wrap { border:1px solid #bbb; flex-shrink:0; }
@@ -340,20 +354,18 @@
 
   <div id="page-body">
     <div id="terminal-col">
-      <div id="fit-term-bar" style="display:none;margin-bottom:3px;">
-        <button id="btn-fit-term" style="font-size:11px;padding:2px 10px;">幅をあわせる</button>
-      </div>
       <div id="terminal-wrap"><div id="terminal"></div></div>
-      <div class="ctrl-bar">
-        <button class="ctrl-btn" data-key="3">^C</button>
-        <button class="ctrl-btn" data-key="4">^D</button>
-        <button class="ctrl-btn" data-key="26">^Z</button>
-        <button class="ctrl-btn" data-key="27">ESC</button>
-        <button class="ctrl-btn" data-key="9">TAB</button>
-        <button id="btn-wm-toggle" class="ctrl-btn" title="WordMaster キー表示切替" style="color:#666;">WM ▼</button>
-      </div>
-      <!-- WordMaster コントロールキー -->
-      <div class="ctrl-bar" id="wm-bar" style="display:none;margin-top:2px;">
+      <div id="ctrl-zone">
+        <div class="ctrl-bar">
+          <button class="ctrl-btn" data-key="3">^C</button>
+          <button class="ctrl-btn" data-key="4">^D</button>
+          <button class="ctrl-btn" data-key="26">^Z</button>
+          <button class="ctrl-btn" data-key="27">ESC</button>
+          <button class="ctrl-btn" data-key="9">TAB</button>
+          <button id="btn-wm-toggle" class="ctrl-btn" title="WordMaster キー表示切替" style="color:#666;">WM ▼</button>
+        </div>
+        <!-- WordMaster コントロールキー -->
+        <div class="ctrl-bar" id="wm-bar" style="display:none;margin-top:2px;">
         <span class="wm-group-lbl">Cursor:</span>
         <button class="ctrl-btn" data-key="5"  title="上 (^E)">^E ↑</button>
         <button class="ctrl-btn" data-key="19" title="左 (^S)">^S ←</button>
@@ -373,6 +385,7 @@
         <button class="ctrl-btn" data-seq="11,83" title="保存して継続 (^KS)">^KS 保存</button>
         <button class="ctrl-btn" data-seq="11,68" title="保存して終了 (^KD)">^KD 終了</button>
         <button class="ctrl-btn" data-seq="11,81" title="破棄して終了 (^KQ)">^KQ 破棄</button>
+      </div>
       </div>
     </div>
 
@@ -1011,21 +1024,6 @@
       scrollback: 0,
     });
     term.open(document.getElementById('terminal'));
-
-    // 「幅をあわせる」ボタン: xterm-screen の実幅と利用可能幅の比から fontSize を算出
-    document.getElementById('btn-fit-term').addEventListener('click', function() {
-      var col    = document.getElementById('terminal-col');
-      var screen = col.querySelector('.xterm-screen');
-      var termW  = (screen && parseInt(screen.style.width, 10))
-                   || (screen && screen.offsetWidth)
-                   || col.scrollWidth;
-      var availW = col.clientWidth - 4;
-      if (!termW || availW <= 0 || termW <= availW) return;
-      var cur     = currentFontSize;
-      var newSize = Math.max(6, Math.min(20, Math.floor(cur * availW / termW)));
-      if (newSize === cur) return;
-      applyFontSize(newSize);
-    });
 
     // ターミナルは常に 80 桁固定。モバイルは水平スクロール可・自動スクロール無効。
     if (window.innerWidth <= 500) {
