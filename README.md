@@ -22,6 +22,10 @@ A library for declaratively observing RTL internal signals in the browser.
 | C++ harness | Sample every clock cycle into a ring buffer |
 | JS rendering | Zero-copy read via TypedArray view, 60 Hz canvas rendering |
 
+## Live demo
+
+**[https://tommie-jp.github.io/soft-fpga/](https://tommie-jp.github.io/soft-fpga/)**
+
 ## Architecture
 
 ![soft-FPGA architecture](docs/img/00-softfpga-arch.png)
@@ -41,10 +45,11 @@ A library for declaratively observing RTL internal signals in the browser.
 | Basic 2 | Traffic light FSM | State Diagram view debut | ✅ Done |
 | Basic 3 | UART transceiver | Logic Analyzer view in action | ✅ Done |
 | CPU #1 | 6502 / Apple-I | Interactive experience (wozmon → Integer BASIC) | ✅ Done |
+| CPU #2 | 8080 / CP/M 2.2 | CP/M 2.2 + BDS C compiler on vm80a RTL | ✅ Done |
 | Basic 4–10 | LFSR / sequence detector / PWM / FIFO / SPI / I2C | Curriculum coverage | 🔲 Planned |
 | Game | Pong / Breakout | Discrete-logic visualization showcase | 🔲 Planned |
-| CPU #2 | 4004 / Busicom | Definitive proof of visualization beyond instruction emulators | 🔲 Planned |
-| CPU #3 | 8080+CP/M or Z80 | Sync with Pico 2 roadmap | 🔲 Planned |
+| CPU #3 | 4004 / Busicom | Definitive proof of visualization beyond instruction emulators | 🔲 Planned |
+| CPU #4 | Z80 | Sync with Pico 2 roadmap | 🔲 Planned |
 
 ## Getting started
 
@@ -63,18 +68,26 @@ docker compose -f docker/compose.yml run --rm dev
 # Native Linux simulation
 scripts/build-host.sh
 
-# WebAssembly build (e.g. example 04-6502)
-scripts/build-wasm-04.sh    # → examples/04-6502/web/sim.js, sim.wasm
+# WebAssembly build
+scripts/build-wasm.sh       # → examples/01-counter/web/  (default)
+scripts/build-wasm-06.sh    # → examples/06-8080/web/sim.js, sim.wasm
+
+# Local browser test (auto-rebuild if sources changed + HTTP server)
+cd examples/06-8080/web && ./doStart.sh
+# open http://localhost:8000/
+
+# Deploy all examples to GitHub Pages
+scripts/deploy-gh-pages.sh
 ```
 
 ## Directory layout
 
 | Path | Role |
 | --- | --- |
-| [`examples/`](examples/) | Circuit samples (each has verilog / cxx / web / verif) |
+| [`examples/`](examples/) | Circuit samples (each has verilog / cxx / web) |
+| [`web/`](web/) | Root index page for GitHub Pages |
 | [`cxx/`](cxx/) | Shared C++ harness headers (libRTLScope) |
-| [`verif/`](verif/) | Library-level verification (cocotb / Dormann / wozmon) |
-| [`scripts/`](scripts/) | Build, test, and flash helper scripts |
+| [`scripts/`](scripts/) | Build, deploy, and test helper scripts |
 | [`docker/`](docker/) | Dev environment (Ubuntu 24.04 + Verilator + Emscripten + cocotb) |
 | [`firmware/`](firmware/) | Pico SDK firmware (future Pico 2 target) |
 | [`docs/`](docs/) | Design documents (Japanese) |

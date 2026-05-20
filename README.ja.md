@@ -21,6 +21,10 @@ RTL 内部信号をブラウザで宣言的に観測するライブラリ。
 | C++ ハーネス層 | 毎クロック ring buffer にサンプリング |
 | JS 描画層 | TypedArray ビュー経由でゼロコピー読取、60Hz 描画 |
 
+## ライブデモ
+
+**[https://tommie-jp.github.io/soft-fpga/](https://tommie-jp.github.io/soft-fpga/)**
+
 ## アーキテクチャ
 
 ![soft-FPGA アーキテクチャ](docs/img/00-softfpga-arch.png)
@@ -40,10 +44,11 @@ RTL 内部信号をブラウザで宣言的に観測するライブラリ。
 | 基礎 2 | 信号機 FSM | State Diagram ビューお披露目 | ✅ 完了 |
 | 基礎 3 | UART 送受信機 | Logic Analyzer ビューの威力確認 | ✅ 完了 |
 | CPU 第一弾 | 6502 / Apple-I | 対話体験（wozmon → Integer BASIC） | ✅ 完了 |
+| CPU 第二弾 | 8080 / CP/M 2.2 | vm80a RTL + CP/M 2.2 + BDS C コンパイラ | ✅ 完了 |
 | 基礎 4〜10 | LFSR / シーケンス検出器 / PWM / FIFO / SPI / I2C | 教材網羅 | 🔲 予定 |
 | ゲーム | Pong / Breakout | ディスクリート論理回路の可視化ショーケース | 🔲 予定 |
-| CPU 第二弾 | 4004 / Busicom | 命令エミュに作れない可視化の決定的証明 | 🔲 予定 |
-| CPU 第三弾 | 8080+CP/M または Z80 | Pico 2 側ロードマップと同期 | 🔲 予定 |
+| CPU 第三弾 | 4004 / Busicom | 命令エミュに作れない可視化の決定的証明 | 🔲 予定 |
+| CPU 第四弾 | Z80 | Pico 2 側ロードマップと同期 | 🔲 予定 |
 
 ## Getting started
 
@@ -62,18 +67,26 @@ docker compose -f docker/compose.yml run --rm dev
 # ネイティブ Linux シミュレーション
 scripts/build-host.sh
 
-# WebAssembly ビルド（例：04-6502）
-scripts/build-wasm-04.sh    # → examples/04-6502/web/sim.js, sim.wasm
+# WebAssembly ビルド
+scripts/build-wasm.sh       # → examples/01-counter/web/（デフォルト）
+scripts/build-wasm-06.sh    # → examples/06-8080/web/sim.js, sim.wasm
+
+# ローカルブラウザ確認（ソース更新時自動リビルド + HTTP サーバ起動）
+cd examples/06-8080/web && ./doStart.sh
+# ブラウザで http://localhost:8000/ を開く
+
+# GitHub Pages へのデプロイ（全エグザンプル）
+scripts/deploy-gh-pages.sh
 ```
 
 ## ディレクトリ構成
 
 | Path | 役割 |
 | --- | --- |
-| [`examples/`](examples/) | 回路サンプル（各 example に verilog / cxx / web / verif） |
+| [`examples/`](examples/) | 回路サンプル（各 example に verilog / cxx / web） |
+| [`web/`](web/) | GitHub Pages ルート目次ページ |
 | [`cxx/`](cxx/) | C++ ハーネス共通ヘッダ（libRTLScope） |
-| [`verif/`](verif/) | ライブラリレベル検証（cocotb / Dormann / wozmon） |
-| [`scripts/`](scripts/) | ビルド・テスト・フラッシュ補助スクリプト |
+| [`scripts/`](scripts/) | ビルド・デプロイ・テスト補助スクリプト |
 | [`docker/`](docker/) | 開発環境（Ubuntu 24.04 + Verilator + Emscripten + cocotb） |
 | [`firmware/`](firmware/) | Pico SDK ファームウェア（将来の Pico 2 ターゲット） |
 | [`docs/`](docs/) | 設計ドキュメント |

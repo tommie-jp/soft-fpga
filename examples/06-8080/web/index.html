@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <title>06-8080 CP/M 2.2 — rtlscope</title>
@@ -36,6 +36,8 @@
       padding:2px 6px; cursor:pointer; font-size:12px;
     }
     .btn-dl:hover { background:#d0d0d0; }
+    .btn-dl.dirty { color:#2a8a2a; border-color:#4a9a4a; }
+    .btn-dl.dirty:hover { background:#c8e8c8; }
 
     /* ---- Presets ---- */
     .presets { margin-bottom:8px; font-size:12px; color:#444; display:flex; align-items:center; gap:8px; }
@@ -49,15 +51,24 @@
     .btn-theme[data-theme="light"] { background:#e8e8e8; color:#111; border:2px solid #aaa; }
     .btn-theme.active { border-color:#0077cc !important; }
 
+    /* ---- Ctrl bar ---- */
+    .ctrl-bar { display:flex; gap:4px; margin-top:4px; flex-wrap:wrap; }
+    .ctrl-btn { background:#e8e8e8; color:#333; border:1px solid #aaa;
+                padding:5px 12px; cursor:pointer; font-size:12px; font-family:monospace; }
+    .ctrl-btn:hover { background:#d0d0d0; }
+    .ctrl-btn:active { background:#bbb; }
+
     /* ---- Controls ---- */
     .controls { display:flex; align-items:center; gap:14px; margin-bottom:8px; flex-wrap:wrap; }
 
     /* ---- Main layout ---- */
     .main-row { display:flex; gap:12px; align-items:flex-start; margin-bottom:4px; }
-    #terminal-wrap { border:1px solid #bbb; flex-shrink:0; transition:border-color .15s, box-shadow .15s; }
-    #terminal-wrap.drop-active { border-color:#0077cc; box-shadow:0 0 10px #0077cc55; }
-    #drop-hint   { font-size:11px; color:#888; margin-bottom:4px; }
-    #drop-status { font-size:11px; min-height:14px; margin-bottom:4px; transition:opacity .5s; }
+    #terminal-wrap { border:1px solid #bbb; flex-shrink:0; }
+    #drop-hint   { font-size:10px; color:#aaa; margin-bottom:3px; }
+    #drop-status { font-size:10px; min-height:13px; margin-bottom:3px; transition:opacity .5s; }
+    #fs-list { margin-top:2px; overflow-y:auto; flex:1; min-height:40px;
+               transition:background .15s; }
+    #fs-list.drop-active { background:#e8f4ff; outline:2px dashed #0077cc; }
     #reg-panel {
       border:1px solid #bbb; padding:10px 12px;
       font-size:12px; color:#333; width:230px; flex-shrink:0;
@@ -66,7 +77,16 @@
     #reg-panel h3    { font-size:11px; color:#888; margin:0 0 4px; padding-bottom:4px; border-bottom:1px solid #ccc; }
     #reg-panel .val  { color:#111; font-weight:bold; font-size:13px; }
     #reg-panel .label{ color:#888; }
-    #fs-list { margin-top:2px; overflow-y:auto; flex:1; }
+    .pc-region {
+      display:inline-block; font-size:9px; font-weight:bold;
+      padding:1px 5px; border-radius:2px; vertical-align:middle;
+      margin-left:6px; letter-spacing:.03em;
+    }
+    .pc-region.r-page0 { background:#ddd;    color:#555; }
+    .pc-region.r-tpa   { background:#c8e8c8; color:#2a6a2a; }
+    .pc-region.r-ccp   { background:#c8d8f0; color:#1a4a90; }
+    .pc-region.r-bdos  { background:#fde8b0; color:#7a5000; }
+    .pc-region.r-bios  { background:#f8c8c8; color:#8a1a1a; }
     /* FS table: 名前 | サイズ | 時刻 */
     .fs-thead, .fs-row {
       display:grid;
@@ -85,7 +105,7 @@
     }
     .fs-th:hover { color:#111; }
     .fs-th.active { color:#0055aa; }
-    .fs-row { padding:2px 0; border-bottom:1px solid #e0e0e0; cursor:default; }
+    .fs-row { padding:2px 0; border-bottom:1px solid #e0e0e0; cursor:pointer; }
     .fs-row:hover .fs-name { color:#0066cc; }
     .fs-name { color:#0055aa; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:12px; }
     .fs-sz   { color:#888; font-size:10px; text-align:right; white-space:nowrap; }
@@ -94,51 +114,70 @@
   </style>
 </head>
 <body>
-  <h2>06 — Intel 8080 / CP/M 2.2 RTL Simulator</h2>
-  <p style="font-size:12px;color:#666;margin:0 0 8px;">vm80a (デキャップ起こし RTL) → Verilator → WASM &nbsp;|&nbsp; CP/M 2.2 + カスタム BIOS</p>
+  <h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #999;">soft-FPGA</a> | 06 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/06-8080" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #999;">Intel 8080 / CP/M 2.2 RTL Simulator</a></h2>
+  <p style="font-size:12px;color:#666;margin:0 0 8px;">vm80a (decapped die RTL) → Verilator → WASM &nbsp;|&nbsp; CP/M 2.2 + custom BIOS</p>
 
   <!-- Drive panel (A–D) -->
   <div class="drives-panel" id="drives-panel"></div>
 
   <!-- Quick presets -->
   <div class="presets">
-    プリセット:
-    <button onclick="loadPreset(0)">CP/M 標準</button>
+    Preset:
+    <button onclick="loadPreset(0)">CP/M std</button>
     <button onclick="loadPreset(1)">BDS C</button>
-    <button onclick="loadPreset(2)">ブランク</button>
+    <button onclick="loadPreset(2)">Blank</button>
   </div>
 
   <div class="controls">
     <button id="btn-run">Pause</button>
     <button id="btn-reset">Reset</button>
-    <label>速度: <input id="speed" type="range" min="100" max="100000" step="100" value="100000"></label>
+    <label>Speed: <input id="speed" type="range" min="100" max="100000" step="100" value="100000"></label>
     <span id="cycle-info" style="font-size:12px;color:#555;">0 cycles</span>
-    <span style="font-size:12px;color:#555;">テーマ:</span>
-    <button class="btn-theme" data-theme="green" title="緑リン光体 (P39)">緑</button>
-    <button class="btn-theme" data-theme="amber" title="アンバーリン光体 (P3)">アンバー</button>
-    <button class="btn-theme" data-theme="paper" title="白リン光体 (P4)">白</button>
-    <button class="btn-theme" data-theme="light" title="ライト（現代）">ライト</button>
+    <span style="font-size:12px;color:#555;">Theme:</span>
+    <button class="btn-theme" data-theme="green" title="Green phosphor (P39)">Green</button>
+    <button class="btn-theme" data-theme="amber" title="Amber phosphor (P3)">Amber</button>
+    <button class="btn-theme" data-theme="paper" title="White phosphor (P4)">White</button>
+    <button class="btn-theme" data-theme="light" title="Light (modern)">Light</button>
   </div>
 
-  <div id="drop-hint">ターミナルにファイルをドロップ → WASM FS に書き込み → CP/M で <b>R ファイル名</b> で転送</div>
-  <div id="drop-status"></div>
   <div class="main-row">
-    <div id="terminal-wrap"><div id="terminal"></div></div>
+    <div style="display:flex;flex-direction:column;flex-shrink:0;">
+      <div id="terminal-wrap"><div id="terminal"></div></div>
+      <div class="ctrl-bar">
+        <button class="ctrl-btn" data-key="3">^C</button>
+        <button class="ctrl-btn" data-key="4">^D</button>
+        <button class="ctrl-btn" data-key="26">^Z</button>
+        <button class="ctrl-btn" data-key="27">ESC</button>
+        <button class="ctrl-btn" data-key="9">TAB</button>
+      </div>
+    </div>
     <div id="reg-panel">
       <h3>CPU</h3>
       <div style="margin-bottom:10px;line-height:2.2;">
-        <span class="label">PC : </span><span class="val" id="r-pc">----</span>
+        <span class="label">PC : </span><span class="val" id="r-pc">----</span><span class="pc-region" id="r-pc-region"></span>
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;padding-bottom:4px;border-bottom:1px solid #ccc;">
         <span style="font-size:11px;color:#888;">WASM FS</span>
-        <button id="btn-save-fs" class="btn-dl" style="padding:1px 6px;font-size:10px;" title="WASM FSをIndexedDBに保存">保存</button>
+        <div style="display:flex;gap:4px;">
+          <label class="btn-dl" style="padding:1px 6px;font-size:10px;cursor:pointer;" title="Upload files to WASM FS">
+            Upload<input id="fs-upload" type="file" multiple style="display:none;">
+          </label>
+          <button id="btn-save-fs" class="btn-dl" style="padding:1px 6px;font-size:10px;" title="Save WASM FS to IndexedDB">Save</button>
+        </div>
       </div>
+      <div id="drop-hint">Drop / Upload → WASM FS &nbsp;|&nbsp; CP/M: <b>R filename</b></div>
+      <div id="drop-status"></div>
       <div id="fs-list"></div>
     </div>
   </div>
 
   <div class="sig-label">I/O Bus Analyzer (port / data / io_req / io_wr)</div>
   <canvas id="la" width="900" height="120"></canvas>
+  <p style="font-size:11px;color:#aaa;margin:6px 0 0;">
+    &copy; 2026 <a href="https://github.com/tommie-jp" target="_blank" rel="noopener" style="color:#aaa;">tommie.jp</a>
+    &nbsp;&mdash;&nbsp;
+    <a href="06-8080-QR.png" target="_blank" rel="noopener" style="color:#aaa;">QR</a>
+  </p>
 
   <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
   <script>
@@ -161,7 +200,7 @@
       const MASK=(sig.width<32)?((1<<sig.width)-1):0xFFFFFFFF;
       ctx.strokeStyle='#ccc'; ctx.lineWidth=0.5;
       ctx.beginPath(); ctx.moveTo(0,yBase+TRACK_H); ctx.lineTo(LA_W,yBase+TRACK_H); ctx.stroke();
-      ctx.fillStyle='#888'; ctx.font='10px monospace'; ctx.textAlign='left';
+      ctx.fillStyle='#111'; ctx.font='10px monospace'; ctx.textAlign='left';
       ctx.fillText(sig.label, 3, yBase+TRACK_H*0.65);
       if (!samples) continue;
       const getWord = i => heapu32[ringBase+((startSamp+i)&(ringSize-1))];
@@ -215,6 +254,7 @@
   let customDisks = [null, null, null, null]; // Uint8Array | null
   let moduleReady = false;
   let running     = true;
+  let fsDirty     = false;
 
   // ---- WASM FS ファイルリスト ----
   function fmtSize(n) {
@@ -226,6 +266,18 @@
     return new Date(mtime * 1000).toLocaleTimeString(undefined, { hour12: false });
   }
 
+  function downloadFromFS(name) {
+    try {
+      var data = Module.FS.readFile('/' + name);
+      var blob = new Blob([data], {type:'application/octet-stream'});
+      var url  = URL.createObjectURL(blob);
+      var a    = document.createElement('a');
+      a.href = url; a.download = name; a.style.display = 'none';
+      document.body.appendChild(a); a.click();
+      setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(url); }, 0);
+    } catch(e) { console.error('[FS] download failed:', e); }
+  }
+
   function fmtHz(hz) {
     var mhz = Math.floor(hz / 1000000);
     var khz = Math.floor((hz % 1000000) / 1000);
@@ -235,6 +287,25 @@
     if (khz > 0)
       return khz + ',' + String(h).padStart(3,'0') + ' Hz';
     return h + ' Hz';
+  }
+
+  // CP/M 2.2 メモリ領域判定（docs/06-8080/52-メモリマップ.md 参照）
+  var PC_REGIONS = [
+    { lo: 0x0000, hi: 0x00FF, cls: 'r-page0', label: 'PAGE0' },
+    { lo: 0x0100, hi: 0xDBFF, cls: 'r-tpa',   label: 'TPA'   },
+    { lo: 0xDC00, hi: 0xE3FF, cls: 'r-ccp',   label: 'CCP'   },
+    { lo: 0xE400, hi: 0xF1FF, cls: 'r-bdos',  label: 'BDOS'  },
+    { lo: 0xF200, hi: 0xFFFF, cls: 'r-bios',  label: 'BIOS'  },
+  ];
+  var _pcRegionEl = null;
+  function updatePcRegion(addr) {
+    if (!_pcRegionEl) _pcRegionEl = document.getElementById('r-pc-region');
+    var r = null;
+    for (var i = 0; i < PC_REGIONS.length; i++) {
+      if (addr >= PC_REGIONS[i].lo && addr <= PC_REGIONS[i].hi) { r = PC_REGIONS[i]; break; }
+    }
+    _pcRegionEl.className = 'pc-region' + (r ? ' ' + r.cls : '');
+    _pcRegionEl.textContent = r ? r.label : '';
   }
 
   var fsSort = { col: 'name', asc: true };
@@ -263,14 +334,14 @@
       });
 
       if (!entries.length) {
-        el.innerHTML = '<div style="color:#aaa;font-size:11px;">(空)</div>';
+        el.innerHTML = '<div style="color:#aaa;font-size:11px;">(empty)</div>';
         return;
       }
 
       var COLS = [
-        { key:'name',  label:'名前' },
-        { key:'size',  label:'サイズ' },
-        { key:'mtime', label:'時刻' },
+        { key:'name',  label:'Name' },
+        { key:'size',  label:'Size' },
+        { key:'mtime', label:'Time' },
       ];
       var arrow = { asc:' ↑', desc:' ↓' };
       var thead = '<div class="fs-thead">' +
@@ -281,7 +352,7 @@
         }).join('') + '</div>';
 
       var rows = entries.map(function(e) {
-        return '<div class="fs-row" title="R ' + e.name + '">' +
+        return '<div class="fs-row" data-name="' + e.name + '" title="Click to download | CP/M: R ' + e.name + '">' +
           '<span class="fs-name">' + e.name + '</span>' +
           '<span class="fs-sz">'  + fmtSize(e.size) + '</span>' +
           '<span class="fs-mt">'  + fmtMtime(e.mtime) + '</span>' +
@@ -298,7 +369,13 @@
           updateFSList();
         });
       });
-    } catch(e) { el.textContent = '(取得失敗)'; }
+
+      el.querySelectorAll('.fs-row').forEach(function(row) {
+        row.addEventListener('click', function() {
+          if (moduleReady) downloadFromFS(this.getAttribute('data-name'));
+        });
+      });
+    } catch(e) { el.textContent = '(error)'; }
   }
 
   function buildDrivesPanel() {
@@ -310,11 +387,11 @@
       row.innerHTML =
         '<span class="drive-lbl">' + DRIVE_LABELS[d] + ':</span>' +
         '<span class="drive-name" id="dn-' + d + '">' + diskNames[d] + '</span>' +
-        '<label class="btn-load" title="ディスクイメージを読み込む">' +
-          '読込<input type="file" id="fu-' + d + '" accept=".dsk,.img" style="display:none">' +
+        '<label class="btn-load" title="Load disk image">' +
+          'Load<input type="file" id="fu-' + d + '" accept=".dsk,.img" style="display:none">' +
         '</label>' +
-        '<button class="btn-save" id="sv-' + d + '" title="ブラウザに保存 (IndexedDB)">保存</button>' +
-        '<button class="btn-dl"   id="dl-' + d + '" title="ファイルにダウンロード">↓</button>';
+        '<button class="btn-save" id="sv-' + d + '" title="Save to browser (IndexedDB)">Save</button>' +
+        '<button class="btn-dl"   id="dl-' + d + '" title="Download to file">↓</button>';
       panel.appendChild(row);
 
       (function(drive) {
@@ -385,7 +462,9 @@
   function updateDirtyBtn(drive) {
     const btn = document.getElementById('sv-' + drive);
     if (!btn || !moduleReady) return;
-    btn.classList.toggle('dirty', !!Module._sim_get_disk_dirty(drive));
+    const dirty = !!Module._sim_get_disk_dirty(drive);
+    btn.classList.toggle('dirty', dirty);
+    btn.textContent = dirty ? '*Save*' : 'Save';
   }
 
   // ---- IndexedDB ----
@@ -402,6 +481,18 @@
       req.onsuccess = function(e) { resolve(e.target.result); };
       req.onerror   = function(e) { reject(e.target.error); };
     });
+  }
+
+  function updateFSSaveBtn() {
+    var btn = document.getElementById('btn-save-fs');
+    if (!btn) return;
+    btn.classList.toggle('dirty', fsDirty);
+    btn.textContent = fsDirty ? '*Save*' : 'Save';
+  }
+
+  function markFSDirty() {
+    fsDirty = true;
+    updateFSSaveBtn();
   }
 
   function idbSaveFS() {
@@ -424,6 +515,8 @@
       store.clear();
       entries.forEach(function(e) { store.put(e); });
       tx.oncomplete = function() {
+        fsDirty = false;
+        updateFSSaveBtn();
         console.log('[IDB] WASM FS saved (' + entries.length + ' files)');
       };
       tx.onerror = function(e) { console.error('[IDB] FS save error', e.target.error); };
@@ -550,6 +643,54 @@
         inputBuf = entry;
       }
 
+      function executeHostCmd(cmd) {
+        var parts = cmd.trim().split(/\s+/);
+        var verb  = (parts[0] || '').toLowerCase();
+        var arg   = parts.slice(1).join(' ').trim().toUpperCase();
+        var out   = '';
+        if (verb === 'ls' || verb === 'dir') {
+          try {
+            var files = Module.FS.readdir('/').filter(function(f) {
+              if (f === '.' || f === '..') return false;
+              try { return !Module.FS.isDir(Module.FS.stat('/' + f).mode); } catch(e) { return false; }
+            }).sort();
+            out = files.length
+              ? files.map(function(f) {
+                  var sz = '?';
+                  try { sz = Module.FS.stat('/' + f).size; } catch(e) {}
+                  return f.padEnd(14) + String(sz).padStart(6) + ' B\r\n';
+                }).join('')
+              : '(empty)\r\n';
+          } catch(e) { out = 'Error: ' + e.message + '\r\n'; }
+        } else if (verb === 'get' || verb === 'dl') {
+          if (!arg) { out = 'Usage: !get FILENAME\r\n'; }
+          else {
+            try {
+              downloadFromFS(arg);
+              out = 'Downloading: ' + arg + '\r\n';
+            } catch(e) { out = 'Error: ' + e.message + '\r\n'; }
+          }
+        } else if (verb === 'rm' || verb === 'del') {
+          if (!arg) { out = 'Usage: !rm FILENAME\r\n'; }
+          else {
+            try {
+              Module.FS.unlink('/' + arg);
+              out = 'Deleted: ' + arg + '\r\n';
+              updateFSList();
+              markFSDirty();
+            } catch(e) { out = 'Error: ' + e.message + '\r\n'; }
+          }
+        } else if (verb === 'help' || verb === '?') {
+          out = '!ls / !dir          list WASM FS\r\n' +
+                '!get / !dl FILE     download from WASM FS\r\n' +
+                '!rm / !del FILE     delete from WASM FS\r\n';
+        } else {
+          out = '?' + (verb ? ' !' + verb : '') + '  (try !help)\r\n';
+        }
+        // output after CP/M prompt
+        setTimeout(function() { if (out) term.write(out); }, 80);
+      }
+
       term.onData(function(data) {
         var i = 0;
         while (i < data.length) {
@@ -563,6 +704,15 @@
           var code = data.charCodeAt(i);
           // シャドウバッファ更新
           if (data[i] === '\r') {
+            if (inputBuf.startsWith('!')) {
+              // ! コマンド: CP/M には空行を送り JS 側で処理
+              var hostCmd = inputBuf.slice(1);
+              for (var bk = 0; bk < inputBuf.length; bk++) Module._send_key(0x08);
+              histIdx = -1; inputBuf = '';
+              Module._send_key(0x0d);
+              executeHostCmd(hostCmd);
+              i++; continue;
+            }
             if (inputBuf.trim()) {
               cmdHistory.push(inputBuf);
               if (cmdHistory.length > 100) cmdHistory.shift();
@@ -603,15 +753,17 @@
         drainDisplay();
 
         const head = Module._get_head() >>> 0;
+        const pcVal = Module._get_pc() >>> 0;
         document.getElementById('r-pc').textContent =
-          (Module._get_pc()>>>0).toString(16).toUpperCase().padStart(4,'0');
+          pcVal.toString(16).toUpperCase().padStart(4,'0');
+        updatePcRegion(pcVal);
 
         frameCount++;
         if (frameCount % 60 === 0) {
           const now = performance.now();
           const dc  = (head - freqHead0) >>> 0; // 32bit wraparound 対応
           const dt  = now - freqTime0;
-          freqDisp  = running && dt > 0 ? fmtHz(Math.round(dc / (dt / 1000))) : '停止中';
+          freqDisp  = running && dt > 0 ? fmtHz(Math.round(dc / (dt / 1000))) : 'paused';
           freqHead0 = head;
           freqTime0 = now;
           for (let d=0; d<4; d++) updateDirtyBtn(d);
@@ -636,8 +788,8 @@
         for (let d=0; d<4; d++) updateDirtyBtn(d);
       });
 
-      // ---- ファイルドロップ ----
-      var dropWrap   = document.getElementById('terminal-wrap');
+      // ---- ファイル書き込み（ドロップ・Upload 共通） ----
+      var dropWrap   = document.getElementById('fs-list');
       var dropStatus = document.getElementById('drop-status');
       var dropFadeTimer = null;
 
@@ -649,19 +801,7 @@
         dropFadeTimer = setTimeout(function() { dropStatus.style.opacity = '0'; }, 4000);
       }
 
-      dropWrap.addEventListener('dragover', function(e) {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'copy';
-        dropWrap.classList.add('drop-active');
-      });
-      dropWrap.addEventListener('dragleave', function(e) {
-        if (!dropWrap.contains(e.relatedTarget))
-          dropWrap.classList.remove('drop-active');
-      });
-      dropWrap.addEventListener('drop', function(e) {
-        e.preventDefault();
-        dropWrap.classList.remove('drop-active');
-        var files = e.dataTransfer.files;
+      function writeFilesToFS(files) {
         if (!files.length) return;
         var msgs = [];
         var remaining = files.length;
@@ -679,11 +819,34 @@
               if (--remaining === 0) {
                 showDropStatus(msgs.join('  '), msgs.every(function(m){ return m.indexOf('ERROR')<0; }));
                 updateFSList();
+                markFSDirty();
               }
             };
             reader.readAsArrayBuffer(file);
           })(files[fi]);
         }
+      }
+
+      // ドロップ
+      dropWrap.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+        dropWrap.classList.add('drop-active');
+      });
+      dropWrap.addEventListener('dragleave', function(e) {
+        if (!dropWrap.contains(e.relatedTarget))
+          dropWrap.classList.remove('drop-active');
+      });
+      dropWrap.addEventListener('drop', function(e) {
+        e.preventDefault();
+        dropWrap.classList.remove('drop-active');
+        writeFilesToFS(e.dataTransfer.files);
+      });
+
+      // Upload ボタン（モバイル含む）
+      document.getElementById('fs-upload').addEventListener('change', function() {
+        writeFilesToFS(this.files);
+        this.value = ''; // 同じファイルを再選択可能にする
       });
 
       term.focus();
@@ -691,6 +854,16 @@
 
       document.getElementById('btn-save-fs').addEventListener('click', function() {
         idbSaveFS();
+      });
+
+      // ---- Ctrl bar ----
+      document.querySelectorAll('.ctrl-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var code = parseInt(this.getAttribute('data-key'));
+          if (code === 3 || code === 26) { histIdx = -1; inputBuf = ''; }
+          Module._send_key(code);
+          term.focus();
+        });
       });
 
       // 起動時復元（200ms 遅延でターミナル描画後に確認ダイアログを出す）
@@ -708,7 +881,7 @@
         // ディスク復元（確認ダイアログ）
         idbRestoreAll().then(function(entries) {
           if (!entries.length) return;
-          var msg = entries.length + ' 件の保存済みディスクがあります。復元しますか？\n' +
+          var msg = 'Found ' + entries.length + ' saved disk image(s). Restore?\n' +
             entries.map(function(e) {
               return '  ' + DRIVE_LABELS[e.drive] + ': ' + e.name;
             }).join('\n');
