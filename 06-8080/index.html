@@ -83,8 +83,8 @@
     /* モバイル: DOM 順（terminal → bus → reg → copyright）に縦積み */
     @media (max-width:500px) {
       #page-body { display:block; }
-      /* ターミナルは 80 桁固定・水平スクロール可 */
-      #terminal-col { width:100%; overflow-x:auto; }
+      /* ターミナルは 80 桁固定・水平スクロールバー常時表示 */
+      #terminal-col { width:100%; overflow-x:scroll; }
       /* terminal-wrap をキャンバス幅に合わせ、背景が 80 桁分を覆うようにする */
       #terminal-wrap { width:max-content; }
       #reg-panel { width:100%; box-sizing:border-box; margin-top:8px; }
