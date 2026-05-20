@@ -47,12 +47,6 @@
     .presets button { padding:2px 10px; font-size:12px; }
 
     /* ---- Terminal themes ---- */
-    .btn-theme { padding:2px 9px; font-size:12px; cursor:pointer; border:2px solid transparent; }
-    .btn-theme[data-theme="green"] { background:#000; color:#33FF00; border-color:#444; }
-    .btn-theme[data-theme="amber"] { background:#000; color:#FFB300; border-color:#444; }
-    .btn-theme[data-theme="paper"] { background:#000; color:#E8E8D0; border-color:#444; }
-    .btn-theme[data-theme="light"] { background:#e8e8e8; color:#111; border:2px solid #aaa; }
-    .btn-theme.active { border-color:#0077cc !important; }
 
     /* ---- Ctrl bar ---- */
     .ctrl-bar { display:flex; gap:4px; margin-top:4px; flex-wrap:wrap; }
@@ -66,8 +60,32 @@
     /* ---- Controls ---- */
     .controls { display:flex; align-items:center; gap:14px; margin-bottom:8px; flex-wrap:wrap; }
 
-    /* ---- Main layout ---- */
-    .main-row { display:flex; gap:12px; align-items:flex-start; margin-bottom:4px; }
+    /* ---- Main layout (desktop: grid 2-col / mobile: block) ---- */
+    #page-body {
+      display:grid;
+      grid-template-columns: auto 244px;
+      grid-template-areas:
+        "terminal  reg"
+        "bus       bus"
+        "copyright copyright";
+      column-gap:12px;
+      align-items:start;
+    }
+    #terminal-col { grid-area:terminal; display:flex; flex-direction:column; }
+    #bus-section  { grid-area:bus; margin-top:4px; }
+    #reg-panel    { grid-area:reg; }
+    #copyright    { grid-area:copyright; }
+
+    /* モバイル: DOM 順（terminal → bus → reg → copyright）に縦積み */
+    @media (max-width:500px) {
+      #page-body { display:block; }
+      #terminal-col { width:100%; }
+      #terminal-wrap { width:100% !important; }
+      #terminal { width:100%; }
+      #reg-panel { width:100%; box-sizing:border-box; margin-top:8px; }
+      #la { max-width:100%; height:auto; }
+    }
+
     #terminal-wrap { border:1px solid #bbb; flex-shrink:0; }
     #drop-hint   { font-size:10px; color:#aaa; margin-bottom:3px; }
     #drop-status { font-size:10px; min-height:13px; margin-bottom:3px; transition:opacity .5s; }
@@ -275,15 +293,17 @@
              style="width:100px;display:none;">
     </label>
     <span id="cycle-info" style="font-size:12px;color:#555;">0 cycles</span>
-    <span style="font-size:12px;color:#555;">Theme:</span>
-    <button class="btn-theme" data-theme="green" title="Green phosphor (P39)">Green</button>
-    <button class="btn-theme" data-theme="amber" title="Amber phosphor (P3)">Amber</button>
-    <button class="btn-theme" data-theme="paper" title="White phosphor (P4)">White</button>
-    <button class="btn-theme" data-theme="light" title="Light (modern)">Light</button>
+    <label for="sel-theme" style="font-size:12px;color:#555;">Theme:</label>
+    <select id="sel-theme" style="font-size:12px;padding:2px 4px;cursor:pointer;">
+      <option value="green">Green</option>
+      <option value="amber">Amber</option>
+      <option value="paper">White</option>
+      <option value="light">Light</option>
+    </select>
   </div>
 
-  <div class="main-row">
-    <div style="display:flex;flex-direction:column;flex-shrink:0;">
+  <div id="page-body">
+    <div id="terminal-col">
       <div id="terminal-wrap"><div id="terminal"></div></div>
       <div class="ctrl-bar">
         <button class="ctrl-btn" data-key="3">^C</button>
@@ -316,6 +336,12 @@
         <button class="ctrl-btn" data-seq="11,81" title="破棄して終了 (^KQ)">^KQ 破棄</button>
       </div>
     </div>
+
+    <div id="bus-section">
+      <div class="sig-label">I/O Bus Analyzer (port / data / io_req / io_wr)</div>
+      <canvas id="la" width="900" height="120"></canvas>
+    </div>
+
     <div id="reg-panel">
       <h3>CPU</h3>
       <div style="margin-bottom:10px;line-height:2.2;">
@@ -334,15 +360,13 @@
       <div id="drop-status"></div>
       <div id="fs-list"></div>
     </div>
-  </div>
 
-  <div class="sig-label">I/O Bus Analyzer (port / data / io_req / io_wr)</div>
-  <canvas id="la" width="900" height="120"></canvas>
-  <p style="font-size:11px;color:#aaa;margin:6px 0 0;">
-    &copy; 2026 <a href="https://github.com/tommie-jp" target="_blank" rel="noopener" style="color:#aaa;">tommie.jp</a>
-    &nbsp;&mdash;&nbsp;
-    <a href="06-8080-QR.png" target="_blank" rel="noopener" style="color:#aaa;">QR</a>
-  </p>
+    <p id="copyright" style="font-size:11px;color:#aaa;margin:6px 0 0;">
+      &copy; 2026 <a href="https://github.com/tommie-jp" target="_blank" rel="noopener" style="color:#aaa;">tommie.jp</a>
+      &nbsp;&mdash;&nbsp;
+      <a href="06-8080-QR.png" target="_blank" rel="noopener" style="color:#aaa;">QR</a>
+    </p>
+  </div>
 
   <!-- ---- Doc viewer modal ---- -->
   <div id="doc-modal" style="display:none;">
@@ -372,6 +396,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
   <script>
   // ---- Logic Analyzer ----
   const LA_SIGNALS = [
@@ -790,16 +815,17 @@
     localStorage.setItem('cpm-theme', name);
     if (term) term.options.theme = THEMES[name];
     var wrap = document.getElementById('terminal-wrap');
-    wrap.style.background   = THEMES[name].background;
-    wrap.style.borderColor  = (name === 'light') ? '#bbb' : '#444';
-    document.querySelectorAll('.btn-theme').forEach(function(btn) {
-      btn.classList.toggle('active', btn.dataset.theme === name);
-    });
+    wrap.style.background  = THEMES[name].background;
+    wrap.style.borderColor = (name === 'light') ? '#bbb' : '#444';
+    var sel = document.getElementById('sel-theme');
+    if (sel) sel.value = name;
   }
 
-  document.querySelectorAll('.btn-theme').forEach(function(btn) {
-    btn.addEventListener('click', function() { applyTheme(this.dataset.theme); });
-  });
+  var selTheme = document.getElementById('sel-theme');
+  if (selTheme) {
+    selTheme.value = currentTheme;
+    selTheme.addEventListener('change', function() { applyTheme(this.value); });
+  }
 
   // ---- Worker セットアップ ----
   const RING_SIZE = 4096; // harness.cpp: static const int RING_SIZE = 4096
@@ -927,6 +953,18 @@
       scrollback: 0,
     });
     term.open(document.getElementById('terminal'));
+
+    // モバイルではターミナル幅を画面幅に合わせる
+    if (window.FitAddon) {
+      var _fitAddon = new window.FitAddon.FitAddon();
+      term.loadAddon(_fitAddon);
+      function fitTerminal() {
+        if (window.innerWidth <= 500) _fitAddon.fit();
+      }
+      fitTerminal();
+      window.addEventListener('resize', fitTerminal);
+    }
+
     applyTheme(currentTheme);
 
     laCtx = document.getElementById('la').getContext('2d');
