@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>06-8080 CP/M 2.2 — rtlscope</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
@@ -120,34 +121,48 @@
 
     /* ---- Editor modal ---- */
     #editor-modal {
-      position:fixed; top:0; left:0; width:100%; height:100%; z-index:1000;
-      display:flex; align-items:center; justify-content:center;
+      position:fixed; top:0; left:0; right:0; bottom:0; z-index:1000;
+      display:flex; align-items:flex-start; justify-content:center;
+      /* iOS: ソフトキーボード表示時も画面内に収まるよう上端揃え */
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
     }
     #editor-overlay {
-      position:absolute; top:0; left:0; width:100%; height:100%;
+      position:fixed; top:0; left:0; right:0; bottom:0;
       background:rgba(0,0,0,.55);
     }
     #editor-pane {
-      position:relative; width:92%; height:88%; max-width:960px;
+      position:relative; width:92%;
+      /* dvh: ソフトキーボード展開後の実際の表示領域に追従 */
+      height:88dvh; max-height:88dvh;
+      max-width:960px; margin-top:3dvh;
       background:#fff; display:flex; flex-direction:column;
       box-shadow:0 4px 32px rgba(0,0,0,.5); border:1px solid #999;
     }
     #editor-toolbar {
       display:flex; align-items:center; gap:6px; padding:5px 8px;
       border-bottom:1px solid #ccc; background:#f0f0f0; flex-shrink:0;
+      /* iOS Safari ツールバーとの重なり防止 */
+      padding-left: max(8px, env(safe-area-inset-left));
+      padding-right: max(8px, env(safe-area-inset-right));
     }
     #editor-filename { font-size:13px; font-weight:bold; flex:1; color:#222; font-family:monospace; }
     #editor-toolbar button, #editor-toolbar label {
       background:#e0e0e0; color:#111; border:1px solid #aaa;
       padding:2px 10px; cursor:pointer; font-size:12px; font-family:monospace;
       white-space:nowrap;
+      /* iOS: タップ応答性向上 */
+      touch-action:manipulation; -webkit-tap-highlight-color:transparent;
     }
     #editor-toolbar button:hover, #editor-toolbar label:hover { background:#c8c8c8; }
     #editor-close { margin-left:4px; }
     #editor-cm { flex:1; overflow:hidden; }
     /* CodeMirror 6 height fill */
     #editor-cm .cm-editor { height:100%; }
-    #editor-cm .cm-scroller { overflow:auto; font-family:'Courier New',monospace; font-size:13px; }
+    /* font-size 16px: iOS の自動ズームを防ぐ */
+    #editor-cm .cm-scroller { overflow:auto; font-family:'Courier New',monospace; font-size:16px; }
+    /* textarea フォールバック: 同じく 16px でズーム防止 */
+    #editor-cm textarea { font-size:16px !important; }
 
     /* ---- Top row (controls + docs panel) ---- */
     .top-row  { display:flex; gap:16px; align-items:flex-start; margin-bottom:0; }
@@ -1153,7 +1168,7 @@
       var ta = document.createElement('textarea');
       ta.value = text;
       ta.style.cssText = 'width:100%;height:100%;box-sizing:border-box;'
-        + 'font-family:"Courier New",monospace;font-size:13px;'
+        + 'font-family:"Courier New",monospace;font-size:16px;'
         + 'border:none;resize:none;padding:8px;outline:none;';
       cm.appendChild(ta);
       window._editor = { type: 'textarea', el: ta, name: name };
