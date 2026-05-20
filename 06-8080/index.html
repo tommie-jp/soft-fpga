@@ -83,8 +83,8 @@
     /* モバイル: DOM 順（terminal → bus → reg → copyright）に縦積み */
     @media (max-width:500px) {
       #page-body { display:block; }
-      /* ターミナルは 80 桁固定・左端基準、右は見切れ */
-      #terminal-col { width:100%; overflow-x:hidden; }
+      /* ターミナルは 80 桁固定・水平スクロール可 */
+      #terminal-col { width:100%; overflow-x:auto; }
       #reg-panel { width:100%; box-sizing:border-box; margin-top:8px; }
       #la { max-width:100%; height:auto; }
     }
@@ -965,7 +965,23 @@
     });
     term.open(document.getElementById('terminal'));
 
-    // ターミナルは常に 80 桁固定。モバイルは左端固定（右は見切れ）。
+    // ターミナルは常に 80 桁固定。モバイルは水平スクロール可・自動スクロール無効。
+    if (window.innerWidth <= 500) {
+      var _termCol = document.getElementById('terminal-col');
+      var _userScrolling = false;
+      var _userScrollTimer = null;
+      _termCol.addEventListener('touchstart', function() {
+        _userScrolling = true;
+        if (_userScrollTimer) clearTimeout(_userScrollTimer);
+      }, { passive: true });
+      _termCol.addEventListener('touchend', function() {
+        _userScrollTimer = setTimeout(function() { _userScrolling = false; }, 300);
+      }, { passive: true });
+      // xterm による自動スクロールをキャンセル（ユーザー操作中は通す）
+      _termCol.addEventListener('scroll', function() {
+        if (!_userScrolling) _termCol.scrollLeft = 0;
+      });
+    }
 
     applyTheme(currentTheme);
 
