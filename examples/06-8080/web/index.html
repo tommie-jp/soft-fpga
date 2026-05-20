@@ -20,6 +20,7 @@
       color:#111; width:180px; background:#fff; padding:2px 6px;
       border:1px solid #bbb; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
     }
+    .drive-time { color:#999; font-size:10px; width:84px; text-align:right; flex-shrink:0; white-space:nowrap; }
     .btn-load {
       background:#e8e8e8; color:#333; border:1px solid #aaa;
       padding:2px 8px; cursor:pointer; font-size:12px;
@@ -90,7 +91,7 @@
     /* FS table: 名前 | サイズ | 時刻 */
     .fs-thead, .fs-row {
       display:grid;
-      grid-template-columns:1fr 36px 62px;
+      grid-template-columns:1fr 36px 84px;
       gap:0 4px;
       align-items:baseline;
     }
@@ -111,22 +112,136 @@
     .fs-sz   { color:#888; font-size:10px; text-align:right; white-space:nowrap; }
     .fs-mt   { color:#888; font-size:10px; text-align:right; white-space:nowrap; }
     .sig-label { font-size:11px; color:#888; margin-bottom:2px; }
+    .xterm-viewport::-webkit-scrollbar { display:none; }
+    .xterm-viewport { scrollbar-width:none; }
+
+    /* ---- Editor modal ---- */
+    #editor-modal {
+      position:fixed; top:0; left:0; width:100%; height:100%; z-index:1000;
+      display:flex; align-items:center; justify-content:center;
+    }
+    #editor-overlay {
+      position:absolute; top:0; left:0; width:100%; height:100%;
+      background:rgba(0,0,0,.55);
+    }
+    #editor-pane {
+      position:relative; width:92%; height:88%; max-width:960px;
+      background:#fff; display:flex; flex-direction:column;
+      box-shadow:0 4px 32px rgba(0,0,0,.5); border:1px solid #999;
+    }
+    #editor-toolbar {
+      display:flex; align-items:center; gap:6px; padding:5px 8px;
+      border-bottom:1px solid #ccc; background:#f0f0f0; flex-shrink:0;
+    }
+    #editor-filename { font-size:13px; font-weight:bold; flex:1; color:#222; font-family:monospace; }
+    #editor-toolbar button, #editor-toolbar label {
+      background:#e0e0e0; color:#111; border:1px solid #aaa;
+      padding:2px 10px; cursor:pointer; font-size:12px; font-family:monospace;
+      white-space:nowrap;
+    }
+    #editor-toolbar button:hover, #editor-toolbar label:hover { background:#c8c8c8; }
+    #editor-close { margin-left:4px; }
+    #editor-cm { flex:1; overflow:hidden; }
+    /* CodeMirror 6 height fill */
+    #editor-cm .cm-editor { height:100%; }
+    #editor-cm .cm-scroller { overflow:auto; font-family:'Courier New',monospace; font-size:13px; }
+
+    /* ---- Top row (controls + docs panel) ---- */
+    .top-row  { display:flex; gap:16px; align-items:flex-start; margin-bottom:0; }
+    .top-left { flex-shrink:0; }
+
+    /* ---- Docs panel ---- */
+    #docs-panel {
+      border:1px solid #bbb; padding:6px 8px;
+      font-size:12px; min-width:180px; flex:1; max-width:300px;
+      overflow-y:auto; max-height:152px;
+      background:#fafafa;
+    }
+    #docs-panel .docs-hdr { font-size:10px; color:#888; font-weight:bold; margin-bottom:4px; letter-spacing:.04em; }
+    #docs-panel a {
+      display:block; color:#0055aa; text-decoration:none;
+      padding:2px 4px; border-radius:2px;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    #docs-panel a:hover { background:#e8f0ff; color:#0033aa; }
+
+    /* ---- Doc viewer modal ---- */
+    #doc-modal {
+      position:fixed; top:0; left:0; width:100%; height:100%; z-index:1100;
+      display:flex; align-items:center; justify-content:center;
+    }
+    #doc-overlay {
+      position:absolute; top:0; left:0; width:100%; height:100%;
+      background:rgba(0,0,0,.55);
+    }
+    #doc-pane {
+      position:relative; width:85%; height:88%; max-width:820px;
+      background:#fff; display:flex; flex-direction:column;
+      box-shadow:0 4px 32px rgba(0,0,0,.5); border:1px solid #999;
+    }
+    #doc-toolbar {
+      display:flex; align-items:center; gap:6px; padding:5px 8px;
+      border-bottom:1px solid #ccc; background:#f0f0f0; flex-shrink:0;
+    }
+    #doc-toolbar-title { font-size:13px; font-weight:bold; flex:1; color:#222; font-family:sans-serif; }
+    #doc-toolbar button {
+      background:#e0e0e0; color:#111; border:1px solid #aaa;
+      padding:2px 10px; cursor:pointer; font-size:12px;
+    }
+    #doc-toolbar button:hover { background:#c8c8c8; }
+    #doc-content {
+      flex:1; overflow-y:auto; padding:16px 24px;
+      font-family:-apple-system,BlinkMacSystemFont,sans-serif;
+      line-height:1.7; font-size:13px; color:#111;
+    }
+    #doc-content h1 { font-size:18px; border-bottom:2px solid #ddd; padding-bottom:6px; margin-top:0; }
+    #doc-content h2 { font-size:15px; border-bottom:1px solid #eee; padding-bottom:3px; margin-top:20px; }
+    #doc-content h3 { font-size:13px; color:#333; margin-top:14px; }
+    #doc-content table { border-collapse:collapse; width:100%; margin:8px 0; }
+    #doc-content th { background:#f0f0f0; }
+    #doc-content th, #doc-content td { border:1px solid #ccc; padding:4px 10px; font-size:12px; text-align:left; }
+    #doc-content code { background:#f0f0f0; padding:1px 5px; font-family:'Courier New',monospace; font-size:12px; border-radius:2px; }
+    #doc-content pre  { background:#f5f5f5; padding:10px 14px; overflow-x:auto; border:1px solid #ddd; border-radius:3px; }
+    #doc-content pre code { background:none; padding:0; }
+    #doc-content blockquote { border-left:3px solid #ccc; margin:0; padding-left:12px; color:#666; }
   </style>
 </head>
 <body>
-  <h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #999;">soft-FPGA</a> | 06 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/06-8080" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #999;">Intel 8080 / CP/M 2.2 RTL Simulator</a></h2>
-  <p style="font-size:12px;color:#666;margin:0 0 8px;">vm80a (decapped die RTL) → Verilator → WASM &nbsp;|&nbsp; CP/M 2.2 + custom BIOS</p>
+  <div class="top-row">
+    <div class="top-left">
+      <h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #999;">soft-FPGA</a> | 06 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/06-8080" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #999;">Intel 8080 / CP/M 2.2 RTL Simulator</a> <span style="font-size:11px;color:#999;font-weight:normal;">Ver. 1.0.0</span></h2>
+      <p style="font-size:12px;color:#666;margin:0 0 8px;"><a href="https://github.com/1801BM1/vm80a" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">vm80a</a> (decapped die RTL) → <a href="https://www.veripool.org/verilator/" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">Verilator</a> → WASM &nbsp;|&nbsp; CP/M 2.2 + custom BIOS</p>
 
-  <!-- Drive panel (A–D) -->
-  <div class="drives-panel" id="drives-panel"></div>
+      <!-- Drive panel (A–D) -->
+      <div class="drives-panel" id="drives-panel"></div>
 
-  <!-- Quick presets -->
-  <div class="presets">
-    Preset:
-    <button onclick="loadPreset(0)">CP/M std</button>
-    <button onclick="loadPreset(1)">BDS C</button>
-    <button onclick="loadPreset(2)">Blank</button>
-  </div>
+      <!-- Quick presets -->
+      <div class="presets">
+        Preset:
+        <button onclick="loadPreset(0)">CP/M std</button>
+        <button onclick="loadPreset(1)">BDS C</button>
+        <button onclick="loadPreset(2)">Blank</button>
+      </div>
+    </div><!-- /.top-left -->
+
+    <!-- Docs panel -->
+    <div id="docs-panel">
+      <div class="docs-hdr">CP/M DOCS</div>
+      <a href="#" onclick="openDoc('02-CP_M-歴史的価値.md');return false;">02 CP/M 歴史的価値</a>
+      <a href="#" onclick="openDoc('03-開発ツール.md');return false;">03 開発ツール</a>
+      <a href="#" onclick="openDoc('12-CP_M-コマンドリファレンス.md');return false;">12 CP/M コマンドリファレンス</a>
+      <a href="#" onclick="openDoc('14-cpm-コマンド説明.md');return false;">14 CP/M コマンド説明</a>
+      <a href="#" onclick="openDoc('15-ファイル構成とファイル交換.md');return false;">15 ファイル構成・交換方法</a>
+      <a href="#" onclick="openDoc('16-CP_M-ソフトウェア入手先.md');return false;">16 CP/M ソフトウェア入手先</a>
+      <a href="#" onclick="openDoc('17-MBASIC-使い方.md');return false;">17 MBASIC 使い方</a>
+      <a href="#" onclick="openDoc('18-BDS-C-使い方.md');return false;">18 BDS C 使い方</a>
+      <a href="#" onclick="openDoc('19-インタラクティブコマンド.md');return false;">19 インタラクティブコマンド</a>
+      <a href="#" onclick="openDoc('20-サイクルカウンタ.md');return false;">20 サイクルカウンタ</a>
+      <a href="#" onclick="openDoc('22-クロック計測とベンチマーク手順.md');return false;">22 クロック計測・ベンチマーク</a>
+      <a href="#" onclick="openDoc('23-WordMaster-使い方.md');return false;">23 WordMaster 使い方</a>
+      <a href="#" onclick="openDoc('52-メモリマップ.md');return false;">52 メモリマップ &amp; I/O ポート</a>
+    </div><!-- /#docs-panel -->
+  </div><!-- /.top-row -->
 
   <div class="controls">
     <button id="btn-run">Pause</button>
@@ -189,6 +304,33 @@
     &nbsp;&mdash;&nbsp;
     <a href="06-8080-QR.png" target="_blank" rel="noopener" style="color:#aaa;">QR</a>
   </p>
+
+  <!-- ---- Doc viewer modal ---- -->
+  <div id="doc-modal" style="display:none;">
+    <div id="doc-overlay"></div>
+    <div id="doc-pane">
+      <div id="doc-toolbar">
+        <span id="doc-toolbar-title">—</span>
+        <button id="doc-close">✕ Close</button>
+      </div>
+      <div id="doc-content"></div>
+    </div>
+  </div>
+
+  <!-- ---- Editor modal ---- -->
+  <div id="editor-modal" style="display:none;">
+    <div id="editor-overlay"></div>
+    <div id="editor-pane">
+      <div id="editor-toolbar">
+        <span id="editor-filename">—</span>
+        <button id="editor-save">Save</button>
+        <button id="editor-download">Download</button>
+        <label>Upload<input id="editor-upload" type="file" style="display:none;"></label>
+        <button id="editor-close">✕ Close</button>
+      </div>
+      <div id="editor-cm"></div>
+    </div>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
   <script>
@@ -263,6 +405,7 @@
   let curPreset   = 0;
   let diskNames   = PRESET_NAMES[0].slice();
   let customDisks = [null, null, null, null]; // Uint8Array | null
+  let diskTimes   = [null, null, null, null]; // Date.now() ms | null
   let workerReady = false;
   let running     = false;
   let fsDirty     = false;
@@ -274,7 +417,12 @@
   }
 
   function fmtMtime(mtime) {
-    return new Date(mtime * 1000).toLocaleTimeString(undefined, { hour12: false });
+    var d = new Date(mtime);
+    var mm = String(d.getMonth() + 1).padStart(2, '0');
+    var dd = String(d.getDate()).padStart(2, '0');
+    var hh = String(d.getHours()).padStart(2, '0');
+    var mi = String(d.getMinutes()).padStart(2, '0');
+    return mm + '/' + dd + ' ' + hh + ':' + mi;
   }
 
   async function downloadFromFS(name) {
@@ -318,6 +466,10 @@
     _pcRegionEl.className = 'pc-region' + (r ? ' ' + r.cls : '');
     _pcRegionEl.textContent = r ? r.label : '';
   }
+
+  // テキストファイルとして扱う拡張子（クリック → エディタ、それ以外 → ダウンロード）
+  var TEXT_EXTS = { TXT:1, ASM:1, MAC:1, C:1, H:1, BAS:1, SUB:1, FOR:1,
+                    PAS:1, PLI:1, DOC:1, ME:1, INI:1, CFG:1, BAT:1 };
 
   var fsSort = { col: 'name', asc: true };
 
@@ -375,7 +527,15 @@
 
       el.querySelectorAll('.fs-row').forEach(function(row) {
         row.addEventListener('click', function() {
-          if (moduleReady) downloadFromFS(this.getAttribute('data-name'));
+          if (!workerReady) return;
+          var name = this.getAttribute('data-name');
+          var dot  = name.lastIndexOf('.');
+          var ext  = dot >= 0 ? name.slice(dot + 1).toUpperCase() : '';
+          if (TEXT_EXTS[ext] && window.openEditorFile) {
+            window.openEditorFile(name);
+          } else {
+            downloadFromFS(name);
+          }
         });
       });
     } catch(e) { el.textContent = '(error)'; }
@@ -390,6 +550,7 @@
       row.innerHTML =
         '<span class="drive-lbl">' + DRIVE_LABELS[d] + ':</span>' +
         '<span class="drive-name" id="dn-' + d + '">' + diskNames[d] + '</span>' +
+        '<span class="drive-time" id="dt-' + d + '">—</span>' +
         '<label class="btn-load" title="Load disk image">' +
           'Load<input type="file" id="fu-' + d + '" accept=".dsk,.img" style="display:none">' +
         '</label>' +
@@ -405,6 +566,7 @@
           customDisks[drive] = new Uint8Array(buf);
           diskNames[drive]   = file.name;
           document.getElementById('dn-' + drive).textContent = file.name;
+          setDiskTime(drive, Date.now());
           if (workerReady) applyOneDisk(drive);
           this.value = ''; // allow re-selecting same file
         });
@@ -416,6 +578,12 @@
         });
       })(d);
     }
+  }
+
+  function setDiskTime(drive, ms) {
+    diskTimes[drive] = ms;
+    var el = document.getElementById('dt-' + drive);
+    if (el) el.textContent = ms ? fmtMtime(ms) : '—';
   }
 
   function applyOneDisk(drive) {
@@ -432,8 +600,11 @@
     customDisks = [null, null, null, null];
     diskNames   = PRESET_NAMES[id].slice();
     curPreset   = id;
-    for (let d = 0; d < 4; d++)
+    diskTimes = [null, null, null, null];
+    for (let d = 0; d < 4; d++) {
       document.getElementById('dn-' + d).textContent = diskNames[d];
+      setDiskTime(d, null);
+    }
     if (!workerReady) return;
     workerSend({ type: 'reset', preset: id, running: false });
     running = false;
@@ -499,7 +670,7 @@
       var fileData   = [];
       for (var e of listResult.entries) {
         var r = await workerRequest({ type: 'readFS', name: e.name });
-        fileData.push({ name: e.name, data: new Uint8Array(r.data) });
+        fileData.push({ name: e.name, data: new Uint8Array(r.data), mtime: e.mtime });
       }
       var db = await openCpmDB();
       await new Promise(function(resolve, reject) {
@@ -532,13 +703,15 @@
       var result = await workerRequest({ type: 'getDiskData', drive: drive });
       var data   = new Uint8Array(result.data);
       var name   = diskNames[drive];
+      var mtime  = Date.now();
       var db     = await openCpmDB();
       await new Promise(function(resolve, reject) {
         var tx = db.transaction('disks', 'readwrite');
-        tx.objectStore('disks').put({ drive: drive, data: data, name: name });
+        tx.objectStore('disks').put({ drive: drive, data: data, name: name, mtime: mtime });
         tx.oncomplete = resolve;
         tx.onerror = function(ev) { reject(ev.target.error); };
       });
+      setDiskTime(drive, mtime);
       workerSend({ type: 'clearDirty', drive: drive });
       updateDirtyBtn(drive, false);
       console.log('[IDB] drive ' + DRIVE_LABELS[drive] + ': saved (' + name + ')');
@@ -711,6 +884,7 @@
       theme: THEMES[currentTheme],
       fontSize: 13, fontFamily: 'Courier New, monospace',
       cursorBlink: true, convertEol: true,
+      scrollback: 0,
     });
     term.open(document.getElementById('terminal'));
     applyTheme(currentTheme);
@@ -895,7 +1069,7 @@
         var proms = files.map(function(f) {
           var src = (f.data instanceof Uint8Array) ? f.data : new Uint8Array(f.data);
           var buf = src.buffer.slice(src.byteOffset, src.byteOffset + src.byteLength);
-          return workerRequest({ type: 'writeFS', name: f.name, data: buf }, [buf]);
+          return workerRequest({ type: 'writeFS', name: f.name, data: buf, mtime: f.mtime || null }, [buf]);
         });
         Promise.all(proms).then(function() {
           updateFSList();
@@ -913,6 +1087,7 @@
           customDisks[e.drive] = (e.data instanceof Uint8Array) ? e.data : new Uint8Array(e.data);
           diskNames[e.drive]   = e.name;
           document.getElementById('dn-' + e.drive).textContent = e.name;
+          setDiskTime(e.drive, e.mtime || null);
           applyOneDisk(e.drive);
         });
         for (var d = 0; d < 4; d++) updateDirtyBtn(d, dirtyState[d]);
@@ -921,7 +1096,159 @@
 
     term.focus();
     requestAnimationFrame(loop);
+
+    // ---- Doc viewer ----
+    document.getElementById('doc-close').addEventListener('click', function() {
+      document.getElementById('doc-modal').style.display = 'none';
+    });
+    document.getElementById('doc-overlay').addEventListener('click', function() {
+      document.getElementById('doc-modal').style.display = 'none';
+    });
   }
+
+  function openDoc(file) {
+    fetch('/docs/' + file)
+      .then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.text();
+      })
+      .then(function(md) {
+        var title = file.replace(/^\d+-/, '').replace(/\.md$/, '').replace(/-/g, ' ');
+        document.getElementById('doc-toolbar-title').textContent = title;
+        document.getElementById('doc-content').innerHTML = marked.parse(md);
+        document.getElementById('doc-modal').style.display = 'flex';
+      })
+      .catch(function(e) {
+        alert('ドキュメントを読み込めませんでした: ' + file + '\n' + e);
+      });
+  }
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <!-- ============================================================
+       CodeMirror 6 — WASM FS テキストエディタ
+       Phase 2: CDN ロード   Phase 3: FS 読み書き
+       Phase 4: Save/Download/Upload   Phase 5: ASCII 制限
+       Phase 6: 言語モード (C / ASM)
+  ============================================================ -->
+  <script type="module">
+  // --- imports (esm.sh が peer deps を自動解決) ---
+  import { EditorView, basicSetup }
+    from 'https://esm.sh/codemirror@6.0.1';
+  import { EditorState }
+    from 'https://esm.sh/@codemirror/state@6';
+  import { cpp }
+    from 'https://esm.sh/@codemirror/lang-cpp@6';
+
+  let cmView     = null;
+  let cmFileName = '';
+
+  // --- Phase 5: ASCII 制限 ---
+  // 127 超の文字を含むトランザクションを破棄する
+  const asciiFilter = EditorState.transactionFilter.of(tr => {
+    if (!tr.docChanged) return tr;
+    let ok = true;
+    tr.changes.iterChanges((_f, _t, _ff, _tt, ins) => {
+      if (!ok) return;
+      const s = ins.toString();
+      for (let i = 0; i < s.length; i++) {
+        if (s.charCodeAt(i) > 127) { ok = false; break; }
+      }
+    });
+    return ok ? tr : [];
+  });
+
+  // --- Phase 6: 言語モード ---
+  function getLang(name) {
+    const dot = name.lastIndexOf('.');
+    if (dot < 0) return [];
+    switch (name.slice(dot + 1).toUpperCase()) {
+      case 'C': case 'H': return [cpp()];
+      default: return [];   // ASM 等はプレーンテキスト
+    }
+  }
+
+  function makeView(doc) {
+    const container = document.getElementById('editor-cm');
+    if (cmView) { cmView.destroy(); cmView = null; }
+    cmView = new EditorView({
+      state: EditorState.create({
+        doc,
+        extensions: [
+          basicSetup,
+          asciiFilter,
+          ...getLang(cmFileName),
+          EditorView.theme({ '&': { height: '100%' } }),
+        ],
+      }),
+      parent: container,
+    });
+  }
+
+  // --- Phase 3: FS → エディタ ---
+  window.openEditorFile = async function(name) {
+    cmFileName = name;
+    document.getElementById('editor-filename').textContent = name;
+    document.getElementById('editor-modal').style.display = '';
+
+    const result = await window.workerRequest({ type: 'readFS', name });
+    const bytes  = new Uint8Array(result.data);
+    // CP/M: latin-1 でデコード、CRLF→LF、EOF マーカー除去
+    const text = new TextDecoder('latin1').decode(bytes)
+                   .replace(/\r\n/g, '\n')
+                   .replace(/\x1a[\s\S]*/g, '');   // ^Z 以降切捨て
+    makeView(text);
+  };
+
+  function closeEditor() {
+    document.getElementById('editor-modal').style.display = 'none';
+    if (cmView) { cmView.destroy(); cmView = null; }
+    cmFileName = '';
+  }
+
+  document.getElementById('editor-close').addEventListener('click', closeEditor);
+  document.getElementById('editor-overlay').addEventListener('click', closeEditor);
+
+  // Esc キーでも閉じる
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && document.getElementById('editor-modal').style.display !== 'none') {
+      closeEditor();
+    }
+  });
+
+  // --- Phase 4: Save (エディタ → WASM FS) ---
+  document.getElementById('editor-save').addEventListener('click', async function() {
+    if (!cmView || !cmFileName) return;
+    // LF → CRLF、CP/M EOF マーカー付加
+    const text  = cmView.state.doc.toString().replace(/\n/g, '\r\n') + '\x1a';
+    const bytes = new TextEncoder().encode(text);
+    const buf   = bytes.buffer;
+    await window.workerRequest({ type: 'writeFS', name: cmFileName, data: buf }, [buf]);
+    window.updateFSList();
+    window.markFSDirty();
+    window.showDropStatus(cmFileName + ' saved ✓', true);
+  });
+
+  // --- Phase 4: Download (エディタ内容 → PC) ---
+  document.getElementById('editor-download').addEventListener('click', function() {
+    if (!cmView || !cmFileName) return;
+    const text = cmView.state.doc.toString().replace(/\n/g, '\r\n');
+    const blob = new Blob([text], { type: 'text/plain' });
+    const a = Object.assign(document.createElement('a'), {
+      href: URL.createObjectURL(blob), download: cmFileName,
+    });
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  // --- Phase 4: Upload (PC → エディタ) ---
+  document.getElementById('editor-upload').addEventListener('change', async function() {
+    if (!this.files.length || !cmView) return;
+    const text = (await this.files[0].text()).replace(/\r\n|\r/g, '\n');
+    cmView.dispatch({ changes: { from: 0, to: cmView.state.doc.length, insert: text } });
+    this.value = '';
+  });
   </script>
 </body>
 </html>

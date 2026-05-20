@@ -17,6 +17,7 @@ var RING_SIZE     = 0;
 var ringBase      = 0;
 var running       = false;
 var stepsPerFrame = 100000;
+var fileTimes     = {};   // name → Date.now() ms (writeFS 時刻)
 
 // ---- シミュレーションループ ----
 function simLoop() {
@@ -126,6 +127,7 @@ self.onmessage = function (e) {
       var arr2 = new Uint8Array(data.data);
       try {
         Module.FS.writeFile('/' + data.name, arr2);
+        fileTimes[data.name] = data.mtime || Date.now();
         postMessage({ type: 'fsResult', requestId: data.requestId, ok: true });
       } catch (err) {
         postMessage({ type: 'fsResult', requestId: data.requestId, ok: false, error: err.message });
@@ -156,7 +158,7 @@ self.onmessage = function (e) {
             var st = Module.FS.stat('/' + f);
             if (Module.FS.isDir(st.mode)) return;
             if (st.size >= 65536) return;
-            entries.push({ name: f, size: st.size, mtime: st.mtime });
+            entries.push({ name: f, size: st.size, mtime: fileTimes[f] || (st.mtime * 1000) });
           } catch (e) {}
         });
       } catch (e) {}
@@ -166,6 +168,7 @@ self.onmessage = function (e) {
 
     case 'deleteFS': {
       try { Module.FS.unlink('/' + data.name); } catch (e) {}
+      delete fileTimes[data.name];
       postMessage({ type: 'fsResult', requestId: data.requestId, ok: true });
       break;
     }

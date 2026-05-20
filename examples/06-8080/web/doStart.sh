@@ -36,4 +36,6 @@ else
 fi
 
 cd "$SCRIPT_DIR"
+# docs/06-8080 を HTTP で提供するシンボリックリンク（markdown ビューア用）
+ln -sfn "$ROOT/docs/06-8080" "$SCRIPT_DIR/docs"
 python3 serve.py
