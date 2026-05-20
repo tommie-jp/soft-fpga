@@ -275,6 +275,27 @@
     #doc-content pre  { background:#f5f5f5; padding:10px 14px; overflow-x:auto; border:1px solid #ddd; border-radius:3px; }
     #doc-content pre code { background:none; padding:0; white-space:pre; }
     #doc-content blockquote { border-left:3px solid #ccc; margin:0; padding-left:12px; color:#666; }
+
+    /* ---- Theme custom dropdown ---- */
+    .theme-btn {
+      border:1px solid #aaa; padding:2px 20px 2px 6px; cursor:pointer;
+      background:#e8e8e8; font-size:12px; user-select:none;
+      position:relative; white-space:nowrap;
+    }
+    .theme-btn:hover { background:#d0d0d0; }
+    .theme-arrow { position:absolute; right:4px; top:50%; transform:translateY(-50%); font-size:9px; }
+    .theme-list {
+      position:absolute; top:100%; left:0; z-index:600;
+      border:1px solid #888; box-shadow:0 3px 10px rgba(0,0,0,.35);
+      min-width:100%; margin-top:1px;
+    }
+    .th-item {
+      padding:5px 10px; cursor:pointer;
+      display:flex; align-items:center; gap:5px;
+      white-space:nowrap; font-size:12px;
+    }
+    .th-item:hover { opacity:.8; }
+    .th-chk { display:inline-block; width:1em; text-align:center; flex-shrink:0; }
   </style>
 </head>
 <body>
@@ -327,13 +348,18 @@
              style="width:100px;display:none;">
       <span id="cycle-info" style="font-size:12px;color:#555;margin-left:4px;"></span>
     </label>
-    <label for="sel-theme" style="font-size:12px;color:#555;">Theme:</label>
-    <select id="sel-theme" style="font-size:12px;padding:2px 4px;cursor:pointer;">
-      <option value="green" style="background:#33FF00;">Green</option>
-      <option value="amber" style="background:#FFB300;">Amber</option>
-      <option value="paper" style="background:#E8E8D0;">White</option>
-      <option value="light" style="background:#ffffff;">Light</option>
-    </select>
+    <span style="font-size:12px;color:#555;">Theme:</span>
+    <div id="theme-menu" style="position:relative;display:inline-block;">
+      <div id="theme-btn" class="theme-btn">
+        <span id="theme-label">Green</span><span class="theme-arrow">▼</span>
+      </div>
+      <div id="theme-list" class="theme-list" style="display:none;">
+        <div class="th-item" data-value="green" style="background:#000;color:#33FF00;"><span class="th-chk"></span>Green</div>
+        <div class="th-item" data-value="amber" style="background:#000;color:#FFB300;"><span class="th-chk"></span>Amber</div>
+        <div class="th-item" data-value="paper" style="background:#000;color:#E8E8D0;"><span class="th-chk"></span>White</div>
+        <div class="th-item" data-value="light" style="background:#fff;color:#111;"><span class="th-chk"></span>Light</div>
+      </div>
+    </div>
     <label for="sel-fontsize" style="font-size:12px;color:#555;">Font:</label>
     <select id="sel-fontsize" style="font-size:12px;padding:2px 4px;cursor:pointer;">
       <option value="6">6px</option>
@@ -868,15 +894,35 @@
     var wrap = document.getElementById('terminal-wrap');
     wrap.style.background  = THEMES[name].background;
     wrap.style.borderColor = (name === 'light') ? '#bbb' : '#444';
-    var sel = document.getElementById('sel-theme');
-    if (sel) sel.value = name;
+    updateThemeMenu(name);
   }
 
-  var selTheme = document.getElementById('sel-theme');
-  if (selTheme) {
-    selTheme.value = currentTheme;
-    selTheme.addEventListener('change', function() { applyTheme(this.value); });
+  function updateThemeMenu(name) {
+    var labels = { green:'Green', amber:'Amber', paper:'White', light:'Light' };
+    var lbl = document.getElementById('theme-label');
+    if (lbl) lbl.textContent = labels[name] || name;
+    document.querySelectorAll('.th-item').forEach(function(el) {
+      el.querySelector('.th-chk').textContent = el.dataset.value === name ? '✔' : '';
+    });
   }
+
+  (function() {
+    var btn  = document.getElementById('theme-btn');
+    var list = document.getElementById('theme-list');
+    if (!btn || !list) return;
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      list.style.display = list.style.display === 'none' ? '' : 'none';
+    });
+    list.querySelectorAll('.th-item').forEach(function(el) {
+      el.addEventListener('click', function() {
+        applyTheme(this.dataset.value);
+        list.style.display = 'none';
+      });
+    });
+    document.addEventListener('click', function() { list.style.display = 'none'; });
+    updateThemeMenu(currentTheme);
+  })();
 
   var currentFontSize = parseInt(localStorage.getItem('cpm-fontsize'), 10) || 13;
 
