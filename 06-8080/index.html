@@ -109,7 +109,7 @@
     }
     .fs-th:hover { color:#111; }
     .fs-th.active { color:#0055aa; }
-    .fs-row { padding:2px 0; border-bottom:1px solid #e0e0e0; cursor:pointer; }
+    .fs-row { padding:2px 0; border-bottom:1px solid #e0e0e0; cursor:pointer; touch-action:manipulation; }
     .fs-row:hover .fs-name { color:#0066cc; }
     .fs-name { color:#0055aa; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:12px; }
     .fs-sz   { color:#888; font-size:10px; text-align:right; white-space:nowrap; }
@@ -558,8 +558,9 @@
           var name = this.getAttribute('data-name');
           var dot  = name.lastIndexOf('.');
           var ext  = dot >= 0 ? name.slice(dot + 1).toUpperCase() : '';
-          if (TEXT_EXTS[ext] && window.openEditorFile) {
-            window.openEditorFile(name);
+          if (TEXT_EXTS[ext]) {
+            var fn = window.openEditorFile || window.openEditorFallback;
+            if (fn) fn(name);
           } else {
             downloadFromFS(name);
           }
@@ -1137,6 +1138,81 @@
     term.focus();
     requestAnimationFrame(loop);
 
+    // ---- テキストエディタ共通 (CodeMirror / textarea フォールバック) ----
+    // window._editor = { type:'cm'|'textarea', view|el, name } | null
+    window._editor = null;
+
+    // CodeMirror 未ロード時の textarea フォールバック
+    window.openEditorFallback = async function(name) {
+      var result = await window.workerRequest({ type: 'readFS', name: name });
+      var bytes  = new Uint8Array(result.data);
+      var text   = new TextDecoder('latin1').decode(bytes)
+                     .replace(/\r\n/g, '\n').replace(/\x1a[\s\S]*/, '');
+      var cm = document.getElementById('editor-cm');
+      cm.innerHTML = '';
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'width:100%;height:100%;box-sizing:border-box;'
+        + 'font-family:"Courier New",monospace;font-size:13px;'
+        + 'border:none;resize:none;padding:8px;outline:none;';
+      cm.appendChild(ta);
+      window._editor = { type: 'textarea', el: ta, name: name };
+      document.getElementById('editor-filename').textContent = name;
+      document.getElementById('editor-modal').style.display = '';
+    };
+
+    // 閉じる（module 側が window._destroyEditor をセットすれば CM も破棄）
+    window.closeEditor = function() {
+      document.getElementById('editor-modal').style.display = 'none';
+      if (window._destroyEditor) window._destroyEditor();
+      window._editor = null;
+    };
+
+    document.getElementById('editor-close').addEventListener('click', window.closeEditor);
+    document.getElementById('editor-overlay').addEventListener('click', window.closeEditor);
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && document.getElementById('editor-modal').style.display !== 'none') {
+        window.closeEditor();
+      }
+    });
+
+    document.getElementById('editor-save').addEventListener('click', async function() {
+      var ed = window._editor;
+      if (!ed) return;
+      var text = ed.type === 'cm' ? ed.view.state.doc.toString() : ed.el.value;
+      text = text.replace(/\n/g, '\r\n') + '\x1a';
+      var bytes = new TextEncoder().encode(text);
+      var buf   = bytes.buffer;
+      await window.workerRequest({ type: 'writeFS', name: ed.name, data: buf }, [buf]);
+      window.updateFSList();
+      window.markFSDirty();
+      window.showDropStatus(ed.name + ' saved ✓', true);
+    });
+
+    document.getElementById('editor-download').addEventListener('click', function() {
+      var ed = window._editor;
+      if (!ed) return;
+      var text = (ed.type === 'cm' ? ed.view.state.doc.toString() : ed.el.value)
+                   .replace(/\n/g, '\r\n');
+      var blob = new Blob([text], { type: 'text/plain' });
+      var a = Object.assign(document.createElement('a'), {
+        href: URL.createObjectURL(blob), download: ed.name,
+      });
+      a.click(); URL.revokeObjectURL(a.href);
+    });
+
+    document.getElementById('editor-upload').addEventListener('change', async function() {
+      if (!this.files.length || !window._editor) return;
+      var text = (await this.files[0].text()).replace(/\r\n|\r/g, '\n');
+      var ed = window._editor;
+      if (ed.type === 'cm') {
+        ed.view.dispatch({ changes: { from: 0, to: ed.view.state.doc.length, insert: text } });
+      } else {
+        ed.el.value = text;
+      }
+      this.value = '';
+    });
+
     // ---- Doc viewer ----
     document.getElementById('doc-close').addEventListener('click', function() {
       document.getElementById('doc-modal').style.display = 'none';
@@ -1181,11 +1257,9 @@
   import { cpp }
     from 'https://esm.sh/@codemirror/lang-cpp@6';
 
-  let cmView     = null;
-  let cmFileName = '';
+  let cmView = null;
 
   // --- Phase 5: ASCII 制限 ---
-  // 127 超の文字を含むトランザクションを破棄する
   const asciiFilter = EditorState.transactionFilter.of(tr => {
     if (!tr.docChanged) return tr;
     let ok = true;
@@ -1205,11 +1279,11 @@
     if (dot < 0) return [];
     switch (name.slice(dot + 1).toUpperCase()) {
       case 'C': case 'H': return [cpp()];
-      default: return [];   // ASM 等はプレーンテキスト
+      default: return [];
     }
   }
 
-  function makeView(doc) {
+  function makeView(doc, name) {
     const container = document.getElementById('editor-cm');
     if (cmView) { cmView.destroy(); cmView = null; }
     cmView = new EditorView({
@@ -1218,7 +1292,7 @@
         extensions: [
           basicSetup,
           asciiFilter,
-          ...getLang(cmFileName),
+          ...getLang(name),
           EditorView.theme({ '&': { height: '100%' } }),
         ],
       }),
@@ -1228,67 +1302,22 @@
 
   // --- Phase 3: FS → エディタ ---
   window.openEditorFile = async function(name) {
-    cmFileName = name;
     document.getElementById('editor-filename').textContent = name;
     document.getElementById('editor-modal').style.display = '';
 
     const result = await window.workerRequest({ type: 'readFS', name });
     const bytes  = new Uint8Array(result.data);
-    // CP/M: latin-1 でデコード、CRLF→LF、EOF マーカー除去
     const text = new TextDecoder('latin1').decode(bytes)
                    .replace(/\r\n/g, '\n')
-                   .replace(/\x1a[\s\S]*/g, '');   // ^Z 以降切捨て
-    makeView(text);
+                   .replace(/\x1a[\s\S]*/g, '');
+    makeView(text, name);
+    window._editor = { type: 'cm', view: cmView, name: name };
   };
 
-  function closeEditor() {
-    document.getElementById('editor-modal').style.display = 'none';
+  // closeEditor / イベントリスナーは通常スクリプト側で登録済み
+  window._destroyEditor = function() {
     if (cmView) { cmView.destroy(); cmView = null; }
-    cmFileName = '';
-  }
-
-  document.getElementById('editor-close').addEventListener('click', closeEditor);
-  document.getElementById('editor-overlay').addEventListener('click', closeEditor);
-
-  // Esc キーでも閉じる
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && document.getElementById('editor-modal').style.display !== 'none') {
-      closeEditor();
-    }
-  });
-
-  // --- Phase 4: Save (エディタ → WASM FS) ---
-  document.getElementById('editor-save').addEventListener('click', async function() {
-    if (!cmView || !cmFileName) return;
-    // LF → CRLF、CP/M EOF マーカー付加
-    const text  = cmView.state.doc.toString().replace(/\n/g, '\r\n') + '\x1a';
-    const bytes = new TextEncoder().encode(text);
-    const buf   = bytes.buffer;
-    await window.workerRequest({ type: 'writeFS', name: cmFileName, data: buf }, [buf]);
-    window.updateFSList();
-    window.markFSDirty();
-    window.showDropStatus(cmFileName + ' saved ✓', true);
-  });
-
-  // --- Phase 4: Download (エディタ内容 → PC) ---
-  document.getElementById('editor-download').addEventListener('click', function() {
-    if (!cmView || !cmFileName) return;
-    const text = cmView.state.doc.toString().replace(/\n/g, '\r\n');
-    const blob = new Blob([text], { type: 'text/plain' });
-    const a = Object.assign(document.createElement('a'), {
-      href: URL.createObjectURL(blob), download: cmFileName,
-    });
-    a.click();
-    URL.revokeObjectURL(a.href);
-  });
-
-  // --- Phase 4: Upload (PC → エディタ) ---
-  document.getElementById('editor-upload').addEventListener('change', async function() {
-    if (!this.files.length || !cmView) return;
-    const text = (await this.files[0].text()).replace(/\r\n|\r/g, '\n');
-    cmView.dispatch({ changes: { from: 0, to: cmView.state.doc.length, insert: text } });
-    this.value = '';
-  });
+  };
   </script>
 </body>
 </html>
