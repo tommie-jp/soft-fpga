@@ -65,23 +65,25 @@
     /* ---- Controls ---- */
     .controls { display:flex; align-items:center; gap:14px; margin-bottom:8px; flex-wrap:wrap; }
 
-    /* ---- Main layout (desktop: grid 2-col / mobile: block) ---- */
+    /* ---- Main layout (desktop: 1-col / mobile: block) ---- */
     #page-body {
       display:grid;
-      grid-template-columns: auto 244px;
+      grid-template-columns: 1fr;
       grid-template-areas:
-        "terminal  reg"
-        "bus       bus"
-        "copyright copyright";
-      column-gap:12px;
+        "cpu-bar"
+        "terminal"
+        "bus"
+        "fs-panel"
+        "copyright";
       align-items:start;
     }
+    #cpu-bar      { grid-area:cpu-bar; margin-bottom:4px; }
     #terminal-col { grid-area:terminal; display:flex; flex-direction:column; }
     #bus-section  { grid-area:bus; margin-top:4px; }
-    #reg-panel    { grid-area:reg; }
+    #fs-panel     { grid-area:fs-panel; }
     #copyright    { grid-area:copyright; }
 
-    /* モバイル: DOM 順（terminal → bus → reg → copyright）に縦積み */
+    /* モバイル: DOM 順（cpu-bar → terminal → bus → fs-panel → copyright）に縦積み */
     @media (max-width:500px) {
       #page-body { display:block; }
       /* body 左右マージンがゼロなので width:100% でそのまま画面幅いっぱいになる */
@@ -92,7 +94,7 @@
       }
       /* terminal-wrap をキャンバス幅に合わせ、背景が 80 桁分を覆うようにする */
       #terminal-wrap { width:max-content; }
-      #reg-panel { width:100%; box-sizing:border-box; margin-top:8px; }
+      #fs-panel { width:100%; box-sizing:border-box; margin-top:8px; }
       #la { max-width:100%; height:auto; }
 
       /* ^C ^D 等のボタンを画面下部に固定 */
@@ -114,17 +116,23 @@
     #terminal-wrap { border:1px solid #bbb; flex-shrink:0; }
     #drop-hint   { font-size:10px; color:#aaa; margin-bottom:3px; }
     #drop-status { font-size:10px; min-height:13px; margin-bottom:3px; transition:opacity .5s; }
-    #fs-list { margin-top:2px; overflow-y:auto; flex:1; min-height:40px;
+    #fs-list { margin-top:2px; overflow-y:auto; max-height:200px; min-height:40px;
                transition:background .15s; }
     #fs-list.drop-active { background:#e8f4ff; outline:2px dashed #0077cc; }
-    #reg-panel {
-      border:1px solid #bbb; padding:10px 12px;
-      font-size:12px; color:#333; width:230px; flex-shrink:0;
-      display:flex; flex-direction:column;
+    /* CPU bar: ターミナル直上 */
+    #cpu-bar {
+      display:flex; align-items:center; gap:8px;
+      padding:4px 10px; border:1px solid #bbb; background:#f0f0f0;
+      font-size:12px; font-family:monospace; color:#333;
     }
-    #reg-panel h3    { font-size:11px; color:#888; margin:0 0 4px; padding-bottom:4px; border-bottom:1px solid #ccc; }
-    #reg-panel .val  { color:#111; font-weight:bold; font-size:13px; }
-    #reg-panel .label{ color:#888; }
+    #cpu-bar .cpu-lbl { font-size:11px; color:#888; font-weight:bold; }
+    #cpu-bar .val     { color:#111; font-weight:bold; font-size:13px; }
+    #cpu-bar .label   { color:#888; }
+    /* WASM FS panel: Bus Analyzer 直下 */
+    #fs-panel {
+      border:1px solid #bbb; padding:8px 12px;
+      font-size:12px; color:#333; max-width:560px; margin-top:4px;
+    }
     .pc-region {
       display:inline-block; font-size:9px; font-weight:bold;
       padding:1px 5px; border-radius:2px; vertical-align:middle;
@@ -237,25 +245,39 @@
       }
     }
 
-    /* ---- Top row (controls + docs panel) ---- */
-    /* ---- Docs panel (サブタイトル直下・横並び折り返しリンク帯) ---- */
+    /* ---- Top row (drives + docs panel 横並び) ---- */
+    #top-row {
+      display:flex; gap:12px; align-items:flex-start; margin-bottom:8px;
+    }
+    #top-row .drives-panel { flex-shrink:0; margin-bottom:0; }
+
+    /* ---- Docs panel (top-row 内・5行スクロール、1行1文書) ---- */
     #docs-panel {
-      display:flex; flex-wrap:wrap; align-items:center;
-      gap:2px 0; margin:2px 0 8px;
+      display:block; overflow-y:auto;
+      max-height:128px;   /* ヘッダ約22px + リンク行21px×5 = 127px */
+      flex:1; min-width:180px;
       border:1px solid #ddd; border-radius:3px;
-      padding:4px 6px; background:#fafafa;
+      background:#fafafa;
     }
     #docs-panel .docs-hdr {
-      font-size:10px; color:#888; font-weight:bold;
-      letter-spacing:.04em; white-space:nowrap; margin-right:8px;
+      display:block; font-size:10px; color:#888; font-weight:bold;
+      letter-spacing:.04em; white-space:nowrap;
+      padding:3px 6px; border-bottom:1px solid #ddd;
+      position:sticky; top:0; background:#f0f0f0;
     }
     #docs-panel a {
-      display:inline-block; color:#0055aa; text-decoration:none;
-      font-size:11px; padding:1px 6px; border-radius:2px;
-      white-space:nowrap;
+      display:block; color:#0055aa; text-decoration:none;
+      font-size:11px; padding:3px 8px;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+      border-bottom:1px solid #f0f0f0;
       touch-action:manipulation; -webkit-tap-highlight-color:transparent;
     }
+    #docs-panel a:last-child { border-bottom:none; }
     #docs-panel a:hover { background:#e8f0ff; color:#0033aa; }
+    @media (max-width:500px) {
+      #top-row { flex-direction:column; gap:6px; }
+      #docs-panel { max-height:128px; }
+    }
 
     /* ---- Doc content ---- */
     #doc-content {
@@ -302,28 +324,31 @@
   <h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #999;">soft-FPGA</a> | 06 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/06-8080" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #999;">Intel 8080 / CP/M 2.2 RTL Simulator</a> <span style="font-size:11px;color:#999;font-weight:normal;">Ver. 1.0.0</span></h2>
   <p style="font-size:12px;color:#666;margin:0 0 4px;"><a href="https://github.com/1801BM1/vm80a" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">vm80a</a> (decapped die RTL) → <a href="https://www.veripool.org/verilator/" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">Verilator</a> → <a href="https://en.wikipedia.org/wiki/WebAssembly" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">WASM</a> &nbsp;|&nbsp; <a href="https://en.wikipedia.org/wiki/CP/M" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">CP/M 2.2</a> + <a href="https://github.com/tommie-jp/soft-fpga/blob/main/docs/06-8080/30-BIOS実装.md" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">custom BIOS</a></p>
 
-  <!-- Docs panel (サブタイトル直下) -->
-  <div id="docs-panel">
-    <span class="docs-hdr">CP/M DOCS</span>
-    <a href="#" onclick="openDoc('02-CP_M-歴史的価値.md');return false;">02 CP/M 歴史的価値</a>
-    <a href="#" onclick="openDoc('03-開発ツール.md');return false;">03 開発ツール</a>
-    <a href="#" onclick="openDoc('12-CP_M-コマンドリファレンス.md');return false;">12 CP/M コマンドリファレンス</a>
-    <a href="#" onclick="openDoc('14-cpm-コマンド説明.md');return false;">14 CP/M コマンド説明</a>
-    <a href="#" onclick="openDoc('15-ファイル構成とファイル交換.md');return false;">15 ファイル構成・交換方法</a>
-    <a href="#" onclick="openDoc('16-CP_M-ソフトウェア入手先.md');return false;">16 CP/M ソフトウェア入手先</a>
-    <a href="#" onclick="openDoc('17-MBASIC-使い方.md');return false;">17 MBASIC 使い方</a>
-    <a href="#" onclick="openDoc('18-BDS-C-使い方.md');return false;">18 BDS C 使い方</a>
-    <a href="#" onclick="openDoc('19-インタラクティブコマンド.md');return false;">19 インタラクティブコマンド</a>
-    <a href="#" onclick="openDoc('20-サイクルカウンタ.md');return false;">20 サイクルカウンタ</a>
-    <a href="#" onclick="openDoc('22-クロック計測とベンチマーク手順.md');return false;">22 クロック計測・ベンチマーク</a>
-    <a href="#" onclick="openDoc('23-WordMaster-使い方.md');return false;">23 WordMaster 使い方</a>
-    <a href="#" onclick="openDoc('30-BIOS実装.md');return false;">30 カスタム BIOS 実装</a>
-    <a href="#" onclick="openDoc('52-メモリマップ.md');return false;">52 メモリマップ &amp; I/O ポート</a>
-    <a href="#" onclick="openDoc('53-参考資料.md');return false;">53 参考資料</a>
-  </div>
+  <!-- Top row: drives + CP/M DOCS 横並び -->
+  <div id="top-row">
+    <!-- Drive panel (A–D) -->
+    <div class="drives-panel" id="drives-panel"></div>
 
-  <!-- Drive panel (A–D) -->
-  <div class="drives-panel" id="drives-panel"></div>
+    <!-- CP/M DOCS panel: 縦スクロール・1行1文書 -->
+    <div id="docs-panel">
+      <span class="docs-hdr">CP/M DOCS</span>
+      <a href="#" onclick="openDoc('02-CP_M-歴史的価値.md');return false;">02 CP/M 歴史的価値</a>
+      <a href="#" onclick="openDoc('03-開発ツール.md');return false;">03 開発ツール</a>
+      <a href="#" onclick="openDoc('12-CP_M-コマンドリファレンス.md');return false;">12 CP/M コマンドリファレンス</a>
+      <a href="#" onclick="openDoc('14-cpm-コマンド説明.md');return false;">14 CP/M コマンド説明</a>
+      <a href="#" onclick="openDoc('15-ファイル構成とファイル交換.md');return false;">15 ファイル構成・交換方法</a>
+      <a href="#" onclick="openDoc('16-CP_M-ソフトウェア入手先.md');return false;">16 CP/M ソフトウェア入手先</a>
+      <a href="#" onclick="openDoc('17-MBASIC-使い方.md');return false;">17 MBASIC 使い方</a>
+      <a href="#" onclick="openDoc('18-BDS-C-使い方.md');return false;">18 BDS C 使い方</a>
+      <a href="#" onclick="openDoc('19-インタラクティブコマンド.md');return false;">19 インタラクティブコマンド</a>
+      <a href="#" onclick="openDoc('20-サイクルカウンタ.md');return false;">20 サイクルカウンタ</a>
+      <a href="#" onclick="openDoc('22-クロック計測とベンチマーク手順.md');return false;">22 クロック計測・ベンチマーク</a>
+      <a href="#" onclick="openDoc('23-WordMaster-使い方.md');return false;">23 WordMaster 使い方</a>
+      <a href="#" onclick="openDoc('30-BIOS実装.md');return false;">30 カスタム BIOS 実装</a>
+      <a href="#" onclick="openDoc('52-メモリマップ.md');return false;">52 メモリマップ &amp; I/O ポート</a>
+      <a href="#" onclick="openDoc('53-参考資料.md');return false;">53 参考資料</a>
+    </div>
+  </div>
 
   <!-- Quick presets -->
   <div class="presets">
@@ -380,6 +405,12 @@
   </div>
 
   <div id="page-body">
+    <!-- CPU bar: ターミナル直上 -->
+    <div id="cpu-bar">
+      <span class="cpu-lbl">CPU</span>
+      <span class="label">PC : </span><span class="val" id="r-pc">----</span><span class="pc-region" id="r-pc-region"></span>
+    </div>
+
     <div id="terminal-col">
       <div id="terminal-wrap"><div id="terminal"></div></div>
       <div id="ctrl-zone">
@@ -421,13 +452,10 @@
       <canvas id="la" width="900" height="120"></canvas>
     </div>
 
-    <div id="reg-panel">
-      <h3>CPU</h3>
-      <div style="margin-bottom:10px;line-height:2.2;">
-        <span class="label">PC : </span><span class="val" id="r-pc">----</span><span class="pc-region" id="r-pc-region"></span>
-      </div>
+    <!-- WASM FS panel: Bus Analyzer と copyright の間 -->
+    <div id="fs-panel">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;padding-bottom:4px;border-bottom:1px solid #ccc;">
-        <span style="font-size:11px;color:#888;">WASM FS</span>
+        <span style="font-size:11px;color:#888;font-weight:bold;">WASM FS</span>
         <div style="display:flex;gap:4px;">
           <label class="btn-dl" style="padding:1px 6px;font-size:10px;cursor:pointer;" title="Upload files to WASM FS">
             Upload<input id="fs-upload" type="file" multiple style="display:none;">

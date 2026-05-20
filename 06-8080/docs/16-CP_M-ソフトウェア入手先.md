@@ -39,35 +39,36 @@
 sudo apt install cpmtools
 ```
 
-`/etc/cpmtools/diskdefs`（または `~/.cpmtools/diskdefs`）に標準 8 インチ SSSD の定義を追加:
+`ibm-3740` は cpmtools に内蔵されているため **diskdefs への追記不要**。
 
-```
-diskdef ibm-sssd
-  seclen 128
-  tracks 77
-  sectrk 26
-  blocksize 1024
-  maxdir 64
-  skew 6
-  boottrk 2
-  os 2.2
-end
+### 4-1. 新規ディスクイメージを作成する
+
+```bash
+# IBM-3740: 77 トラック × 26 セクタ × 128 B = 256,256 B
+dd if=/dev/zero of=new.dsk bs=128 count=$((77*26))
+
+# CP/M ファイルシステムを書き込む
+mkfs.cpm -f ibm-3740 new.dsk
 ```
 
-基本操作:
+> **補足**  
+> `dd` でゼロ埋めしたあと `mkfs.cpm` がディレクトリエントリ領域（boottrk 2 以降）を
+> 0xE5 で初期化する。これで cpmtools・このシミュレータ双方から使える空ディスクになる。
+
+### 4-2. 既存イメージの基本操作
 
 ```bash
 # ファイル一覧
-cpmls -f ibm-sssd rom/cpm22.dsk
+cpmls -f ibm-3740 new.dsk
 
 # ホスト → CP/M ディスクへコピー
-cpmcp -f ibm-sssd rom/cpm22.dsk PROG.COM 0:PROG.COM
+cpmcp -f ibm-3740 new.dsk PROG.COM 0:PROG.COM
 
 # CP/M ディスク → ホストへ取り出し
-cpmcp -f ibm-sssd rom/cpm22.dsk 0:PROG.COM ./PROG.COM
+cpmcp -f ibm-3740 new.dsk 0:PROG.COM ./PROG.COM
 
 # ファイル削除
-cpmrm -f ibm-sssd rom/cpm22.dsk 0:PROG.COM
+cpmrm -f ibm-3740 new.dsk 0:PROG.COM
 ```
 
 ## 5. 参考
