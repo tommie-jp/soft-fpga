@@ -85,6 +85,7 @@
       #page-body { display:block; }
       /* ターミナルは 80 桁固定・水平スクロールバー常時表示 */
       #terminal-col { width:100%; overflow-x:scroll; }
+      #fit-term-bar { display:block !important; }
       /* terminal-wrap をキャンバス幅に合わせ、背景が 80 桁分を覆うようにする */
       #terminal-wrap { width:max-content; }
       #reg-panel { width:100%; box-sizing:border-box; margin-top:8px; }
@@ -318,6 +319,9 @@
 
   <div id="page-body">
     <div id="terminal-col">
+      <div id="fit-term-bar" style="display:none;margin-bottom:3px;">
+        <button id="btn-fit-term" style="font-size:11px;padding:2px 10px;">幅をあわせる</button>
+      </div>
       <div id="terminal-wrap"><div id="terminal"></div></div>
       <div class="ctrl-bar">
         <button class="ctrl-btn" data-key="3">^C</button>
@@ -966,6 +970,19 @@
       scrollback: 0,
     });
     term.open(document.getElementById('terminal'));
+
+    // 「幅をあわせる」ボタン: canvas 幅と利用可能幅から fontSize を算出
+    document.getElementById('btn-fit-term').addEventListener('click', function() {
+      var col = document.getElementById('terminal-col');
+      var canvas = col.querySelector('canvas');
+      if (!canvas) return;
+      var termW  = canvas.offsetWidth;           // 現在の 80 桁分 canvas 幅
+      var availW = col.clientWidth - 4;          // スクロールバー・ボーダー分を引く
+      if (termW <= 0 || availW <= 0) return;
+      var newSize = Math.max(6, Math.min(20,
+        Math.floor(term.options.fontSize * availW / termW)));
+      term.options.fontSize = newSize;
+    });
 
     // ターミナルは常に 80 桁固定。モバイルは水平スクロール可・自動スクロール無効。
     if (window.innerWidth <= 500) {
