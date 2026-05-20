@@ -263,8 +263,8 @@
   let curPreset   = 0;
   let diskNames   = PRESET_NAMES[0].slice();
   let customDisks = [null, null, null, null]; // Uint8Array | null
-  let moduleReady = false;
-  let running     = true;
+  let workerReady = false;
+  let running     = false;
   let fsDirty     = false;
 
   // ---- WASM FS ファイルリスト ----
@@ -277,10 +277,10 @@
     return new Date(mtime * 1000).toLocaleTimeString(undefined, { hour12: false });
   }
 
-  function downloadFromFS(name) {
+  async function downloadFromFS(name) {
     try {
-      var data = Module.FS.readFile('/' + name);
-      var blob = new Blob([data], {type:'application/octet-stream'});
+      var result = await workerRequest({ type: 'readFS', name: name });
+      var blob = new Blob([new Uint8Array(result.data)], { type: 'application/octet-stream' });
       var url  = URL.createObjectURL(blob);
       var a    = document.createElement('a');
       a.href = url; a.download = name; a.style.display = 'none';
@@ -321,20 +321,12 @@
 
   var fsSort = { col: 'name', asc: true };
 
-  function updateFSList() {
-    if (!moduleReady) return;
+  async function updateFSList() {
+    if (!workerReady) return;
     var el = document.getElementById('fs-list');
     try {
-      var entries = [];
-      Module.FS.readdir('/').forEach(function(f) {
-        if (f === '.' || f === '..') return;
-        try {
-          var st = Module.FS.stat('/' + f);
-          if (Module.FS.isDir(st.mode)) return;
-          if (st.size >= 65536) return;
-          entries.push({ name: f, size: st.size, mtime: st.mtime });
-        } catch(e) {}
-      });
+      var result  = await workerRequest({ type: 'listFS' });
+      var entries = result.entries;
 
       entries.sort(function(a, b) {
         var v;
@@ -413,14 +405,14 @@
           customDisks[drive] = new Uint8Array(buf);
           diskNames[drive]   = file.name;
           document.getElementById('dn-' + drive).textContent = file.name;
-          if (moduleReady) applyOneDisk(drive);
+          if (workerReady) applyOneDisk(drive);
           this.value = ''; // allow re-selecting same file
         });
         document.getElementById('sv-' + drive).addEventListener('click', function() {
-          if (moduleReady) idbSaveDisk(drive);
+          if (workerReady) idbSaveDisk(drive);
         });
         document.getElementById('dl-' + drive).addEventListener('click', function() {
-          if (moduleReady) downloadDisk(drive);
+          if (workerReady) downloadDisk(drive);
         });
       })(d);
     }
@@ -428,11 +420,8 @@
 
   function applyOneDisk(drive) {
     if (!customDisks[drive]) return;
-    const arr = customDisks[drive];
-    const ptr = Module._malloc(arr.length);
-    Module.HEAPU8.set(arr, ptr);
-    Module._load_disk_drive(drive, ptr, arr.length);
-    Module._free(ptr);
+    const copy = customDisks[drive].slice(); // Transferable に渡すため独立コピー
+    workerSend({ type: 'loadDisk', drive: drive, data: copy.buffer }, [copy.buffer]);
   }
 
   function applyCustomDisks() {
@@ -445,19 +434,17 @@
     curPreset   = id;
     for (let d = 0; d < 4; d++)
       document.getElementById('dn-' + d).textContent = diskNames[d];
-    if (!moduleReady) return;
-    Module._sim_init_disk(id);
+    if (!workerReady) return;
+    workerSend({ type: 'reset', preset: id, running: false });
     running = false;
     document.getElementById('btn-run').textContent = 'Run';
-    term.reset(); term.focus();
-    for (let d = 0; d < 4; d++) updateDirtyBtn(d);
+    if (term) { term.reset(); term.focus(); }
+    for (let d = 0; d < 4; d++) updateDirtyBtn(d, false);
   }
 
-  function downloadDisk(drive) {
-    const ptr  = Module._sim_get_disk_ptr(drive) >>> 0;
-    const size = Module._sim_get_disk_size(drive);
-    const data = new Uint8Array(Module.HEAPU8.buffer, ptr, size);
-    const blob = new Blob([data], {type:'application/octet-stream'});
+  async function downloadDisk(drive) {
+    const result = await workerRequest({ type: 'getDiskData', drive: drive });
+    const blob = new Blob([new Uint8Array(result.data)], { type: 'application/octet-stream' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
     a.style.display = 'none';
@@ -470,10 +457,9 @@
     setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(url); }, 0);
   }
 
-  function updateDirtyBtn(drive) {
+  function updateDirtyBtn(drive, dirty) {
     const btn = document.getElementById('sv-' + drive);
-    if (!btn || !moduleReady) return;
-    const dirty = !!Module._sim_get_disk_dirty(drive);
+    if (!btn) return;
     btn.classList.toggle('dirty', dirty);
     btn.textContent = dirty ? '*Save*' : 'Save';
   }
@@ -506,32 +492,28 @@
     updateFSSaveBtn();
   }
 
-  function idbSaveFS() {
-    if (!moduleReady) return;
-    var entries = [];
+  async function idbSaveFS() {
+    if (!workerReady) return;
     try {
-      Module.FS.readdir('/').forEach(function(f) {
-        if (f === '.' || f === '..') return;
-        try {
-          var st = Module.FS.stat('/' + f);
-          if (Module.FS.isDir(st.mode)) return;
-          if (st.size >= 65536) return;
-          entries.push({ name: f, data: Module.FS.readFile('/' + f) });
-        } catch(e) {}
+      var listResult = await workerRequest({ type: 'listFS' });
+      var fileData   = [];
+      for (var e of listResult.entries) {
+        var r = await workerRequest({ type: 'readFS', name: e.name });
+        fileData.push({ name: e.name, data: new Uint8Array(r.data) });
+      }
+      var db = await openCpmDB();
+      await new Promise(function(resolve, reject) {
+        var tx = db.transaction('fs', 'readwrite');
+        var store = tx.objectStore('fs');
+        store.clear();
+        fileData.forEach(function(e) { store.put(e); });
+        tx.oncomplete = resolve;
+        tx.onerror = function(ev) { reject(ev.target.error); };
       });
-    } catch(e) { console.error('[IDB] FS read failed', e); return; }
-    openCpmDB().then(function(db) {
-      var tx = db.transaction('fs', 'readwrite');
-      var store = tx.objectStore('fs');
-      store.clear();
-      entries.forEach(function(e) { store.put(e); });
-      tx.oncomplete = function() {
-        fsDirty = false;
-        updateFSSaveBtn();
-        console.log('[IDB] WASM FS saved (' + entries.length + ' files)');
-      };
-      tx.onerror = function(e) { console.error('[IDB] FS save error', e.target.error); };
-    }).catch(function(e) { console.error('[IDB] open error', e); });
+      fsDirty = false;
+      updateFSSaveBtn();
+      console.log('[IDB] WASM FS saved (' + fileData.length + ' files)');
+    } catch(e) { console.error('[IDB] FS save error', e); }
   }
 
   function idbRestoreFS() {
@@ -544,22 +526,23 @@
     });
   }
 
-  function idbSaveDisk(drive) {
-    if (!moduleReady) return;
-    var ptr  = Module._sim_get_disk_ptr(drive) >>> 0;
-    var size = Module._sim_get_disk_size(drive);
-    var data = new Uint8Array(Module.HEAPU8.buffer, ptr, size).slice();
-    var name = diskNames[drive];
-    openCpmDB().then(function(db) {
-      var tx = db.transaction('disks', 'readwrite');
-      tx.objectStore('disks').put({ drive: drive, data: data, name: name });
-      tx.oncomplete = function() {
-        Module._sim_clear_disk_dirty(drive);
-        updateDirtyBtn(drive);
-        console.log('[IDB] drive ' + DRIVE_LABELS[drive] + ': saved (' + name + ')');
-      };
-      tx.onerror = function(e) { console.error('[IDB] save error', e.target.error); };
-    }).catch(function(e) { console.error('[IDB] open error', e); });
+  async function idbSaveDisk(drive) {
+    if (!workerReady) return;
+    try {
+      var result = await workerRequest({ type: 'getDiskData', drive: drive });
+      var data   = new Uint8Array(result.data);
+      var name   = diskNames[drive];
+      var db     = await openCpmDB();
+      await new Promise(function(resolve, reject) {
+        var tx = db.transaction('disks', 'readwrite');
+        tx.objectStore('disks').put({ drive: drive, data: data, name: name });
+        tx.oncomplete = resolve;
+        tx.onerror = function(ev) { reject(ev.target.error); };
+      });
+      workerSend({ type: 'clearDirty', drive: drive });
+      updateDirtyBtn(drive, false);
+      console.log('[IDB] drive ' + DRIVE_LABELS[drive] + ': saved (' + name + ')');
+    } catch(e) { console.error('[IDB] save error', e); }
   }
 
   function idbRestoreAll() {
@@ -605,91 +588,184 @@
     btn.addEventListener('click', function() { applyTheme(this.dataset.theme); });
   });
 
-  // ---- Emscripten Module ----
+  // ---- Worker セットアップ ----
+  const RING_SIZE = 4096; // harness.cpp: static const int RING_SIZE = 4096
   var term;
-  var Module = {
-    onRuntimeInitialized: function () {
-      moduleReady = true;
-      term = new Terminal({
-        cols:80, rows:24,
-        theme: THEMES[currentTheme],
-        fontSize:13, fontFamily:'Courier New, monospace',
-        cursorBlink:true, convertEol:true,
-      });
-      term.open(document.getElementById('terminal'));
-      applyTheme(currentTheme);
+  var laCtx;
+  var reqId   = 0;
+  var pending = new Map();
 
-      const RING_SIZE = Module._get_ring_size();
-      const ringBase  = Module._get_ring_ptr() >>> 2;
-      const laCanvas  = document.getElementById('la');
-      const laCtx     = laCanvas.getContext('2d');
+  const worker = new Worker('sim-worker.js');
 
-      Module._sim_init_disk(curPreset);
-      updateFSList();
+  function workerSend(msg, transferables) {
+    if (transferables) worker.postMessage(msg, transferables);
+    else               worker.postMessage(msg);
+  }
 
-      var cmdHistory = [], histIdx = -1, inputBuf = '';
+  function workerRequest(msg, transferables) {
+    return new Promise(function(resolve) {
+      var id = ++reqId;
+      pending.set(id, resolve);
+      var m = Object.assign({ requestId: id }, msg);
+      if (transferables) worker.postMessage(m, transferables);
+      else               worker.postMessage(m);
+    });
+  }
 
-      function clearCurrentInput() {
-        for (var j = 0; j < inputBuf.length; j++) Module._send_key(0x08);
-        inputBuf = '';
+  // Worker から受け取るフレームデータ
+  var pendingChars = [];
+  var latestFrame  = null;
+  var frameCount   = 0;
+  var freqHead0 = 0, freqTime0 = performance.now(), freqDisp = '';
+  var dirtyState = [false, false, false, false];
+
+  worker.onmessage = function(e) {
+    var data = e.data;
+    if (data.type === 'frame') {
+      for (var i = 0; i < data.chars.length; i++) pendingChars.push(data.chars[i]);
+      latestFrame = data;
+      return;
+    }
+    if (data.type === 'ready') {
+      workerReady = true;
+      initUI();
+      return;
+    }
+    if (data.type === 'error') {
+      console.error('[Worker]', data.message);
+      running = false;
+      document.getElementById('btn-run').textContent = 'Run';
+      return;
+    }
+    if (data.requestId && pending.has(data.requestId)) {
+      pending.get(data.requestId)(data);
+      pending.delete(data.requestId);
+    }
+  };
+
+  // ---- RAF ループ（描画専用） ----
+  function loop() {
+    if (term && pendingChars.length) {
+      term.write(String.fromCharCode.apply(null, pendingChars));
+      pendingChars = [];
+    }
+    if (latestFrame) {
+      var f = latestFrame; latestFrame = null;
+      document.getElementById('r-pc').textContent =
+        f.pc.toString(16).toUpperCase().padStart(4, '0');
+      updatePcRegion(f.pc);
+      frameCount++;
+      if (frameCount % 60 === 0) {
+        var now = performance.now();
+        var dc  = (f.head - freqHead0) >>> 0;
+        var dt  = now - freqTime0;
+        freqDisp  = running && dt > 0 ? fmtHz(Math.round(dc / (dt / 1000))) : 'paused';
+        freqHead0 = f.head;
+        freqTime0 = now;
+        dirtyState = f.dirties;
+        for (var d = 0; d < 4; d++) updateDirtyBtn(d, f.dirties[d]);
       }
+      document.getElementById('cycle-info').textContent = freqDisp;
+      if (laCtx) drawLA(laCtx, new Uint32Array(f.ringSnap), 0, f.head, RING_SIZE);
+    }
+    requestAnimationFrame(loop);
+  }
 
-      function navigateHistory(dir) {
-        if (!cmdHistory.length) return;
-        if (histIdx === -1) {
-          if (dir < 0) histIdx = cmdHistory.length - 1;
-          else return;
-        } else {
-          histIdx += dir;
-          if (histIdx < 0) { histIdx = 0; return; }
-          if (histIdx >= cmdHistory.length) {
-            clearCurrentInput();
-            histIdx = -1;
-            return;
-          }
-        }
-        var entry = cmdHistory[histIdx];
-        clearCurrentInput();
-        for (var j = 0; j < entry.length; j++) Module._send_key(entry.charCodeAt(j));
-        inputBuf = entry;
+  // ---- ドロップ／アップロード共通 ----
+  var dropFadeTimer = null;
+  function showDropStatus(msg, ok) {
+    var dropStatus = document.getElementById('drop-status');
+    dropStatus.style.opacity = '1';
+    dropStatus.style.color   = ok ? '#2a8a2a' : '#cc3333';
+    dropStatus.textContent   = msg;
+    clearTimeout(dropFadeTimer);
+    dropFadeTimer = setTimeout(function() { dropStatus.style.opacity = '0'; }, 4000);
+  }
+
+  function writeFilesToFS(files) {
+    if (!files.length) return;
+    var msgs = [], remaining = files.length;
+    Array.from(files).forEach(function(file) {
+      var name   = file.name.toUpperCase();
+      var reader = new FileReader();
+      reader.onload = function(ev) {
+        var buf = ev.target.result;
+        workerRequest({ type: 'writeFS', name: name, data: buf }, [buf])
+          .then(function(r) {
+            msgs.push(r.ok ? (name + ' (' + file.size + 'B) ✓') : (name + ': ERROR ' + r.error));
+            if (--remaining === 0) {
+              showDropStatus(msgs.join('  '), msgs.every(function(m){ return m.indexOf('ERROR') < 0; }));
+              updateFSList();
+              markFSDirty();
+            }
+          });
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  // ---- UI 初期化（Worker ready 後に呼ぶ） ----
+  function initUI() {
+    term = new Terminal({
+      cols: 80, rows: 24,
+      theme: THEMES[currentTheme],
+      fontSize: 13, fontFamily: 'Courier New, monospace',
+      cursorBlink: true, convertEol: true,
+    });
+    term.open(document.getElementById('terminal'));
+    applyTheme(currentTheme);
+
+    laCtx = document.getElementById('la').getContext('2d');
+
+    workerSend({ type: 'reset', preset: curPreset, running: true });
+    running = true;
+    document.getElementById('btn-run').textContent = 'Pause';
+    updateFSList();
+
+    var cmdHistory = [], histIdx = -1, inputBuf = '';
+
+    function clearCurrentInput() {
+      for (var j = 0; j < inputBuf.length; j++) workerSend({ type: 'sendKey', ch: 0x08 });
+      inputBuf = '';
+    }
+
+    function navigateHistory(dir) {
+      if (!cmdHistory.length) return;
+      if (histIdx === -1) {
+        if (dir < 0) histIdx = cmdHistory.length - 1;
+        else return;
+      } else {
+        histIdx += dir;
+        if (histIdx < 0) { histIdx = 0; return; }
+        if (histIdx >= cmdHistory.length) { clearCurrentInput(); histIdx = -1; return; }
       }
+      var entry = cmdHistory[histIdx];
+      clearCurrentInput();
+      for (var j = 0; j < entry.length; j++) workerSend({ type: 'sendKey', ch: entry.charCodeAt(j) });
+      inputBuf = entry;
+    }
 
-      function executeHostCmd(cmd) {
-        var parts = cmd.trim().split(/\s+/);
-        var verb  = (parts[0] || '').toLowerCase();
-        var arg   = parts.slice(1).join(' ').trim().toUpperCase();
-        var out   = '';
+    async function executeHostCmd(cmd) {
+      var parts = cmd.trim().split(/\s+/);
+      var verb  = (parts[0] || '').toLowerCase();
+      var arg   = parts.slice(1).join(' ').trim().toUpperCase();
+      var out   = '';
+      try {
         if (verb === 'ls' || verb === 'dir') {
-          try {
-            var files = Module.FS.readdir('/').filter(function(f) {
-              if (f === '.' || f === '..') return false;
-              try { return !Module.FS.isDir(Module.FS.stat('/' + f).mode); } catch(e) { return false; }
-            }).sort();
-            out = files.length
-              ? files.map(function(f) {
-                  var sz = '?';
-                  try { sz = Module.FS.stat('/' + f).size; } catch(e) {}
-                  return f.padEnd(14) + String(sz).padStart(6) + ' B\r\n';
-                }).join('')
-              : '(empty)\r\n';
-          } catch(e) { out = 'Error: ' + e.message + '\r\n'; }
+          var r = await workerRequest({ type: 'listFS' });
+          var es = r.entries.slice().sort(function(a,b){ return a.name.localeCompare(b.name); });
+          out = es.length
+            ? es.map(function(e){ return e.name.padEnd(14) + String(e.size).padStart(6) + ' B\r\n'; }).join('')
+            : '(empty)\r\n';
         } else if (verb === 'get' || verb === 'dl') {
           if (!arg) { out = 'Usage: !get FILENAME\r\n'; }
-          else {
-            try {
-              downloadFromFS(arg);
-              out = 'Downloading: ' + arg + '\r\n';
-            } catch(e) { out = 'Error: ' + e.message + '\r\n'; }
-          }
+          else { await downloadFromFS(arg); out = 'Downloading: ' + arg + '\r\n'; }
         } else if (verb === 'rm' || verb === 'del') {
           if (!arg) { out = 'Usage: !rm FILENAME\r\n'; }
           else {
-            try {
-              Module.FS.unlink('/' + arg);
-              out = 'Deleted: ' + arg + '\r\n';
-              updateFSList();
-              markFSDirty();
-            } catch(e) { out = 'Error: ' + e.message + '\r\n'; }
+            await workerRequest({ type: 'deleteFS', name: arg });
+            out = 'Deleted: ' + arg + '\r\n';
+            updateFSList(); markFSDirty();
           }
         } else if (verb === 'help' || verb === '?') {
           out = '!ls / !dir          list WASM FS\r\n' +
@@ -698,245 +774,154 @@
         } else {
           out = '?' + (verb ? ' !' + verb : '') + '  (try !help)\r\n';
         }
-        // output after CP/M prompt
-        setTimeout(function() { if (out) term.write(out); }, 80);
-      }
+      } catch(e) { out = 'Error: ' + e.message + '\r\n'; }
+      setTimeout(function() { if (out) term.write(out); }, 80);
+    }
 
-      term.onData(function(data) {
-        var i = 0;
-        while (i < data.length) {
-          // ESC[ シーケンス（矢印キー）
-          if (data[i] === '\x1b' && i+2 < data.length && data[i+1] === '[') {
-            var seq = data[i+2];
-            if (seq === 'A') { navigateHistory(-1); i += 3; continue; }
-            if (seq === 'B') { navigateHistory(1);  i += 3; continue; }
-            i += 3; continue; // 左右など他のエスケープは CP/M に渡さない
-          }
-          var code = data.charCodeAt(i);
-          // シャドウバッファ更新
-          if (data[i] === '\r') {
-            if (inputBuf.startsWith('!')) {
-              // ! コマンド: CP/M には空行を送り JS 側で処理
-              var hostCmd = inputBuf.slice(1);
-              for (var bk = 0; bk < inputBuf.length; bk++) Module._send_key(0x08);
-              histIdx = -1; inputBuf = '';
-              Module._send_key(0x0d);
-              executeHostCmd(hostCmd);
-              i++; continue;
-            }
-            if (inputBuf.trim()) {
-              cmdHistory.push(inputBuf);
-              if (cmdHistory.length > 100) cmdHistory.shift();
-            }
+    term.onData(function(data) {
+      var i = 0;
+      while (i < data.length) {
+        if (data[i] === '\x1b' && i+2 < data.length && data[i+1] === '[') {
+          var seq = data[i+2];
+          if (seq === 'A') { navigateHistory(-1); i += 3; continue; }
+          if (seq === 'B') { navigateHistory(1);  i += 3; continue; }
+          i += 3; continue;
+        }
+        var code = data.charCodeAt(i);
+        if (data[i] === '\r') {
+          if (inputBuf.startsWith('!')) {
+            var hostCmd = inputBuf.slice(1);
+            for (var bk = 0; bk < inputBuf.length; bk++) workerSend({ type: 'sendKey', ch: 0x08 });
             histIdx = -1; inputBuf = '';
-          } else if (data[i] === '\x7f' || data[i] === '\x08') {
-            if (inputBuf.length > 0) inputBuf = inputBuf.slice(0, -1);
-          } else if (code >= 0x20 && code < 0x80) {
-            inputBuf += data[i]; histIdx = -1;
-          } else if (data[i] === '\x03' || data[i] === '\x1a') {
-            histIdx = -1; inputBuf = ''; // Ctrl+C / Ctrl+Z でリセット
+            workerSend({ type: 'sendKey', ch: 0x0d });
+            executeHostCmd(hostCmd);
+            i++; continue;
           }
-          Module._send_key(code);
-          i++;
-        }
-      });
-
-      function drainDisplay() {
-        let out='', ch;
-        while ((ch=Module._get_display_char()) !== -1) out += String.fromCharCode(ch&0x7F);
-        if (out) term.write(out);
-      }
-
-      let frameCount = 0;
-      let freqHead0 = 0, freqTime0 = performance.now(), freqDisp = '';
-
-      function loop() {
-        if (running) {
-          const steps = getSteps();
-          try {
-            for (let i=0; i<steps; i++) Module._step();
-          } catch(e) {
-            console.error('[WASM] step() threw:', e);
-            running = false;
-            document.getElementById('btn-run').textContent = 'Run';
+          if (inputBuf.trim()) {
+            cmdHistory.push(inputBuf);
+            if (cmdHistory.length > 100) cmdHistory.shift();
           }
+          histIdx = -1; inputBuf = '';
+        } else if (data[i] === '\x7f' || data[i] === '\x08') {
+          if (inputBuf.length > 0) inputBuf = inputBuf.slice(0, -1);
+        } else if (code >= 0x20 && code < 0x80) {
+          inputBuf += data[i]; histIdx = -1;
+        } else if (data[i] === '\x03' || data[i] === '\x1a') {
+          histIdx = -1; inputBuf = '';
         }
-        drainDisplay();
-
-        const head = Module._get_head() >>> 0;
-        const pcVal = Module._get_pc() >>> 0;
-        document.getElementById('r-pc').textContent =
-          pcVal.toString(16).toUpperCase().padStart(4,'0');
-        updatePcRegion(pcVal);
-
-        frameCount++;
-        if (frameCount % 60 === 0) {
-          const now = performance.now();
-          const dc  = (head - freqHead0) >>> 0; // 32bit wraparound 対応
-          const dt  = now - freqTime0;
-          freqDisp  = running && dt > 0 ? fmtHz(Math.round(dc / (dt / 1000))) : 'paused';
-          freqHead0 = head;
-          freqTime0 = now;
-          for (let d=0; d<4; d++) updateDirtyBtn(d);
-        }
-        document.getElementById('cycle-info').textContent = freqDisp;
-
-        drawLA(laCtx, Module.HEAPU32, ringBase, head, RING_SIZE);
-        requestAnimationFrame(loop);
+        workerSend({ type: 'sendKey', ch: code });
+        i++;
       }
+    });
 
-      function getSteps() {
-        const sel = document.getElementById('speed-sel');
-        if (sel.value === '0') return 100000;
-        if (sel.value === 'custom') {
-          return parseInt(document.getElementById('speed-num').value) || 33333;
-        }
-        return parseInt(sel.value);
+    // ---- Pause / Reset ----
+    document.getElementById('btn-run').addEventListener('click', function() {
+      running = !running;
+      this.textContent = running ? 'Pause' : 'Run';
+      workerSend({ type: 'setRunning', running: running });
+    });
+
+    document.getElementById('btn-reset').addEventListener('click', function() {
+      workerSend({ type: 'reset', preset: curPreset, running: true });
+      applyCustomDisks();
+      running = true;
+      document.getElementById('btn-run').textContent = 'Pause';
+      term.reset(); term.focus();
+      for (var d = 0; d < 4; d++) updateDirtyBtn(d, false);
+    });
+
+    // ---- Speed ----
+    function applySpeed() {
+      var sel = document.getElementById('speed-sel');
+      var steps = (sel.value === '0') ? -1   // 最高速度センチネル: Worker が MessageChannel 即時ループ
+                : (sel.value === 'custom') ? (parseInt(document.getElementById('speed-num').value) || 33333)
+                : parseInt(sel.value);
+      workerSend({ type: 'setSteps', steps: steps });
+    }
+
+    document.getElementById('speed-sel').addEventListener('change', function() {
+      var num = document.getElementById('speed-num');
+      if (this.value === 'custom') {
+        num.style.display = '';
+        num.value = num.value || '33333';
+        num.focus();
+      } else {
+        num.style.display = 'none';
       }
+      applySpeed();
+    });
 
-      document.getElementById('speed-sel').addEventListener('change', function() {
-        const num = document.getElementById('speed-num');
-        if (this.value === 'custom') {
-          num.style.display = '';
-          num.value = num.value || '33333';
-          num.focus();
-        } else {
-          num.style.display = 'none';
-        }
+    document.getElementById('speed-num').addEventListener('change', function() {
+      var sel = document.getElementById('speed-sel');
+      var v = parseInt(this.value);
+      var match = Array.from(sel.options).find(function(o){ return parseInt(o.value) === v; });
+      if (match) sel.value = match.value;
+      applySpeed();
+    });
+
+    // ---- Drop / Upload ----
+    var dropWrap = document.getElementById('fs-list');
+    dropWrap.addEventListener('dragover', function(e) {
+      e.preventDefault(); e.dataTransfer.dropEffect = 'copy';
+      dropWrap.classList.add('drop-active');
+    });
+    dropWrap.addEventListener('dragleave', function(e) {
+      if (!dropWrap.contains(e.relatedTarget)) dropWrap.classList.remove('drop-active');
+    });
+    dropWrap.addEventListener('drop', function(e) {
+      e.preventDefault(); dropWrap.classList.remove('drop-active');
+      writeFilesToFS(e.dataTransfer.files);
+    });
+    document.getElementById('fs-upload').addEventListener('change', function() {
+      writeFilesToFS(this.files); this.value = '';
+    });
+
+    document.getElementById('btn-save-fs').addEventListener('click', function() { idbSaveFS(); });
+
+    // ---- Ctrl bar ----
+    document.querySelectorAll('.ctrl-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var code = parseInt(this.getAttribute('data-key'));
+        if (code === 3 || code === 26) { histIdx = -1; inputBuf = ''; }
+        workerSend({ type: 'sendKey', ch: code });
+        term.focus();
       });
+    });
 
-      document.getElementById('speed-num').addEventListener('change', function() {
-        const sel = document.getElementById('speed-sel');
-        const v = parseInt(this.value);
-        const match = Array.from(sel.options).find(o => parseInt(o.value) === v);
-        if (match) sel.value = match.value;
-      });
-
-      document.getElementById('btn-run').addEventListener('click', function() {
-        running = !running;
-        this.textContent = running ? 'Pause' : 'Run';
-      });
-
-      document.getElementById('btn-reset').addEventListener('click', function() {
-        Module._sim_init_disk(curPreset);
-        applyCustomDisks();
-        running = true;
-        document.getElementById('btn-run').textContent = 'Pause';
-        term.reset(); term.focus();
-        for (let d=0; d<4; d++) updateDirtyBtn(d);
-      });
-
-      // ---- ファイル書き込み（ドロップ・Upload 共通） ----
-      var dropWrap   = document.getElementById('fs-list');
-      var dropStatus = document.getElementById('drop-status');
-      var dropFadeTimer = null;
-
-      function showDropStatus(msg, ok) {
-        dropStatus.style.opacity = '1';
-        dropStatus.style.color   = ok ? '#2a8a2a' : '#cc3333';
-        dropStatus.textContent   = msg;
-        clearTimeout(dropFadeTimer);
-        dropFadeTimer = setTimeout(function() { dropStatus.style.opacity = '0'; }, 4000);
-      }
-
-      function writeFilesToFS(files) {
+    // ---- 起動時復元（200ms 遅延） ----
+    setTimeout(function() {
+      idbRestoreFS().then(function(files) {
         if (!files.length) return;
-        var msgs = [];
-        var remaining = files.length;
-        for (var fi = 0; fi < files.length; fi++) {
-          (function(file) {
-            var name = file.name.toUpperCase();
-            var reader = new FileReader();
-            reader.onload = function(ev) {
-              try {
-                Module.FS.writeFile('/' + name, new Uint8Array(ev.target.result));
-                msgs.push(name + ' (' + file.size + 'B) ✓');
-              } catch(err) {
-                msgs.push(name + ': ERROR ' + err.message);
-              }
-              if (--remaining === 0) {
-                showDropStatus(msgs.join('  '), msgs.every(function(m){ return m.indexOf('ERROR')<0; }));
-                updateFSList();
-                markFSDirty();
-              }
-            };
-            reader.readAsArrayBuffer(file);
-          })(files[fi]);
-        }
-      }
-
-      // ドロップ
-      dropWrap.addEventListener('dragover', function(e) {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'copy';
-        dropWrap.classList.add('drop-active');
-      });
-      dropWrap.addEventListener('dragleave', function(e) {
-        if (!dropWrap.contains(e.relatedTarget))
-          dropWrap.classList.remove('drop-active');
-      });
-      dropWrap.addEventListener('drop', function(e) {
-        e.preventDefault();
-        dropWrap.classList.remove('drop-active');
-        writeFilesToFS(e.dataTransfer.files);
-      });
-
-      // Upload ボタン（モバイル含む）
-      document.getElementById('fs-upload').addEventListener('change', function() {
-        writeFilesToFS(this.files);
-        this.value = ''; // 同じファイルを再選択可能にする
-      });
-
-      term.focus();
-      requestAnimationFrame(loop);
-
-      document.getElementById('btn-save-fs').addEventListener('click', function() {
-        idbSaveFS();
-      });
-
-      // ---- Ctrl bar ----
-      document.querySelectorAll('.ctrl-btn').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-          var code = parseInt(this.getAttribute('data-key'));
-          if (code === 3 || code === 26) { histIdx = -1; inputBuf = ''; }
-          Module._send_key(code);
-          term.focus();
+        var proms = files.map(function(f) {
+          var src = (f.data instanceof Uint8Array) ? f.data : new Uint8Array(f.data);
+          var buf = src.buffer.slice(src.byteOffset, src.byteOffset + src.byteLength);
+          return workerRequest({ type: 'writeFS', name: f.name, data: buf }, [buf]);
         });
-      });
-
-      // 起動時復元（200ms 遅延でターミナル描画後に確認ダイアログを出す）
-      setTimeout(function() {
-        // FS 復元（サイレント）
-        idbRestoreFS().then(function(files) {
-          if (!files.length) return;
-          files.forEach(function(f) {
-            try { Module.FS.writeFile('/' + f.name, f.data); } catch(e) {}
-          });
+        Promise.all(proms).then(function() {
           updateFSList();
           console.log('[IDB] WASM FS restored (' + files.length + ' files)');
-        }).catch(function(e) { console.warn('[IDB] FS restore failed', e); });
+        });
+      }).catch(function(e) { console.warn('[IDB] FS restore failed', e); });
 
-        // ディスク復元（確認ダイアログ）
-        idbRestoreAll().then(function(entries) {
-          if (!entries.length) return;
-          var msg = 'Found ' + entries.length + ' saved disk image(s). Restore?\n' +
-            entries.map(function(e) {
-              return '  ' + DRIVE_LABELS[e.drive] + ': ' + e.name;
-            }).join('\n');
-          if (!confirm(msg)) return;
-          entries.forEach(function(e) {
-            if (e.drive < 0 || e.drive >= 4) return;
-            customDisks[e.drive] = e.data;
-            diskNames[e.drive]   = e.name;
-            document.getElementById('dn-' + e.drive).textContent = e.name;
-            applyOneDisk(e.drive);
-          });
-          for (var d = 0; d < 4; d++) updateDirtyBtn(d);
-        }).catch(function(e) { console.warn('[IDB] restore failed', e); });
-      }, 200);
-    }
-  };
+      idbRestoreAll().then(function(entries) {
+        if (!entries.length) return;
+        var msg = 'Found ' + entries.length + ' saved disk image(s). Restore?\n' +
+          entries.map(function(e){ return '  ' + DRIVE_LABELS[e.drive] + ': ' + e.name; }).join('\n');
+        if (!confirm(msg)) return;
+        entries.forEach(function(e) {
+          if (e.drive < 0 || e.drive >= 4) return;
+          customDisks[e.drive] = (e.data instanceof Uint8Array) ? e.data : new Uint8Array(e.data);
+          diskNames[e.drive]   = e.name;
+          document.getElementById('dn-' + e.drive).textContent = e.name;
+          applyOneDisk(e.drive);
+        });
+        for (var d = 0; d < 4; d++) updateDirtyBtn(d, dirtyState[d]);
+      }).catch(function(e) { console.warn('[IDB] restore failed', e); });
+    }, 200);
+
+    term.focus();
+    requestAnimationFrame(loop);
+  }
   </script>
-  <script src="sim.js"></script>
 </body>
 </html>
