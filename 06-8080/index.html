@@ -966,6 +966,15 @@
     term.open(document.getElementById('terminal'));
 
     // ターミナルは常に 80 桁固定（モバイルは #terminal-col の overflow-x:auto でスクロール）
+    // モバイル: 書き込みのたびに右端（80 桁目）にスクロール
+    if (window.innerWidth <= 500) {
+      var _termCol = document.getElementById('terminal-col');
+      function _scrollRight() {
+        if (_termCol) _termCol.scrollLeft = _termCol.scrollWidth;
+      }
+      term.onWriteParsed(_scrollRight);
+      setTimeout(_scrollRight, 400); // open 後の初回描画を待つ
+    }
 
     applyTheme(currentTheme);
 
