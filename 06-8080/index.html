@@ -965,26 +965,7 @@
     });
     term.open(document.getElementById('terminal'));
 
-    // ターミナルは常に 80 桁固定（モバイルは #terminal-col の overflow-x:auto でスクロール）
-    // モバイル: カーソル X 位置で左右スクロールを切り替える
-    //   col < 40 (プロンプト・入力中) → 左端表示
-    //   col >= 40 (長い出力行) → 右端表示
-    if (window.innerWidth <= 500) {
-      var _termCol = document.getElementById('terminal-col');
-      var _scrollTimer = null;
-      term.onWriteParsed(function() {
-        if (!_termCol) return;
-        if (_scrollTimer) clearTimeout(_scrollTimer);
-        _scrollTimer = setTimeout(function() {
-          _scrollTimer = null;
-          var cx = term.buffer.active.cursorX;
-          _termCol.scrollLeft = cx < 40 ? 0 : _termCol.scrollWidth;
-        }, 60); // 60ms デバウンス: 連続出力をまとめて1回スクロール
-      });
-      setTimeout(function() {
-        if (_termCol) _termCol.scrollLeft = _termCol.scrollWidth;
-      }, 400);
-    }
+    // ターミナルは常に 80 桁固定（モバイルは #terminal-col の overflow-x:auto で手動スクロール）
 
     applyTheme(currentTheme);
 
