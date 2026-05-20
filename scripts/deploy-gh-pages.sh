@@ -99,9 +99,10 @@ for f in sim.js sim.wasm; do
     [ -f "$WORKTREE/$f" ] && git -C "$WORKTREE" rm -f "$f" && echo "Removed legacy root/$f"
 done
 
-# 目次ページをルートにコピー
+# 目次ページ・共通アセットをルートにコピー
 cp "$ROOT/web/index.html" "$WORKTREE/index.html"
-echo "Copied root index.html"
+[ -f "$ROOT/web/favicon.ico" ] && cp "$ROOT/web/favicon.ico" "$WORKTREE/favicon.ico"
+echo "Copied root index.html + favicon.ico"
 
 for ex in "${EXAMPLES[@]}"; do
     IFS=: read -r id build_script web_dir deploy_subdir <<< "$ex"
@@ -120,12 +121,21 @@ for ex in "${EXAMPLES[@]}"; do
     echo "--- Deploying example $id → /${deploy_subdir} ---"
     mkdir -p "$dst"
     cp "$src/index.html" "$dst/"
-    [ -f "$src/sim.js"   ] && cp "$src/sim.js"   "$dst/"
-    [ -f "$src/sim.wasm" ] && cp "$src/sim.wasm" "$dst/"
+    [ -f "$src/sim.js"        ] && cp "$src/sim.js"        "$dst/"
+    [ -f "$src/sim.wasm"      ] && cp "$src/sim.wasm"      "$dst/"
+    [ -f "$src/sim-worker.js" ] && cp "$src/sim-worker.js" "$dst/"
     # 追加アセット（QR コードなど）
     for asset in "$src"/*.png "$src"/*.svg; do
         [ -f "$asset" ] && cp "$asset" "$dst/"
     done
+
+    # docs/ ディレクトリ（Markdown ドキュメント）
+    docs_src="$ROOT/docs/$deploy_subdir"
+    if [ -d "$docs_src" ]; then
+        mkdir -p "$dst/docs"
+        cp "$docs_src"/*.md "$dst/docs/" 2>/dev/null || true
+        echo "  Copied docs → /${deploy_subdir}/docs/"
+    fi
 done
 
 cd "$WORKTREE"

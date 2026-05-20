@@ -2,10 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>06-8080 CP/M 2.2 — rtlscope</title>
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
   <style>
     body { background:#f5f5f5; color:#111; font-family:monospace; margin:20px; }
+    @media (max-width:500px) {
+      /* 左右マージンをゼロにしてターミナルを画面端まで広げる。
+         overflow-x:hidden を body に設定すると position:fixed が機能しないため除外。 */
+      body { margin: 10px 0; }
+    }
     h2   { margin:0 0 8px; font-size:16px; color:#333; }
     button { background:#e8e8e8; color:#111; border:1px solid #aaa; padding:4px 14px; cursor:pointer; }
     button:hover { background:#d0d0d0; }
@@ -45,12 +52,6 @@
     .presets button { padding:2px 10px; font-size:12px; }
 
     /* ---- Terminal themes ---- */
-    .btn-theme { padding:2px 9px; font-size:12px; cursor:pointer; border:2px solid transparent; }
-    .btn-theme[data-theme="green"] { background:#000; color:#33FF00; border-color:#444; }
-    .btn-theme[data-theme="amber"] { background:#000; color:#FFB300; border-color:#444; }
-    .btn-theme[data-theme="paper"] { background:#000; color:#E8E8D0; border-color:#444; }
-    .btn-theme[data-theme="light"] { background:#e8e8e8; color:#111; border:2px solid #aaa; }
-    .btn-theme.active { border-color:#0077cc !important; }
 
     /* ---- Ctrl bar ---- */
     .ctrl-bar { display:flex; gap:4px; margin-top:4px; flex-wrap:wrap; }
@@ -58,12 +59,58 @@
                 padding:5px 12px; cursor:pointer; font-size:12px; font-family:monospace; }
     .ctrl-btn:hover { background:#d0d0d0; }
     .ctrl-btn:active { background:#bbb; }
+    .wm-sep       { color:#ccc; font-size:14px; align-self:center; margin:0 1px; user-select:none; }
+    .wm-group-lbl { font-size:10px; color:#999; align-self:center; margin-right:2px; user-select:none; }
 
     /* ---- Controls ---- */
     .controls { display:flex; align-items:center; gap:14px; margin-bottom:8px; flex-wrap:wrap; }
 
-    /* ---- Main layout ---- */
-    .main-row { display:flex; gap:12px; align-items:flex-start; margin-bottom:4px; }
+    /* ---- Main layout (desktop: grid 2-col / mobile: block) ---- */
+    #page-body {
+      display:grid;
+      grid-template-columns: auto 244px;
+      grid-template-areas:
+        "terminal  reg"
+        "bus       bus"
+        "copyright copyright";
+      column-gap:12px;
+      align-items:start;
+    }
+    #terminal-col { grid-area:terminal; display:flex; flex-direction:column; }
+    #bus-section  { grid-area:bus; margin-top:4px; }
+    #reg-panel    { grid-area:reg; }
+    #copyright    { grid-area:copyright; }
+
+    /* モバイル: DOM 順（terminal → bus → reg → copyright）に縦積み */
+    @media (max-width:500px) {
+      #page-body { display:block; }
+      /* body 左右マージンがゼロなので width:100% でそのまま画面幅いっぱいになる */
+      #terminal-col {
+        width: 100%;
+        overflow-x: scroll;
+        padding-bottom: 4px;
+      }
+      /* terminal-wrap をキャンバス幅に合わせ、背景が 80 桁分を覆うようにする */
+      #terminal-wrap { width:max-content; }
+      #reg-panel { width:100%; box-sizing:border-box; margin-top:8px; }
+      #la { max-width:100%; height:auto; }
+
+      /* ^C ^D 等のボタンを画面下部に固定 */
+      #ctrl-zone {
+        position: fixed;
+        bottom: env(safe-area-inset-bottom, 0px);
+        left: 0; right: 0;
+        z-index: 200;
+        background: #ebebeb;
+        border-top: 1px solid #bbb;
+        padding: 4px 6px;
+      }
+      #ctrl-zone .ctrl-bar { margin-top: 0; }
+      #ctrl-zone #wm-bar   { margin-top: 4px; border-top: 1px solid #ccc; padding-top: 4px; }
+      /* 固定バー分の余白（1 行 ≒ 44px、WM バー表示時は増える） */
+      #page-body { padding-bottom: 56px; }
+    }
+
     #terminal-wrap { border:1px solid #bbb; flex-shrink:0; }
     #drop-hint   { font-size:10px; color:#aaa; margin-bottom:3px; }
     #drop-status { font-size:10px; min-height:13px; margin-bottom:3px; transition:opacity .5s; }
@@ -106,7 +153,7 @@
     }
     .fs-th:hover { color:#111; }
     .fs-th.active { color:#0055aa; }
-    .fs-row { padding:2px 0; border-bottom:1px solid #e0e0e0; cursor:pointer; }
+    .fs-row { padding:2px 0; border-bottom:1px solid #e0e0e0; cursor:pointer; touch-action:manipulation; }
     .fs-row:hover .fs-name { color:#0066cc; }
     .fs-name { color:#0055aa; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:12px; }
     .fs-sz   { color:#888; font-size:10px; text-align:right; white-space:nowrap; }
@@ -116,79 +163,101 @@
     .xterm-viewport { scrollbar-width:none; }
 
     /* ---- Editor modal ---- */
-    #editor-modal {
-      position:fixed; top:0; left:0; width:100%; height:100%; z-index:1000;
-      display:flex; align-items:center; justify-content:center;
+    /* ---- Editor modal & Doc viewer modal 共通ベース ---- */
+    #editor-modal, #doc-modal {
+      position:fixed; top:0; left:0; right:0; bottom:0; z-index:1000;
+      display:flex; align-items:flex-start; justify-content:center;
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
     }
-    #editor-overlay {
-      position:absolute; top:0; left:0; width:100%; height:100%;
+    #doc-modal { z-index:1100; }
+    #editor-overlay, #doc-overlay {
+      position:fixed; top:0; left:0; right:0; bottom:0;
       background:rgba(0,0,0,.55);
     }
-    #editor-pane {
-      position:relative; width:92%; height:88%; max-width:960px;
+    #editor-pane, #doc-pane {
+      position:relative; width:92%;
+      height:88dvh; max-height:88dvh;
+      max-width:960px; margin-top:3dvh;
       background:#fff; display:flex; flex-direction:column;
       box-shadow:0 4px 32px rgba(0,0,0,.5); border:1px solid #999;
     }
+    #doc-pane { max-width:820px; }
+
+    /* ---- Editor toolbar ---- */
     #editor-toolbar {
       display:flex; align-items:center; gap:6px; padding:5px 8px;
       border-bottom:1px solid #ccc; background:#f0f0f0; flex-shrink:0;
+      flex-wrap:wrap;
+      padding-left: max(8px, env(safe-area-inset-left));
+      padding-right: max(8px, env(safe-area-inset-right));
     }
-    #editor-filename { font-size:13px; font-weight:bold; flex:1; color:#222; font-family:monospace; }
+    #editor-filename { font-size:13px; font-weight:bold; flex:1; min-width:0;
+      overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+      color:#222; font-family:monospace; }
     #editor-toolbar button, #editor-toolbar label {
       background:#e0e0e0; color:#111; border:1px solid #aaa;
       padding:2px 10px; cursor:pointer; font-size:12px; font-family:monospace;
       white-space:nowrap;
+      touch-action:manipulation; -webkit-tap-highlight-color:transparent;
     }
     #editor-toolbar button:hover, #editor-toolbar label:hover { background:#c8c8c8; }
-    #editor-close { margin-left:4px; }
+    #editor-close { margin-left:auto; }
     #editor-cm { flex:1; overflow:hidden; }
-    /* CodeMirror 6 height fill */
     #editor-cm .cm-editor { height:100%; }
-    #editor-cm .cm-scroller { overflow:auto; font-family:'Courier New',monospace; font-size:13px; }
+    #editor-cm .cm-scroller { overflow:auto; font-family:'Courier New',monospace; font-size:16px; }
+    #editor-cm textarea { font-size:16px !important; }
 
-    /* ---- Top row (controls + docs panel) ---- */
-    .top-row  { display:flex; gap:16px; align-items:flex-start; margin-bottom:0; }
-    .top-left { flex-shrink:0; }
-
-    /* ---- Docs panel ---- */
-    #docs-panel {
-      border:1px solid #bbb; padding:6px 8px;
-      font-size:12px; min-width:180px; flex:1; max-width:300px;
-      overflow-y:auto; max-height:152px;
-      background:#fafafa;
-    }
-    #docs-panel .docs-hdr { font-size:10px; color:#888; font-weight:bold; margin-bottom:4px; letter-spacing:.04em; }
-    #docs-panel a {
-      display:block; color:#0055aa; text-decoration:none;
-      padding:2px 4px; border-radius:2px;
-      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-    }
-    #docs-panel a:hover { background:#e8f0ff; color:#0033aa; }
-
-    /* ---- Doc viewer modal ---- */
-    #doc-modal {
-      position:fixed; top:0; left:0; width:100%; height:100%; z-index:1100;
-      display:flex; align-items:center; justify-content:center;
-    }
-    #doc-overlay {
-      position:absolute; top:0; left:0; width:100%; height:100%;
-      background:rgba(0,0,0,.55);
-    }
-    #doc-pane {
-      position:relative; width:85%; height:88%; max-width:820px;
-      background:#fff; display:flex; flex-direction:column;
-      box-shadow:0 4px 32px rgba(0,0,0,.5); border:1px solid #999;
-    }
+    /* ---- Doc toolbar ---- */
     #doc-toolbar {
       display:flex; align-items:center; gap:6px; padding:5px 8px;
       border-bottom:1px solid #ccc; background:#f0f0f0; flex-shrink:0;
+      padding-left: max(8px, env(safe-area-inset-left));
+      padding-right: max(8px, env(safe-area-inset-right));
     }
-    #doc-toolbar-title { font-size:13px; font-weight:bold; flex:1; color:#222; font-family:sans-serif; }
+    #doc-toolbar-title { font-size:13px; font-weight:bold; flex:1; min-width:0;
+      overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+      color:#222; font-family:sans-serif; }
     #doc-toolbar button {
       background:#e0e0e0; color:#111; border:1px solid #aaa;
       padding:2px 10px; cursor:pointer; font-size:12px;
+      white-space:nowrap;
+      touch-action:manipulation; -webkit-tap-highlight-color:transparent;
     }
     #doc-toolbar button:hover { background:#c8c8c8; }
+
+    /* ---- Doc content ---- */
+
+    /* モバイル: 両モーダルを全幅に */
+    @media (max-width:500px) {
+      #editor-pane, #doc-pane {
+        width:100%; max-width:100%;
+        height:100dvh; max-height:100dvh;
+        margin-top:0; border-left:none; border-right:none;
+      }
+    }
+
+    /* ---- Top row (controls + docs panel) ---- */
+    /* ---- Docs panel (サブタイトル直下・横並び折り返しリンク帯) ---- */
+    #docs-panel {
+      display:flex; flex-wrap:wrap; align-items:center;
+      gap:2px 0; margin:2px 0 8px;
+      border:1px solid #ddd; border-radius:3px;
+      padding:4px 6px; background:#fafafa;
+    }
+    #docs-panel .docs-hdr {
+      font-size:10px; color:#888; font-weight:bold;
+      letter-spacing:.04em; white-space:nowrap; margin-right:8px;
+    }
+    #docs-panel a {
+      display:inline-block; color:#0055aa; text-decoration:none;
+      font-size:11px; padding:1px 6px; border-radius:2px;
+      white-space:nowrap;
+      touch-action:manipulation; -webkit-tap-highlight-color:transparent;
+    }
+    #docs-panel a:hover { background:#e8f0ff; color:#0033aa; }
+
+    /* ---- Doc content ---- */
     #doc-content {
       flex:1; overflow-y:auto; padding:16px 24px;
       font-family:-apple-system,BlinkMacSystemFont,sans-serif;
@@ -197,86 +266,160 @@
     #doc-content h1 { font-size:18px; border-bottom:2px solid #ddd; padding-bottom:6px; margin-top:0; }
     #doc-content h2 { font-size:15px; border-bottom:1px solid #eee; padding-bottom:3px; margin-top:20px; }
     #doc-content h3 { font-size:13px; color:#333; margin-top:14px; }
-    #doc-content table { border-collapse:collapse; width:100%; margin:8px 0; }
+    /* テーブルはモバイルで横スクロール可 */
+    #doc-content .table-wrap { overflow-x:auto; }
+    #doc-content table { border-collapse:collapse; min-width:100%; margin:8px 0; }
     #doc-content th { background:#f0f0f0; }
-    #doc-content th, #doc-content td { border:1px solid #ccc; padding:4px 10px; font-size:12px; text-align:left; }
+    #doc-content th, #doc-content td { border:1px solid #ccc; padding:4px 10px; font-size:12px; text-align:left; white-space:nowrap; }
     #doc-content code { background:#f0f0f0; padding:1px 5px; font-family:'Courier New',monospace; font-size:12px; border-radius:2px; }
     #doc-content pre  { background:#f5f5f5; padding:10px 14px; overflow-x:auto; border:1px solid #ddd; border-radius:3px; }
-    #doc-content pre code { background:none; padding:0; }
+    #doc-content pre code { background:none; padding:0; white-space:pre; }
     #doc-content blockquote { border-left:3px solid #ccc; margin:0; padding-left:12px; color:#666; }
+
+    /* ---- Theme custom dropdown ---- */
+    .theme-btn {
+      border:1px solid #aaa; padding:2px 20px 2px 6px; cursor:pointer;
+      background:#e8e8e8; font-size:12px; user-select:none;
+      position:relative; white-space:nowrap;
+    }
+    .theme-btn:hover { background:#d0d0d0; }
+    .theme-arrow { position:absolute; right:4px; top:50%; transform:translateY(-50%); font-size:9px; }
+    .theme-list {
+      position:absolute; top:100%; left:0; z-index:600;
+      border:1px solid #888; box-shadow:0 3px 10px rgba(0,0,0,.35);
+      min-width:100%; margin-top:1px;
+    }
+    .th-item {
+      padding:5px 10px; cursor:pointer;
+      display:flex; align-items:center; gap:5px;
+      white-space:nowrap; font-size:12px;
+    }
+    .th-item:hover { opacity:.8; }
+    .th-chk { display:inline-block; width:1em; text-align:center; flex-shrink:0; }
   </style>
 </head>
 <body>
-  <div class="top-row">
-    <div class="top-left">
-      <h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #999;">soft-FPGA</a> | 06 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/06-8080" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #999;">Intel 8080 / CP/M 2.2 RTL Simulator</a> <span style="font-size:11px;color:#999;font-weight:normal;">Ver. 1.0.0</span></h2>
-      <p style="font-size:12px;color:#666;margin:0 0 8px;"><a href="https://github.com/1801BM1/vm80a" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">vm80a</a> (decapped die RTL) → <a href="https://www.veripool.org/verilator/" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">Verilator</a> → <a href="https://en.wikipedia.org/wiki/WebAssembly" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">WASM</a> &nbsp;|&nbsp; <a href="https://en.wikipedia.org/wiki/CP/M" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">CP/M 2.2</a> + <a href="https://github.com/tommie-jp/soft-fpga/blob/main/docs/06-8080/30-BIOS実装.md" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">custom BIOS</a></p>
+  <h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #999;">soft-FPGA</a> | 06 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/06-8080" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #999;">Intel 8080 / CP/M 2.2 RTL Simulator</a> <span style="font-size:11px;color:#999;font-weight:normal;">Ver. 1.0.0</span></h2>
+  <p style="font-size:12px;color:#666;margin:0 0 4px;"><a href="https://github.com/1801BM1/vm80a" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">vm80a</a> (decapped die RTL) → <a href="https://www.veripool.org/verilator/" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">Verilator</a> → <a href="https://en.wikipedia.org/wiki/WebAssembly" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">WASM</a> &nbsp;|&nbsp; <a href="https://en.wikipedia.org/wiki/CP/M" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">CP/M 2.2</a> + <a href="https://github.com/tommie-jp/soft-fpga/blob/main/docs/06-8080/30-BIOS実装.md" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">custom BIOS</a></p>
 
-      <!-- Drive panel (A–D) -->
-      <div class="drives-panel" id="drives-panel"></div>
+  <!-- Docs panel (サブタイトル直下) -->
+  <div id="docs-panel">
+    <span class="docs-hdr">CP/M DOCS</span>
+    <a href="#" onclick="openDoc('02-CP_M-歴史的価値.md');return false;">02 CP/M 歴史的価値</a>
+    <a href="#" onclick="openDoc('03-開発ツール.md');return false;">03 開発ツール</a>
+    <a href="#" onclick="openDoc('12-CP_M-コマンドリファレンス.md');return false;">12 CP/M コマンドリファレンス</a>
+    <a href="#" onclick="openDoc('14-cpm-コマンド説明.md');return false;">14 CP/M コマンド説明</a>
+    <a href="#" onclick="openDoc('15-ファイル構成とファイル交換.md');return false;">15 ファイル構成・交換方法</a>
+    <a href="#" onclick="openDoc('16-CP_M-ソフトウェア入手先.md');return false;">16 CP/M ソフトウェア入手先</a>
+    <a href="#" onclick="openDoc('17-MBASIC-使い方.md');return false;">17 MBASIC 使い方</a>
+    <a href="#" onclick="openDoc('18-BDS-C-使い方.md');return false;">18 BDS C 使い方</a>
+    <a href="#" onclick="openDoc('19-インタラクティブコマンド.md');return false;">19 インタラクティブコマンド</a>
+    <a href="#" onclick="openDoc('20-サイクルカウンタ.md');return false;">20 サイクルカウンタ</a>
+    <a href="#" onclick="openDoc('22-クロック計測とベンチマーク手順.md');return false;">22 クロック計測・ベンチマーク</a>
+    <a href="#" onclick="openDoc('23-WordMaster-使い方.md');return false;">23 WordMaster 使い方</a>
+    <a href="#" onclick="openDoc('30-BIOS実装.md');return false;">30 カスタム BIOS 実装</a>
+    <a href="#" onclick="openDoc('52-メモリマップ.md');return false;">52 メモリマップ &amp; I/O ポート</a>
+  </div>
 
-      <!-- Quick presets -->
-      <div class="presets">
-        Preset:
-        <button onclick="loadPreset(0)">CP/M std</button>
-        <button onclick="loadPreset(1)">BDS C</button>
-        <button onclick="loadPreset(2)">Blank</button>
-      </div>
-    </div><!-- /.top-left -->
+  <!-- Drive panel (A–D) -->
+  <div class="drives-panel" id="drives-panel"></div>
 
-    <!-- Docs panel -->
-    <div id="docs-panel">
-      <div class="docs-hdr">CP/M DOCS</div>
-      <a href="#" onclick="openDoc('02-CP_M-歴史的価値.md');return false;">02 CP/M 歴史的価値</a>
-      <a href="#" onclick="openDoc('03-開発ツール.md');return false;">03 開発ツール</a>
-      <a href="#" onclick="openDoc('12-CP_M-コマンドリファレンス.md');return false;">12 CP/M コマンドリファレンス</a>
-      <a href="#" onclick="openDoc('14-cpm-コマンド説明.md');return false;">14 CP/M コマンド説明</a>
-      <a href="#" onclick="openDoc('15-ファイル構成とファイル交換.md');return false;">15 ファイル構成・交換方法</a>
-      <a href="#" onclick="openDoc('16-CP_M-ソフトウェア入手先.md');return false;">16 CP/M ソフトウェア入手先</a>
-      <a href="#" onclick="openDoc('17-MBASIC-使い方.md');return false;">17 MBASIC 使い方</a>
-      <a href="#" onclick="openDoc('18-BDS-C-使い方.md');return false;">18 BDS C 使い方</a>
-      <a href="#" onclick="openDoc('19-インタラクティブコマンド.md');return false;">19 インタラクティブコマンド</a>
-      <a href="#" onclick="openDoc('20-サイクルカウンタ.md');return false;">20 サイクルカウンタ</a>
-      <a href="#" onclick="openDoc('22-クロック計測とベンチマーク手順.md');return false;">22 クロック計測・ベンチマーク</a>
-      <a href="#" onclick="openDoc('23-WordMaster-使い方.md');return false;">23 WordMaster 使い方</a>
-      <a href="#" onclick="openDoc('52-メモリマップ.md');return false;">52 メモリマップ &amp; I/O ポート</a>
-    </div><!-- /#docs-panel -->
-  </div><!-- /.top-row -->
+  <!-- Quick presets -->
+  <div class="presets">
+    Preset:
+    <button onclick="loadPreset(0)">CP/M std</button>
+    <button onclick="loadPreset(1)">BDS C</button>
+    <button onclick="loadPreset(2)">Blank</button>
+  </div>
 
   <div class="controls">
     <button id="btn-run">Pause</button>
     <button id="btn-reset">Reset</button>
     <label>Speed:
       <select id="speed-sel">
-        <option value="8333">500 KHz (実機 25%)</option>
-        <option value="16667">1.0 MHz (実機 50%)</option>
-        <option value="33333">2.0 MHz (実機相当)</option>
-        <option value="0" selected>最高速度</option>
-        <option value="custom">カスタム...</option>
+        <option value="8333">500 KHz (25%)</option>
+        <option value="16667">1.0 MHz (50%)</option>
+        <option value="33333">2.0 MHz (100%)</option>
+        <option value="0" selected>Max speed</option>
+        <option value="custom">Custom...</option>
       </select>
       <input id="speed-num" type="number" min="100" max="1000000" step="100"
              title="steps/frame" placeholder="steps/frame"
              style="width:100px;display:none;">
+      <span id="cycle-info" style="font-size:12px;color:#555;margin-left:4px;"></span>
     </label>
-    <span id="cycle-info" style="font-size:12px;color:#555;">0 cycles</span>
     <span style="font-size:12px;color:#555;">Theme:</span>
-    <button class="btn-theme" data-theme="green" title="Green phosphor (P39)">Green</button>
-    <button class="btn-theme" data-theme="amber" title="Amber phosphor (P3)">Amber</button>
-    <button class="btn-theme" data-theme="paper" title="White phosphor (P4)">White</button>
-    <button class="btn-theme" data-theme="light" title="Light (modern)">Light</button>
-  </div>
-
-  <div class="main-row">
-    <div style="display:flex;flex-direction:column;flex-shrink:0;">
-      <div id="terminal-wrap"><div id="terminal"></div></div>
-      <div class="ctrl-bar">
-        <button class="ctrl-btn" data-key="3">^C</button>
-        <button class="ctrl-btn" data-key="4">^D</button>
-        <button class="ctrl-btn" data-key="26">^Z</button>
-        <button class="ctrl-btn" data-key="27">ESC</button>
-        <button class="ctrl-btn" data-key="9">TAB</button>
+    <div id="theme-menu" style="position:relative;display:inline-block;">
+      <div id="theme-btn" class="theme-btn">
+        <span id="theme-label">Green</span><span class="theme-arrow">▼</span>
+      </div>
+      <div id="theme-list" class="theme-list" style="display:none;">
+        <div class="th-item" data-value="green" style="background:#000;color:#33FF00;"><span class="th-chk"></span>Green</div>
+        <div class="th-item" data-value="amber" style="background:#000;color:#FFB300;"><span class="th-chk"></span>Amber</div>
+        <div class="th-item" data-value="paper" style="background:#000;color:#E8E8D0;"><span class="th-chk"></span>White</div>
+        <div class="th-item" data-value="light" style="background:#fff;color:#111;"><span class="th-chk"></span>Light</div>
       </div>
     </div>
+    <label for="sel-fontsize" style="font-size:12px;color:#555;">Font:</label>
+    <select id="sel-fontsize" style="font-size:12px;padding:2px 4px;cursor:pointer;">
+      <option value="6">6px</option>
+      <option value="7">7px</option>
+      <option value="8">8px</option>
+      <option value="9">9px</option>
+      <option value="10">10px</option>
+      <option value="11">11px</option>
+      <option value="12">12px</option>
+      <option value="13">13px</option>
+      <option value="14">14px</option>
+      <option value="15">15px</option>
+      <option value="16">16px</option>
+      <option value="18">18px</option>
+      <option value="20">20px</option>
+    </select>
+  </div>
+
+  <div id="page-body">
+    <div id="terminal-col">
+      <div id="terminal-wrap"><div id="terminal"></div></div>
+      <div id="ctrl-zone">
+        <div class="ctrl-bar">
+          <button class="ctrl-btn" data-key="3">^C</button>
+          <button class="ctrl-btn" data-key="4">^D</button>
+          <button class="ctrl-btn" data-key="26">^Z</button>
+          <button class="ctrl-btn" data-key="27">ESC</button>
+          <button class="ctrl-btn" data-key="9">TAB</button>
+          <button id="btn-wm-toggle" class="ctrl-btn" title="WordMaster キー表示切替" style="color:#666;">WM ▼</button>
+        </div>
+        <!-- WordMaster コントロールキー -->
+        <div class="ctrl-bar" id="wm-bar" style="display:none;margin-top:2px;">
+        <span class="wm-group-lbl">Cursor:</span>
+        <button class="ctrl-btn" data-key="5"  title="上 (^E)">^E ↑</button>
+        <button class="ctrl-btn" data-key="19" title="左 (^S)">^S ←</button>
+        <button class="ctrl-btn" data-key="24" title="下 (^X)">^X ↓</button>
+        <button class="ctrl-btn" data-key="4"  title="右 (^D)">^D →</button>
+        <button class="ctrl-btn" data-key="1"  title="左1単語 (^A)">^A ←w</button>
+        <button class="ctrl-btn" data-key="6"  title="右1単語 (^F)">^F →w</button>
+        <span class="wm-sep">|</span>
+        <span class="wm-group-lbl">Edit:</span>
+        <button class="ctrl-btn" data-key="7"  title="文字削除 (^G)">^G Del</button>
+        <button class="ctrl-btn" data-key="25" title="行削除 (^Y)">^Y 行Del</button>
+        <button class="ctrl-btn" data-key="22" title="挿入/上書き切替 (^V)">^V Ins</button>
+        <button class="ctrl-btn" data-key="21" title="中断 (^U)">^U 中断</button>
+        <button class="ctrl-btn" data-key="10" title="ヘルプ (^J)">^J Help</button>
+        <span class="wm-sep">|</span>
+        <span class="wm-group-lbl">File:</span>
+        <button class="ctrl-btn" data-seq="11,83" title="保存して継続 (^KS)">^KS 保存</button>
+        <button class="ctrl-btn" data-seq="11,68" title="保存して終了 (^KD)">^KD 終了</button>
+        <button class="ctrl-btn" data-seq="11,81" title="破棄して終了 (^KQ)">^KQ 破棄</button>
+      </div>
+      </div>
+    </div>
+
+    <div id="bus-section">
+      <div class="sig-label">I/O Bus Analyzer (port / data / io_req / io_wr)</div>
+      <canvas id="la" width="900" height="120"></canvas>
+    </div>
+
     <div id="reg-panel">
       <h3>CPU</h3>
       <div style="margin-bottom:10px;line-height:2.2;">
@@ -295,15 +438,13 @@
       <div id="drop-status"></div>
       <div id="fs-list"></div>
     </div>
-  </div>
 
-  <div class="sig-label">I/O Bus Analyzer (port / data / io_req / io_wr)</div>
-  <canvas id="la" width="900" height="120"></canvas>
-  <p style="font-size:11px;color:#aaa;margin:6px 0 0;">
-    &copy; 2026 <a href="https://github.com/tommie-jp" target="_blank" rel="noopener" style="color:#aaa;">tommie.jp</a>
-    &nbsp;&mdash;&nbsp;
-    <a href="06-8080-QR.png" target="_blank" rel="noopener" style="color:#aaa;">QR</a>
-  </p>
+    <p id="copyright" style="font-size:11px;color:#aaa;margin:6px 0 0;">
+      &copy; 2026 <a href="https://github.com/tommie-jp" target="_blank" rel="noopener" style="color:#aaa;">tommie.jp</a>
+      &nbsp;&mdash;&nbsp;
+      <a href="06-8080-QR.png" target="_blank" rel="noopener" style="color:#aaa;">QR</a>
+    </p>
+  </div>
 
   <!-- ---- Doc viewer modal ---- -->
   <div id="doc-modal" style="display:none;">
@@ -531,8 +672,9 @@
           var name = this.getAttribute('data-name');
           var dot  = name.lastIndexOf('.');
           var ext  = dot >= 0 ? name.slice(dot + 1).toUpperCase() : '';
-          if (TEXT_EXTS[ext] && window.openEditorFile) {
-            window.openEditorFile(name);
+          if (TEXT_EXTS[ext]) {
+            var fn = window.openEditorFile || window.openEditorFallback;
+            if (fn) fn(name);
           } else {
             downloadFromFS(name);
           }
@@ -750,16 +892,57 @@
     localStorage.setItem('cpm-theme', name);
     if (term) term.options.theme = THEMES[name];
     var wrap = document.getElementById('terminal-wrap');
-    wrap.style.background   = THEMES[name].background;
-    wrap.style.borderColor  = (name === 'light') ? '#bbb' : '#444';
-    document.querySelectorAll('.btn-theme').forEach(function(btn) {
-      btn.classList.toggle('active', btn.dataset.theme === name);
+    wrap.style.background  = THEMES[name].background;
+    wrap.style.borderColor = (name === 'light') ? '#bbb' : '#444';
+    updateThemeMenu(name);
+  }
+
+  function updateThemeMenu(name) {
+    var labels = { green:'Green', amber:'Amber', paper:'White', light:'Light' };
+    var lbl = document.getElementById('theme-label');
+    if (lbl) lbl.textContent = labels[name] || name;
+    document.querySelectorAll('.th-item').forEach(function(el) {
+      el.querySelector('.th-chk').textContent = el.dataset.value === name ? '✔' : '';
     });
   }
 
-  document.querySelectorAll('.btn-theme').forEach(function(btn) {
-    btn.addEventListener('click', function() { applyTheme(this.dataset.theme); });
-  });
+  (function() {
+    var btn  = document.getElementById('theme-btn');
+    var list = document.getElementById('theme-list');
+    if (!btn || !list) return;
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      list.style.display = list.style.display === 'none' ? '' : 'none';
+    });
+    list.querySelectorAll('.th-item').forEach(function(el) {
+      el.addEventListener('click', function() {
+        applyTheme(this.dataset.value);
+        list.style.display = 'none';
+      });
+    });
+    document.addEventListener('click', function() { list.style.display = 'none'; });
+    updateThemeMenu(currentTheme);
+  })();
+
+  var currentFontSize = parseInt(localStorage.getItem('cpm-fontsize'), 10) || 13;
+
+  function applyFontSize(size) {
+    size = Math.max(6, Math.min(20, size));
+    currentFontSize = size;
+    localStorage.setItem('cpm-fontsize', size);
+    if (term) {
+      term._core.optionsService.options.fontSize = size;
+      term.refresh(0, term.rows - 1);
+    }
+    var sel = document.getElementById('sel-fontsize');
+    if (sel) sel.value = size;
+  }
+
+  var selFont = document.getElementById('sel-fontsize');
+  if (selFont) {
+    selFont.value = currentFontSize;
+    selFont.addEventListener('change', function() { applyFontSize(parseInt(this.value, 10)); });
+  }
 
   // ---- Worker セットアップ ----
   const RING_SIZE = 4096; // harness.cpp: static const int RING_SIZE = 4096
@@ -882,11 +1065,30 @@
     term = new Terminal({
       cols: 80, rows: 24,
       theme: THEMES[currentTheme],
-      fontSize: 13, fontFamily: 'Courier New, monospace',
+      fontSize: currentFontSize, fontFamily: 'Courier New, monospace',
       cursorBlink: true, convertEol: true,
       scrollback: 0,
     });
     term.open(document.getElementById('terminal'));
+
+    // ターミナルは常に 80 桁固定。モバイルは水平スクロール可・自動スクロール無効。
+    if (window.innerWidth <= 500) {
+      var _termCol = document.getElementById('terminal-col');
+      var _userScrolling = false;
+      var _userScrollTimer = null;
+      _termCol.addEventListener('touchstart', function() {
+        _userScrolling = true;
+        if (_userScrollTimer) clearTimeout(_userScrollTimer);
+      }, { passive: true });
+      _termCol.addEventListener('touchend', function() {
+        _userScrollTimer = setTimeout(function() { _userScrolling = false; }, 300);
+      }, { passive: true });
+      // xterm による自動スクロールをキャンセル（ユーザー操作中は通す）
+      _termCol.addEventListener('scroll', function() {
+        if (!_userScrolling) _termCol.scrollLeft = 0;
+      });
+    }
+
     applyTheme(currentTheme);
 
     laCtx = document.getElementById('la').getContext('2d');
@@ -1007,7 +1209,7 @@
     // ---- Speed ----
     function applySpeed() {
       var sel = document.getElementById('speed-sel');
-      var steps = (sel.value === '0') ? -1   // 最高速度センチネル: Worker が MessageChannel 即時ループ
+      var steps = (sel.value === '0') ? -1   // max speed sentinel: worker runs immediate MessageChannel loop
                 : (sel.value === 'custom') ? (parseInt(document.getElementById('speed-num').value) || 33333)
                 : parseInt(sel.value);
       workerSend({ type: 'setSteps', steps: steps });
@@ -1053,13 +1255,26 @@
     document.getElementById('btn-save-fs').addEventListener('click', function() { idbSaveFS(); });
 
     // ---- Ctrl bar ----
-    document.querySelectorAll('.ctrl-btn').forEach(function(btn) {
+    document.querySelectorAll('.ctrl-btn[data-key], .ctrl-btn[data-seq]').forEach(function(btn) {
       btn.addEventListener('click', function() {
-        var code = parseInt(this.getAttribute('data-key'));
-        if (code === 3 || code === 26) { histIdx = -1; inputBuf = ''; }
-        workerSend({ type: 'sendKey', ch: code });
+        var seq = this.getAttribute('data-seq');
+        if (seq) {
+          seq.split(',').forEach(function(c) { workerSend({ type: 'sendKey', ch: parseInt(c) }); });
+        } else {
+          var code = parseInt(this.getAttribute('data-key'));
+          if (code === 3 || code === 26) { histIdx = -1; inputBuf = ''; }
+          workerSend({ type: 'sendKey', ch: code });
+        }
         term.focus();
       });
+    });
+
+    // ---- WM キーバー トグル ----
+    document.getElementById('btn-wm-toggle').addEventListener('click', function() {
+      var bar = document.getElementById('wm-bar');
+      var visible = bar.style.display !== 'none';
+      bar.style.display = visible ? 'none' : 'flex';
+      this.textContent = visible ? 'WM ▼' : 'WM ▲';
     });
 
     // ---- 起動時復元（200ms 遅延） ----
@@ -1097,6 +1312,81 @@
     term.focus();
     requestAnimationFrame(loop);
 
+    // ---- テキストエディタ共通 (CodeMirror / textarea フォールバック) ----
+    // window._editor = { type:'cm'|'textarea', view|el, name } | null
+    window._editor = null;
+
+    // CodeMirror 未ロード時の textarea フォールバック
+    window.openEditorFallback = async function(name) {
+      var result = await window.workerRequest({ type: 'readFS', name: name });
+      var bytes  = new Uint8Array(result.data);
+      var text   = new TextDecoder('latin1').decode(bytes)
+                     .replace(/\r\n/g, '\n').replace(/\x1a[\s\S]*/, '');
+      var cm = document.getElementById('editor-cm');
+      cm.innerHTML = '';
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'width:100%;height:100%;box-sizing:border-box;'
+        + 'font-family:"Courier New",monospace;font-size:16px;'
+        + 'border:none;resize:none;padding:8px;outline:none;';
+      cm.appendChild(ta);
+      window._editor = { type: 'textarea', el: ta, name: name };
+      document.getElementById('editor-filename').textContent = name;
+      document.getElementById('editor-modal').style.display = '';
+    };
+
+    // 閉じる（module 側が window._destroyEditor をセットすれば CM も破棄）
+    window.closeEditor = function() {
+      document.getElementById('editor-modal').style.display = 'none';
+      if (window._destroyEditor) window._destroyEditor();
+      window._editor = null;
+    };
+
+    document.getElementById('editor-close').addEventListener('click', window.closeEditor);
+    document.getElementById('editor-overlay').addEventListener('click', window.closeEditor);
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && document.getElementById('editor-modal').style.display !== 'none') {
+        window.closeEditor();
+      }
+    });
+
+    document.getElementById('editor-save').addEventListener('click', async function() {
+      var ed = window._editor;
+      if (!ed) return;
+      var text = ed.type === 'cm' ? ed.view.state.doc.toString() : ed.el.value;
+      text = text.replace(/\n/g, '\r\n') + '\x1a';
+      var bytes = new TextEncoder().encode(text);
+      var buf   = bytes.buffer;
+      await window.workerRequest({ type: 'writeFS', name: ed.name, data: buf }, [buf]);
+      window.updateFSList();
+      window.markFSDirty();
+      window.showDropStatus(ed.name + ' saved ✓', true);
+    });
+
+    document.getElementById('editor-download').addEventListener('click', function() {
+      var ed = window._editor;
+      if (!ed) return;
+      var text = (ed.type === 'cm' ? ed.view.state.doc.toString() : ed.el.value)
+                   .replace(/\n/g, '\r\n');
+      var blob = new Blob([text], { type: 'text/plain' });
+      var a = Object.assign(document.createElement('a'), {
+        href: URL.createObjectURL(blob), download: ed.name,
+      });
+      a.click(); URL.revokeObjectURL(a.href);
+    });
+
+    document.getElementById('editor-upload').addEventListener('change', async function() {
+      if (!this.files.length || !window._editor) return;
+      var text = (await this.files[0].text()).replace(/\r\n|\r/g, '\n');
+      var ed = window._editor;
+      if (ed.type === 'cm') {
+        ed.view.dispatch({ changes: { from: 0, to: ed.view.state.doc.length, insert: text } });
+      } else {
+        ed.el.value = text;
+      }
+      this.value = '';
+    });
+
     // ---- Doc viewer ----
     document.getElementById('doc-close').addEventListener('click', function() {
       document.getElementById('doc-modal').style.display = 'none';
@@ -1107,7 +1397,7 @@
   }
 
   function openDoc(file) {
-    fetch('/docs/' + file)
+    fetch('docs/' + file)
       .then(function(r) {
         if (!r.ok) throw new Error('HTTP ' + r.status);
         return r.text();
@@ -1115,7 +1405,10 @@
       .then(function(md) {
         var title = file.replace(/^\d+-/, '').replace(/\.md$/, '').replace(/-/g, ' ');
         document.getElementById('doc-toolbar-title').textContent = title;
-        document.getElementById('doc-content').innerHTML = marked.parse(md);
+        var html = marked.parse(md)
+          .replace(/<table/g, '<div class="table-wrap"><table')
+          .replace(/<\/table>/g, '</table></div>');
+        document.getElementById('doc-content').innerHTML = html;
         document.getElementById('doc-modal').style.display = 'flex';
       })
       .catch(function(e) {
@@ -1141,11 +1434,9 @@
   import { cpp }
     from 'https://esm.sh/@codemirror/lang-cpp@6';
 
-  let cmView     = null;
-  let cmFileName = '';
+  let cmView = null;
 
   // --- Phase 5: ASCII 制限 ---
-  // 127 超の文字を含むトランザクションを破棄する
   const asciiFilter = EditorState.transactionFilter.of(tr => {
     if (!tr.docChanged) return tr;
     let ok = true;
@@ -1165,11 +1456,11 @@
     if (dot < 0) return [];
     switch (name.slice(dot + 1).toUpperCase()) {
       case 'C': case 'H': return [cpp()];
-      default: return [];   // ASM 等はプレーンテキスト
+      default: return [];
     }
   }
 
-  function makeView(doc) {
+  function makeView(doc, name) {
     const container = document.getElementById('editor-cm');
     if (cmView) { cmView.destroy(); cmView = null; }
     cmView = new EditorView({
@@ -1178,7 +1469,7 @@
         extensions: [
           basicSetup,
           asciiFilter,
-          ...getLang(cmFileName),
+          ...getLang(name),
           EditorView.theme({ '&': { height: '100%' } }),
         ],
       }),
@@ -1188,67 +1479,22 @@
 
   // --- Phase 3: FS → エディタ ---
   window.openEditorFile = async function(name) {
-    cmFileName = name;
     document.getElementById('editor-filename').textContent = name;
     document.getElementById('editor-modal').style.display = '';
 
     const result = await window.workerRequest({ type: 'readFS', name });
     const bytes  = new Uint8Array(result.data);
-    // CP/M: latin-1 でデコード、CRLF→LF、EOF マーカー除去
     const text = new TextDecoder('latin1').decode(bytes)
                    .replace(/\r\n/g, '\n')
-                   .replace(/\x1a[\s\S]*/g, '');   // ^Z 以降切捨て
-    makeView(text);
+                   .replace(/\x1a[\s\S]*/g, '');
+    makeView(text, name);
+    window._editor = { type: 'cm', view: cmView, name: name };
   };
 
-  function closeEditor() {
-    document.getElementById('editor-modal').style.display = 'none';
+  // closeEditor / イベントリスナーは通常スクリプト側で登録済み
+  window._destroyEditor = function() {
     if (cmView) { cmView.destroy(); cmView = null; }
-    cmFileName = '';
-  }
-
-  document.getElementById('editor-close').addEventListener('click', closeEditor);
-  document.getElementById('editor-overlay').addEventListener('click', closeEditor);
-
-  // Esc キーでも閉じる
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && document.getElementById('editor-modal').style.display !== 'none') {
-      closeEditor();
-    }
-  });
-
-  // --- Phase 4: Save (エディタ → WASM FS) ---
-  document.getElementById('editor-save').addEventListener('click', async function() {
-    if (!cmView || !cmFileName) return;
-    // LF → CRLF、CP/M EOF マーカー付加
-    const text  = cmView.state.doc.toString().replace(/\n/g, '\r\n') + '\x1a';
-    const bytes = new TextEncoder().encode(text);
-    const buf   = bytes.buffer;
-    await window.workerRequest({ type: 'writeFS', name: cmFileName, data: buf }, [buf]);
-    window.updateFSList();
-    window.markFSDirty();
-    window.showDropStatus(cmFileName + ' saved ✓', true);
-  });
-
-  // --- Phase 4: Download (エディタ内容 → PC) ---
-  document.getElementById('editor-download').addEventListener('click', function() {
-    if (!cmView || !cmFileName) return;
-    const text = cmView.state.doc.toString().replace(/\n/g, '\r\n');
-    const blob = new Blob([text], { type: 'text/plain' });
-    const a = Object.assign(document.createElement('a'), {
-      href: URL.createObjectURL(blob), download: cmFileName,
-    });
-    a.click();
-    URL.revokeObjectURL(a.href);
-  });
-
-  // --- Phase 4: Upload (PC → エディタ) ---
-  document.getElementById('editor-upload').addEventListener('change', async function() {
-    if (!this.files.length || !cmView) return;
-    const text = (await this.files[0].text()).replace(/\r\n|\r/g, '\n');
-    cmView.dispatch({ changes: { from: 0, to: cmView.state.doc.length, insert: text } });
-    this.value = '';
-  });
+  };
   </script>
 </body>
 </html>

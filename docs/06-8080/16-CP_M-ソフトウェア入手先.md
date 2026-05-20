@@ -4,9 +4,9 @@
 
 | サイト | 内容 |
 |--------|------|
-| **Walnut Creek CP/M CD** (archive.org 収録) | 大量のパブリックドメイン CP/M ソフトを収録した CD イメージ。カテゴリ別に整理されており最も網羅的 |
-| **Gaby's CP/M Archive** (gaby.de/cpm) | カテゴリ別整理。BDS C・Aztec C など開発ツールも揃う |
-| **retroarchive.org** | BDS C・Aztec C の公式フリーウェア版が置いてある |
+| [**Walnut Creek CP/M CD** — archive.org](https://archive.org/search?query=walnut+creek+cpm) | 大量のパブリックドメイン CP/M ソフトを収録した CD イメージ。カテゴリ別に整理されており最も網羅的 |
+| [**Gaby's CP/M Archive**](http://www.gaby.de/cpm/) | カテゴリ別整理。BDS C・Aztec C など開発ツールも揃う |
+| [**retroarchive.org**](http://www.retroarchive.org/) | BDS C・Aztec C の公式フリーウェア版が置いてある |
 
 ## 2. C コンパイラ
 
