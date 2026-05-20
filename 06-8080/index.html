@@ -83,9 +83,8 @@
     /* モバイル: DOM 順（terminal → bus → reg → copyright）に縦積み */
     @media (max-width:500px) {
       #page-body { display:block; }
-      #terminal-col { width:100%; }
-      #terminal-wrap { width:100% !important; }
-      #terminal { width:100%; }
+      /* ターミナルは 80 桁固定、幅が足りない場合は横スクロール */
+      #terminal-col { width:100%; overflow-x:auto; }
       #reg-panel { width:100%; box-sizing:border-box; margin-top:8px; }
       #la { max-width:100%; height:auto; }
     }
