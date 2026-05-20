@@ -316,17 +316,17 @@
     <button id="btn-reset">Reset</button>
     <label>Speed:
       <select id="speed-sel">
-        <option value="8333">500 KHz (実機 25%)</option>
-        <option value="16667">1.0 MHz (実機 50%)</option>
-        <option value="33333">2.0 MHz (実機相当)</option>
-        <option value="0" selected>最高速度</option>
-        <option value="custom">カスタム...</option>
+        <option value="8333">500 KHz (25%)</option>
+        <option value="16667">1.0 MHz (50%)</option>
+        <option value="33333">2.0 MHz (100%)</option>
+        <option value="0" selected>Max speed</option>
+        <option value="custom">Custom...</option>
       </select>
       <input id="speed-num" type="number" min="100" max="1000000" step="100"
              title="steps/frame" placeholder="steps/frame"
              style="width:100px;display:none;">
+      <span id="cycle-info" style="font-size:12px;color:#555;margin-left:4px;"></span>
     </label>
-    <span id="cycle-info" style="font-size:12px;color:#555;">0 cycles</span>
     <label for="sel-theme" style="font-size:12px;color:#555;">Theme:</label>
     <select id="sel-theme" style="font-size:12px;padding:2px 4px;cursor:pointer;">
       <option value="green" style="background:#33FF00;">Green</option>
@@ -1163,7 +1163,7 @@
     // ---- Speed ----
     function applySpeed() {
       var sel = document.getElementById('speed-sel');
-      var steps = (sel.value === '0') ? -1   // 最高速度センチネル: Worker が MessageChannel 即時ループ
+      var steps = (sel.value === '0') ? -1   // max speed sentinel: worker runs immediate MessageChannel loop
                 : (sel.value === 'custom') ? (parseInt(document.getElementById('speed-num').value) || 33333)
                 : parseInt(sel.value);
       workerSend({ type: 'setSteps', steps: steps });
