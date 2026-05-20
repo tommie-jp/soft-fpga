@@ -83,8 +83,8 @@
     /* モバイル: DOM 順（terminal → bus → reg → copyright）に縦積み */
     @media (max-width:500px) {
       #page-body { display:block; }
-      /* ターミナルは 80 桁固定、幅が足りない場合は横スクロール */
-      #terminal-col { width:100%; overflow-x:auto; }
+      /* ターミナルは 80 桁固定・左端基準、右は見切れ */
+      #terminal-col { width:100%; overflow-x:hidden; }
       #reg-panel { width:100%; box-sizing:border-box; margin-top:8px; }
       #la { max-width:100%; height:auto; }
     }
@@ -965,7 +965,7 @@
     });
     term.open(document.getElementById('terminal'));
 
-    // ターミナルは常に 80 桁固定（モバイルは #terminal-col の overflow-x:auto で手動スクロール）
+    // ターミナルは常に 80 桁固定。モバイルは左端固定（右は見切れ）。
 
     applyTheme(currentTheme);
 
