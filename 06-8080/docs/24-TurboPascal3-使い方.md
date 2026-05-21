@@ -1,10 +1,15 @@
 # 24. Turbo Pascal 3 — 使い方
 
+> ⚠️ **このシミュレータ（Intel 8080 / vm80a）では Turbo Pascal 3 は動作しません。**
+> TURBO.COM・TURBO.OVR は Z80 専用命令（`LDIR` = `ED B0` 等）を多用しており、
+> 8080 CPU では正しく実行できません（`B>TURBO` 実行直後に CCP へ戻る）。
+> Z80 ベースの CP/M シミュレータ（RunCPM、MEMU 等）での使用を検討してください。
+
 ## 1. 概要
 
 **Turbo Pascal 3**（Borland, 1984）は CP/M 上で動作する高速 Pascal コンパイラ。
 このシミュレータの `TurboPascal3.dsk` は **Turbo Tutor** ディスク（サンプルコード集）で、
-TURBO.COM（IDE 本体）も同梱されている。
+TURBO.COM（IDE 本体）も同梱されているが、Z80 専用コードのため 8080 では動作しない。
 
 | ファイル | 役割 |
 |---------|------|

@@ -23,7 +23,7 @@
 
 | カテゴリ | アプリ | 備考 |
 |---------|-------|------|
-| Pascal | **Turbo Pascal 3.x** | Borland が公式フリーウェア化。CP/M 版あり |
+| Pascal | **Turbo Pascal 3.x** | Borland が公式フリーウェア化。CP/M 版あり。ただし **Z80 専用コード（LDIR 等）を使用するため vm80a では動作しない** |
 | BASIC | **MBASIC** (Microsoft BASIC) | CP/M の定番 BASIC |
 | ゲーム | **Zork I/II/III** | Infocom 製テキスト ADV。CP/M 版が広く流通 |
 | ゲーム | **Adventure** (Colossal Cave) | 元祖テキスト ADV |
