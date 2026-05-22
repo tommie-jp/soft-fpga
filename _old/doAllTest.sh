@@ -1,25 +1,17 @@
 #!/usr/bin/env bash
-# doBuildAll.sh — examples/06-8080 の全ビルドを順次実行する
+# doAllTest.sh — examples/06-8080 の全自動テストを順次実行する
 #
-# ビルドステップ:
-#   1. 命令テストバイナリ生成 (z80asm: test/Makefile)
-#   2. BIOS アセンブル Linux 版 (z80asm: sw/cpm/Makefile linux)
-#   3. ネイティブ Linux バイナリ (cmake + make)
-#   4. BIOS アセンブル WASM 版  (z80asm: sw/cpm/Makefile wasm)
-#   5. WebAssembly ビルド       (Verilator + Emscripten: scripts/build-wasm-06.sh)
-#   6. BIOS アセンブル Linux 版 に戻す (doCPM.sh / doAllTest.sh 用)
-#   7. npm install              (Vitest 依存パッケージ)
-#
-# 終了コード: 0 = 全ステップ成功、1 = 1 件以上失敗
+# 終了コード: 0 = 全 PASS、1 = 1 件以上 FAIL
 #
 # 実行手順:
 #   cd ~/36-soft-FPGA
-#   bash doBuildAll.sh
+#   bash doAllTest.sh
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CPM_DIR="${SCRIPT_DIR}/examples/06-8080"
+CPM_BIN="${CPM_DIR}/build/cpm"
 
 # ANSI カラー
 RED='\033[0;31m'
@@ -32,74 +24,90 @@ FAIL_COUNT=0
 RESULTS=()
 
 # ---------------------------------------------------------------------------
-# ヘルパー: 1 ステップを実行して結果を記録する
+# ヘルパー: 1 テストを実行して結果を記録する
 # ---------------------------------------------------------------------------
-run_step() {
+run_test() {
     local label="$1"
     shift
-    printf "${CYAN}[BUILD]${RESET} %s\n" "$label"
+    printf "${CYAN}[RUN]${RESET}  %s\n" "$label"
     if "$@"; then
-        printf "${GREEN}[OK]${RESET}    %s\n\n" "$label"
-        RESULTS+=("OK    $label")
+        printf "${GREEN}[PASS]${RESET} %s\n\n" "$label"
+        RESULTS+=("PASS  $label")
         (( PASS_COUNT++ )) || true
     else
-        printf "${RED}[FAIL]${RESET}  %s\n\n" "$label"
+        printf "${RED}[FAIL]${RESET} %s\n\n" "$label"
         RESULTS+=("FAIL  $label")
         (( FAIL_COUNT++ )) || true
     fi
 }
 
+# ---------------------------------------------------------------------------
+# 事前確認
+# ---------------------------------------------------------------------------
+if [[ ! -x "${CPM_BIN}" ]]; then
+    echo "エラー: ${CPM_BIN} が見つかりません。先にビルドしてください。"
+    echo "  cd ${CPM_DIR} && cmake -B build && cmake --build build"
+    exit 1
+fi
+
 echo "======================================================================"
-echo " 全ビルド: examples/06-8080"
+echo " 全テス���実行: examples/06-8080"
 echo "======================================================================"
 echo ""
 
 cd "${CPM_DIR}"
 
 # ---------------------------------------------------------------------------
-# 1. 命令テストバイナリ生成 (test/test_all.bin)
+# 1. RTL lint (Verilator)
 # ---------------------------------------------------------------------------
-run_step "命令テストバイナリ生成 (test/Makefile)" \
-    make -C test
+run_test "RTL lint (Verilator)" \
+    verilator --lint-only \
+        verilog/cpm_top.v \
+        verilog/vm80a/org/rtl/vm80a.v \
+        --top-module cpm_top \
+        -Wno-WIDTHEXPAND
 
 # ---------------------------------------------------------------------------
-# 2. BIOS アセンブル Linux 版 (ネイティブバイナリ向け)
+# 2. ハーネス スモークテスト
 # ---------------------------------------------------------------------------
-run_step "BIOS アセンブル Linux 版 (sw/cpm/Makefile linux)" \
-    make -C sw/cpm linux
+run_test "ハーネス スモークテスト (--test)" \
+    "${CPM_BIN}" --test
 
 # ---------------------------------------------------------------------------
-# 3. ネイティブ Linux バイナリ (cmake)
+# 3. 全命令テストスイート (bare-metal)
 # ---------------------------------------------------------------------------
-run_step "cmake 設定 (cmake -B build)" \
-    cmake -B build -DCMAKE_BUILD_TYPE=Release
-
-run_step "ネイティブ Linux バイナリ (cmake --build build)" \
-    cmake --build build
+run_test "全命令テストスイート 20 グループ (--run-test)" \
+    "${CPM_BIN}" --run-test
 
 # ---------------------------------------------------------------------------
-# 4. BIOS アセンブル WASM 版 (Emscripten 埋め込み向け)
+# 4. CP/M ブートテスト
 # ---------------------------------------------------------------------------
-run_step "BIOS アセンブル WASM 版 (sw/cpm/Makefile wasm)" \
-    make -C sw/cpm wasm
+run_test "CP/M ブートテスト (--boot-test)" \
+    "${CPM_BIN}" --boot-test
 
 # ---------------------------------------------------------------------------
-# 5. WebAssembly ビルド (Verilator + Emscripten)
+# 5. 8080EX1 機能テスト (CP/M 上)
 # ---------------------------------------------------------------------------
-run_step "WebAssembly ビルド (scripts/build-wasm-06.sh)" \
-    bash "${SCRIPT_DIR}/scripts/build-wasm-06.sh"
+run_test "8080EX1 機能テスト 20 グループ (--exec 8080EX1)" \
+    "${CPM_BIN}" --exec 8080EX1 --no-save
 
 # ---------------------------------------------------------------------------
-# 6. BIOS を Linux 版に戻す (doCPM.sh / doAllTest.sh 用)
+# 6. DDT Ctrl+C ウォームブートテスト
 # ---------------------------------------------------------------------------
-run_step "BIOS を Linux 版に戻す (sw/cpm/Makefile linux)" \
-    make -C sw/cpm linux
+run_test "DDT Ctrl+C ウォームブートテスト (--ddt-ctrlc-test)" \
+    "${CPM_BIN}" --ddt-ctrlc-test
 
 # ---------------------------------------------------------------------------
-# 7. npm install (Vitest 依存)
+# 7. Vitest — タイミングテスト (timing/)
 # ---------------------------------------------------------------------------
-run_step "npm install (tests/)" \
-    npm --prefix tests install --prefer-offline
+run_test "Vitest タイミングテスト 56 件 (tests/timing/)" \
+    npx vitest run tests/timing/
+
+# ---------------------------------------------------------------------------
+# 8. Vitest — 信号値テスト (signals/)
+# ---------------------------------------------------------------------------
+run_test "Vitest 信号値テスト 87 件 (tests/signals/)" \
+    npx vitest run tests/signals/
 
 # ---------------------------------------------------------------------------
 # サマリー
@@ -108,22 +116,22 @@ echo "======================================================================"
 echo " サマリー"
 echo "======================================================================"
 for r in "${RESULTS[@]}"; do
-    if [[ "$r" == OK* ]]; then
+    if [[ "$r" == PASS* ]]; then
         printf "  ${GREEN}%s${RESET}\n" "$r"
     else
         printf "  ${RED}%s${RESET}\n" "$r"
     fi
 done
 echo ""
-echo "  合計: $((PASS_COUNT + FAIL_COUNT)) ステップ  OK: ${PASS_COUNT}  FAIL: ${FAIL_COUNT}"
+echo "  合計: $((PASS_COUNT + FAIL_COUNT)) 件  PASS: ${PASS_COUNT}  FAIL: ${FAIL_COUNT}"
 echo "======================================================================"
 
 if (( FAIL_COUNT > 0 )); then
     echo ""
-    printf "${RED}[結果] ${FAIL_COUNT} ステップ FAIL${RESET}\n"
+    printf "${RED}[結果] ${FAIL_COUNT} 件 FAIL${RESET}\n"
     exit 1
 else
     echo ""
-    printf "${GREEN}[結果] 全 ${PASS_COUNT} ステップ OK${RESET}\n"
+    printf "${GREEN}[結果] 全 ${PASS_COUNT} 件 PASS${RESET}\n"
     exit 0
 fi

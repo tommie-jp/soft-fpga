@@ -41,7 +41,7 @@ static Vcpm_top* top;
 // [15: 8] = ir          (命令レジスタ — M1 フェッチ後に確定するオペコード)
 // [31:16] = (予約)
 // Word 1:
-// [15: 0] = cpu_addr (16 ビットアドレスバス)
+// [15: 0] = addr     (16 ビットアドレスバス — SYNC=1 T1 でラッチ、T2〜T4 保持。実 8080A 外部挙動に準拠)
 // [23:16] = io_din   (I/O 読みデータ — IN 命令でCPUが受け取る値)
 // [31:24] = dbg_a    (アキュムレータ A)
 // Word 2:
@@ -118,6 +118,10 @@ static uint32_t call_log_head = 0;
 
 // SYNC 立ち上がり検出用
 static bool     prev_dbg_sync = false;
+// アドレスバス外部ラッチ: SYNC=1 (T1) のときアドレスを確定し、T2〜T4 は保持する。
+// 実物の 8080A はアドレスバスを T1 で確定してそのまま T3 まで保持するため、
+// vm80a 内部で T3〜T4 に 0 になる cpu_addr をそのまま表示するより自然。
+static uint16_t latched_addr  = 0;
 
 // T ステートカウンタ
 // SYNC=1 のクロックを T1 として 1 にリセット、以降毎クロック加算（最大 63）
@@ -448,6 +452,7 @@ int sim_init(const char* bios_path, const char* cpm_path, const char* dsk_path)
     prev_dbg_sync = false;
     t_state_cnt   = 0;
     current_status = 0;
+    latched_addr   = 0;
     trig_edge_word = 0;
     trig_edge_bit  = 24;
     trig_edge_dir  = 0;
@@ -483,15 +488,26 @@ void step()
     top->clk = 1; top->eval();
     cycle_count++;
 
-    // T ステートカウンタ更新: SYNC=1 は新マシンサイクルの T1
-    if (top->dbg_sync)
-        t_state_cnt = 1;
-    else if (t_state_cnt < 63)
-        t_state_cnt++;
+    // T ステートカウンタ更新: f1 フェーズのみ更新して 1 T-state = 2 サンプルに揃える。
+    // SYNC は T1 の f1・f2 両フェーズで High になるため、f2 フェーズで再リセットすると
+    // T1 だけ 2 サンプル幅・T2 以降は 1 サンプル幅になってしまう不均一を防ぐ。
+    if (top->cpm_top->f1) {
+        if (top->dbg_sync)
+            t_state_cnt = 1;
+        else if (t_state_cnt < 63)
+            t_state_cnt++;
+    }
+    // f2 フェーズはカウンタを据え置き → 同じ t_state 値が f1・f2 で共有される
 
-    // マシンサイクルタイプを SYNC でラッチ（SYNC 中は cpu_dout = ステータスバイト）
-    if (top->dbg_sync)
+    // SYNC (T1) でラッチ: マシンサイクルタイプ & アドレスバス
+    // ・current_status: cpu_dout = ステータスバイト（SYNC 中のみ有効）
+    // ・latched_addr:   cpu_addr = アドレスバス（SYNC 中に確定し T2〜T4 も保持）
+    //   → 実物 8080A は T1 でアドレス確定後 T3 まで保持。vm80a は T3〜T4 で 0 になるため
+    //     ラッチすることで外部から見たアドレスバスの挙動に合わせる。
+    if (top->dbg_sync) {
         current_status = (uint8_t)top->dbg_a;
+        latched_addr   = (uint16_t)(top->dbg_pc & 0xFFFF);
+    }
 
     // IO 要求の立ち上がりで OUT 処理
     if (top->io_req && top->io_wr)
@@ -529,8 +545,8 @@ void step()
             ((uint32_t)top->io_wr     << 25) |     // [   25] io_wr
             ((uint32_t)t_state_cnt    << 26);      // [31:26] T ステート番号
         ring[ridx + 1] =
-            ((uint32_t)(top->dbg_pc & 0xFFFF)) |  // [15: 0] アドレスバス
-            ((uint32_t)top->io_din  << 16)       | // [23:16] I/O 読みデータ
+            ((uint32_t)latched_addr)             |  // [15: 0] アドレスバス（SYNC でラッチ、T3〜T4 も保持）
+            ((uint32_t)top->io_din  << 16)        | // [23:16] I/O 読みデータ
             // acc は vm80a 内部レジスタ直接参照（dbg_a=cpu_dout はステータスバイト混在のため不可）
             ((uint32_t)top->cpm_top->cpu->acc << 24); // [31:24] アキュムレータ A
         {
@@ -580,8 +596,10 @@ void step()
                 ((uint32_t)dbus               << 24);  // [31:24] CPU データバス
         }
         ring[ridx + 4] =
-            (uint32_t)current_status |                         // [ 7: 0] ステータスバイト
-            ((uint32_t)top->cpm_top->cpu->__PVT__i << 8);     // [15: 8] 命令レジスタ (IR)
+            (uint32_t)current_status |                              // [ 7: 0] ステータスバイト
+            ((uint32_t)top->cpm_top->cpu->__PVT__i       << 8)  | // [15: 8] 命令レジスタ (IR)
+            ((uint32_t)(top->cpm_top->f1 ? 1u : 0u)      << 16) | // [16]    クロック φ1
+            ((uint32_t)(top->cpm_top->f2 ? 1u : 0u)      << 17);  // [17]    クロック φ2
         {
             // Word 5: PC レジスタ + SP レジスタ（vm80a 内部レジスタから直接取得）
             auto* cpu5 = top->cpm_top->cpu;

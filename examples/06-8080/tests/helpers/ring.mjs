@@ -8,7 +8,7 @@
  *  Word 1: cpu_addr[15:0], io_din[23:16], acc[31:24]
  *  Word 2: F[7:0], B[15:8], C[23:16], D[31:24]
  *  Word 3: E[7:0], H[15:8], L[23:16], dbus[31:24]
- *  Word 4: status_byte[7:0], IR[15:8]
+ *  Word 4: status_byte[7:0], IR[15:8], f1[16], f2[17]
  *  Word 5: PC[15:0], SP[31:16]
  *
  * vm80a 2フェーズクロック:
@@ -103,6 +103,8 @@ export function parseSample(s) {
     // Word 4 フィールド
     status_byte: (s.w4 >>> 0)  & 0xFF,
     ir:          (s.w4 >>> 8)  & 0xFF,
+    f1:          !!((s.w4 >>> 16) & 1),
+    f2:          !!((s.w4 >>> 17) & 1),
     // Word 5 フィールド
     pc:          (s.w5 >>> 0)  & 0xFFFF,
     sp:          (s.w5 >>> 16) & 0xFFFF,

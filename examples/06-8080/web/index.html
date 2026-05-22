@@ -173,22 +173,22 @@
     /* Bus Analyzer ズームコントロール */
     .la-zoom-ctrl { display:flex; align-items:center; gap:2px; flex-shrink:0; }
     .la-zoom-ctrl button {
-      font-size:12px; padding:1px 6px; line-height:1.4;
+      font-size:13px; padding:1px 7px; line-height:1.4;
       font-family:monospace; background:#e8e8e8; border:1px solid #aaa;
       cursor:pointer; color:#222;
     }
     .la-zoom-ctrl button:hover { background:#d0d0d0; }
     #la-zoom-lbl {
-      font-size:11px; color:#555; font-family:monospace;
-      min-width:30px; text-align:center; cursor:pointer; user-select:none;
+      font-size:13px; color:#555; font-family:monospace;
+      min-width:34px; text-align:center; cursor:pointer; user-select:none;
     }
     #la-zoom-lbl:hover { color:#111; }
     /* Bus Analyzer 信号トグル */
     #la-toggles { display:flex; flex-wrap:wrap; gap:3px; }
     .sig-tog {
       display:inline-flex; align-items:center; gap:3px;
-      font-size:11px; font-family:monospace;
-      padding:1px 7px; border-radius:10px; cursor:pointer;
+      font-size:13px; font-family:monospace;
+      padding:2px 8px; border-radius:10px; cursor:pointer;
       border:1px solid #bbb; background:#f0f0f0; color:#444;
       user-select:none; white-space:nowrap;
     }
@@ -378,13 +378,14 @@
     .dbg-tab.active { background:#fff; border-bottom-color:#fff; font-weight:bold; color:#111; }
     .dbg-tab:hover  { background:#d0d0d0; }
     #dbg-trig-bar {
-      display:flex; align-items:center; gap:4px; flex-wrap:wrap; margin-left:auto;
+      display:flex; align-items:center; gap:4px; flex-wrap:wrap;
+      padding:3px 0; border-top:1px solid #ddd; margin-top:2px;
     }
     #dbg-trig-bar button {
-      font-size:12px; padding:3px 9px; font-family:monospace;
+      font-size:13px; padding:3px 9px; font-family:monospace;
     }
     #dbg-trig-bar select, #dbg-trig-bar input {
-      font-size:12px; padding:2px 4px; border:1px solid #aaa;
+      font-size:13px; padding:2px 4px; border:1px solid #aaa;
       font-family:monospace; background:#fff;
     }
     .dbg-content {
@@ -534,7 +535,12 @@
           <button class="ctrl-btn" data-key="27">ESC</button>
           <button class="ctrl-btn" data-key="9">TAB</button>
           <button id="btn-wm-toggle" class="ctrl-btn" title="WordMaster キー表示切替" style="color:#666;">WM ▼</button>
+          <span style="margin-left:6px;color:#aaa;font-size:10px;font-family:monospace;">│</span>
+          <span id="macro-status" style="display:none;font-size:11px;color:#2a7;font-family:monospace;font-weight:bold;">▶ macro</span>
+          <button id="btn-macro-stop" style="display:none;font-size:11px;padding:1px 6px;font-family:monospace;background:#fdd;border:1px solid #c88;cursor:pointer;" title="マクロを中断 (!stop)">■</button>
         </div>
+        <!-- !upload 用 hidden file input -->
+        <input type="file" id="macro-upload-input" style="display:none" accept=".mac,.txt,.sub,.bas,.asm,.com,.cmd">
         <!-- WordMaster コントロールキー -->
         <div class="ctrl-bar" id="wm-bar" style="display:none;margin-top:2px;">
         <span class="wm-group-lbl">Cursor:</span>
@@ -563,8 +569,8 @@
     <div id="bus-section">
       <div class="sig-label-row">
         <span class="sig-label">Logic Analyzer</span>
-        <button id="btn-la-toggle" title="Logic Analyzer ON/OFF。OFFにするとリングバッファへの書き込みをスキップして速度向上。エッジ/値トリガーは無効になります。" style="font-size:12px;padding:1px 8px;font-family:monospace;">LA ON</button>
-        <select id="la-fps-sel" title="描画フレームレート。下げるとフレームオーバーヘッドが減り速度向上。" style="font-size:12px;padding:1px 4px;border:1px solid #aaa;background:#fff;font-family:monospace;">
+        <button id="btn-la-toggle" title="Logic Analyzer ON/OFF。OFFにするとリングバッファへの書き込みをスキップして速度向上。エッジ/値トリガーは無効になります。" style="font-size:13px;padding:2px 8px;font-family:monospace;">LA ON</button>
+        <select id="la-fps-sel" title="描画フレームレート。下げるとフレームオーバーヘッドが減り速度向上。" style="font-size:13px;padding:2px 4px;border:1px solid #aaa;background:#fff;font-family:monospace;">
           <option value="60">60fps</option>
           <option value="30">30fps</option>
           <option value="15">15fps</option>
@@ -575,6 +581,68 @@
           <button id="la-zoom-in"  title="ズームイン — サンプルを拡大表示（マウスホイールでも操作可）">＋</button>
         </div>
         <div id="la-toggles"></div>
+      </div>
+      <!-- トリガーバー: LA グラフの直上 -->
+      <div id="dbg-trig-bar">
+        <button id="btn-freeze"
+          title="Ring Buffer を凍結／解除します。凍結中は Bus Analyzer の波形が静止し、CPU バーに FROZEN バッジが表示されます。CPU の動作は継続します。">❄ Freeze</button>
+        <button id="btn-run-to-io"
+          title="次の IN または OUT 命令が発行された瞬間に自動停止します。停止中のときは実行を開始してから I/O を待ちます。">▶ Next I/O</button>
+        <button id="dbg-step" title="1命令ステップ実行 (シミュレーション停止中のみ有効)">▶ Step</button>
+        <select id="trig-type"
+            title="トリガー種別を選択します。条件が成立した瞬間にシミュレーションを自動停止します。">
+            <option value="0">No Trigger</option>
+            <option value="1">On I/O</option>
+            <option value="2">On CALL</option>
+            <option value="3">On RET</option>
+            <option value="4">On Edge ↑</option>
+            <option value="5">On Edge ↓</option>
+            <option value="6">On Value</option>
+            <option value="instr">On Instruction</option>
+            <option value="reg">On Register</option>
+          </select>
+        <select id="trig-val-sig" style="display:none;"
+            title="監視する信号を選択します。">
+          <option value="addr">addr</option>
+          <option value="dbus">dbus</option>
+          <option value="port">port</option>
+          <option value="iodata">io data</option>
+        </select>
+        <input id="trig-instr-pc" type="text" placeholder="FFFF = 任意" style="width:80px;display:none;"
+          title="PC (hex): 停止させたい命令のアドレス。空欄または FFFF で任意のアドレスに反応します。">
+        <input id="trig-instr-opc" type="text" placeholder="FF = 任意" style="width:72px;display:none;"
+          title="Opcode (hex): 停止させたいオペコード。空欄または FF で任意のオペコードに反応します。">
+        <select id="trig-reg-name" style="display:none;"
+            title="監視するレジスタを選択します。">
+          <option value="0">A</option>
+          <option value="1">F</option>
+          <option value="2">B</option>
+          <option value="3">C</option>
+          <option value="4">D</option>
+          <option value="5">E</option>
+          <option value="6">H</option>
+          <option value="7">L</option>
+          <option value="8">SP</option>
+          <option value="9">PC</option>
+          <option value="10">BC</option>
+          <option value="11">DE</option>
+          <option value="12">HL</option>
+          <option value="13">IR</option>
+        </select>
+        <input id="trig-reg-val" type="text" placeholder="値 (hex)" style="width:70px;display:none;"
+          title="レジスタが一致したとき停止します。8bit/IR: 00–FF、16bit: 0000–FFFF。毎クロック比較します。">
+        <input id="trig-addr" type="text" placeholder="addr/port (hex)" style="width:90px;"
+          title="フィルタ値を 16 進で入力します。On I/O ならポート番号（例: 01）、On CALL / On RET なら分岐先アドレス（例: F200）。空欄のとき任意に反応します。">
+        <input id="trig-post" type="text" placeholder="post (clks)" style="width:80px;"
+          title="トリガー成立後に取得するクロック数（0 = 即座に停止）。省略時は 0。">
+        <button id="btn-trig-set"
+          title="入力した種別とフィルタでトリガーをセットします。">Set</button>
+        <button id="btn-trig-clear"
+          title="トリガーを解除します（No Trigger に戻します）。">Clear</button>
+        <button id="btn-goto-trig"
+          title="トリガー発火位置をタイミング図の中心に表示します。トリガー発火後のみ有効。">⊙Trig</button>
+        <button id="btn-clear-calllog"
+          title="Call Trace タブの記録をすべて消去します。">CL</button>
       </div>
       <canvas id="la" width="900" height="120"></canvas>
     </div>
@@ -590,67 +658,6 @@
             title="IN / OUT 命令の履歴（最新 200 件）。赤=OUT、青=IN。">I/O Log</button>
           <button class="dbg-tab"        data-tab="calltrace"
             title="CALL / RET 命令の軌跡（最新 64 件）。青=CALL、橙=RET。">Call Trace</button>
-        </div>
-        <div id="dbg-trig-bar">
-          <button id="btn-freeze"
-            title="Ring Buffer を凍結／解除します。凍結中は Bus Analyzer の波形が静止し、CPU バーに FROZEN バッジが表示されます。CPU の動作は継続します。">❄ Freeze</button>
-          <button id="btn-run-to-io"
-            title="次の IN または OUT 命令が発行された瞬間に自動停止します。停止中のときは実行を開始してから I/O を待ちます。">▶ Next I/O</button>
-          <button id="dbg-step" title="1命令ステップ実行 (シミュレーション停止中のみ有効)">▶ Step</button>
-          <select id="trig-type"
-              title="トリガー種別を選択します。条件が成立した瞬間にシミュレーションを自動停止します。">
-              <option value="0">No Trigger</option>
-              <option value="1">On I/O</option>
-              <option value="2">On CALL</option>
-              <option value="3">On RET</option>
-              <option value="4">On Edge ↑</option>
-              <option value="5">On Edge ↓</option>
-              <option value="6">On Value</option>
-              <option value="instr">On Instruction</option>
-              <option value="reg">On Register</option>
-            </select>
-          <select id="trig-val-sig" style="display:none;"
-              title="監視する信号を選択します。">
-            <option value="addr">addr</option>
-            <option value="dbus">dbus</option>
-            <option value="port">port</option>
-            <option value="iodata">io data</option>
-          </select>
-          <input id="trig-instr-pc" type="text" placeholder="FFFF = 任意" style="width:80px;display:none;"
-            title="PC (hex): 停止させたい命令のアドレス。空欄または FFFF で任意のアドレスに反応します。">
-          <input id="trig-instr-opc" type="text" placeholder="FF = 任意" style="width:72px;display:none;"
-            title="Opcode (hex): 停止させたいオペコード。空欄または FF で任意のオペコードに反応します。">
-          <select id="trig-reg-name" style="display:none;"
-              title="監視するレジスタを選択します。">
-            <option value="0">A</option>
-            <option value="1">F</option>
-            <option value="2">B</option>
-            <option value="3">C</option>
-            <option value="4">D</option>
-            <option value="5">E</option>
-            <option value="6">H</option>
-            <option value="7">L</option>
-            <option value="8">SP</option>
-            <option value="9">PC</option>
-            <option value="10">BC</option>
-            <option value="11">DE</option>
-            <option value="12">HL</option>
-            <option value="13">IR</option>
-          </select>
-          <input id="trig-reg-val" type="text" placeholder="値 (hex)" style="width:70px;display:none;"
-            title="レジスタが一致したとき停止します。8bit/IR: 00–FF、16bit: 0000–FFFF。毎クロック比較します。">
-          <input id="trig-addr" type="text" placeholder="addr/port (hex)" style="width:90px;"
-            title="フィルタ値を 16 進で入力します。On I/O ならポート番号（例: 01）、On CALL / On RET なら分岐先アドレス（例: F200）。空欄のとき任意に反応します。">
-          <input id="trig-post" type="text" placeholder="post (clks)" style="width:80px;"
-            title="トリガー成立後に取得するクロック数（0 = 即座に停止）。省略時は 0。">
-          <button id="btn-trig-set"
-            title="入力した種別とフィルタでトリガーをセットします。">Set</button>
-          <button id="btn-trig-clear"
-            title="トリガーを解除します（No Trigger に戻します）。">Clear</button>
-          <button id="btn-goto-trig"
-            title="トリガー発火位置をタイミング図の中心に表示します。トリガー発火後のみ有効。">⊙Trig</button>
-          <button id="btn-clear-calllog"
-            title="Call Trace タブの記録をすべて消去します。">CL</button>
         </div>
       </div>
       <div id="tab-stack"     class="dbg-content"></div>
@@ -950,6 +957,8 @@
     { id:'t_state',label:'T',      word:0, bit:26, type:'hex', width:6,  color:'#336699', on:true,  tip:'T ステート番号（マシンサイクル内の位置）。SYNC=1 のクロックで 1 にリセットし、以降毎クロック加算。io_req と組み合わせると OUT が M5 T3 で確定することを確認できます。' },
     { id:'status', label:'status',word:4, bit:0,  type:'hex', width:8,  color:'#445566', on:false, tip:'SYNC でラッチした 8080 ステータスバイト。0xA2=FETCH, 0x82=MEM_RD, 0x10=IO_OUT, 0x40=IO_IN。デコードレーン(M-CYC行)の色分けはこの値に基づきます。' },
     { id:'ir',     label:'IR',    word:4, bit:8,  type:'hex', width:8,  color:'#aa3366', on:false, tip:'命令レジスタ (Instruction Register)。M1 フェッチサイクル完了後に確定するオペコード。MVI A=3E, OUT=D3, HLT=76 など。フェッチ中（MEMR=1 のクロック）はまだ古い値を保持していることがあります。' },
+    { id:'f1',     label:'f1',    word:4, bit:16, type:'bit', width:1,  color:'#2288dd', on:false, tip:'クロック φ1 フェーズ（cpm_top.f1）。T-state の前半で High。ステートマシンの前半更新タイミングを確認できます。' },
+    { id:'f2',     label:'f2',    word:4, bit:17, type:'bit', width:1,  color:'#dd8822', on:false, tip:'クロック φ2 フェーズ（cpm_top.f2）。T-state の後半で High。レジスタ確定・バスサンプルのタイミングを確認できます。' },
     { id:'pc',   label:'PC',   word:5, bit:0,  type:'hex', width:16, color:'#2255aa', on:false,
       group:'CPU', desc:'プログラムカウンタ (vm80a r16_pc レジスタ値)' },
     { id:'sp',   label:'SP',   word:5, bit:16, type:'hex', width:16, color:'#aa5522', on:false,
@@ -1085,7 +1094,7 @@
   // シグナルグループ定義
   var LA_SIGNAL_GROUPS = [
     { label:'I/O',     ids:['port','data','io_req','io_wr','t_state'] },
-    { label:'Control', ids:['dbin','sync','wr_n','hlda','wait','inte'] },
+    { label:'Control', ids:['dbin','sync','wr_n','hlda','wait','inte','f1','f2'] },
     { label:'Mem',     ids:['addr','memr','memw','dbus'] },
     { label:'Data',    ids:['status','ir','din','acc','reg_f','reg_b','reg_c','reg_d','reg_e','reg_h','reg_l'] },
     { label:'CPU',     ids:['pc','sp'] },
@@ -1211,17 +1220,20 @@
     if (showDecodeLane && samples > 0) {
       var decY = TIME_RULER_H;
       // ラベル
-      ctx.fillStyle = '#555'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'left';
-      ctx.fillText('M-CYC', 2, decY + decH * 0.68);
+      ctx.fillStyle = '#555'; ctx.font = 'bold 12px monospace'; ctx.textAlign = 'left';
+      ctx.fillText('M-CYC', 2, decY + decH * 0.72);
 
-      // M-サイクルブロック描画
-      var segStart  = 0;
-      var segStatus = heapu32[ringBase + (startSamp & (ringSize - 1)) * RING_WORDS + 4] & 0xFF;
+      // M-サイクルブロック描画 (SYNC 立ち上がりエッジでも分割)
+      var segStart   = 0;
+      var segStatus  = heapu32[ringBase + (startSamp & (ringSize - 1)) * RING_WORDS + 4] & 0xFF;
+      var mcPrevSync = (heapu32[ringBase + (startSamp & (ringSize - 1)) * RING_WORDS] >> 9) & 1;
       for (var di = 1; di <= samples; di++) {
-        var curSt = di < samples
-          ? (heapu32[ringBase + ((startSamp + di) & (ringSize - 1)) * RING_WORDS + 4] & 0xFF)
-          : -1;
-        if (curSt !== segStatus) {
+        var mcIsEnd  = (di >= samples);
+        var mcIdx    = ringBase + ((startSamp + di) & (ringSize - 1)) * RING_WORDS;
+        var curSt    = mcIsEnd ? -1 : (heapu32[mcIdx + 4] & 0xFF);
+        var mcCurSync = mcIsEnd ? 0  : ((heapu32[mcIdx] >> 9) & 1);
+        var mcRising  = (mcCurSync === 1 && mcPrevSync === 0);
+        if (curSt !== segStatus || mcRising) {
           var bx = LABEL_W + segStart * laZoom;
           var bw = (di - segStart) * laZoom;
           var mt = getMachineType(segStatus);
@@ -1243,8 +1255,8 @@
                 }
               }
               ctx.fillStyle = 'rgba(255,255,255,0.92)';
-              ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
-              ctx.fillText(ltext, bx + bw / 2, decY + decH * 0.68);
+              ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
+              ctx.fillText(ltext, bx + bw / 2, decY + decH * 0.72);
             }
           }
           // ブロック境界線
@@ -1253,8 +1265,9 @@
             ctx.beginPath(); ctx.moveTo(bx, decY + 1); ctx.lineTo(bx, decY + decH - 1); ctx.stroke();
           }
           segStart  = di;
-          segStatus = curSt;
+          segStatus = mcIsEnd ? segStatus : curSt;
         }
+        if (!mcIsEnd) mcPrevSync = mcCurSync;
       }
     }
 
@@ -1268,7 +1281,7 @@
       // トラック区切り線 + ラベル
       ctx.strokeStyle = '#ccc'; ctx.lineWidth = 0.5;
       ctx.beginPath(); ctx.moveTo(0, yBase + tH); ctx.lineTo(LA_W, yBase + tH); ctx.stroke();
-      ctx.fillStyle = '#111'; ctx.font = '11px monospace'; ctx.textAlign = 'left';
+      ctx.fillStyle = '#111'; ctx.font = '12px monospace'; ctx.textAlign = 'left';
       ctx.fillText(sig.label, 3, yBase + tH * 0.65);
       if (!samples) continue;
 
@@ -1387,13 +1400,20 @@
             else               { ctx.moveTo(s.x+s.w,yTop);ctx.lineTo(s.x+s.w,yBot); }
             ctx.stroke();
           });
-          if (s.w > 24) {
+          if (sig.id === 't_state') {
+            // T-state 専用: 10進表示・幅 12px 以上で描画（ズーム 8x 相当から表示）
+            if (s.w > 12) {
+              ctx.fillStyle = sig.color; ctx.textAlign = 'center';
+              ctx.font = '11px monospace';
+              ctx.fillText(String(s.val), s.x + s.w / 2, yMid + 4);
+            }
+          } else if (s.w > 24) {
             ctx.fillStyle = sig.color; ctx.textAlign = 'center';
             if (sig.fmt === 'flags8080') {
-              ctx.font = '8px monospace';
-              ctx.fillText(fmtFlags8080(s.val), s.x + s.w / 2, yMid + 3);
+              ctx.font = '10px monospace';
+              ctx.fillText(fmtFlags8080(s.val), s.x + s.w / 2, yMid + 4);
             } else {
-              ctx.font = '9px monospace';
+              ctx.font = '11px monospace';
               // 幅が十分なら "0x" + ゼロ埋め、狭ければ "0x" と先頭ゼロを省略
               var _fullLbl  = '0x' + s.val.toString(16).toUpperCase().padStart(hexPad, '0');
               var _shortLbl = s.val.toString(16).toUpperCase();
@@ -1443,8 +1463,8 @@
       ctx.strokeStyle = mColor; ctx.lineWidth = 1.5; ctx.setLineDash([]);
       ctx.beginPath(); ctx.moveTo(mx, sigY); ctx.lineTo(mx, sigY + sigH); ctx.stroke();
       ctx.fillStyle = mColor;
-      ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText(mLabel, mx, sigY + 9);
+      ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(mLabel, mx, sigY + 10);
       ctx.restore();
     }
     drawMarker('A', laMarkerA, 'rgba(0,100,230,0.9)');
@@ -1462,10 +1482,10 @@
       }
       var diffT   = Math.round(diff / 2);  // 2サンプル = 1 T ステート
       var diffStr = 'A-B: ' + diffT + ' T';
-      ctx.font = '9px monospace'; ctx.textAlign = 'left';
+      ctx.font = '11px monospace'; ctx.textAlign = 'left';
       var dw = ctx.measureText(diffStr).width;
       ctx.fillStyle = 'rgba(215,215,245,0.93)';
-      ctx.fillRect(LABEL_W + 2, sigY + sigH - 14, dw + 6, 13);
+      ctx.fillRect(LABEL_W + 2, sigY + sigH - 15, dw + 6, 14);
       ctx.fillStyle = '#224'; ctx.fillText(diffStr, LABEL_W + 5, sigY + sigH - 4);
     }
 
@@ -1474,7 +1494,7 @@
       ctx.fillStyle = 'rgba(60,100,255,0.12)';
       ctx.fillRect(0, sigY + laTrackDragIdx * tH, LA_W, tH);
       ctx.fillStyle = 'rgba(40,80,220,0.9)';
-      ctx.font = 'bold 11px monospace'; ctx.textAlign = 'left';
+      ctx.font = 'bold 12px monospace'; ctx.textAlign = 'left';
       ctx.fillText(sigs[laTrackDragIdx].label, 3, sigY + laTrackDragIdx * tH + tH * 0.65);
       var insertAt = Math.max(0, Math.min(Math.round((laTrackDragY - sigY) / tH), sigs.length));
       var iy = sigY + insertAt * tH;
@@ -1490,7 +1510,9 @@
 
     // ── トリガー発火位置（赤縦線）──
     if (laTrigFireHead >= 0 && samples > 0) {
-      var fireOff = (laTrigFireHead >>> 0) - startSamp;
+      // trig_fire_head は ring_head++ 後に代入されるため 1 サンプル右にずれている。
+      // 描画時に -1 補正して「トリガー条件が最初に成立したサンプルの左端」に合わせる。
+      var fireOff = ((laTrigFireHead >>> 0) - 1) - startSamp;
       if (fireOff >= 0 && fireOff < samples) {
         var fireX = LABEL_W + fireOff * laZoom;
         ctx.save();
@@ -1536,20 +1558,21 @@
       var mtc   = getMachineType(stGw);
       if (tsVal > 0) parts.unshift('T' + tsVal + (mtc ? '(' + mtc.label + ')' : ''));
       var text = parts.join('  ');
-      ctx.font = '10px monospace'; ctx.textAlign = 'left';
+      ctx.font = '11px monospace'; ctx.textAlign = 'left';
       var tw = ctx.measureText(text).width;
       var tx = cursorX + 6;
       if (tx + tw + 4 > LA_W) tx = cursorX - tw - 10;
       ctx.fillStyle = 'rgba(255,255,200,0.93)';
-      ctx.fillRect(tx - 2, sigY + 1, tw + 6, 15);
-      ctx.fillStyle = '#333'; ctx.fillText(text, tx, sigY + 12);
+      ctx.fillRect(tx - 2, sigY + 1, tw + 6, 16);
+      ctx.fillStyle = '#333'; ctx.fillText(text, tx, sigY + 13);
     }
 
     // ── クロックルーラー（上下共通ティック計算）──
     if (samples > 0) {
-      // ティック間隔を決定（目安 80 px/tick; 偶数サンプル = 整 T ステート）
+      // ティック間隔: ズーム 16x 以上は 1 T-state ごと (= 2 サンプル)、それ以外は nice intervals
       var NICE = [2, 4, 10, 20, 40, 100, 200, 400, 1000, 2000, 4000, 8000];
-      var rawSamp = 80 / laZoom, tickSamp = NICE[NICE.length - 1];
+      var rawSamp = (laZoom >= 16) ? 2 : (80 / laZoom);
+      var tickSamp = NICE[NICE.length - 1];
       for (var ni = 0; ni < NICE.length; ni++) {
         if (NICE[ni] >= rawSamp) { tickSamp = NICE[ni]; break; }
       }
@@ -1560,7 +1583,7 @@
       ctx.beginPath(); ctx.moveTo(LABEL_W, sigY);        ctx.lineTo(LA_W, sigY);        ctx.stroke();
       ctx.beginPath(); ctx.moveTo(LABEL_W, sigY + sigH); ctx.lineTo(LA_W, sigY + sigH); ctx.stroke();
 
-      ctx.font = '9px monospace'; ctx.textAlign = 'center';
+      ctx.font = '10px monospace'; ctx.textAlign = 'center';
 
       for (var ts = firstTick; ts < startSamp + samples; ts += tickSamp) {
         var toff   = ts - startSamp;
@@ -1569,10 +1592,14 @@
         var tNum = Math.round(toff / 2);  // 2 サンプル = 1 T ステート
         var lbl  = '' + tNum;
 
-        // 上ルーラー: ティック下向き + ラベル
         ctx.strokeStyle = '#888'; ctx.lineWidth = 0.5;
-        ctx.beginPath(); ctx.moveTo(tx, sigY - 5); ctx.lineTo(tx, sigY); ctx.stroke();
-        ctx.fillStyle = '#444'; ctx.fillText(lbl, tx, sigY - 5 - 1);
+
+        // 上部 TIME_RULER_H エリア（赤枠領域）: ティック下向き + ラベル
+        ctx.beginPath(); ctx.moveTo(tx, 0); ctx.lineTo(tx, 5); ctx.stroke();
+        ctx.fillStyle = '#444'; ctx.fillText(lbl, tx, 12);
+
+        // 中間ルーラー（信号エリア上端）: ティック下向きのみ（ラベルは信号行に重なるため非表示）
+        ctx.beginPath(); ctx.moveTo(tx, sigY); ctx.lineTo(tx, sigY + 5); ctx.stroke();
 
         // 下ルーラー: ティック上向き + ラベル
         ctx.beginPath(); ctx.moveTo(tx, sigY + sigH); ctx.lineTo(tx, sigY + sigH + 5); ctx.stroke();
@@ -1580,9 +1607,10 @@
       }
 
       // "T" 単位ラベル（左端）
-      ctx.fillStyle = '#888'; ctx.font = '8px monospace'; ctx.textAlign = 'left';
-      ctx.fillText('T', 2, sigY - 3);
-      ctx.fillText('T', 2, laH - 2);
+      ctx.fillStyle = '#888'; ctx.font = '10px monospace'; ctx.textAlign = 'left';
+      ctx.fillText('T', 2, 11);        // 上部エリア
+      // 中間ルーラーの "T" ラベルは信号行（f1 等）に重なるため非表示
+      ctx.fillText('T', 2, laH - 2);   // 下部ルーラー
     }
 
     // ── ズーム/パン情報オーバーレイ（上ルーラー右端）──
@@ -1590,7 +1618,7 @@
       var zStr = laZoom >= 1 ? laZoom + 'x' : '1/' + Math.round(1 / laZoom) + 'x';
       var info = zStr + ' | ' + samples + ' smpl' + (laPan > 0 ? ' | -' + laPan : '');
       ctx.fillStyle = 'rgba(0,0,0,0.4)';
-      ctx.font = '9px monospace'; ctx.textAlign = 'right';
+      ctx.font = '10px monospace'; ctx.textAlign = 'right';
       ctx.fillText(info, LA_W - 4, sigY - 3);
     }
   }
@@ -2020,7 +2048,7 @@
   var reqId   = 0;
   var pending = new Map();
 
-  const worker = new Worker('sim-worker.js?v=20260521p');
+  const worker = new Worker('sim-worker.js?v=20260522g');
 
   function workerSend(msg, transferables) {
     if (transferables) worker.postMessage(msg, transferables);
@@ -2065,6 +2093,23 @@
     if (data.type === 'triggerPause') {
       running = false;
       document.getElementById('btn-run').textContent = 'Run';
+      return;
+    }
+    if (data.type === 'scriptStarted') {
+      setMacroStatus(true, data.name);
+      return;
+    }
+    if (data.type === 'scriptEnded') {
+      setMacroStatus(false);
+      return;
+    }
+    if (data.type === 'scriptError') {
+      setMacroStatus(false);
+      setTimeout(function() { term.write('\r\n\x1b[31m' + (data.msg || 'script error') + '\x1b[0m\r\n'); }, 80);
+      return;
+    }
+    if (data.type === 'scriptWarn') {
+      setTimeout(function() { term.write('\r\n\x1b[33m[warn] ' + (data.msg || 'script warning') + '\x1b[0m\r\n'); }, 80);
       return;
     }
     if (data.requestId && pending.has(data.requestId)) {
@@ -2233,6 +2278,20 @@
       inputBuf = entry;
     }
 
+    // ── マクロ状態表示の更新 ──
+    function setMacroStatus(active, name) {
+      var st  = document.getElementById('macro-status');
+      var btn = document.getElementById('btn-macro-stop');
+      if (active) {
+        st.textContent  = '▶ ' + (name || 'macro');
+        st.style.display  = '';
+        btn.style.display = '';
+      } else {
+        st.style.display  = 'none';
+        btn.style.display = 'none';
+      }
+    }
+
     async function executeHostCmd(cmd) {
       var parts = cmd.trim().split(/\s+/);
       var verb  = (parts[0] || '').toLowerCase();
@@ -2255,10 +2314,42 @@
             out = 'Deleted: ' + arg + '\r\n';
             updateFSList(); markFSDirty();
           }
+        } else if (verb === 'script' || verb === 'run') {
+          // !script FILENAME — WASM FS のファイルを CP/M マクロとして再生
+          if (!arg) { out = 'Usage: !script FILENAME\r\n'; }
+          else {
+            workerSend({ type: 'scriptRun', name: arg });
+            out = '▶ script: ' + arg + '\r\n';
+          }
+        } else if (verb === 'type' || verb === 'cat') {
+          // !type FILENAME — WASM FS ファイルの内容をターミナルに表示
+          if (!arg) { out = 'Usage: !type FILENAME\r\n'; }
+          else {
+            var fdata = await workerRequest({ type: 'readFS', name: arg });
+            var text  = new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(fdata.data));
+            // 改行をターミナル表示用に変換 (\n → \r\n)
+            out = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n/g, '\r\n');
+            if (out && out[out.length - 1] !== '\n') out += '\r\n';
+          }
+        } else if (verb === 'upload' || verb === 'ul') {
+          // !upload — ホストからファイルを選択して WASM FS に保存
+          document.getElementById('macro-upload-input').click();
+          out = ''; // 非同期: input change イベントで処理
+        } else if (verb === 'stop') {
+          // !stop — 実行中マクロを中断
+          workerSend({ type: 'scriptStop' });
+          out = '■ macro stopped\r\n';
         } else if (verb === 'help' || verb === '?') {
-          out = '!ls / !dir          list WASM FS\r\n' +
-                '!get / !dl FILE     download from WASM FS\r\n' +
-                '!rm / !del FILE     delete from WASM FS\r\n';
+          out = '!ls / !dir           list WASM FS files\r\n' +
+                '!script / !run FILE  run file as macro\r\n' +
+                '!type / !cat FILE    display file content\r\n' +
+                '!upload              upload file from host to WASM FS\r\n' +
+                '!get / !dl FILE      download from WASM FS\r\n' +
+                '!rm / !del FILE      delete from WASM FS\r\n' +
+                '!stop                stop running macro\r\n' +
+                'Macro file directives (.MAC):\r\n' +
+                '  !sleep N           wait N ms before next line\r\n' +
+                '  !expect STR [N]    wait for STR in output (timeout N ms, default 200)\r\n';
         } else {
           out = '?' + (verb ? ' !' + verb : '') + '  (try !help)\r\n';
         }
@@ -2278,10 +2369,16 @@
         var code = data.charCodeAt(i);
         if (data[i] === '\r') {
           if (inputBuf.startsWith('!')) {
-            var hostCmd = inputBuf.slice(1);
+            var hostCmd = inputBuf.slice(1).trim();
+            var hostVerb = hostCmd.split(/\s+/)[0].toLowerCase();
+            // 入力中の文字を BS で消去
             for (var bk = 0; bk < inputBuf.length; bk++) workerSend({ type: 'sendKey', ch: 0x08 });
             histIdx = -1; inputBuf = '';
-            workerSend({ type: 'sendKey', ch: 0x0d });
+            // !script/!run 以外: 空 CR を送って CP/M を A> 状態に戻す
+            // !script/!run: マクロ先頭の \r がコマンド実行を担うため CR 不要
+            if (hostVerb !== 'script' && hostVerb !== 'run') {
+              workerSend({ type: 'sendKey', ch: 0x0d });
+            }
             executeHostCmd(hostCmd);
             i++; continue;
           }
@@ -2300,6 +2397,26 @@
         workerSend({ type: 'sendKey', ch: code });
         i++;
       }
+    });
+
+    // ---- マクロ: !upload input & ■ 停止ボタン ----
+    document.getElementById('macro-upload-input').addEventListener('change', async function() {
+      var file = this.files[0];
+      if (!file) return;
+      this.value = '';  // 同じファイルを再選択できるようにリセット
+      try {
+        var buf  = await file.arrayBuffer();
+        var name = file.name.toUpperCase();
+        await workerRequest({ type: 'writeFS', name: name, data: buf });
+        term.write('\r\nUploaded: ' + name + ' (' + buf.byteLength + ' B)\r\n');
+        updateFSList();
+      } catch(e) {
+        term.write('\r\nUpload error: ' + e.message + '\r\n');
+      }
+    });
+
+    document.getElementById('btn-macro-stop').addEventListener('click', function() {
+      workerSend({ type: 'scriptStop' });
     });
 
     // ---- Pause / Reset ----
