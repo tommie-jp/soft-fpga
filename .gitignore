@@ -17,6 +17,10 @@ cxx/verilated.cpp
 examples/*/web/sim.js
 examples/*/web/sim.wasm
 
+# ローカル開発用シンボリックリンク（doStart.sh が自動生成）
+examples/*/web/js
+examples/*/web/docs
+
 # Verilator / cocotb
 *.vcd
 *.fst

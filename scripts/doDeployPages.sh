@@ -104,6 +104,13 @@ cp "$ROOT/web/index.html" "$WORKTREE/index.html"
 [ -f "$ROOT/web/favicon.ico" ] && cp "$ROOT/web/favicon.ico" "$WORKTREE/favicon.ico"
 echo "Copied root index.html + favicon.ico"
 
+# js/ ライブラリをルートの js/ にコピー（rtlscope-la.js など）
+if [ -d "$ROOT/js" ]; then
+    mkdir -p "$WORKTREE/js"
+    cp "$ROOT/js"/*.js "$WORKTREE/js/" 2>/dev/null || true
+    echo "Copied js/ library files"
+fi
+
 for ex in "${EXAMPLES[@]}"; do
     IFS=: read -r id build_script web_dir deploy_subdir <<< "$ex"
     src="$ROOT/$web_dir"

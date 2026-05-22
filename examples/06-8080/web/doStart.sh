@@ -38,4 +38,6 @@ fi
 cd "$SCRIPT_DIR"
 # docs/06-8080 を HTTP で提供するシンボリックリンク（markdown ビューア用）
 ln -sfn "$ROOT/docs/06-8080" "$SCRIPT_DIR/docs"
+# js/ ライブラリを HTTP で提供するシンボリックリンク（rtlscope-la.js など）
+ln -sfn "$ROOT/js" "$SCRIPT_DIR/js"
 python3 serve.py
