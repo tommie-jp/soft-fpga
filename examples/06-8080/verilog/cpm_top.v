@@ -37,7 +37,16 @@ module cpm_top (
     // デバッグ用シグナル
     output wire [15:0] dbg_pc,
     output wire [7:0]  dbg_a,
-    output wire [7:0]  dbg_f
+    output wire [7:0]  dbg_f,
+
+    // バスアナライザ用追加信号
+    output wire        dbg_sync,   // SYNC: マシンサイクル開始パルス
+    output wire        dbg_wr_n,   // WR_N: ライトストローブ（アクティブ Low）
+    output wire        dbg_hlda,   // HLDA: ホールドアクノリッジ
+    output wire        dbg_wait,   // WAIT: ウェイトステート中
+    output wire        dbg_inte,   // INTE: 割り込みイネーブル
+    output wire        dbg_memr,   // MEMR: メモリリード（!cycle_io && dbin）
+    output wire        dbg_memw    // MEMW: メモリライト（!cycle_io && !wr_n）
 );
 
     // ---------------------------------------------------------
@@ -60,6 +69,9 @@ module cpm_top (
     wire        cpu_wr_n;    // active-low ライトストローブ
     wire        cpu_dbin;    // 1 = CPU がデータバスを読む
     wire        cpu_sync;    // 1 = ステータスバイト出力中
+    wire        cpu_hlda;   // HLDA
+    wire        cpu_wait;   // WAIT
+    wire        cpu_inte;   // INTE
 
     vm80a_core cpu (
         .pin_clk    (clk),
@@ -77,9 +89,9 @@ module cpm_top (
         .pin_sync   (cpu_sync),
         .pin_aena   (),
         .pin_dena   (),
-        .pin_hlda   (),
-        .pin_wait   (),
-        .pin_inte   ()
+        .pin_hlda   (cpu_hlda),
+        .pin_wait   (cpu_wait),
+        .pin_inte   (cpu_inte)
     );
 
     // ---------------------------------------------------------
@@ -153,5 +165,12 @@ module cpm_top (
     assign dbg_pc = cpu_addr;
     assign dbg_a  = cpu_dout;              // 実際の CPU データ出力バス
     assign dbg_f  = {7'b0, cpu_wr_n};     // bit0 = WR_n
+    assign dbg_sync = cpu_sync;
+    assign dbg_wr_n = cpu_wr_n;
+    assign dbg_hlda = cpu_hlda;
+    assign dbg_wait = cpu_wait;
+    assign dbg_inte = cpu_inte;
+    assign dbg_memr = !cycle_io && cpu_dbin;
+    assign dbg_memw = !cycle_io && !cpu_wr_n;
 
 endmodule

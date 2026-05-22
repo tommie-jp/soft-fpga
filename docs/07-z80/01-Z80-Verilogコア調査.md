@@ -15,7 +15,7 @@ soft-FPGA への Z80 採用候補の調査メモ（2026-05-19）。
 
 ## 2. tv80
 
-- **リポジトリ**: https://github.com/hutch31/tv80
+- **リポジトリ**: [https://github.com/hutch31/tv80](https://github.com/hutch31/tv80)
 - **元**: OpenCores T80 の Verilog 移植版
 - **コア構成** (`rtl/core/`, 5,223 行 / 8 ファイル):
 
@@ -34,7 +34,7 @@ soft-FPGA への Z80 採用候補の調査メモ（2026-05-19）。
 
 ## 3. A-Z80 (Goran Devic)
 
-- **リポジトリ**: https://github.com/gdevic/A-Z80
+- **リポジトリ**: [https://github.com/gdevic/A-Z80](https://github.com/gdevic/A-Z80)
 - **コア構成** (39 ファイル, 約 5,857 行):
 
 | ディレクトリ | ファイル数 | 行数 | 役割 |

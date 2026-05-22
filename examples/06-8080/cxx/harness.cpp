@@ -21,10 +21,41 @@
 
 static Vcpm_top* top;
 
-// ring buffer: 1 uint32_t per sample
-// [15:0]=ADDR  [23:16]=DATA  [24]=WR  [25]=SYNC  [26]=IOM
+// ring buffer: 2 uint32_t per sample (Word0 + Word1)
+// Word 0:
+// [ 7: 0] = io_addr (I/O ポート番号)
+// [    8] = DBIN    (データバス入力イネーブル)
+// [    9] = SYNC    (マシンサイクル開始パルス)
+// [   10] = WR_N    (ライトストローブ、アクティブ Low)
+// [   11] = HLDA    (ホールドアクノリッジ)
+// [   12] = WAIT    (ウェイトステート中)
+// [   13] = INTE    (割り込みイネーブル)
+// [   14] = MEMR    (メモリリード = !cycle_io && DBIN)
+// [   15] = MEMW    (メモリライト = !cycle_io && !WR_N)
+// [23:16] = io_dout (データバス値)
+// [   24] = io_req  (I/O リクエストパルス)
+// [   25] = io_wr   (1=OUT, 0=IN)
+// [31:26] = t_state (T ステート番号: SYNC=1 で 1 にリセット、以降毎クロック加算)
+// Word 4:
+// [ 7: 0] = status_byte (SYNC でラッチした 8080 ステータスバイト)
+// [15: 8] = ir          (命令レジスタ — M1 フェッチ後に確定するオペコード)
+// [31:16] = (予約)
+// Word 1:
+// [15: 0] = cpu_addr (16 ビットアドレスバス)
+// [23:16] = io_din   (I/O 読みデータ — IN 命令でCPUが受け取る値)
+// [31:24] = dbg_a    (アキュムレータ A)
+// Word 2:
+// [ 7: 0] = dbg_f    (フラグレジスタ F)
+// [15: 8] = B        (レジスタ B)
+// [23:16] = C        (レジスタ C)
+// [31:24] = D        (レジスタ D)
+// Word 3:
+// [ 7: 0] = E        (レジスタ E)
+// [15: 8] = H        (レジスタ H)
+// [23:16] = L        (レジスタ L)
+// [31:24] = dbus     (CPU データバス: MEMR=RAMデータ, MEMW/IOOUT=io_dout, IOIN=io_din)
 static const int RING_SIZE = 4096;
-static uint32_t  ring[RING_SIZE];
+static uint32_t  ring[RING_SIZE * 6];  // 6 ワード/サンプル
 static uint32_t  ring_head = 0;
 
 // 64KB フラット RAM (Verilator 側の ram[] と同期)
@@ -60,6 +91,66 @@ static uint16_t  disk_dma    = 0x0080;
 // $E400-$E405 (BDOS 先頭) を上書きする。実機 CP/M は WBOOT で CCP+BDOS を
 // ディスクから再読み込みするため、ここでも同じ範囲を復元する。
 static uint8_t   saved_ccp[0x1600];
+
+// ── デバッグ機能 ─────────────────────────────────────────────────
+// レジスタスナップショット: [A, F, B, C, D, E, H, L, SPH, SPL, PCH, PCL]
+static uint8_t  reg_snap[12];
+
+// リングバッファフリーズ (true = 新規書き込み停止)
+static bool     ring_frozen = false;
+// Logic Analyzer 有効フラグ (false = ring 書き込みをスキップして速度向上)
+static bool     la_enabled  = true;
+
+// トリガー機構
+// trig_type: 0=off, 1=io_req(ポートフィルタ), 2=call(ターゲットフィルタ), 3=ret(ターゲットフィルタ)
+//            4=edge(word/bit/dir), 6=value(word/mask/cmp)
+static int      trig_type = 0;
+static uint8_t  trig_port = 0xFF;   // type=1: 0xFF = 任意ポート
+static uint16_t trig_pc   = 0;      // type=2,3: 0 = 任意アドレス
+static bool     trig_hit  = false;
+
+// コールトレースログ (リング、64エントリ)
+// buf[i*2+0] = from_pc (bits 15:0) | is_ret (bit 16)
+// buf[i*2+1] = to_addr (bits 15:0)
+static const int CALL_LOG_SIZE = 64;
+static uint32_t call_log_buf[CALL_LOG_SIZE * 2];
+static uint32_t call_log_head = 0;
+
+// SYNC 立ち上がり検出用
+static bool     prev_dbg_sync = false;
+
+// T ステートカウンタ
+// SYNC=1 のクロックを T1 として 1 にリセット、以降毎クロック加算（最大 63）
+static uint8_t  t_state_cnt = 0;
+// 現在のマシンサイクルタイプ（SYNC=1 のクロックで cpu_dout = ステータスバイトをラッチ）
+static uint8_t  current_status = 0;
+
+// エッジトリガー追加パラメータ (trig_type=4 時に使用)
+static int      trig_edge_word = 0;    // Word インデックス (0-4)
+static int      trig_edge_bit  = 24;   // ビット番号
+static int      trig_edge_dir  = 0;    // 0=立ち上がり, 1=立ち下がり
+static uint32_t prev_edge_val  = 0;    // 前回のビット値
+
+// 値トリガー追加パラメータ (trig_type=6 時に使用)
+static int      trig_val_word = 1;          // Word インデックス (0-5)
+static uint32_t trig_val_mask = 0x0000FFFF; // ビットマスク
+static uint32_t trig_val_cmp  = 0;          // 比較値（mask 済み）
+
+// 命令トリガー追加パラメータ (trig_type=5 時に使用)
+// 0xFFFF=任意 PC, 0xFF=任意オペコード
+
+// レジスタ値トリガー追加パラメータ (trig_type=7 時に使用)
+// reg_id: 0=A 1=F 2=B 3=C 4=D 5=E 6=H 7=L 8=SP 9=PC 10=BC 11=DE 12=HL
+static int      trig_reg_id  = 0;
+static uint32_t trig_reg_val = 0;
+// 0xFFFF=任意 PC, 0xFF=任意オペコード
+static uint16_t trig_instr_pc  = 0xFFFF;
+static uint8_t  trig_instr_opc = 0xFF;
+
+// ポストトリガー: 発火後も trig_post_delay クロック分だけ ring 書き込みを継続する
+static uint32_t trig_post_delay = 0;     // 発火後に記録するクロック数（0 = 即座に Freeze）
+static bool     trig_fired      = false; // 発火済みフラグ（Freeze 前の中間状態）
+static uint32_t trig_fire_head  = 0;     // 発火時の ring_head 値（赤縦線の位置）
 
 // 前回の io_req 値 (立ち上がり検出用)
 static uint8_t   prev_io_req = 0;
@@ -342,6 +433,25 @@ int sim_init(const char* bios_path, const char* cpm_path, const char* dsk_path)
     cycle_count = 0; cycle_latch = 0;
     freq_start_tp  = std::chrono::steady_clock::now();
     freq_start_cyc = 0; freq_latch_hz  = 0;
+    // デバッグ状態をリセット
+    ring_frozen      = false;
+    trig_type        = 0;
+    trig_port        = 0xFF;
+    trig_pc          = 0;
+    trig_hit         = false;
+    trig_fired       = false;
+    trig_fire_head   = 0;
+    trig_post_delay  = 0;
+    call_log_head    = 0;
+    memset(call_log_buf, 0, sizeof(call_log_buf));
+    memset(reg_snap,     0, sizeof(reg_snap));
+    prev_dbg_sync = false;
+    t_state_cnt   = 0;
+    current_status = 0;
+    trig_edge_word = 0;
+    trig_edge_bit  = 24;
+    trig_edge_dir  = 0;
+    prev_edge_val  = 0;
 
     if (top) { top->final(); delete top; }
     top = new Vcpm_top;
@@ -373,17 +483,219 @@ void step()
     top->clk = 1; top->eval();
     cycle_count++;
 
+    // T ステートカウンタ更新: SYNC=1 は新マシンサイクルの T1
+    if (top->dbg_sync)
+        t_state_cnt = 1;
+    else if (t_state_cnt < 63)
+        t_state_cnt++;
+
+    // マシンサイクルタイプを SYNC でラッチ（SYNC 中は cpu_dout = ステータスバイト）
+    if (top->dbg_sync)
+        current_status = (uint8_t)top->dbg_a;
+
     // IO 要求の立ち上がりで OUT 処理
     if (top->io_req && top->io_wr)
         handle_io(top->io_addr, true, top->io_dout);
 
-    // ring buffer サンプリング
-    ring[ring_head & (RING_SIZE - 1)] =
-        ((uint32_t)top->io_addr        ) |
-        ((uint32_t)top->io_dout  << 16 ) |
-        ((uint32_t)top->io_req   << 24 ) |
-        ((uint32_t)top->io_wr    << 25 );
-    ring_head++;
+    // ring buffer サンプリング (フリーズ中・LA無効時は書き込まない)
+    if (!ring_frozen) {
+        if (la_enabled) {
+        uint32_t ridx = (ring_head & (RING_SIZE - 1)) * 6;
+        // IO サイクル中はレジスタ保持値の代わりに組み合わせ信号を使う。
+        // io_addr / io_dout は wr_n 立ち上がり時のみ更新されるため、
+        // M5 サイクル中は前の OUT の値を保持し続けてしまう。
+        //   port: io_active=1 なら cpu_addr[7:0] (io_port) を使用
+        //   data: IO OUT サイクル (status[4]=1) なら cpu_dout (= xr = 出力データ) を使用
+        uint8_t samp_port = top->io_active
+                            ? (uint8_t)top->io_port   // 組み合わせ: 現在のポート番号
+                            : (uint8_t)top->io_addr;  // 保持値
+        // SYNC=1 のクロックでは cpu_dout = ステータスバイトのため除外し、
+        // SYNC 後 T2 以降（cpu_dout = xr = アキュムレータ）を使う
+        uint8_t samp_data = (top->io_active && (current_status & 0x10u) && !top->dbg_sync)
+                            ? (uint8_t)top->dbg_a     // IO OUT T2+: cpu_dout = xr = 出力データ
+                            : (uint8_t)top->io_dout;  // 保持値 (SYNC クロック含む)
+        ring[ridx] =
+            ((uint32_t)samp_port      ) |          // [ 7: 0] I/O ポート
+            ((uint32_t)top->io_dbin   <<  8) |     // [    8] DBIN
+            ((uint32_t)top->dbg_sync  <<  9) |     // [    9] SYNC
+            ((uint32_t)top->dbg_wr_n  << 10) |     // [   10] WR_N
+            ((uint32_t)top->dbg_hlda  << 11) |     // [   11] HLDA
+            ((uint32_t)top->dbg_wait  << 12) |     // [   12] WAIT
+            ((uint32_t)top->dbg_inte  << 13) |     // [   13] INTE
+            ((uint32_t)top->dbg_memr  << 14) |     // [   14] MEMR
+            ((uint32_t)top->dbg_memw  << 15) |     // [   15] MEMW
+            ((uint32_t)samp_data      << 16) |     // [23:16] データ
+            ((uint32_t)top->io_req    << 24) |     // [   24] io_req
+            ((uint32_t)top->io_wr     << 25) |     // [   25] io_wr
+            ((uint32_t)t_state_cnt    << 26);      // [31:26] T ステート番号
+        ring[ridx + 1] =
+            ((uint32_t)(top->dbg_pc & 0xFFFF)) |  // [15: 0] アドレスバス
+            ((uint32_t)top->io_din  << 16)       | // [23:16] I/O 読みデータ
+            // acc は vm80a 内部レジスタ直接参照（dbg_a=cpu_dout はステータスバイト混在のため不可）
+            ((uint32_t)top->cpm_top->cpu->acc << 24); // [31:24] アキュムレータ A
+        {
+            // Word 2: 全レジスタ F, B, C, D
+            auto* cpu  = top->cpm_top->cpu;
+            // F フラグを PSW 個別ビットから再構成
+            // dbg_f = {7'b0, cpu_wr_n} で実 F レジスタとは無関係のため直接アクセス
+            uint8_t f_byte =
+                ((cpu->__PVT__psw_s  ? 1u : 0u) << 7) |
+                ((cpu->__PVT__psw_z  ? 1u : 0u) << 6) |
+                ((cpu->__PVT__psw_ac ? 1u : 0u) << 4) |
+                ((cpu->__PVT__psw_p  ? 1u : 0u) << 2) |
+                (1u << 1) |
+                ((cpu->__PVT__psw_c  ? 1u : 0u) << 0);
+            uint16_t bc = (uint16_t)cpu->__PVT__r16_bc;
+            uint16_t de = (uint16_t)cpu->__PVT__r16_de;
+            ring[ridx + 2] =
+                ((uint32_t)f_byte             ) |  // [ 7: 0] F フラグ (PSW 個別ビットから再構成)
+                ((uint32_t)((bc >> 8) & 0xFF) <<  8) | // [15: 8] B
+                ((uint32_t)(bc        & 0xFF) << 16) | // [23:16] C
+                ((uint32_t)((de >> 8) & 0xFF) << 24);  // [31:24] D
+            // Word 3: E, H, L, CPU データバス
+            uint16_t hl = (uint16_t)cpu->__PVT__r16_hl;
+            // dbus: MEMR=RAMデータ, IO OUT T2+=cpu_dout, IO IN=io_din, その他=io_dout保持
+            // SYNC=1 クロックは cpu_dout=ステータスバイトのため除外
+            // NOTE: ram[dbg_pc] ではなく cpu_din 組み合わせ論理を直接使う。
+            //   cpu_dbin と cpu_addr の T ステートずれを回避するため。
+            uint8_t dbus;
+            if (top->dbg_memr) {
+                // cpu_din は always@(*) で ram[cpu_addr] に直結 → タイミング一致保証
+                dbus = (uint8_t)top->cpm_top->__PVT__cpu_din;
+            } else if (top->io_active && (current_status & 0x10u) && !top->dbg_sync) {
+                dbus = (uint8_t)top->dbg_a;  // IO OUT T2+: cpu_dout = xr = 出力データ
+            } else if (top->io_req && !top->io_wr) {
+                dbus = (uint8_t)top->io_din; // IO IN: ポートが返したデータ
+            } else {
+                dbus = (uint8_t)top->io_dout; // 保持値
+            }
+            ring[ridx + 3] =
+                ((uint32_t)(de        & 0xFF)      ) |  // [ 7: 0] E
+                ((uint32_t)((hl >> 8) & 0xFF) <<  8) | // [15: 8] H
+                ((uint32_t)(hl        & 0xFF) << 16) | // [23:16] L
+                ((uint32_t)dbus               << 24);  // [31:24] CPU データバス
+        }
+        ring[ridx + 4] =
+            (uint32_t)current_status |                         // [ 7: 0] ステータスバイト
+            ((uint32_t)top->cpm_top->cpu->__PVT__i << 8);     // [15: 8] 命令レジスタ (IR)
+        {
+            // Word 5: PC レジスタ + SP レジスタ（vm80a 内部レジスタから直接取得）
+            auto* cpu5 = top->cpm_top->cpu;
+            ring[ridx + 5] =
+                ((uint32_t)(uint16_t)cpu5->__PVT__r16_pc      ) |  // [15: 0] PC
+                ((uint32_t)(uint16_t)cpu5->__PVT__r16_sp << 16);   // [31:16] SP
+        }
+        } // end if (la_enabled)
+        ring_head++;
+    }
+
+    // ── コールトレース & トリガー ──
+    bool cur_sync = (bool)top->dbg_sync;
+    if (cur_sync && !prev_dbg_sync) {
+        // SYNC 立ち上がりエッジ: 新しいマシンサイクル開始
+        // PC アドレスにある命令バイトを読んで CALL/RET を検出する
+        uint16_t pc = (uint16_t)top->dbg_pc;
+        uint8_t  op = (uint8_t)top->cpm_top->ram[pc];
+        bool is_call = (op == 0xCD) || ((op & 0xC7) == 0xC4);
+        bool is_ret  = (op == 0xC9) || ((op & 0xC7) == 0xC0);
+        if (is_call || is_ret) {
+            uint32_t idx = (call_log_head % CALL_LOG_SIZE) * 2;
+            uint16_t target = 0;
+            if (is_call) {
+                uint8_t lo = (uint8_t)top->cpm_top->ram[(uint16_t)(pc + 1)];
+                uint8_t hi = (uint8_t)top->cpm_top->ram[(uint16_t)(pc + 2)];
+                target = (uint16_t)((uint16_t)lo | ((uint16_t)hi << 8));
+            } else {
+                // RET: スタックトップがリターンアドレス
+                auto* cpu = top->cpm_top->cpu;
+                uint16_t sp  = (uint16_t)cpu->__PVT__r16_sp;
+                uint8_t  rlo = (uint8_t)top->cpm_top->ram[sp];
+                uint8_t  rhi = (uint8_t)top->cpm_top->ram[(uint16_t)(sp + 1)];
+                target = (uint16_t)((uint16_t)rlo | ((uint16_t)rhi << 8));
+            }
+            call_log_buf[idx    ] = (uint32_t)pc | ((uint32_t)(is_ret ? 1u : 0u) << 16);
+            call_log_buf[idx + 1] = (uint32_t)target;
+            call_log_head++;
+            // call/ret トリガーチェック
+            if (!trig_fired) {
+                bool match = false;
+                if (is_call && trig_type == 2 && (trig_pc == 0 || trig_pc == target)) match = true;
+                if (is_ret  && trig_type == 3 && (trig_pc == 0 || trig_pc == target)) match = true;
+                if (match) { trig_fired = true; trig_fire_head = ring_head; }
+            }
+        }
+        // On Instruction トリガー (type=5): M1 フェッチ時に PC・オペコードでフィルタ
+        if (!trig_fired && trig_type == 5 && (current_status & 0x20u)) {
+            bool pc_match  = (trig_instr_pc  == 0xFFFF) || (pc  == trig_instr_pc);
+            bool opc_match = (trig_instr_opc == 0xFF  ) || (op  == trig_instr_opc);
+            if (pc_match && opc_match) { trig_fired = true; trig_fire_head = ring_head; }
+        }
+    }
+    prev_dbg_sync = cur_sync;
+
+    // I/O トリガーチェック（ring 書き込み後に判定 → トリガーイベントをリングに含む）
+    if (!trig_fired && trig_type == 1 && top->io_req) {
+        if (trig_port == 0xFF || trig_port == (uint8_t)top->io_addr) {
+            trig_fired = true; trig_fire_head = ring_head;
+        }
+    }
+
+    // エッジトリガーチェック (type=4) — ring 書き込み (la_enabled) が必要
+    if (la_enabled && !trig_fired && trig_type == 4) {
+        // 今書き込んだサンプルの Word を直接参照（ring_head は既にインクリメント済み）
+        uint32_t samp_ridx = ((ring_head - 1) & (RING_SIZE - 1)) * 6;
+        uint32_t cur = (ring[samp_ridx + trig_edge_word] >> trig_edge_bit) & 1u;
+        bool hit = trig_edge_dir ? (prev_edge_val && !cur) : (!prev_edge_val && cur);
+        prev_edge_val = cur;
+        if (hit) { trig_fired = true; trig_fire_head = ring_head; }
+    }
+
+    // 値トリガーチェック (type=6) — ring 書き込み (la_enabled) が必要
+    if (la_enabled && !trig_fired && trig_type == 6 && !ring_frozen) {
+        uint32_t samp_ridx = ((ring_head - 1) & (RING_SIZE - 1)) * 6;
+        if ((ring[samp_ridx + trig_val_word] & trig_val_mask) == trig_val_cmp) {
+            trig_fired = true; trig_fire_head = ring_head;
+        }
+    }
+
+    // レジスタ値トリガーチェック (type=7): 毎クロック レジスタ値と比較
+    // reg_id: 0=A 1=F 2=B 3=C 4=D 5=E 6=H 7=L 8=SP 9=PC 10=BC 11=DE 12=HL 13=IR
+    if (!trig_fired && trig_type == 7) {
+        auto* cpu7 = top->cpm_top->cpu;
+        uint32_t regval = 0;
+        switch (trig_reg_id) {
+        case  0: regval = (uint32_t)cpu7->acc;                         break;
+        case  1: regval = (uint32_t)top->dbg_f;                        break;
+        case  2: regval = ((uint32_t)cpu7->__PVT__r16_bc >>  8) & 0xFF; break;
+        case  3: regval =  (uint32_t)cpu7->__PVT__r16_bc        & 0xFF; break;
+        case  4: regval = ((uint32_t)cpu7->__PVT__r16_de >>  8) & 0xFF; break;
+        case  5: regval =  (uint32_t)cpu7->__PVT__r16_de        & 0xFF; break;
+        case  6: regval = ((uint32_t)cpu7->__PVT__r16_hl >>  8) & 0xFF; break;
+        case  7: regval =  (uint32_t)cpu7->__PVT__r16_hl        & 0xFF; break;
+        case  8: regval = (uint32_t)cpu7->__PVT__r16_sp & 0xFFFF;       break;
+        case  9: regval = (uint32_t)cpu7->__PVT__r16_pc & 0xFFFF;       break;
+        case 10: regval = (uint32_t)cpu7->__PVT__r16_bc & 0xFFFF;       break;
+        case 11: regval = (uint32_t)cpu7->__PVT__r16_de & 0xFFFF;       break;
+        case 12: regval = (uint32_t)cpu7->__PVT__r16_hl & 0xFFFF;       break;
+        case 13: regval = (uint32_t)cpu7->__PVT__i      & 0xFF;         break; // IR
+        default: break;
+        }
+        uint32_t cmpval = trig_reg_val & (trig_reg_id <= 7 || trig_reg_id == 13 ? 0xFFu : 0xFFFFu);
+        if (regval == cmpval) { trig_fired = true; trig_fire_head = ring_head; }
+    }
+
+    // ポストトリガーチェック: 発火済みかつ遅延クロック数を満たしたら Freeze
+    if (trig_fired && !trig_hit) {
+        if (ring_head - trig_fire_head >= trig_post_delay) {
+            trig_hit = true;
+            ring_frozen = true;
+        }
+    }
+}
+
+EMSCRIPTEN_KEEPALIVE
+void sim_run_n(int n) {
+    for (int i = 0; i < n; i++) step();
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -412,6 +724,14 @@ EMSCRIPTEN_KEEPALIVE
 uint8_t sim_read_byte(uint16_t addr)
 {
     return top ? (uint8_t)top->cpm_top->ram[addr] : 0;
+}
+
+// RAM に 1 バイト書き込む（テスト用: sim_init 後に小さなテストプログラムをポークする）
+EMSCRIPTEN_KEEPALIVE
+void sim_poke(uint16_t addr, uint8_t val)
+{
+    mem[addr] = val;
+    if (top) top->cpm_top->ram[addr] = val;
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -571,6 +891,7 @@ int sim_run_bare(const uint8_t* prog, int prog_size,
 EMSCRIPTEN_KEEPALIVE uint32_t* get_ring_ptr()  { return ring; }
 EMSCRIPTEN_KEEPALIVE uint32_t  get_head()       { return ring_head; }
 EMSCRIPTEN_KEEPALIVE int       get_ring_size()  { return RING_SIZE; }
+EMSCRIPTEN_KEEPALIVE int       get_ring_words() { return 6; }
 
 EMSCRIPTEN_KEEPALIVE int      sim_get_cur_drive()   { return cur_drive; }
 EMSCRIPTEN_KEEPALIVE int      sim_get_disk_track()  { return disk_track; }
@@ -647,6 +968,172 @@ int sim_save_disk(int drive, const char* path)
     }
     disk_dirty[drive] = false;
     return 0;
+}
+
+// ── デバッグ: レジスタスナップショット ──────────────────────────
+// 戻り値: 12 バイトバッファ [A, F, B, C, D, E, H, L, SPH, SPL, PCH, PCL]
+// F フォーマット: S Z 0 AC 0 P 1 C  (Intel 8080 標準)
+EMSCRIPTEN_KEEPALIVE
+uint8_t* sim_snap_regs() {
+    if (!top) { memset(reg_snap, 0, sizeof(reg_snap)); return reg_snap; }
+    auto* cpu = top->cpm_top->cpu;
+    uint8_t f =
+        ((cpu->__PVT__psw_s  ? 1u : 0u) << 7) |
+        ((cpu->__PVT__psw_z  ? 1u : 0u) << 6) |
+        ((cpu->__PVT__psw_ac ? 1u : 0u) << 4) |
+        ((cpu->__PVT__psw_p  ? 1u : 0u) << 2) |
+        (1u << 1) |
+        ((cpu->__PVT__psw_c  ? 1u : 0u) << 0);
+    uint16_t bc = (uint16_t)cpu->__PVT__r16_bc;
+    uint16_t de = (uint16_t)cpu->__PVT__r16_de;
+    uint16_t hl = (uint16_t)cpu->__PVT__r16_hl;
+    uint16_t sp = (uint16_t)cpu->__PVT__r16_sp;
+    uint16_t pc = (uint16_t)cpu->__PVT__r16_pc;
+    reg_snap[ 0] = cpu->acc;
+    reg_snap[ 1] = f;
+    reg_snap[ 2] = (bc >> 8) & 0xFF;   // B
+    reg_snap[ 3] = bc & 0xFF;           // C
+    reg_snap[ 4] = (de >> 8) & 0xFF;   // D
+    reg_snap[ 5] = de & 0xFF;           // E
+    reg_snap[ 6] = (hl >> 8) & 0xFF;   // H
+    reg_snap[ 7] = hl & 0xFF;           // L
+    reg_snap[ 8] = (sp >> 8) & 0xFF;   // SPH
+    reg_snap[ 9] = sp & 0xFF;           // SPL
+    reg_snap[10] = (pc >> 8) & 0xFF;   // PCH
+    reg_snap[11] = pc & 0xFF;           // PCL
+    return reg_snap;
+}
+
+// ── デバッグ: リングバッファ フリーズ / アンフリーズ ─────────────
+EMSCRIPTEN_KEEPALIVE void sim_freeze_ring() { ring_frozen = true; }
+EMSCRIPTEN_KEEPALIVE void sim_thaw_ring()   { ring_frozen = false; trig_hit = false; }
+EMSCRIPTEN_KEEPALIVE int  sim_ring_frozen() { return ring_frozen ? 1 : 0; }
+
+// ── デバッグ: トリガー設定 ────────────────────────────────────────
+// type: 0=off  1=io_req(portフィルタ)  2=call(targetフィルタ)  3=ret(targetフィルタ)
+// port: type=1 のポートフィルタ (0xFF=任意)
+// pc  : type=2,3 のターゲットアドレスフィルタ (0=任意)
+EMSCRIPTEN_KEEPALIVE
+void sim_set_trigger(int type, int port, int pc) {
+    trig_type      = type;
+    trig_port      = (uint8_t)port;
+    trig_pc        = (uint16_t)pc;
+    trig_hit       = false;
+    trig_fired     = false;
+    trig_fire_head = 0;
+    ring_frozen    = false;
+}
+EMSCRIPTEN_KEEPALIVE int  sim_trigger_hit()    { return trig_hit  ? 1 : 0; }
+EMSCRIPTEN_KEEPALIVE int  sim_trigger_fired()  { return trig_fired ? 1 : 0; }
+EMSCRIPTEN_KEEPALIVE int  sim_get_trig_fire_head() {
+    return trig_fired ? (int)trig_fire_head : -1;
+}
+EMSCRIPTEN_KEEPALIVE void sim_set_post_delay(int n) {
+    trig_post_delay = (n > 0) ? (uint32_t)n : 0;
+}
+EMSCRIPTEN_KEEPALIVE void sim_clear_trigger() {
+    trig_type = 0; trig_hit = false; trig_fired = false;
+    trig_fire_head = 0; ring_frozen = false;
+}
+
+// エッジトリガー設定
+// word: Word インデックス (0-4), bit: ビット番号 (0-31), dir: 0=立ち上がり, 1=立ち下がり
+EMSCRIPTEN_KEEPALIVE
+void sim_set_edge_trigger(int word, int bit, int dir) {
+    trig_type      = 4;
+    trig_edge_word = word;
+    trig_edge_bit  = bit;
+    trig_edge_dir  = dir;
+    trig_hit       = false;
+    trig_fired     = false;
+    trig_fire_head = 0;
+    ring_frozen    = false;
+    prev_edge_val  = 0;
+}
+
+// 値トリガー設定
+// word: Word インデックス (0-4), mask: ビットマスク, cmp: 比較値（mask 適用後）
+EMSCRIPTEN_KEEPALIVE
+void sim_set_value_trigger(int word, int mask, int cmp) {
+    trig_type      = 6;
+    trig_val_word  = word;
+    trig_val_mask  = (uint32_t)mask;
+    trig_val_cmp   = (uint32_t)cmp;
+    trig_hit       = false;
+    trig_fired     = false;
+    trig_fire_head = 0;
+    ring_frozen    = false;
+}
+
+// レジスタ値トリガー設定 (type=7)
+// reg_id: 0=A 1=F 2=B 3=C 4=D 5=E 6=H 7=L 8=SP 9=PC 10=BC 11=DE 12=HL
+// value:  比較値 (8ビットレジスタは下位8ビット、16ビットは下位16ビットを使用)
+EMSCRIPTEN_KEEPALIVE
+void sim_set_reg_trigger(int reg_id, int value) {
+    trig_type      = 7;
+    trig_reg_id    = reg_id;
+    trig_reg_val   = (uint32_t)value;
+    trig_hit       = false;
+    trig_fired     = false;
+    trig_fire_head = 0;
+    ring_frozen    = false;
+}
+
+// 命令トリガー設定 (type=5)
+// pc:  ターゲット PC アドレス (-1 = 任意)
+// opc: ターゲット オペコード  (-1 = 任意)
+EMSCRIPTEN_KEEPALIVE
+void sim_set_instr_trigger(int pc, int opc) {
+    trig_type      = 5;
+    trig_instr_pc  = (pc  < 0) ? 0xFFFF : (uint16_t)pc;
+    trig_instr_opc = (opc < 0) ? 0xFF   : (uint8_t)opc;
+    trig_hit       = false;
+    trig_fired     = false;
+    trig_fire_head = 0;
+    ring_frozen    = false;
+}
+
+// Logic Analyzer 有効/無効切替
+// enabled=0 のとき ring 書き込みをスキップして速度向上（エッジ/値トリガーは無効になる）
+EMSCRIPTEN_KEEPALIVE
+void sim_set_la_enabled(int enabled) {
+    la_enabled = (enabled != 0);
+}
+
+// DDT スタイル 1 命令ステップ実行
+// 呼び出し時に ring_frozen/trig_hit をクリアしてシミュレーションを再開し、
+// 次の M1 フェッチ（命令境界）まで実行して停止する。
+// HLT や WAIT によるタイムアウト (400 クロック超) の場合も ring_frozen=true で止まる。
+EMSCRIPTEN_KEEPALIVE
+void sim_step_instr() {
+    ring_frozen = false;
+    trig_hit    = false;
+    // 現在 M1 SYNC のクロック上にいる場合、最初の M1 を読み飛ばして次を待つ
+    bool skip_first = (bool)(top->dbg_sync) && (bool)(current_status & 0x20u);
+    for (int i = 0; i < 400; i++) {
+        step();
+        if (trig_hit) return;   // On Instruction トリガーが再発火した場合
+        if (top->dbg_sync && (current_status & 0x20u)) {
+            if (skip_first) {
+                skip_first = false;
+                continue;
+            }
+            ring_frozen = true;
+            trig_hit    = true;
+            return;
+        }
+    }
+    // タイムアウト (HLT 等): 安全のため凍結して戻る
+    ring_frozen = true;
+    trig_hit    = true;
+}
+
+// ── デバッグ: コールトレースログ ─────────────────────────────────
+EMSCRIPTEN_KEEPALIVE uint32_t* sim_get_call_log_ptr()  { return call_log_buf; }
+EMSCRIPTEN_KEEPALIVE uint32_t  sim_get_call_log_head() { return call_log_head; }
+EMSCRIPTEN_KEEPALIVE void      sim_clear_call_log() {
+    call_log_head = 0;
+    memset(call_log_buf, 0, sizeof(call_log_buf));
 }
 
 } // extern "C"

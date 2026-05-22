@@ -62,7 +62,7 @@ PDP-11 を **Verilog** で実装し、かつ **実績がある**（OS ブート�
 
 ### 2.2 RTL 構成
 
-```
+```text
 rtl/
 ├── pdp11.v       (2113 行) ─ CPU 本体、命令デコード
 ├── execute.v     (1259 行) ─ 実行ユニット
@@ -169,7 +169,7 @@ verilator -cc -exe --trace --Mdir ./tmp \
 
 ### 4.1 Ubuntu 24 ホスト（ネイティブ Verilator）
 
-**見込み: ◎ 高確率で動く（要 Verilator 互換性対応）**
+#### 見込み: ◎ 高確率で動く（要 Verilator 互換性対応）
 
 | 項目 | 評価 |
 |---|---|
@@ -178,16 +178,18 @@ verilator -cc -exe --trace --Mdir ./tmp \
 | 性能 | 現代 x86 で Verilator 経由なら 10-50 MHz 実効シム速度 |
 | BSD ブート時間予測 | 10-60 秒 |
 
-**最大のリスク: Verilator バージョン互換性**
+#### 最大のリスク: Verilator バージョン互換性
 
 Brad のコードは 2009-2010 年（Verilator 3.7 時代）。現在の Verilator 5.x との非互換ポイント:
 
 1. **シグナルアクセスの名前マングリング変更**
+
    ```cpp
    // Brad のコード（旧）
    top->v__DOT__top__DOT__reset = 1;
    top->v__DOT__sysclk = ~top->v__DOT__sysclk;
    ```
+
    Verilator 4.0+ では `rootp->` API か `--public-flat-rw` 経由になり、この記法は通らない。要修正。
 
 2. **lint 厳格化** — `CASEX`, `CASEINCOMPLETE`, `STMTDLY` は既に対処済みだが、新しい警告が追加されている可能性
@@ -198,7 +200,7 @@ Brad のコードは 2009-2010 年（Verilator 3.7 時代）。現在の Verilat
 
 ### 4.2 WASM 版（rtlscope 本命）
 
-**見込み: ○ 動く可能性が高い、ただし周辺整備が必要**
+#### 見込み: ○ 動く可能性が高い、ただし周辺整備が必要
 
 | 項目 | 評価 |
 |---|---|
@@ -218,6 +220,7 @@ Brad のコードは 2009-2010 年（Verilator 3.7 時代）。現在の Verilat
 4. **rtlscope 観測点の差し込み** — `public_flat` プラグマを各信号に追加。PC、PSW、バスアドレス/データ、MMU 状態などをトレースバッファに記録
 
 **ディスクイメージサイズ**:
+
 - Unix V6: 約 2.5MB → 初回フェッチで実用範囲
 - RT-11: 約 1MB → 軽快
 - 2.9BSD: 約 5-35MB → 大きい
@@ -226,7 +229,7 @@ Brad のコードは 2009-2010 年（Verilator 3.7 時代）。現在の Verilat
 
 ### 4.3 Pico2 (RP2350) 版
 
-**見込み: △ Unix V6 なら可能性あり、BSD は厳しい**
+#### 見込み: △ Unix V6 なら可能性あり、BSD は厳しい
 
 | 項目 | 評価 |
 |---|---|
@@ -236,7 +239,7 @@ Brad のコードは 2009-2010 年（Verilator 3.7 時代）。現在の Verilat
 
 **メモリ収支**:
 
-```
+```text
 RP2350 SRAM 520KB の内訳予想:
 ├── Verilator 生成 C++ の RTL 状態: 50-150 KB
 ├── エミュレート RAM: ??? KB ← ここが勝負
@@ -257,11 +260,13 @@ RP2350 SRAM 520KB の内訳予想:
 **外付け PSRAM (8MB) を使えば 2.9BSD も可能だが**、QSPI 経由のアクセスはレイテンシが大きく、Verilator 生成コードはメモリアクセス頻発のため、性能がさらに 5-10 倍遅くなる見込み。2.9BSD ブートに 30 分〜2 時間。
 
 **Pico2 で現実的なシナリオ**:
+
 1. **RT-11 デモ** — 内蔵 SRAM で快適に動く
 2. **Unix V6** — 内蔵 SRAM ギリギリ。ブート 5-15 分の見込み
 3. **rtlscope 観測** — 信号観測のメモリオーバーヘッドが追加で必要。リングバッファは外部 PSRAM へ
 
 その他の Pico2 固有の課題:
+
 - Verilator ランタイム（`verilated.h/cpp`）はベアメタル前提でない
 - C++ 例外・RTTI を切る
 - ディスクイメージは flash に焼くか SD カードから
@@ -303,6 +308,7 @@ RP2350 SRAM 520KB の内訳予想:
 ### ライセンスの先行確認
 
 技術的検証と並行して **Brad Parker への連絡** を行うのが望ましい:
+
 - メールアドレスは heeltoe.com に掲載あり
 - MIT または BSD-2-Clause での明文化を依頼
 - 配布物に XXDP 診断を含めない構成を明確化

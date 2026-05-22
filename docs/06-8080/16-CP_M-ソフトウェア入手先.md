@@ -23,7 +23,7 @@
 
 | カテゴリ | アプリ | 備考 |
 |---------|-------|------|
-| Pascal | **Turbo Pascal 3.x** | Borland が公式フリーウェア化。CP/M 版あり |
+| Pascal | **Turbo Pascal 3.x** | Borland が公式フリーウェア化。CP/M 版あり。ただし **Z80 専用コード（LDIR 等）を使用するため vm80a では動作しない** |
 | BASIC | **MBASIC** (Microsoft BASIC) | CP/M の定番 BASIC |
 | ゲーム | **Zork I/II/III** | Infocom 製テキスト ADV。CP/M 版が広く流通 |
 | ゲーム | **Adventure** (Colossal Cave) | 元祖テキスト ADV |
@@ -33,42 +33,8 @@
 
 ## 4. ディスクイメージへの追加手順
 
-`cpmtools` パッケージ（Ubuntu/Debian）を使う。
-
-```bash
-sudo apt install cpmtools
-```
-
-`/etc/cpmtools/diskdefs`（または `~/.cpmtools/diskdefs`）に標準 8 インチ SSSD の定義を追加:
-
-```
-diskdef ibm-sssd
-  seclen 128
-  tracks 77
-  sectrk 26
-  blocksize 1024
-  maxdir 64
-  skew 6
-  boottrk 2
-  os 2.2
-end
-```
-
-基本操作:
-
-```bash
-# ファイル一覧
-cpmls -f ibm-sssd rom/cpm22.dsk
-
-# ホスト → CP/M ディスクへコピー
-cpmcp -f ibm-sssd rom/cpm22.dsk PROG.COM 0:PROG.COM
-
-# CP/M ディスク → ホストへ取り出し
-cpmcp -f ibm-sssd rom/cpm22.dsk 0:PROG.COM ./PROG.COM
-
-# ファイル削除
-cpmrm -f ibm-sssd rom/cpm22.dsk 0:PROG.COM
-```
+新規作成・ファイルコピー・取り出しの手順は
+[03-開発ツール.md §4 — cpmtools](03-開発ツール.md) を参照。
 
 ## 5. 参考
 
