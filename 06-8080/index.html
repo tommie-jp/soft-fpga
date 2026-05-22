@@ -7,60 +7,60 @@
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
   <style>
-    body { background:#f5f5f5; color:#111; font-family:monospace; margin:20px; }
+    body { background:#f5f5f5; color:#111; font-family:monospace; margin:20px; font-size:14px; }
     @media (max-width:500px) {
       /* 左右マージンをゼロにしてターミナルを画面端まで広げる。
          overflow-x:hidden を body に設定すると position:fixed が機能しないため除外。 */
       body { margin: 10px 0; }
     }
-    h2   { margin:0 0 8px; font-size:16px; color:#333; }
-    button { background:#e8e8e8; color:#111; border:1px solid #aaa; padding:4px 14px; cursor:pointer; }
+    h2   { margin:0 0 8px; font-size:18px; color:#222; }
+    button { background:#e8e8e8; color:#111; border:1px solid #aaa; padding:6px 16px; cursor:pointer; font-size:14px; }
     button:hover { background:#d0d0d0; }
-    label { font-size:12px; color:#555; }
+    label { font-size:14px; color:#444; }
     canvas { display:block; border:1px solid #bbb; }
 
     /* ---- Drive panel ---- */
     .drives-panel { margin-bottom:6px; }
-    .drive-row { display:flex; align-items:center; gap:6px; margin-bottom:3px; font-size:12px; }
-    .drive-lbl  { color:#444; width:18px; text-align:right; flex-shrink:0; }
+    .drive-row { display:flex; align-items:center; gap:6px; margin-bottom:4px; font-size:13px; }
+    .drive-lbl  { color:#333; width:18px; text-align:right; flex-shrink:0; }
     .drive-name {
-      color:#111; width:180px; background:#fff; padding:2px 6px;
+      color:#111; width:180px; background:#fff; padding:3px 6px;
       border:1px solid #bbb; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
     }
-    .drive-time { color:#999; font-size:10px; width:84px; text-align:right; flex-shrink:0; white-space:nowrap; }
+    .drive-time { color:#666; font-size:12px; width:90px; text-align:right; flex-shrink:0; white-space:nowrap; }
     .btn-load {
-      background:#e8e8e8; color:#333; border:1px solid #aaa;
-      padding:2px 8px; cursor:pointer; font-size:12px;
+      background:#e8e8e8; color:#222; border:1px solid #aaa;
+      padding:3px 10px; cursor:pointer; font-size:13px;
     }
     .btn-load:hover { background:#d0d0d0; }
     .btn-save {
-      background:#e8e8e8; color:#999; border:1px solid #ccc;
-      padding:2px 8px; cursor:pointer; font-size:12px;
+      background:#e8e8e8; color:#666; border:1px solid #ccc;
+      padding:3px 10px; cursor:pointer; font-size:13px;
     }
     .btn-save.dirty { color:#2a8a2a; border-color:#4a9a4a; }
     .btn-save.dirty:hover { background:#c8e8c8; }
     .btn-dl {
-      background:#e8e8e8; color:#555; border:1px solid #ccc;
-      padding:2px 6px; cursor:pointer; font-size:12px;
+      background:#e8e8e8; color:#444; border:1px solid #ccc;
+      padding:3px 8px; cursor:pointer; font-size:13px;
     }
     .btn-dl:hover { background:#d0d0d0; }
     .btn-dl.dirty { color:#2a8a2a; border-color:#4a9a4a; }
     .btn-dl.dirty:hover { background:#c8e8c8; }
 
     /* ---- Presets ---- */
-    .presets { margin-bottom:8px; font-size:12px; color:#444; display:flex; align-items:center; gap:8px; }
-    .presets button { padding:2px 10px; font-size:12px; }
+    .presets { margin-bottom:8px; font-size:14px; color:#333; display:flex; align-items:center; gap:8px; }
+    .presets button { padding:4px 12px; font-size:13px; }
 
     /* ---- Terminal themes ---- */
 
     /* ---- Ctrl bar ---- */
     .ctrl-bar { display:flex; gap:4px; margin-top:4px; flex-wrap:wrap; }
-    .ctrl-btn { background:#e8e8e8; color:#333; border:1px solid #aaa;
-                padding:5px 12px; cursor:pointer; font-size:12px; font-family:monospace; }
+    .ctrl-btn { background:#e8e8e8; color:#222; border:1px solid #aaa;
+                padding:5px 12px; cursor:pointer; font-size:13px; font-family:monospace; }
     .ctrl-btn:hover { background:#d0d0d0; }
     .ctrl-btn:active { background:#bbb; }
-    .wm-sep       { color:#ccc; font-size:14px; align-self:center; margin:0 1px; user-select:none; }
-    .wm-group-lbl { font-size:10px; color:#999; align-self:center; margin-right:2px; user-select:none; }
+    .wm-sep       { color:#bbb; font-size:14px; align-self:center; margin:0 1px; user-select:none; }
+    .wm-group-lbl { font-size:12px; color:#666; align-self:center; margin-right:2px; user-select:none; }
 
     /* ---- Controls ---- */
     .controls { display:flex; align-items:center; gap:14px; margin-bottom:8px; flex-wrap:wrap; }
@@ -73,6 +73,7 @@
         "cpu-bar"
         "terminal"
         "bus"
+        "debug"
         "fs-panel"
         "copyright";
       align-items:start;
@@ -80,6 +81,7 @@
     #cpu-bar      { grid-area:cpu-bar; margin-bottom:4px; }
     #terminal-col { grid-area:terminal; display:flex; flex-direction:column; }
     #bus-section  { grid-area:bus; margin-top:4px; }
+    #debug-panel  { grid-area:debug; margin-top:4px; }
     #fs-panel     { grid-area:fs-panel; }
     #copyright    { grid-area:copyright; }
 
@@ -114,27 +116,27 @@
     }
 
     #terminal-wrap { border:1px solid #bbb; flex-shrink:0; }
-    #drop-hint   { font-size:10px; color:#aaa; margin-bottom:3px; }
-    #drop-status { font-size:10px; min-height:13px; margin-bottom:3px; transition:opacity .5s; }
+    #drop-hint   { font-size:12px; color:#777; margin-bottom:3px; }
+    #drop-status { font-size:12px; min-height:14px; margin-bottom:3px; transition:opacity .5s; }
     #fs-list { margin-top:2px; overflow-y:auto; max-height:200px; min-height:40px;
                transition:background .15s; }
     #fs-list.drop-active { background:#e8f4ff; outline:2px dashed #0077cc; }
     /* CPU bar: ターミナル直上 */
     #cpu-bar {
       display:flex; align-items:center; gap:8px;
-      padding:4px 10px; border:1px solid #bbb; background:#f0f0f0;
-      font-size:12px; font-family:monospace; color:#333;
+      padding:5px 10px; border:1px solid #bbb; background:#f0f0f0;
+      font-size:13px; font-family:monospace; color:#222;
     }
-    #cpu-bar .cpu-lbl { font-size:11px; color:#888; font-weight:bold; }
-    #cpu-bar .val     { color:#111; font-weight:bold; font-size:13px; }
-    #cpu-bar .label   { color:#888; }
+    #cpu-bar .cpu-lbl { font-size:12px; color:#555; font-weight:bold; }
+    #cpu-bar .val     { color:#111; font-weight:bold; font-size:15px; }
+    #cpu-bar .label   { color:#555; }
     /* WASM FS panel: Bus Analyzer 直下 */
     #fs-panel {
       border:1px solid #bbb; padding:8px 12px;
-      font-size:12px; color:#333; max-width:560px; margin-top:4px;
+      font-size:13px; color:#222; max-width:560px; margin-top:4px;
     }
     .pc-region {
-      display:inline-block; font-size:9px; font-weight:bold;
+      display:inline-block; font-size:11px; font-weight:bold;
       padding:1px 5px; border-radius:2px; vertical-align:middle;
       margin-left:6px; letter-spacing:.03em;
     }
@@ -146,12 +148,12 @@
     /* FS table: 名前 | サイズ | 時刻 */
     .fs-thead, .fs-row {
       display:grid;
-      grid-template-columns:1fr 36px 84px;
+      grid-template-columns:1fr 40px 90px;
       gap:0 4px;
       align-items:baseline;
     }
     .fs-thead {
-      font-size:10px; color:#666;
+      font-size:12px; color:#444;
       border-bottom:2px solid #bbb;
       padding-bottom:2px; margin-bottom:1px;
     }
@@ -161,12 +163,37 @@
     }
     .fs-th:hover { color:#111; }
     .fs-th.active { color:#0055aa; }
-    .fs-row { padding:2px 0; border-bottom:1px solid #e0e0e0; cursor:pointer; touch-action:manipulation; }
+    .fs-row { padding:3px 0; border-bottom:1px solid #e0e0e0; cursor:pointer; touch-action:manipulation; }
     .fs-row:hover .fs-name { color:#0066cc; }
-    .fs-name { color:#0055aa; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:12px; }
-    .fs-sz   { color:#888; font-size:10px; text-align:right; white-space:nowrap; }
-    .fs-mt   { color:#888; font-size:10px; text-align:right; white-space:nowrap; }
-    .sig-label { font-size:11px; color:#888; margin-bottom:2px; }
+    .fs-name { color:#0055aa; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:13px; }
+    .fs-sz   { color:#555; font-size:12px; text-align:right; white-space:nowrap; }
+    .fs-mt   { color:#555; font-size:12px; text-align:right; white-space:nowrap; }
+    .sig-label-row { display:flex; align-items:flex-start; gap:8px; flex-wrap:wrap; margin-bottom:3px; }
+    .sig-label { font-size:13px; color:#111; white-space:nowrap; padding-top:2px; }
+    /* Bus Analyzer ズームコントロール */
+    .la-zoom-ctrl { display:flex; align-items:center; gap:2px; flex-shrink:0; }
+    .la-zoom-ctrl button {
+      font-size:12px; padding:1px 6px; line-height:1.4;
+      font-family:monospace; background:#e8e8e8; border:1px solid #aaa;
+      cursor:pointer; color:#222;
+    }
+    .la-zoom-ctrl button:hover { background:#d0d0d0; }
+    #la-zoom-lbl {
+      font-size:11px; color:#555; font-family:monospace;
+      min-width:30px; text-align:center; cursor:pointer; user-select:none;
+    }
+    #la-zoom-lbl:hover { color:#111; }
+    /* Bus Analyzer 信号トグル */
+    #la-toggles { display:flex; flex-wrap:wrap; gap:3px; }
+    .sig-tog {
+      display:inline-flex; align-items:center; gap:3px;
+      font-size:11px; font-family:monospace;
+      padding:1px 7px; border-radius:10px; cursor:pointer;
+      border:1px solid #bbb; background:#f0f0f0; color:#444;
+      user-select:none; white-space:nowrap;
+    }
+    .sig-tog.on  { color:#fff; border-color:transparent; }
+    .sig-tog input { display:none; }
     .xterm-viewport::-webkit-scrollbar { display:none; }
     .xterm-viewport { scrollbar-width:none; }
 
@@ -260,14 +287,14 @@
       background:#fafafa;
     }
     #docs-panel .docs-hdr {
-      display:block; font-size:10px; color:#888; font-weight:bold;
+      display:block; font-size:12px; color:#555; font-weight:bold;
       letter-spacing:.04em; white-space:nowrap;
-      padding:3px 6px; border-bottom:1px solid #ddd;
+      padding:4px 6px; border-bottom:1px solid #ddd;
       position:sticky; top:0; background:#f0f0f0;
     }
     #docs-panel a {
       display:block; color:#0055aa; text-decoration:none;
-      font-size:11px; padding:3px 8px;
+      font-size:13px; padding:4px 8px;
       white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
       border-bottom:1px solid #f0f0f0;
       touch-action:manipulation; -webkit-tap-highlight-color:transparent;
@@ -300,29 +327,99 @@
 
     /* ---- Theme custom dropdown ---- */
     .theme-btn {
-      border:1px solid #aaa; padding:2px 20px 2px 6px; cursor:pointer;
-      background:#e8e8e8; font-size:12px; user-select:none;
+      border:1px solid #aaa; padding:4px 24px 4px 8px; cursor:pointer;
+      background:#e8e8e8; font-size:13px; user-select:none;
       position:relative; white-space:nowrap;
     }
     .theme-btn:hover { background:#d0d0d0; }
-    .theme-arrow { position:absolute; right:4px; top:50%; transform:translateY(-50%); font-size:9px; }
+    .theme-arrow { position:absolute; right:6px; top:50%; transform:translateY(-50%); font-size:10px; }
     .theme-list {
       position:absolute; top:100%; left:0; z-index:600;
       border:1px solid #888; box-shadow:0 3px 10px rgba(0,0,0,.35);
       min-width:100%; margin-top:1px;
     }
     .th-item {
-      padding:5px 10px; cursor:pointer;
+      padding:6px 12px; cursor:pointer;
       display:flex; align-items:center; gap:5px;
-      white-space:nowrap; font-size:12px;
+      white-space:nowrap; font-size:13px;
     }
     .th-item:hover { opacity:.8; }
     .th-chk { display:inline-block; width:1em; text-align:center; flex-shrink:0; }
+
+    /* ---- CPU Register panel ---- */
+    #cpu-bar .reg-grp  { display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
+    #cpu-bar .r-lbl    { font-size:11px; color:#666; }
+    #cpu-bar .r-val    { font-size:13px; font-weight:bold; color:#111; letter-spacing:.02em; }
+    #cpu-bar .r-flags  { font-size:11px; font-weight:bold; letter-spacing:.05em; color:#333; }
+    #cpu-bar .r-sep    { color:#ccc; margin:0 4px; }
+    #r-disasm          { font-size:12px; color:#555; font-family:monospace; margin-left:8px; white-space:nowrap;
+                         width:12ch; flex-shrink:0; overflow:hidden; }
+    #r-frozen-badge    {
+      display:none; font-size:11px; font-weight:bold; color:#fff;
+      background:#c03000; padding:1px 6px; border-radius:3px; margin-left:6px;
+    }
+
+    /* ---- Debug panel ---- */
+    #debug-panel {
+      grid-area:debug; margin-top:4px;
+      border:1px solid #bbb; font-size:13px; color:#222;
+    }
+    #debug-panel.hidden { display:none; }
+    #dbg-header {
+      display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+      padding:4px 8px; background:#f0f0f0; border-bottom:1px solid #ccc;
+    }
+    #dbg-header .sig-label { flex-shrink:0; }
+    .dbg-tabs { display:flex; gap:2px; }
+    .dbg-tab {
+      padding:3px 10px; font-size:12px; font-family:monospace;
+      background:#e0e0e0; border:1px solid #bbb; cursor:pointer; color:#333;
+    }
+    .dbg-tab.active { background:#fff; border-bottom-color:#fff; font-weight:bold; color:#111; }
+    .dbg-tab:hover  { background:#d0d0d0; }
+    #dbg-trig-bar {
+      display:flex; align-items:center; gap:4px; flex-wrap:wrap; margin-left:auto;
+    }
+    #dbg-trig-bar button {
+      font-size:12px; padding:3px 9px; font-family:monospace;
+    }
+    #dbg-trig-bar select, #dbg-trig-bar input {
+      font-size:12px; padding:2px 4px; border:1px solid #aaa;
+      font-family:monospace; background:#fff;
+    }
+    .dbg-content {
+      padding:4px 8px; min-height:60px; max-height:160px;
+      overflow-y:auto; font-family:monospace; font-size:12px;
+    }
+    /* Stack view */
+    #tab-stack .stk-row { display:flex; gap:6px; align-items:baseline; border-bottom:1px solid #f0f0f0; padding:1px 0; }
+    #tab-stack .stk-addr { color:#888; width:3em; text-align:right; flex-shrink:0; }
+    #tab-stack .stk-hi   { color:#0055aa; font-weight:bold; width:2em; }
+    #tab-stack .stk-lo   { color:#0055aa; font-weight:bold; width:2em; }
+    #tab-stack .stk-val  { color:#333; }
+    #tab-stack .stk-sp   { background:#fffacc; }
+    /* I/O Log */
+    #tab-iolog .io-row { display:flex; gap:6px; border-bottom:1px solid #f0f0f0; padding:1px 0; }
+    #tab-iolog .io-dir  { width:2em; text-align:center; flex-shrink:0; font-weight:bold; }
+    #tab-iolog .io-out  { color:#cc3333; }
+    #tab-iolog .io-in   { color:#0077cc; }
+    #tab-iolog .io-port { color:#555; width:3em; }
+    #tab-iolog .io-data { color:#222; font-weight:bold; width:3em; }
+    #tab-iolog .io-sym  { color:#888; font-size:11px; }
+    /* Call Trace */
+    #tab-calltrace .ct-row  { display:flex; gap:6px; border-bottom:1px solid #f0f0f0; padding:1px 0; align-items:baseline; }
+    #tab-calltrace .ct-type { width:3em; flex-shrink:0; font-weight:bold; }
+    #tab-calltrace .ct-call { color:#0055aa; }
+    #tab-calltrace .ct-ret  { color:#884400; }
+    #tab-calltrace .ct-from { color:#555; width:4em; }
+    #tab-calltrace .ct-arr  { color:#aaa; }
+    #tab-calltrace .ct-to   { color:#111; font-weight:bold; width:4em; }
+    #tab-calltrace .ct-sym  { color:#888; font-size:11px; }
   </style>
 </head>
 <body>
   <h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #999;">soft-FPGA</a> | 06 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/06-8080" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #999;">Intel 8080 / CP/M 2.2 RTL Simulator</a> <span style="font-size:11px;color:#999;font-weight:normal;">Ver. 1.0.0</span></h2>
-  <p style="font-size:12px;color:#666;margin:0 0 4px;"><a href="https://github.com/1801BM1/vm80a" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">vm80a</a> (decapped die RTL) → <a href="https://www.veripool.org/verilator/" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">Verilator</a> → <a href="https://en.wikipedia.org/wiki/WebAssembly" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">WASM</a> &nbsp;|&nbsp; <a href="https://en.wikipedia.org/wiki/CP/M" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">CP/M 2.2</a> + <a href="https://github.com/tommie-jp/soft-fpga/blob/main/docs/06-8080/30-BIOS実装.md" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">custom BIOS</a></p>
+  <p style="font-size:13px;color:#555;margin:0 0 4px;"><a href="https://github.com/1801BM1/vm80a" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">vm80a</a> (decapped die RTL) → <a href="https://www.veripool.org/verilator/" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">Verilator</a> → <a href="https://en.wikipedia.org/wiki/WebAssembly" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">WASM</a> &nbsp;|&nbsp; <a href="https://en.wikipedia.org/wiki/CP/M" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">CP/M 2.2</a> + <a href="https://github.com/tommie-jp/soft-fpga/blob/main/docs/06-8080/30-BIOS実装.md" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">custom BIOS</a></p>
 
   <!-- Top row: drives + CP/M DOCS 横並び -->
   <div id="top-row">
@@ -344,7 +441,8 @@
       <a href="#" onclick="openDoc('20-サイクルカウンタ.md');return false;">20 サイクルカウンタ</a>
       <a href="#" onclick="openDoc('22-クロック計測とベンチマーク手順.md');return false;">22 クロック計測・ベンチマーク</a>
       <a href="#" onclick="openDoc('23-WordMaster-使い方.md');return false;">23 WordMaster 使い方</a>
-    <a href="#" onclick="openDoc('24-TurboPascal3-使い方.md');return false;">24 Turbo Pascal 3</a>
+      <a href="#" onclick="openDoc('24-TurboPascal3-使い方.md');return false;">24 Turbo Pascal 3</a>
+      <a href="#" onclick="openDoc('25-デバッグパネル-使い方.md');return false;">25 デバッグパネル・信号線表示</a>
       <a href="#" onclick="openDoc('30-BIOS実装.md');return false;">30 カスタム BIOS 実装</a>
       <a href="#" onclick="openDoc('52-メモリマップ.md');return false;">52 メモリマップ &amp; I/O ポート</a>
       <a href="#" onclick="openDoc('53-参考資料.md');return false;">53 参考資料</a>
@@ -373,9 +471,9 @@
       <input id="speed-num" type="number" min="100" max="1000000" step="100"
              title="steps/frame" placeholder="steps/frame"
              style="width:100px;display:none;">
-      <span id="cycle-info" style="font-size:12px;color:#555;margin-left:4px;"></span>
+      <span id="cycle-info" style="font-size:13px;color:#444;margin-left:4px;"></span>
     </label>
-    <span style="font-size:12px;color:#555;">Theme:</span>
+    <span style="font-size:14px;color:#333;">Theme:</span>
     <div id="theme-menu" style="position:relative;display:inline-block;">
       <div id="theme-btn" class="theme-btn">
         <span id="theme-label">Green</span><span class="theme-arrow">▼</span>
@@ -387,8 +485,8 @@
         <div class="th-item" data-value="light" style="background:#fff;color:#111;"><span class="th-chk"></span>Light</div>
       </div>
     </div>
-    <label for="sel-fontsize" style="font-size:12px;color:#555;">Font:</label>
-    <select id="sel-fontsize" style="font-size:12px;padding:2px 4px;cursor:pointer;">
+    <label for="sel-fontsize" style="font-size:14px;color:#333;">Font:</label>
+    <select id="sel-fontsize" style="font-size:13px;padding:3px 6px;cursor:pointer;">
       <option value="6">6px</option>
       <option value="7">7px</option>
       <option value="8">8px</option>
@@ -408,8 +506,22 @@
   <div id="page-body">
     <!-- CPU bar: ターミナル直上 -->
     <div id="cpu-bar">
-      <span class="cpu-lbl">CPU</span>
-      <span class="label">PC : </span><span class="val" id="r-pc">----</span><span class="pc-region" id="r-pc-region"></span>
+      <span class="cpu-lbl" title="Intel 8080 CPU レジスタのリアルタイムスナップショット">CPU</span>
+      <div class="reg-grp">
+        <span class="r-lbl" title="アキュムレータ（8 ビット）">A:</span><span class="r-val" id="r-a" title="アキュムレータ">--</span>
+        <span class="r-sep">|</span>
+        <span class="r-lbl" title="フラグレジスタ。大文字=ON / 小文字=OFF">F:</span><span class="r-flags" id="r-f" title="S(ign) Z(ero) . A(ux-carry) . P(arity) 1 C(arry)&#10;大文字=フラグON / 小文字=フラグOFF">--------</span>
+        <span class="r-sep">|</span>
+        <span class="r-lbl" title="B レジスタペア（BC）">BC:</span><span class="r-val" id="r-bc" title="BC レジスタペア">----</span>
+        <span class="r-lbl" title="D レジスタペア（DE）">DE:</span><span class="r-val" id="r-de" title="DE レジスタペア">----</span>
+        <span class="r-lbl" title="H レジスタペア（HL）。メモリアドレス指定に使用">HL:</span><span class="r-val" id="r-hl" title="HL レジスタペア">----</span>
+        <span class="r-sep">|</span>
+        <span class="r-lbl" title="スタックポインタ。Stack タブでこのアドレスから 8 ワードを確認できます">SP:</span><span class="r-val" id="r-sp" title="スタックポインタ">----</span>
+        <span class="r-sep">|</span>
+        <span class="r-lbl" title="プログラムカウンタ（次に実行する命令のアドレス）">PC:</span><span class="r-val" id="r-pc" title="プログラムカウンタ">----</span><span class="pc-region" id="r-pc-region" title="実行中のメモリ領域（TPA / CCP / BDOS / BIOS）"></span>
+        <span id="r-disasm" title="PC 位置の命令（逆アセンブル）"></span>
+        <span id="r-frozen-badge" title="Ring Buffer 凍結中。Bus Analyzer の波形が静止しています。">FROZEN</span>
+      </div>
     </div>
 
     <div id="terminal-col">
@@ -449,19 +561,112 @@
     </div>
 
     <div id="bus-section">
-      <div class="sig-label">I/O Bus Analyzer (port / data / io_req / io_wr)</div>
+      <div class="sig-label-row">
+        <span class="sig-label">Logic Analyzer</span>
+        <button id="btn-la-toggle" title="Logic Analyzer ON/OFF。OFFにするとリングバッファへの書き込みをスキップして速度向上。エッジ/値トリガーは無効になります。" style="font-size:12px;padding:1px 8px;font-family:monospace;">LA ON</button>
+        <select id="la-fps-sel" title="描画フレームレート。下げるとフレームオーバーヘッドが減り速度向上。" style="font-size:12px;padding:1px 4px;border:1px solid #aaa;background:#fff;font-family:monospace;">
+          <option value="60">60fps</option>
+          <option value="30">30fps</option>
+          <option value="15">15fps</option>
+        </select>
+        <div class="la-zoom-ctrl">
+          <button id="la-zoom-out" title="ズームアウト — より多くのサンプルを表示（マウスホイールでも操作可）">−</button>
+          <span id="la-zoom-lbl" title="現在のズーム倍率。クリックで 1x にリセット">1x</span>
+          <button id="la-zoom-in"  title="ズームイン — サンプルを拡大表示（マウスホイールでも操作可）">＋</button>
+        </div>
+        <div id="la-toggles"></div>
+      </div>
       <canvas id="la" width="900" height="120"></canvas>
+    </div>
+
+    <!-- Debug panel: Bus Analyzer 直下 -->
+    <div id="debug-panel">
+      <div id="dbg-header">
+        <span class="sig-label" title="CPU レジスタ・スタック・I/O・コールトレースをリアルタイム表示するデバッグパネル">Debug</span>
+        <div class="dbg-tabs">
+          <button class="dbg-tab active" data-tab="stack"
+            title="SP から 8 ワード分のスタック内容を表示。黄色行が現在の SP。">Stack</button>
+          <button class="dbg-tab"        data-tab="iolog"
+            title="IN / OUT 命令の履歴（最新 200 件）。赤=OUT、青=IN。">I/O Log</button>
+          <button class="dbg-tab"        data-tab="calltrace"
+            title="CALL / RET 命令の軌跡（最新 64 件）。青=CALL、橙=RET。">Call Trace</button>
+        </div>
+        <div id="dbg-trig-bar">
+          <button id="btn-freeze"
+            title="Ring Buffer を凍結／解除します。凍結中は Bus Analyzer の波形が静止し、CPU バーに FROZEN バッジが表示されます。CPU の動作は継続します。">❄ Freeze</button>
+          <button id="btn-run-to-io"
+            title="次の IN または OUT 命令が発行された瞬間に自動停止します。停止中のときは実行を開始してから I/O を待ちます。">▶ Next I/O</button>
+          <button id="dbg-step" title="1命令ステップ実行 (シミュレーション停止中のみ有効)">▶ Step</button>
+          <select id="trig-type"
+              title="トリガー種別を選択します。条件が成立した瞬間にシミュレーションを自動停止します。">
+              <option value="0">No Trigger</option>
+              <option value="1">On I/O</option>
+              <option value="2">On CALL</option>
+              <option value="3">On RET</option>
+              <option value="4">On Edge ↑</option>
+              <option value="5">On Edge ↓</option>
+              <option value="6">On Value</option>
+              <option value="instr">On Instruction</option>
+              <option value="reg">On Register</option>
+            </select>
+          <select id="trig-val-sig" style="display:none;"
+              title="監視する信号を選択します。">
+            <option value="addr">addr</option>
+            <option value="dbus">dbus</option>
+            <option value="port">port</option>
+            <option value="iodata">io data</option>
+          </select>
+          <input id="trig-instr-pc" type="text" placeholder="FFFF = 任意" style="width:80px;display:none;"
+            title="PC (hex): 停止させたい命令のアドレス。空欄または FFFF で任意のアドレスに反応します。">
+          <input id="trig-instr-opc" type="text" placeholder="FF = 任意" style="width:72px;display:none;"
+            title="Opcode (hex): 停止させたいオペコード。空欄または FF で任意のオペコードに反応します。">
+          <select id="trig-reg-name" style="display:none;"
+              title="監視するレジスタを選択します。">
+            <option value="0">A</option>
+            <option value="1">F</option>
+            <option value="2">B</option>
+            <option value="3">C</option>
+            <option value="4">D</option>
+            <option value="5">E</option>
+            <option value="6">H</option>
+            <option value="7">L</option>
+            <option value="8">SP</option>
+            <option value="9">PC</option>
+            <option value="10">BC</option>
+            <option value="11">DE</option>
+            <option value="12">HL</option>
+            <option value="13">IR</option>
+          </select>
+          <input id="trig-reg-val" type="text" placeholder="値 (hex)" style="width:70px;display:none;"
+            title="レジスタが一致したとき停止します。8bit/IR: 00–FF、16bit: 0000–FFFF。毎クロック比較します。">
+          <input id="trig-addr" type="text" placeholder="addr/port (hex)" style="width:90px;"
+            title="フィルタ値を 16 進で入力します。On I/O ならポート番号（例: 01）、On CALL / On RET なら分岐先アドレス（例: F200）。空欄のとき任意に反応します。">
+          <input id="trig-post" type="text" placeholder="post (clks)" style="width:80px;"
+            title="トリガー成立後に取得するクロック数（0 = 即座に停止）。省略時は 0。">
+          <button id="btn-trig-set"
+            title="入力した種別とフィルタでトリガーをセットします。">Set</button>
+          <button id="btn-trig-clear"
+            title="トリガーを解除します（No Trigger に戻します）。">Clear</button>
+          <button id="btn-goto-trig"
+            title="トリガー発火位置をタイミング図の中心に表示します。トリガー発火後のみ有効。">⊙Trig</button>
+          <button id="btn-clear-calllog"
+            title="Call Trace タブの記録をすべて消去します。">CL</button>
+        </div>
+      </div>
+      <div id="tab-stack"     class="dbg-content"></div>
+      <div id="tab-iolog"     class="dbg-content" style="display:none;"></div>
+      <div id="tab-calltrace" class="dbg-content" style="display:none;"></div>
     </div>
 
     <!-- WASM FS panel: Bus Analyzer と copyright の間 -->
     <div id="fs-panel">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;padding-bottom:4px;border-bottom:1px solid #ccc;">
-        <span style="font-size:11px;color:#888;font-weight:bold;">WASM FS</span>
+        <span style="font-size:13px;color:#444;font-weight:bold;">WASM FS</span>
         <div style="display:flex;gap:4px;">
-          <label class="btn-dl" style="padding:1px 6px;font-size:10px;cursor:pointer;" title="Upload files to WASM FS">
+          <label class="btn-dl" style="padding:3px 8px;font-size:12px;cursor:pointer;" title="Upload files to WASM FS">
             Upload<input id="fs-upload" type="file" multiple style="display:none;">
           </label>
-          <button id="btn-save-fs" class="btn-dl" style="padding:1px 6px;font-size:10px;" title="Save WASM FS to IndexedDB">Save</button>
+          <button id="btn-save-fs" class="btn-dl" style="padding:3px 8px;font-size:12px;" title="Save WASM FS to IndexedDB">Save</button>
         </div>
       </div>
       <div id="drop-hint">Drop / Upload → WASM FS &nbsp;|&nbsp; CP/M: <b>R filename</b></div>
@@ -469,10 +674,11 @@
       <div id="fs-list"></div>
     </div>
 
-    <p id="copyright" style="font-size:11px;color:#aaa;margin:6px 0 0;">
+    <p id="copyright" style="font-size:13px;color:#888;margin:6px 0 0;">
       &copy; 2026 <a href="https://github.com/tommie-jp" target="_blank" rel="noopener" style="color:#aaa;">tommie.jp</a>
       &nbsp;&mdash;&nbsp;
       <a href="06-8080-QR.png" target="_blank" rel="noopener" style="color:#aaa;">QR</a>
+      <span id="file-versions" style="font-size:11px;color:#bbb;margin-left:10px;font-family:monospace;"></span>
     </p>
   </div>
 
@@ -505,62 +711,887 @@
 
   <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
   <script>
+  // ---- 8080 逆アセンブラ ----
+  // 引数: b0, b1, b2 (PC, PC+1, PC+2 の各バイト)
+  // 戻り値: ニーモニック文字列
+  function disasm8080(b0, b1, b2) {
+    var h2 = function(n) { return (n & 0xFF).toString(16).toUpperCase().padStart(2, '0'); };
+    var h4 = function(n) { return (n & 0xFFFF).toString(16).toUpperCase().padStart(4, '0'); };
+    var R   = ['B','C','D','E','H','L','M','A'];
+    var RP  = ['B','D','H','SP'];
+    var ALU = ['ADD','ADC','SUB','SBB','ANA','XRA','ORA','CMP'];
+    var CC  = ['NZ','Z','NC','C','PO','PE','P','M'];
+    var op  = b0 & 0xFF;
+    var r1  = (op >> 3) & 7, r2 = op & 7, rp = (op >> 4) & 3;
+    var i8  = b1 & 0xFF, i16 = (b1 & 0xFF) | ((b2 & 0xFF) << 8);
+    // MOV: 01 DDD SSS (76 = HLT を除く)
+    if (op >= 0x40 && op <= 0x7F && op !== 0x76) return 'MOV ' + R[r1] + ',' + R[r2];
+    // ALU reg: 10 OOO SSS
+    if (op >= 0x80 && op <= 0xBF) return ALU[(op >> 3) & 7] + ' ' + R[r2];
+    // 正規グループ (rp 関連)
+    switch (op & 0xCF) {
+      case 0x01: return 'LXI '  + RP[rp] + ',$' + h4(i16);
+      case 0x03: return 'INX '  + RP[rp];
+      case 0x09: return 'DAD '  + RP[rp];
+      case 0x0B: return 'DCX '  + RP[rp];
+      case 0xC1: return 'POP '  + (rp === 3 ? 'PSW' : RP[rp]);
+      case 0xC5: return 'PUSH ' + (rp === 3 ? 'PSW' : RP[rp]);
+    }
+    // 正規グループ (r1 関連)
+    switch (op & 0xC7) {
+      case 0x04: return 'INR ' + R[r1];
+      case 0x05: return 'DCR ' + R[r1];
+      case 0x06: return 'MVI ' + R[r1] + ',$' + h2(i8);
+      case 0xC0: return 'R'   + CC[(op >> 3) & 7];
+      case 0xC2: return 'J'   + CC[(op >> 3) & 7] + ' $' + h4(i16);
+      case 0xC4: return 'C'   + CC[(op >> 3) & 7] + ' $' + h4(i16);
+      case 0xC6: return ALU[(op >> 3) & 7] + 'I $' + h2(i8);
+      case 0xC7: return 'RST ' + ((op >> 3) & 7);
+    }
+    switch (op) {
+      case 0x00: return 'NOP';
+      case 0x02: return 'STAX B';  case 0x07: return 'RLC';
+      case 0x0A: return 'LDAX B';  case 0x0F: return 'RRC';
+      case 0x12: return 'STAX D';  case 0x17: return 'RAL';
+      case 0x1A: return 'LDAX D';  case 0x1F: return 'RAR';
+      case 0x22: return 'SHLD $' + h4(i16);
+      case 0x27: return 'DAA';
+      case 0x2A: return 'LHLD $' + h4(i16);
+      case 0x2F: return 'CMA';
+      case 0x32: return 'STA $'  + h4(i16);
+      case 0x37: return 'STC';
+      case 0x3A: return 'LDA $'  + h4(i16);
+      case 0x3F: return 'CMC';
+      case 0x76: return 'HLT';
+      case 0xC3: return 'JMP $'  + h4(i16);
+      case 0xC9: return 'RET';
+      case 0xCD: return 'CALL $' + h4(i16);
+      case 0xD3: return 'OUT $'  + h2(i8);
+      case 0xDB: return 'IN $'   + h2(i8);
+      case 0xE3: return 'XTHL';  case 0xE9: return 'PCHL';
+      case 0xEB: return 'XCHG';
+      case 0xF3: return 'DI';    case 0xF9: return 'SPHL';  case 0xFB: return 'EI';
+    }
+    return 'DB $' + h2(op);
+  }
+
+  // I/O ポートシンボル表 (CP/M BIOS I/O ポート)
+  var IO_SYMS = {
+    0x00:'CONIN', 0x01:'CONOUT', 0x02:'CONST',
+    0x10:'DCMD', 0x11:'DTRK', 0x12:'DSEC',
+    0x13:'DDMAL', 0x14:'DDMAH', 0x15:'DDRV',
+    0x20:'WBOOT',
+    0x30:'CYCRST', 0x31:'CYC1', 0x32:'CYC2', 0x33:'CYC3',
+    0x34:'FMHZ', 0x35:'FMHZH', 0x36:'FKHZ', 0x37:'FHZ',
+    0x38:'FLAT',
+    0xA1:'HFILE',
+  };
+
+  // CP/M アドレスシンボル表（よく使われる BIOS/BDOS エントリなど）
+  var ADDR_SYMS = {
+    0x0000:'BOOT', 0x0005:'BDOS', 0x0080:'DMA',
+    0xDC00:'CCP',  0xE400:'BDOS', 0xF200:'BIOS',
+  };
+  function addrSym(a) { return ADDR_SYMS[a] || ''; }
+
+  // 8080 フラグレジスタ → 表示文字列 (例: sZ.a.P1c)
+  // S Z . AC . P 1 C (bit 7〜0)
+  function fmtFlags8080(v) {
+    var f = v & 0xFF;
+    return (f & 0x80 ? 'S' : 's') +
+           (f & 0x40 ? 'Z' : 'z') +
+           '.' +
+           (f & 0x10 ? 'A' : 'a') +
+           '.' +
+           (f & 0x04 ? 'P' : 'p') +
+           '1' +
+           (f & 0x01 ? 'C' : 'c');
+  }
+
+  // ---- I/O ログ状態 ----
+  var ioLog        = [];   // [{port, data, isWrite}, ...]
+  var ioLogMaxLen  = 200;
+  var prevRingHead = 0;
+
+  function processRingForIOLog(ring32, newHead) {
+    var n = Math.min((newHead - prevRingHead) >>> 0, 4096);
+    for (var i = 0; i < n; i++) {
+      var idx = (prevRingHead + i) & (4096 - 1);
+      var s   = ring32[idx * 6] >>> 0;  // Word 0（6 ワード/サンプル）
+      if (s & (1 << 24)) {  // io_req
+        ioLog.push({ port: s & 0xFF, data: (s >> 16) & 0xFF, isWrite: !!(s & (1 << 25)) });
+        if (ioLog.length > ioLogMaxLen) ioLog.shift();
+      }
+    }
+    prevRingHead = newHead;
+  }
+
+  // ---- UI 更新ヘルパー ----
+  function h2(n) { return (n & 0xFF).toString(16).toUpperCase().padStart(2, '0'); }
+  function h4(n) { return (n & 0xFFFF).toString(16).toUpperCase().padStart(4, '0'); }
+
+  function updateRegPanel(regs8, pcBytes3) {
+    var A = regs8[0], F = regs8[1];
+    var B = regs8[2], C = regs8[3], D = regs8[4], E = regs8[5];
+    var H = regs8[6], L = regs8[7];
+    var SPH = regs8[8], SPL = regs8[9];
+    var PCH = regs8[10], PCL = regs8[11];
+    document.getElementById('r-a').textContent  = h2(A);
+    // F フラグ: S Z . AC . P 1 C
+    var flagStr =
+      (F & 0x80 ? 'S' : 's') +
+      (F & 0x40 ? 'Z' : 'z') +
+      '.' +
+      (F & 0x10 ? 'A' : 'a') +
+      '.' +
+      (F & 0x04 ? 'P' : 'p') +
+      '1' +
+      (F & 0x01 ? 'C' : 'c');
+    document.getElementById('r-f').textContent  = flagStr;
+    document.getElementById('r-bc').textContent = h2(B) + h2(C);
+    document.getElementById('r-de').textContent = h2(D) + h2(E);
+    document.getElementById('r-hl').textContent = h2(H) + h2(L);
+    document.getElementById('r-sp').textContent = h2(SPH) + h2(SPL);
+    document.getElementById('r-pc').textContent = h2(PCH) + h2(PCL);
+    updatePcRegion((PCH << 8) | PCL);
+    // 逆アセンブル表示
+    var mnem = disasm8080(pcBytes3[0], pcBytes3[1], pcBytes3[2]);
+    document.getElementById('r-disasm').textContent = mnem;
+  }
+
+  var _activeDbgTab = 'stack';
+  function switchDbgTab(tab) {
+    _activeDbgTab = tab;
+    document.querySelectorAll('.dbg-tab').forEach(function(b) {
+      b.classList.toggle('active', b.getAttribute('data-tab') === tab);
+    });
+    document.getElementById('tab-stack').style.display     = tab === 'stack'     ? '' : 'none';
+    document.getElementById('tab-iolog').style.display     = tab === 'iolog'     ? '' : 'none';
+    document.getElementById('tab-calltrace').style.display = tab === 'calltrace' ? '' : 'none';
+  }
+
+  function renderStackView(stackBytes, sp) {
+    if (_activeDbgTab !== 'stack') return;
+    var el = document.getElementById('tab-stack');
+    var rows = '';
+    for (var i = 0; i < 8; i++) {
+      var addr = (sp + i * 2) & 0xFFFF;
+      var lo   = stackBytes[i * 2] & 0xFF;
+      var hi   = stackBytes[i * 2 + 1] & 0xFF;
+      var val  = (hi << 8) | lo;
+      var sym  = addrSym(val);
+      rows += '<div class="stk-row' + (i === 0 ? ' stk-sp' : '') + '">' +
+        '<span class="stk-addr">' + (i === 0 ? 'SP→' : '+' + (i*2)) + '</span>' +
+        '<span class="stk-hi">' + h2(hi) + '</span>' +
+        '<span class="stk-lo">' + h2(lo) + '</span>' +
+        '<span class="stk-val">$' + h4(val) + (sym ? ' <em>' + sym + '</em>' : '') + '</span>' +
+        '</div>';
+    }
+    el.innerHTML = rows || '<div style="color:#aaa;">(empty)</div>';
+  }
+
+  function renderIOLog() {
+    if (_activeDbgTab !== 'iolog') return;
+    var el = document.getElementById('tab-iolog');
+    if (!ioLog.length) { el.innerHTML = '<div style="color:#aaa;">(no I/O yet)</div>'; return; }
+    var rows = '';
+    var start = Math.max(0, ioLog.length - 60);
+    for (var i = ioLog.length - 1; i >= start; i--) {
+      var e = ioLog[i];
+      var sym = IO_SYMS[e.port] || '';
+      rows += '<div class="io-row">' +
+        '<span class="io-dir ' + (e.isWrite ? 'io-out' : 'io-in') + '">' + (e.isWrite ? 'OUT' : 'IN') + '</span>' +
+        '<span class="io-port">$' + h2(e.port) + '</span>' +
+        '<span class="io-data">$' + h2(e.data) + '</span>' +
+        '<span class="io-sym">' + sym + '</span>' +
+        '</div>';
+    }
+    el.innerHTML = rows;
+  }
+
+  var lastCallLogHead = 0;
+  function renderCallTrace(callLog32, callLogHead) {
+    if (_activeDbgTab !== 'calltrace') return;
+    var el = document.getElementById('tab-calltrace');
+    if (!callLogHead) { el.innerHTML = '<div style="color:#aaa;">(no calls yet)</div>'; return; }
+    var count = Math.min(callLogHead >>> 0, 64);
+    var head  = callLogHead >>> 0;
+    var rows  = '';
+    for (var i = 0; i < count && i < 40; i++) {
+      var idx   = ((head - 1 - i) % 64 + 64) % 64;
+      var w0    = callLog32[idx * 2    ] >>> 0;
+      var w1    = callLog32[idx * 2 + 1] >>> 0;
+      var from  = w0 & 0xFFFF;
+      var isRet = (w0 >> 16) & 1;
+      var to    = w1 & 0xFFFF;
+      var sym   = addrSym(to);
+      rows += '<div class="ct-row">' +
+        '<span class="ct-type ' + (isRet ? 'ct-ret' : 'ct-call') + '">' + (isRet ? 'RET' : 'CALL') + '</span>' +
+        '<span class="ct-from">$' + h4(from) + '</span>' +
+        '<span class="ct-arr">→</span>' +
+        '<span class="ct-to">$' + h4(to) + '</span>' +
+        '<span class="ct-sym">' + sym + '</span>' +
+        '</div>';
+    }
+    el.innerHTML = rows || '<div style="color:#aaa;">(empty)</div>';
+  }
+
   // ---- Logic Analyzer ----
-  const LA_SIGNALS = [
-    { label:'port',   bit:0,  type:'hex', width:8, color:'#0077cc' },
-    { label:'data',   bit:16, type:'hex', width:8, color:'#009900' },
-    { label:'io_req', bit:24, type:'bit', width:1, color:'#cc7700' },
-    { label:'io_wr',  bit:25, type:'bit', width:1, color:'#cc3333' },
+  // ring buffer bit layout:
+  //  [ 7: 0] io_addr(port)  [ 8] DBIN  [ 9] SYNC  [10] WR_N  [11] HLDA
+  //  [12] WAIT  [13] INTE  [14] MEMR  [15] MEMW
+  //  [23:16] io_dout(data)  [24] io_req  [25] io_wr
+  const LA_SIGNALS_ALL = [
+    // --- I/O バス (Word 0) ---
+    { id:'port',   label:'port',   word:0, bit:0,  type:'hex', width:8,  color:'#0077cc', on:true,  tip:'I/O ポート番号（バス [7:0]）。IN/OUT 命令が発行されたクロックに有効な値が現れます。' },
+    { id:'data',   label:'data',   word:0, bit:16, type:'hex', width:8,  color:'#009900', on:true,  tip:'I/O データ（バス [23:16]）。OUT ならCPU が書いた値、IN なら周辺から読んだ値です。' },
+    { id:'io_req', label:'io_req', word:0, bit:24, type:'bit', width:1,  color:'#cc7700', on:true,  tip:'I/O サイクル発生フラグ。IN または OUT 命令の実行クロックで 1 になります。' },
+    { id:'io_wr',  label:'io_wr',  word:0, bit:25, type:'bit', width:1,  color:'#cc3333', on:true,  tip:'I/O 書き込み方向。1=OUT（CPU→周辺）、0=IN（周辺→CPU）。io_req が 1 のときのみ有効。' },
+    { id:'t_state',label:'T',      word:0, bit:26, type:'hex', width:6,  color:'#336699', on:true,  tip:'T ステート番号（マシンサイクル内の位置）。SYNC=1 のクロックで 1 にリセットし、以降毎クロック加算。io_req と組み合わせると OUT が M5 T3 で確定することを確認できます。' },
+    { id:'status', label:'status',word:4, bit:0,  type:'hex', width:8,  color:'#445566', on:false, tip:'SYNC でラッチした 8080 ステータスバイト。0xA2=FETCH, 0x82=MEM_RD, 0x10=IO_OUT, 0x40=IO_IN。デコードレーン(M-CYC行)の色分けはこの値に基づきます。' },
+    { id:'ir',     label:'IR',    word:4, bit:8,  type:'hex', width:8,  color:'#aa3366', on:false, tip:'命令レジスタ (Instruction Register)。M1 フェッチサイクル完了後に確定するオペコード。MVI A=3E, OUT=D3, HLT=76 など。フェッチ中（MEMR=1 のクロック）はまだ古い値を保持していることがあります。' },
+    { id:'pc',   label:'PC',   word:5, bit:0,  type:'hex', width:16, color:'#2255aa', on:false,
+      group:'CPU', desc:'プログラムカウンタ (vm80a r16_pc レジスタ値)' },
+    { id:'sp',   label:'SP',   word:5, bit:16, type:'hex', width:16, color:'#aa5522', on:false,
+      group:'CPU', desc:'スタックポインタ (vm80a r16_sp レジスタ値)' },
+    // --- アドレスバス (Word 1) ---
+    { id:'addr',   label:'addr',   word:1, bit:0,  type:'hex', width:16, color:'#880088', on:false, tip:'アドレスバス（16 ビット）。命令フェッチ時は PC、メモリ読み書き時はアクセス先アドレス（HL/SP/BC/DE など）、IN/OUT 時は I/O ポート番号が現れます。MEMR/MEMW/SYNC と組み合わせると各サイクルのアクセス先が読み取れます。' },
+    // --- バスサイクル制御 (Word 0) ---
+    { id:'dbin',   label:'DBIN',   word:0, bit:8,  type:'bit', width:1,  color:'#0099cc', on:false, tip:'Data Bus IN（データバス入力イネーブル）。CPU がバスからデータを読むクロックで 1 になります。' },
+    { id:'sync',   label:'SYNC',   word:0, bit:9,  type:'bit', width:1,  color:'#9900cc', on:false, tip:'マシンサイクル開始ストローブ。M1（命令フェッチ）やメモリ・I/O サイクルの先頭クロックで 1 になります。SYNC 立ち上がりでオペコードを確定します。' },
+    { id:'wr_n',   label:'WR_N',   word:0, bit:10, type:'bit', width:1,  color:'#cc5500', on:false, tip:'バス書き込みストローブ（負論理）。メモリ書き込みまたは OUT 命令のデータ確定クロックで 0 になります。' },
+    { id:'hlda',   label:'HLDA',   word:0, bit:11, type:'bit', width:1,  color:'#887700', on:false, tip:'バスホールド応答（HLDA）。DMA 等のバスホールド要求に対して CPU がバスを開放したことを示します。' },
+    { id:'wait',   label:'WAIT',   word:0, bit:12, type:'bit', width:1,  color:'#888888', on:false, tip:'ウェイト状態。このシミュレーターでは常に 0 です（WAIT ステートなし）。' },
+    { id:'inte',   label:'INTE',   word:0, bit:13, type:'bit', width:1,  color:'#006688', on:false, tip:'割り込みイネーブルフラグ（INTE）。EI 命令で 1、DI 命令で 0 になります。' },
+    // --- メモリアクセス (Word 0) ---
+    { id:'memr',   label:'MEMR',   word:0, bit:14, type:'bit', width:1,  color:'#007744', on:false, tip:'メモリ読み出しサイクル。命令フェッチ・LDAX など、メモリからデータを読むクロックで 1 になります。' },
+    { id:'memw',   label:'MEMW',   word:0, bit:15, type:'bit', width:1,  color:'#005522', on:false, tip:'メモリ書き込みサイクル。STAX・PUSH など、メモリへデータを書くクロックで 1 になります。' },
+    // --- データ値 (Word 1 上位) ---
+    { id:'din',    label:'din',    word:1, bit:16, type:'hex', width:8,  color:'#008888', on:false, tip:'I/O 読みデータ（IN 命令で CPU が周辺から受け取る値）。io_req=1 かつ io_wr=0 のサンプルで有効。' },
+    { id:'acc',    label:'A',      word:1, bit:24, type:'hex', width:8,  color:'#aa4400', on:false, tip:'アキュムレータ A の連続スナップショット。BDOS コール後の戻り値（エラーコード等）の確認に便利。' },
+    // --- 全レジスタ (Word 2) ---
+    { id:'reg_f',  label:'F',      word:2, bit:0,  type:'hex', width:8,  color:'#555599', on:false, fmt:'flags8080', tip:'フラグレジスタ F。セグメント内に SZ.A.P1C を大文字(ON)/小文字(OFF)で表示します。' },
+    { id:'reg_b',  label:'B',      word:2, bit:8,  type:'hex', width:8,  color:'#007755', on:false, tip:'レジスタ B。BC ペアの上位バイト。LDIR 代替ループカウンタや汎用レジスタとして使用されます。' },
+    { id:'reg_c',  label:'C',      word:2, bit:16, type:'hex', width:8,  color:'#00aa55', on:false, tip:'レジスタ C。BC ペアの下位バイト。CP/M では BDOS ファンクション番号として使われます（CALL 5 の前に C にセット）。' },
+    { id:'reg_d',  label:'D',      word:2, bit:24, type:'hex', width:8,  color:'#996600', on:false, tip:'レジスタ D。DE ペアの上位バイト。文字列ポインタや汎用アドレスレジスタとして使われます。' },
+    // --- 全レジスタ + CPU データバス (Word 3) ---
+    { id:'reg_e',  label:'E',      word:3, bit:0,  type:'hex', width:8,  color:'#cc8800', on:false, tip:'レジスタ E。DE ペアの下位バイト。CP/M では BDOS パラメータアドレス（DMA など）の下位バイトとして使われます。' },
+    { id:'reg_h',  label:'H',      word:3, bit:8,  type:'hex', width:8,  color:'#6600aa', on:false, tip:'レジスタ H。HL ペアの上位バイト。主にメモリポインタとして使われます（M = (HL)）。' },
+    { id:'reg_l',  label:'L',      word:3, bit:16, type:'hex', width:8,  color:'#9900cc', on:false, tip:'レジスタ L。HL ペアの下位バイト。MEMR/MEMW と合わせると HL が指すアドレスへのアクセスを確認できます。' },
+    { id:'dbus',   label:'dbus',   word:3, bit:24, type:'hex', width:8,  color:'#cc0066', on:false, tip:'CPU データバス（全サイクル対応）。MEMR=RAMの読み出しデータ、MEMW/IO OUT=CPUが書くデータ、IO IN=周辺が返すデータ。din とは異なりメモリアクセスのデータも表示します。' },
   ];
-  const LA_H=120, LA_W=900, LABEL_W=56, VIEW_W=LA_W-LABEL_W;
-  const TRACK_H = LA_H / LA_SIGNALS.length;
+  const LA_W=900, LABEL_W=56, VIEW_W=LA_W-LABEL_W;
+  const LA_TRACK_H    = 28;  // 1 トラックあたりの高さ(px)
+  const TIME_RULER_H  = 14;  // 時間ルーラーの高さ(px)
+  const DECODE_LANE_H = 22;  // マシンサイクルデコードレーン高さ(px)
+  const RING_WORDS    = 6;   // ワード/サンプル (harness: RING_SIZE * 6)
+  var   laH = 0;          // 現在のキャンバス論理高さ（アクティブ信号数 × LA_TRACK_H）
+
+  // ---- ズーム / パン状態 ----
+  // laZoom: 1px あたりのサンプル数の逆数 (1=等倍, 2=2倍拡大, 0.5=2倍縮小)
+  // laPan:  head から何サンプル遡るか (0=最新を表示)
+  var LA_ZOOM_LEVELS = [0.25, 0.5, 1, 2, 4, 8, 16, 32, 64];
+  // デコードレーン表示状態
+  var showDecodeLane = localStorage.getItem('la_decode_lane') !== '0';
+
+  // 8080 ステータスバイトからマシンサイクルタイプを判定
+  var MTYPE_FETCH  = { label:'FETCH',  color:'rgba(40,90,200,0.60)'  };
+  var MTYPE_MEM_RD = { label:'MEM RD', color:'rgba(30,150,30,0.60)'  };
+  var MTYPE_MEM_WR = { label:'MEM WR', color:'rgba(180,110,0,0.60)'  };
+  var MTYPE_IO_IN  = { label:'IO IN',  color:'rgba(0,120,220,0.65)'  };
+  var MTYPE_IO_OUT = { label:'IO OUT', color:'rgba(200,30,30,0.65)'  };
+
+  function getMachineType(s) {
+    if (!s) return null;
+    if (s & 0x40) return MTYPE_IO_IN;   // cycle_inp = status[6]
+    if (s & 0x10) return MTYPE_IO_OUT;  // cycle_out = status[4]
+    if (s & 0x20) return MTYPE_FETCH;   // M1 bit = status[5] (0xA2 に存在)
+    if (s & 0x80) return MTYPE_MEM_RD;  // bit7 (0x82 に存在)
+    return MTYPE_MEM_WR;
+  }
+
+  var laZoomIdx    = 2;   // 初期値: 1x
+  var laZoom       = 1;
+  var laPan        = 0;   // フリーズ中のみ有効（非フリーズ中は loop() がリセット）
+  var laCursorViewX   = -1;   // canvas 内カーソル X（LABEL_W 基準の論理 px）; -1 = 非表示
+  var laMarkerA       = null; // A マーカー絶対サンプル番号（null = 未設置）
+  var laMarkerB       = null; // B マーカー絶対サンプル番号（null = 未設置）
+  var laLastStartSamp = 0;    // drawLA が最後に計算した startSamp（クリック→サンプル変換用）
+  var laLastHead      = 0;    // drawLA が最後に受け取った head（カーソル中心ズーム用）
+  var laFrozen        = false; // リングバッファが現在フリーズ中か（loop() が毎フレーム更新）
+  var laOn            = true;  // Logic Analyzer ON/OFF（false 時は描画・リングコピーをスキップ）
+  var laTrackDragIdx  = null; // ドラッグ中のトラック番号（activeSigs インデックス）; null = 非ドラッグ
+  var laTrackDragY    = 0;    // ドラッグ中のマウス Y（canvas 論理 px）
+
+  function laSetZoom(idx) {
+    var oldZoom = laZoom;
+    laZoomIdx = Math.max(0, Math.min(LA_ZOOM_LEVELS.length - 1, idx));
+    laZoom    = LA_ZOOM_LEVELS[laZoomIdx];
+    var lbl   = document.getElementById('la-zoom-lbl');
+    if (lbl) lbl.textContent = laZoom >= 1 ? laZoom + 'x' : '1/' + Math.round(1/laZoom) + 'x';
+
+    // カーソル中心ズーム（フリーズ中のみ有効）:
+    //   カーソルが canvas 上にある → カーソル位置を基点
+    //   カーソルが canvas 外（ボタン等）→ グラフ中央を基点
+    // 非フリーズ中は laPan=0 が loop() で毎フレーム上書きされるため計算しない
+    if (laFrozen) {
+      var focusViewX = (laCursorViewX >= 0 && laCursorViewX <= VIEW_W)
+                       ? laCursorViewX
+                       : VIEW_W / 2;
+      // 旧ズームでフォーカス位置にあったサンプルを求める
+      var focusSamp = laLastStartSamp + Math.floor(focusViewX / oldZoom);
+      // 新ズームで同サンプルを同ピクセルに置くための startSamp と laPan を計算
+      var newSamplesInView = Math.ceil(VIEW_W / laZoom);
+      var newStartSamp     = focusSamp - Math.floor(focusViewX / laZoom);
+      laPan = Math.max(0, (laLastHead - newStartSamp - newSamplesInView) | 0);
+    }
+  }
+
+  // visible フラグを localStorage から復元
+  var sigVisible = {};
+  LA_SIGNALS_ALL.forEach(function(s) {
+    var saved = localStorage.getItem('la_sig_' + s.id);
+    sigVisible[s.id] = saved !== null ? saved === '1' : s.on;
+  });
+
+  // 信号の表示順（全 ID の並び順; localStorage から復元）
+  var sigOrder = LA_SIGNALS_ALL.map(function(s) { return s.id; });
+  (function() {
+    try {
+      var sv = localStorage.getItem('la_sig_order');
+      if (!sv) return;
+      var parsed = JSON.parse(sv);
+      var allIds = LA_SIGNALS_ALL.map(function(s) { return s.id; });
+      // 既知の全 ID を含む場合のみ採用（新信号追加時の互換性を保つ）
+      if (Array.isArray(parsed) &&
+          allIds.every(function(id) { return parsed.indexOf(id) >= 0; })) {
+        sigOrder = parsed;
+      }
+    } catch (e) {}
+  })();
+
+  // sigOrder に従い active（visible）な信号を返す
+  function getActiveSigs() {
+    return sigOrder
+      .map(function(id) {
+        for (var i = 0; i < LA_SIGNALS_ALL.length; i++) {
+          if (LA_SIGNALS_ALL[i].id === id) return LA_SIGNALS_ALL[i];
+        }
+        return null;
+      })
+      .filter(function(s) { return s && sigVisible[s.id]; });
+  }
+
+  // シグナルグループ定義
+  var LA_SIGNAL_GROUPS = [
+    { label:'I/O',     ids:['port','data','io_req','io_wr','t_state'] },
+    { label:'Control', ids:['dbin','sync','wr_n','hlda','wait','inte'] },
+    { label:'Mem',     ids:['addr','memr','memw','dbus'] },
+    { label:'Data',    ids:['status','ir','din','acc','reg_f','reg_b','reg_c','reg_d','reg_e','reg_h','reg_l'] },
+    { label:'CPU',     ids:['pc','sp'] },
+  ];
+
+  function buildLAToggles() {
+    var el = document.getElementById('la-toggles');
+    el.innerHTML = '';
+
+    // デコードレーンボタン
+    var decBtn = document.createElement('label');
+    decBtn.className = 'sig-tog' + (showDecodeLane ? ' on' : '');
+    decBtn.style.background = showDecodeLane ? '#445566' : '';
+    decBtn.style.borderRadius = '10px';
+    decBtn.title = 'マシンサイクルデコードレーン（M-CYC）の表示切替。FETCH/MEM_RD/MEM_WR/IO_IN/IO_OUT を色付きブロックで表示します。';
+    decBtn.innerHTML = '<input type="checkbox"' + (showDecodeLane ? ' checked' : '') + '> M-CYC';
+    decBtn.querySelector('input').addEventListener('change', function() {
+      showDecodeLane = this.checked;
+      localStorage.setItem('la_decode_lane', this.checked ? '1' : '0');
+      decBtn.className = 'sig-tog' + (this.checked ? ' on' : '');
+      decBtn.style.background = this.checked ? '#445566' : '';
+      updateLACanvas();
+    });
+    el.appendChild(decBtn);
+
+    // グループ区切り
+    var sep = document.createElement('span');
+    sep.style.cssText = 'color:#bbb;font-size:13px;align-self:center;margin:0 2px;user-select:none;';
+    sep.textContent = '|';
+    el.appendChild(sep);
+
+    // グループ別にシグナルトグルを描画
+    LA_SIGNAL_GROUPS.forEach(function(grp, gi) {
+      // グループラベル
+      var glbl = document.createElement('span');
+      glbl.style.cssText = 'font-size:10px;color:#888;align-self:center;margin-right:1px;user-select:none;white-space:nowrap;';
+      glbl.textContent = grp.label + ':';
+      el.appendChild(glbl);
+
+      // グループ内シグナル（sigOrder 順）
+      sigOrder.forEach(function(id) {
+        if (grp.ids.indexOf(id) < 0) return;
+        var s;
+        for (var i = 0; i < LA_SIGNALS_ALL.length; i++) {
+          if (LA_SIGNALS_ALL[i].id === id) { s = LA_SIGNALS_ALL[i]; break; }
+        }
+        if (!s) return;
+        var lbl = document.createElement('label');
+        lbl.className = 'sig-tog' + (sigVisible[s.id] ? ' on' : '');
+        lbl.style.background = sigVisible[s.id] ? s.color : '';
+        if (s.tip) lbl.title = s.tip;
+        lbl.innerHTML = '<input type="checkbox"' + (sigVisible[s.id] ? ' checked' : '') + '> ' + s.label;
+        lbl.querySelector('input').addEventListener('change', (function(sig, l) {
+          return function() {
+            sigVisible[sig.id] = this.checked;
+            localStorage.setItem('la_sig_' + sig.id, this.checked ? '1' : '0');
+            l.className = 'sig-tog' + (this.checked ? ' on' : '');
+            l.style.background = this.checked ? sig.color : '';
+            updateLACanvas();
+          };
+        })(s, lbl));
+        el.appendChild(lbl);
+      });
+
+      // グループ間セパレータ（最後以外）
+      if (gi < LA_SIGNAL_GROUPS.length - 1) {
+        var gsep = document.createElement('span');
+        gsep.style.cssText = 'color:#ddd;font-size:13px;align-self:center;margin:0 1px;user-select:none;';
+        gsep.textContent = '|';
+        el.appendChild(gsep);
+      }
+    });
+  }
+
+  function updateLACanvas() {
+    var n = getActiveSigs().length || 1;
+    laH = (showDecodeLane ? DECODE_LANE_H : 0) + n * LA_TRACK_H + 2 * TIME_RULER_H;
+    var canvas = document.getElementById('la');
+    canvas.width  = LA_W * laDpr;
+    canvas.height = laH  * laDpr;
+    canvas.style.width  = LA_W + 'px';
+    canvas.style.height = laH  + 'px';
+    laCtx = canvas.getContext('2d');
+    laCtx.setTransform(laDpr, 0, 0, laDpr, 0, 0);
+  }
+
+  // CP/M メモリ領域定義（addr 信号背景色）
+  var CPM_REGIONS = [
+    { lo: 0x0000, hi: 0x00FF, color: 'rgba(255,180,0,0.18)',  name: 'P0'   },
+    { lo: 0xDC00, hi: 0xE3FF, color: 'rgba(0,100,255,0.14)',  name: 'CCP'  },
+    { lo: 0xE400, hi: 0xF1FF, color: 'rgba(0,180,60,0.14)',   name: 'BDOS' },
+    { lo: 0xF200, hi: 0xFFFF, color: 'rgba(220,0,0,0.12)',    name: 'BIOS' },
+  ];
+
+  var laTrigFireHead = -1;  // 赤縦線のサンプル位置（-1 = 非表示）
 
   function drawLA(ctx, heapu32, ringBase, head, ringSize) {
-    ctx.fillStyle='#f5f5f5'; ctx.fillRect(0,0,LA_W,LA_H);
-    const samples = Math.min(head, VIEW_W, ringSize);
-    const startSamp = head - samples;
-    for (let t=0; t<LA_SIGNALS.length; t++) {
-      const sig=LA_SIGNALS[t], yBase=t*TRACK_H;
-      const MASK=(sig.width<32)?((1<<sig.width)-1):0xFFFFFFFF;
-      ctx.strokeStyle='#ccc'; ctx.lineWidth=0.5;
-      ctx.beginPath(); ctx.moveTo(0,yBase+TRACK_H); ctx.lineTo(LA_W,yBase+TRACK_H); ctx.stroke();
-      ctx.fillStyle='#111'; ctx.font='10px monospace'; ctx.textAlign='left';
-      ctx.fillText(sig.label, 3, yBase+TRACK_H*0.65);
+    laLastHead = head >>> 0;
+    ctx.setTransform(laDpr, 0, 0, laDpr, 0, 0);
+    var sigs = getActiveSigs();
+    var decH  = showDecodeLane ? DECODE_LANE_H : 0;
+    var sigY  = TIME_RULER_H + decH;  // 信号トラック開始 Y
+    var sigH  = laH - 2 * TIME_RULER_H - decH;  // 信号トラック高さ
+    var tH    = sigs.length > 0 ? sigH / sigs.length : LA_TRACK_H;
+
+    // ── 背景 ──
+    ctx.fillStyle = '#e0e0ea'; ctx.fillRect(0, 0,            LA_W, TIME_RULER_H); // 上ルーラー
+    if (showDecodeLane) {
+      ctx.fillStyle = '#e8e8e8'; ctx.fillRect(0, TIME_RULER_H, LA_W, decH);      // デコードレーン
+    }
+    ctx.fillStyle = '#f5f5f5'; ctx.fillRect(0, sigY,         LA_W, sigH);          // 信号エリア
+    ctx.fillStyle = '#e0e0ea'; ctx.fillRect(0, sigY + sigH,  LA_W, TIME_RULER_H); // 下ルーラー
+
+    // ── ズーム / パン計算 ──
+    var totalAvail    = Math.min(head >>> 0, ringSize);
+    var samplesInView = Math.min(Math.ceil(VIEW_W / laZoom), ringSize);
+    laPan = Math.max(0, Math.min(laPan, Math.max(0, totalAvail - samplesInView)));
+    var samples   = Math.min(samplesInView, totalAvail - laPan);
+    var startSamp = (head >>> 0) - laPan - samples;
+    laLastStartSamp = startSamp;
+
+    // ── デコードレーン描画 ──
+    if (showDecodeLane && samples > 0) {
+      var decY = TIME_RULER_H;
+      // ラベル
+      ctx.fillStyle = '#555'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'left';
+      ctx.fillText('M-CYC', 2, decY + decH * 0.68);
+
+      // M-サイクルブロック描画
+      var segStart  = 0;
+      var segStatus = heapu32[ringBase + (startSamp & (ringSize - 1)) * RING_WORDS + 4] & 0xFF;
+      for (var di = 1; di <= samples; di++) {
+        var curSt = di < samples
+          ? (heapu32[ringBase + ((startSamp + di) & (ringSize - 1)) * RING_WORDS + 4] & 0xFF)
+          : -1;
+        if (curSt !== segStatus) {
+          var bx = LABEL_W + segStart * laZoom;
+          var bw = (di - segStart) * laZoom;
+          var mt = getMachineType(segStatus);
+          if (mt && bw > 0.5) {
+            ctx.fillStyle = mt.color;
+            ctx.fillRect(bx, decY + 1, bw - 1, decH - 2);
+            if (bw > 28) {
+              // ニーモニックまたはタイプラベル
+              var ltext = mt.label;
+              if ((segStatus & 0x20) && bw > 44) {  // FETCH ブロックで幅十分
+                for (var fi = segStart; fi < di; fi++) {
+                  var fw0 = heapu32[ringBase + ((startSamp + fi) & (ringSize - 1)) * RING_WORDS];
+                  if ((fw0 >> 14) & 1) {  // MEMR=1
+                    var opb = (heapu32[ringBase + ((startSamp + fi) & (ringSize - 1)) * RING_WORDS + 3] >>> 24) & 0xFF;
+                    var mnem = disasm8080(opb, 0, 0).split(' ')[0];  // オペコードのみ
+                    if (mnem && mnem !== 'DB') ltext = mnem;
+                    break;
+                  }
+                }
+              }
+              ctx.fillStyle = 'rgba(255,255,255,0.92)';
+              ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
+              ctx.fillText(ltext, bx + bw / 2, decY + decH * 0.68);
+            }
+          }
+          // ブロック境界線
+          if (bw > 0.5) {
+            ctx.strokeStyle = 'rgba(0,0,0,0.15)'; ctx.lineWidth = 0.5;
+            ctx.beginPath(); ctx.moveTo(bx, decY + 1); ctx.lineTo(bx, decY + decH - 1); ctx.stroke();
+          }
+          segStart  = di;
+          segStatus = curSt;
+        }
+      }
+    }
+
+    // ── 各信号を描画 ──
+    for (var t = 0; t < sigs.length; t++) {
+      var sig   = sigs[t];
+      var yBase = sigY + t * tH;  // ← sigY オフセット
+      var MASK  = (sig.width < 32) ? ((1 << sig.width) - 1) : 0xFFFFFFFF;
+      var sw    = sig.word || 0;
+
+      // トラック区切り線 + ラベル
+      ctx.strokeStyle = '#ccc'; ctx.lineWidth = 0.5;
+      ctx.beginPath(); ctx.moveTo(0, yBase + tH); ctx.lineTo(LA_W, yBase + tH); ctx.stroke();
+      ctx.fillStyle = '#111'; ctx.font = '11px monospace'; ctx.textAlign = 'left';
+      ctx.fillText(sig.label, 3, yBase + tH * 0.65);
       if (!samples) continue;
-      const getWord = i => heapu32[ringBase+((startSamp+i)&(ringSize-1))];
-      if (sig.type==='bit') {
-        const yHigh=yBase+4, yLow=yBase+TRACK_H-4;
-        ctx.strokeStyle=sig.color; ctx.lineWidth=1.5; ctx.beginPath();
-        ctx.moveTo(LABEL_W, (getWord(0)>>sig.bit)&1 ? yHigh : yLow);
-        for (let i=0; i<samples; i++) {
-          const v=(getWord(i)>>sig.bit)&1, x=LABEL_W+i, y=v?yHigh:yLow;
-          ctx.lineTo(x,y); ctx.lineTo(x+1,y);
+
+      if (sig.type === 'bit') {
+        var yHigh = yBase + 4, yLow = yBase + tH - 4;
+
+        if (laZoom >= 1) {
+          // ── 等倍 / ズームイン ──
+          // 1) HI 塗りつぶし
+          ctx.globalAlpha = 0.15; ctx.fillStyle = sig.color;
+          var fillStart = null;
+          for (var i = 0; i < samples; i++) {
+            var gw = heapu32[ringBase + ((startSamp + i) & (ringSize - 1)) * RING_WORDS + sw];
+            var v  = (gw >> sig.bit) & 1, fx = LABEL_W + i * laZoom;
+            if (v && fillStart === null) fillStart = fx;
+            if (!v && fillStart !== null) {
+              ctx.fillRect(fillStart, yHigh, fx - fillStart, yLow - yHigh); fillStart = null;
+            }
+          }
+          if (fillStart !== null)
+            ctx.fillRect(fillStart, yHigh, LABEL_W + samples * laZoom - fillStart, yLow - yHigh);
+          ctx.globalAlpha = 1;
+          // 2) ストローク
+          ctx.strokeStyle = sig.color; ctx.lineWidth = 1.5; ctx.beginPath();
+          var gw0 = heapu32[ringBase + (startSamp & (ringSize - 1)) * RING_WORDS + sw];
+          ctx.moveTo(LABEL_W, ((gw0 >> sig.bit) & 1) ? yHigh : yLow);
+          for (var i = 0; i < samples; i++) {
+            var gw = heapu32[ringBase + ((startSamp + i) & (ringSize - 1)) * RING_WORDS + sw];
+            var v  = (gw >> sig.bit) & 1, x = LABEL_W + i * laZoom;
+            ctx.lineTo(x, v ? yHigh : yLow); ctx.lineTo(x + laZoom, v ? yHigh : yLow);
+          }
+          ctx.stroke();
+
+        } else {
+          // ── ズームアウト: OR 集約 ──
+          var pixCount = Math.ceil(samples * laZoom);
+          ctx.globalAlpha = 0.20; ctx.fillStyle = sig.color;
+          for (var px = 0; px < pixCount; px++) {
+            var si0 = Math.floor(px / laZoom), si1 = Math.min(Math.ceil((px + 1) / laZoom), samples);
+            var agg = 0;
+            for (var si = si0; si < si1; si++) {
+              var gw = heapu32[ringBase + ((startSamp + si) & (ringSize - 1)) * RING_WORDS + sw];
+              agg |= (gw >> sig.bit) & 1;
+            }
+            if (agg) ctx.fillRect(LABEL_W + px, yHigh, 1, yLow - yHigh);
+          }
+          ctx.globalAlpha = 1;
+          ctx.strokeStyle = sig.color; ctx.lineWidth = 1.5; ctx.beginPath();
+          var firstPx = true;
+          for (var px = 0; px < pixCount; px++) {
+            var si0 = Math.floor(px / laZoom), si1 = Math.min(Math.ceil((px + 1) / laZoom), samples);
+            var agg = 0;
+            for (var si = si0; si < si1; si++) {
+              var gw = heapu32[ringBase + ((startSamp + si) & (ringSize - 1)) * RING_WORDS + sw];
+              agg |= (gw >> sig.bit) & 1;
+            }
+            var xp = LABEL_W + px, y = agg ? yHigh : yLow;
+            if (firstPx) { ctx.moveTo(xp, y); firstPx = false; } else ctx.lineTo(xp, y);
+            ctx.lineTo(xp + 1, y);
+          }
+          ctx.stroke();
         }
-        ctx.stroke();
+
       } else {
-        const yTop=yBase+4, yMid=yBase+TRACK_H/2, yBot=yBase+TRACK_H-4;
-        let pv=(getWord(0)>>sig.bit)&MASK, ss=LABEL_W, segs=[];
-        for (let i=1; i<samples; i++) {
-          const v=(getWord(i)>>sig.bit)&MASK;
-          if (v!==pv) { segs.push({x:ss,w:LABEL_W+i-ss,val:pv}); ss=LABEL_W+i; pv=v; }
+        // ── hex 信号 ──
+        var hexPad = sig.width > 8 ? 4 : 2;
+        var yTop = yBase + 4, yMid = yBase + tH / 2, yBot = yBase + tH - 4;
+
+        // addr 信号: CP/M メモリ領域を背景色で識別
+        if (sig.id === 'addr') {
+          if (laZoom >= 1) {
+            for (var i = 0; i < samples; i++) {
+              var gw   = heapu32[ringBase + ((startSamp + i) & (ringSize - 1)) * RING_WORDS + sw];
+              var addr = (gw >> sig.bit) & 0xFFFF;
+              for (var ri = 0; ri < CPM_REGIONS.length; ri++) {
+                if (addr >= CPM_REGIONS[ri].lo && addr <= CPM_REGIONS[ri].hi) {
+                  ctx.fillStyle = CPM_REGIONS[ri].color;
+                  ctx.fillRect(LABEL_W + i * laZoom, yBase, laZoom, tH); break;
+                }
+              }
+            }
+          } else {
+            var pixC = Math.ceil(samples * laZoom);
+            for (var px = 0; px < pixC; px++) {
+              var si0  = Math.floor(px / laZoom);
+              var gw   = heapu32[ringBase + ((startSamp + si0) & (ringSize - 1)) * RING_WORDS + sw];
+              var addr = (gw >> sig.bit) & 0xFFFF;
+              for (var ri = 0; ri < CPM_REGIONS.length; ri++) {
+                if (addr >= CPM_REGIONS[ri].lo && addr <= CPM_REGIONS[ri].hi) {
+                  ctx.fillStyle = CPM_REGIONS[ri].color;
+                  ctx.fillRect(LABEL_W + px, yBase, 1, tH); break;
+                }
+              }
+            }
+          }
         }
-        segs.push({x:ss,w:LABEL_W+samples-ss,val:pv});
-        ctx.lineWidth=1;
-        for (const s of segs) {
-          ctx.strokeStyle=sig.color;
-          [[yTop,yTop],[yBot,yBot],[yTop,yBot],[yTop,yBot]].forEach(([y1,y2],i)=>{
+
+        // hex セグメント描画
+        var gw0 = heapu32[ringBase + (startSamp & (ringSize - 1)) * RING_WORDS + sw];
+        var pv  = (gw0 >> sig.bit) & MASK, ss = LABEL_W, segs = [];
+        for (var i = 1; i < samples; i++) {
+          var gw = heapu32[ringBase + ((startSamp + i) & (ringSize - 1)) * RING_WORDS + sw];
+          var v  = (gw >> sig.bit) & MASK, xn = LABEL_W + i * laZoom;
+          if (v !== pv) { segs.push({ x: ss, w: xn - ss, val: pv }); ss = xn; pv = v; }
+        }
+        segs.push({ x: ss, w: LABEL_W + samples * laZoom - ss, val: pv });
+        ctx.lineWidth = 1;
+        for (var si = 0; si < segs.length; si++) {
+          var s = segs[si];
+          if (s.w < 0.5) continue;
+          ctx.strokeStyle = sig.color;
+          [[yTop,yTop],[yBot,yBot],[yTop,yBot],[yTop,yBot]].forEach(function(ys, ii) {
             ctx.beginPath();
-            if (i<2) { ctx.moveTo(s.x,y1); ctx.lineTo(s.x+s.w,y1); }
-            else if (i===2) { ctx.moveTo(s.x,yTop); ctx.lineTo(s.x,yBot); }
-            else { ctx.moveTo(s.x+s.w,yTop); ctx.lineTo(s.x+s.w,yBot); }
+            if (ii < 2)        { ctx.moveTo(s.x, ys[0]);  ctx.lineTo(s.x + s.w, ys[0]); }
+            else if (ii === 2) { ctx.moveTo(s.x, yTop);   ctx.lineTo(s.x, yBot); }
+            else               { ctx.moveTo(s.x+s.w,yTop);ctx.lineTo(s.x+s.w,yBot); }
             ctx.stroke();
           });
-          if (s.w>24) {
-            ctx.fillStyle=sig.color; ctx.font='9px monospace'; ctx.textAlign='center';
-            ctx.fillText('0x'+s.val.toString(16).toUpperCase().padStart(2,'0'), s.x+s.w/2, yMid+3);
+          if (s.w > 24) {
+            ctx.fillStyle = sig.color; ctx.textAlign = 'center';
+            if (sig.fmt === 'flags8080') {
+              ctx.font = '8px monospace';
+              ctx.fillText(fmtFlags8080(s.val), s.x + s.w / 2, yMid + 3);
+            } else {
+              ctx.font = '9px monospace';
+              // 幅が十分なら "0x" + ゼロ埋め、狭ければ "0x" と先頭ゼロを省略
+              var _fullLbl  = '0x' + s.val.toString(16).toUpperCase().padStart(hexPad, '0');
+              var _shortLbl = s.val.toString(16).toUpperCase();
+              var _fullThresh = hexPad === 4 ? 52 : 36; // 16bit:6chars, 8bit:4chars
+              ctx.fillText(s.w > _fullThresh ? _fullLbl : _shortLbl,
+                           s.x + s.w / 2, yMid + 3);
+            }
           }
         }
       }
+    } // end signal loop
+
+    // ── T ステートグリッド線 ──
+    if (samples > 0 && laZoom >= 1) {
+      for (var gi = 0; gi < samples; gi++) {
+        var gw0g = heapu32[ringBase + ((startSamp + gi) & (ringSize - 1)) * RING_WORDS];
+        var ts   = (gw0g >>> 26) & 0x3F;  // t_state bits [31:26]
+        if (ts === 1) {
+          // M-サイクル境界: 強い縦線
+          var gx = LABEL_W + gi * laZoom;
+          ctx.save();
+          ctx.strokeStyle = 'rgba(80,80,200,0.28)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([]);
+          ctx.beginPath(); ctx.moveTo(gx, sigY); ctx.lineTo(gx, sigY + sigH); ctx.stroke();
+          ctx.restore();
+        } else if (laZoom >= 4 && ts > 1 && (ts & 1) === 1) {
+          // T ステート境界（M サイクル内）: 細い破線（4x ズーム以上のみ）
+          var gx = LABEL_W + gi * laZoom;
+          ctx.save();
+          ctx.strokeStyle = 'rgba(80,80,200,0.10)';
+          ctx.lineWidth = 0.5;
+          ctx.setLineDash([2, 3]);
+          ctx.beginPath(); ctx.moveTo(gx, sigY); ctx.lineTo(gx, sigY + sigH); ctx.stroke();
+          ctx.restore();
+        }
+      }
+    }
+
+    // ── A/B マーカー ──
+    function drawMarker(mLabel, mSamp, mColor) {
+      if (mSamp === null) return;
+      var off = mSamp - startSamp;
+      if (off < 0 || off >= samples) return;
+      var mx = LABEL_W + off * laZoom;
+      ctx.save();
+      ctx.strokeStyle = mColor; ctx.lineWidth = 1.5; ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(mx, sigY); ctx.lineTo(mx, sigY + sigH); ctx.stroke();
+      ctx.fillStyle = mColor;
+      ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(mLabel, mx, sigY + 9);
+      ctx.restore();
+    }
+    drawMarker('A', laMarkerA, 'rgba(0,100,230,0.9)');
+    drawMarker('B', laMarkerB, 'rgba(200,0,80,0.9)');
+
+    // A-B 差分: ハイライト + T ステート数ラベル
+    if (laMarkerA !== null && laMarkerB !== null) {
+      var diff = Math.abs(laMarkerA - laMarkerB);
+      var offA = laMarkerA - startSamp, offB = laMarkerB - startSamp;
+      var xL = LABEL_W + Math.max(0, Math.min(offA, offB)) * laZoom;
+      var xR = LABEL_W + Math.min(samples, Math.max(offA, offB)) * laZoom;
+      if (xR > xL && xR > LABEL_W && xL < LA_W) {
+        ctx.fillStyle = 'rgba(120,120,255,0.07)';
+        ctx.fillRect(xL, sigY, xR - xL, sigH);
+      }
+      var diffT   = Math.round(diff / 2);  // 2サンプル = 1 T ステート
+      var diffStr = 'A-B: ' + diffT + ' T';
+      ctx.font = '9px monospace'; ctx.textAlign = 'left';
+      var dw = ctx.measureText(diffStr).width;
+      ctx.fillStyle = 'rgba(215,215,245,0.93)';
+      ctx.fillRect(LABEL_W + 2, sigY + sigH - 14, dw + 6, 13);
+      ctx.fillStyle = '#224'; ctx.fillText(diffStr, LABEL_W + 5, sigY + sigH - 4);
+    }
+
+    // ── トラックドラッグ ビジュアル ──
+    if (laTrackDragIdx !== null && laTrackDragIdx < sigs.length) {
+      ctx.fillStyle = 'rgba(60,100,255,0.12)';
+      ctx.fillRect(0, sigY + laTrackDragIdx * tH, LA_W, tH);
+      ctx.fillStyle = 'rgba(40,80,220,0.9)';
+      ctx.font = 'bold 11px monospace'; ctx.textAlign = 'left';
+      ctx.fillText(sigs[laTrackDragIdx].label, 3, sigY + laTrackDragIdx * tH + tH * 0.65);
+      var insertAt = Math.max(0, Math.min(Math.round((laTrackDragY - sigY) / tH), sigs.length));
+      var iy = sigY + insertAt * tH;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(40,80,220,0.85)'; ctx.lineWidth = 2; ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(LABEL_W, iy); ctx.lineTo(LA_W, iy); ctx.stroke();
+      ctx.fillStyle = 'rgba(40,80,220,0.85)';
+      ctx.beginPath();
+      ctx.moveTo(LABEL_W, iy); ctx.lineTo(LABEL_W + 8, iy - 4); ctx.lineTo(LABEL_W + 8, iy + 4);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+
+    // ── トリガー発火位置（赤縦線）──
+    if (laTrigFireHead >= 0 && samples > 0) {
+      var fireOff = (laTrigFireHead >>> 0) - startSamp;
+      if (fireOff >= 0 && fireOff < samples) {
+        var fireX = LABEL_W + fireOff * laZoom;
+        ctx.save();
+        ctx.strokeStyle = 'rgba(220,0,0,0.85)'; ctx.lineWidth = 2; ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.moveTo(fireX, TIME_RULER_H);
+        ctx.lineTo(fireX, sigY + sigH + TIME_RULER_H);
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(220,0,0,0.85)';
+        ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
+        ctx.fillText('TRIG', fireX, TIME_RULER_H - 2);
+        ctx.restore();
+      }
+    }
+
+    // ── カーソル（縦破線 + 値オーバーレイ）──
+    if (laCursorViewX >= 0 && laCursorViewX <= VIEW_W && samples > 0) {
+      var cursorX   = LABEL_W + laCursorViewX;
+      var cursorOff = Math.max(0, Math.min(Math.floor(laCursorViewX / laZoom), samples - 1));
+      ctx.save();
+      ctx.strokeStyle = 'rgba(200,80,0,0.8)'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+      ctx.beginPath(); ctx.moveTo(cursorX, sigY); ctx.lineTo(cursorX, sigY + sigH); ctx.stroke();
+      ctx.restore();
+      var parts = [];
+      for (var t = 0; t < sigs.length; t++) {
+        var sig2  = sigs[t], sw2 = sig2.word || 0;
+        var MASK2 = sig2.width < 32 ? ((1 << sig2.width) - 1) : 0xFFFFFFFF;
+        var gw    = heapu32[ringBase + ((startSamp + cursorOff) & (ringSize - 1)) * RING_WORDS + sw2];
+        var v     = (gw >> sig2.bit) & MASK2;
+        if (sig2.type === 'bit') {
+          parts.push(sig2.label + '=' + v);
+        } else if (sig2.fmt === 'flags8080') {
+          parts.push(sig2.label + '=' + fmtFlags8080(v));
+        } else {
+          var hpad = sig2.width > 8 ? 4 : 2;
+          parts.push(sig2.label + '=0x' + v.toString(16).toUpperCase().padStart(hpad, '0'));
+        }
+      }
+      // T ステート情報をカーソルに追加
+      var tsGw  = heapu32[ringBase + ((startSamp + cursorOff) & (ringSize - 1)) * RING_WORDS];
+      var tsVal = (tsGw >>> 26) & 0x3F;
+      var stGw  = heapu32[ringBase + ((startSamp + cursorOff) & (ringSize - 1)) * RING_WORDS + 4] & 0xFF;
+      var mtc   = getMachineType(stGw);
+      if (tsVal > 0) parts.unshift('T' + tsVal + (mtc ? '(' + mtc.label + ')' : ''));
+      var text = parts.join('  ');
+      ctx.font = '10px monospace'; ctx.textAlign = 'left';
+      var tw = ctx.measureText(text).width;
+      var tx = cursorX + 6;
+      if (tx + tw + 4 > LA_W) tx = cursorX - tw - 10;
+      ctx.fillStyle = 'rgba(255,255,200,0.93)';
+      ctx.fillRect(tx - 2, sigY + 1, tw + 6, 15);
+      ctx.fillStyle = '#333'; ctx.fillText(text, tx, sigY + 12);
+    }
+
+    // ── クロックルーラー（上下共通ティック計算）──
+    if (samples > 0) {
+      // ティック間隔を決定（目安 80 px/tick; 偶数サンプル = 整 T ステート）
+      var NICE = [2, 4, 10, 20, 40, 100, 200, 400, 1000, 2000, 4000, 8000];
+      var rawSamp = 80 / laZoom, tickSamp = NICE[NICE.length - 1];
+      for (var ni = 0; ni < NICE.length; ni++) {
+        if (NICE[ni] >= rawSamp) { tickSamp = NICE[ni]; break; }
+      }
+      var firstTick = Math.ceil(startSamp / tickSamp) * tickSamp;
+
+      // ── 境界線 ──
+      ctx.strokeStyle = '#999'; ctx.lineWidth = 0.5;
+      ctx.beginPath(); ctx.moveTo(LABEL_W, sigY);        ctx.lineTo(LA_W, sigY);        ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(LABEL_W, sigY + sigH); ctx.lineTo(LA_W, sigY + sigH); ctx.stroke();
+
+      ctx.font = '9px monospace'; ctx.textAlign = 'center';
+
+      for (var ts = firstTick; ts < startSamp + samples; ts += tickSamp) {
+        var toff   = ts - startSamp;
+        var tx     = LABEL_W + toff * laZoom;
+        if (tx < LABEL_W || tx > LA_W) continue;
+        var tNum = Math.round(toff / 2);  // 2 サンプル = 1 T ステート
+        var lbl  = '' + tNum;
+
+        // 上ルーラー: ティック下向き + ラベル
+        ctx.strokeStyle = '#888'; ctx.lineWidth = 0.5;
+        ctx.beginPath(); ctx.moveTo(tx, sigY - 5); ctx.lineTo(tx, sigY); ctx.stroke();
+        ctx.fillStyle = '#444'; ctx.fillText(lbl, tx, sigY - 5 - 1);
+
+        // 下ルーラー: ティック上向き + ラベル
+        ctx.beginPath(); ctx.moveTo(tx, sigY + sigH); ctx.lineTo(tx, sigY + sigH + 5); ctx.stroke();
+        ctx.fillStyle = '#444'; ctx.fillText(lbl, tx, laH - 2);
+      }
+
+      // "T" 単位ラベル（左端）
+      ctx.fillStyle = '#888'; ctx.font = '8px monospace'; ctx.textAlign = 'left';
+      ctx.fillText('T', 2, sigY - 3);
+      ctx.fillText('T', 2, laH - 2);
+    }
+
+    // ── ズーム/パン情報オーバーレイ（上ルーラー右端）──
+    if (laZoom !== 1 || laPan !== 0) {
+      var zStr = laZoom >= 1 ? laZoom + 'x' : '1/' + Math.round(1 / laZoom) + 'x';
+      var info = zStr + ' | ' + samples + ' smpl' + (laPan > 0 ? ' | -' + laPan : '');
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.font = '9px monospace'; ctx.textAlign = 'right';
+      ctx.fillText(info, LA_W - 4, sigY - 3);
     }
   }
 
@@ -642,7 +1673,7 @@
   var TEXT_EXTS = { TXT:1, ASM:1, MAC:1, C:1, H:1, BAS:1, SUB:1, FOR:1,
                     PAS:1, PLI:1, DOC:1, ME:1, INI:1, CFG:1, BAT:1 };
 
-  var fsSort = { col: 'name', asc: true };
+  var fsSort = { col: 'mtime', asc: false };
 
   async function updateFSList() {
     if (!workerReady) return;
@@ -653,9 +1684,17 @@
 
       entries.sort(function(a, b) {
         var v;
-        if      (fsSort.col === 'size')  v = a.size  - b.size;
-        else if (fsSort.col === 'mtime') v = a.mtime - b.mtime;
-        else                             v = a.name.localeCompare(b.name);
+        if (fsSort.col === 'size') {
+          // K表示単位（1K=1024〜2047, 2K=2048〜4095…）でまず比較し、
+          // 同一K単位内はファイル名でタイブレーク
+          var aK = Math.floor(Number(a.size) / 1024);
+          var bK = Math.floor(Number(b.size) / 1024);
+          v = aK !== bK ? (aK - bK) : a.name.localeCompare(b.name);
+        } else if (fsSort.col === 'mtime') {
+          v = a.mtime - b.mtime;
+        } else {
+          v = a.name.localeCompare(b.name);
+        }
         return fsSort.asc ? v : -v;
       });
 
@@ -977,11 +2016,11 @@
   // ---- Worker セットアップ ----
   const RING_SIZE = 4096; // harness.cpp: static const int RING_SIZE = 4096
   var term;
-  var laCtx;
+  var laCtx, laDpr = 1;
   var reqId   = 0;
   var pending = new Map();
 
-  const worker = new Worker('sim-worker.js');
+  const worker = new Worker('sim-worker.js?v=20260521p');
 
   function workerSend(msg, transferables) {
     if (transferables) worker.postMessage(msg, transferables);
@@ -1023,6 +2062,11 @@
       document.getElementById('btn-run').textContent = 'Run';
       return;
     }
+    if (data.type === 'triggerPause') {
+      running = false;
+      document.getElementById('btn-run').textContent = 'Run';
+      return;
+    }
     if (data.requestId && pending.has(data.requestId)) {
       pending.get(data.requestId)(data);
       pending.delete(data.requestId);
@@ -1037,22 +2081,58 @@
     }
     if (latestFrame) {
       var f = latestFrame; latestFrame = null;
-      document.getElementById('r-pc').textContent =
-        f.pc.toString(16).toUpperCase().padStart(4, '0');
-      updatePcRegion(f.pc);
+
+      // ── レジスタ / 逆アセンブル更新 ──
+      if (f.regs && f.pcBytes) {
+        var regs8    = new Uint8Array(f.regs);
+        var pcBytes3 = new Uint8Array(f.pcBytes);
+        updateRegPanel(regs8, pcBytes3);
+      }
+
+      // ── フリーズバッジ ──
+      var frozenBadge = document.getElementById('r-frozen-badge');
+      if (frozenBadge) frozenBadge.style.display = f.frozen ? 'inline' : 'none';
+
+      // フリーズ中でなければパンをリセット（リアルタイム表示は常に最新端）
+      laFrozen = !!f.frozen;
+      if (!f.frozen) laPan = 0;
+
+      // トリガー発火位置を更新（赤縦線の位置）
+      laTrigFireHead = (f.trigFireHead !== undefined) ? f.trigFireHead : -1;
+
       frameCount++;
       if (frameCount % 60 === 0) {
         var now = performance.now();
-        var dc  = (f.head - freqHead0) >>> 0;
+        var dc  = f.frozen ? 0 : (f.head - freqHead0) >>> 0;
         var dt  = now - freqTime0;
-        freqDisp  = running && dt > 0 ? fmtHz(Math.round(dc / (dt / 1000))) : 'paused';
+        freqDisp  = f.frozen ? 'frozen'
+                  : (running && dt > 0 ? fmtHz(Math.round(dc / (dt / 1000))) : 'paused');
         freqHead0 = f.head;
         freqTime0 = now;
         dirtyState = f.dirties;
         for (var d = 0; d < 4; d++) updateDirtyBtn(d, f.dirties[d]);
       }
       document.getElementById('cycle-info').textContent = freqDisp;
-      if (laCtx) drawLA(laCtx, new Uint32Array(f.ringSnap), 0, f.head, RING_SIZE);
+
+      // ── Ring Analyzer 描画 ──
+      var ring32 = new Uint32Array(f.ringSnap);
+      if (laCtx && laOn && ring32.length > 0) drawLA(laCtx, ring32, 0, f.head, RING_SIZE);
+
+      // ── I/O ログ更新 ──
+      if (ring32.length > 0) processRingForIOLog(ring32, f.head >>> 0);
+
+      // ── デバッグパネル更新 ──
+      if (f.stackBytes && f.regs) {
+        var regs8s = new Uint8Array(f.regs);
+        var sp = ((regs8s[8] << 8) | regs8s[9]) & 0xFFFF;
+        renderStackView(new Uint8Array(f.stackBytes), sp);
+      }
+      renderIOLog();
+      if (f.callLog) {
+        var cl32 = new Uint32Array(f.callLog);
+        renderCallTrace(cl32, f.callLogHead);
+        lastCallLogHead = f.callLogHead;
+      }
     }
     requestAnimationFrame(loop);
   }
@@ -1121,7 +2201,9 @@
 
     applyTheme(currentTheme);
 
-    laCtx = document.getElementById('la').getContext('2d');
+    laDpr = window.devicePixelRatio || 1;
+    buildLAToggles();
+    updateLACanvas();
 
     workerSend({ type: 'reset', preset: curPreset, running: true });
     running = true;
@@ -1339,6 +2421,357 @@
       }).catch(function(e) { console.warn('[IDB] restore failed', e); });
     }, 200);
 
+    // ---- デバッグパネル タブ切替 ----
+    document.querySelectorAll('.dbg-tab').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        switchDbgTab(this.getAttribute('data-tab'));
+      });
+    });
+
+    // ---- Freeze / Thaw ----
+    document.getElementById('btn-freeze').addEventListener('click', function() {
+      // '❄ Freeze' 表示中 = 未凍結 → 凍結する
+      // '▶ Thaw'   表示中 = 凍結中 → 解除する
+      var isFreezable = this.textContent.indexOf('❄') >= 0;
+      if (isFreezable) {
+        workerSend({ type: 'freezeRing' });
+        this.textContent = '▶ Thaw';
+      } else {
+        // フリーズ解除
+        workerSend({ type: 'thawRing' });
+        this.textContent = '❄ Freeze';
+      }
+    });
+
+    // ---- Run to I/O ----
+    document.getElementById('btn-run-to-io').addEventListener('click', function() {
+      workerSend({ type: 'setTrigger', trigType: 1, port: 0xFF, addr: 0 });
+      if (!running) {
+        running = true;
+        document.getElementById('btn-run').textContent = 'Pause';
+        workerSend({ type: 'setRunning', running: true });
+      }
+    });
+
+    // ---- Step ----
+    (function() {
+      var stepBtn = document.getElementById('dbg-step');
+      if (!stepBtn) return;
+      // ステップボタンの有効/無効を running 状態に合わせて更新
+      function updateStepBtn() {
+        stepBtn.disabled = running;
+        stepBtn.style.opacity = running ? '0.4' : '';
+        stepBtn.style.cursor  = running ? 'default' : '';
+      }
+      updateStepBtn();
+      // btn-run と btn-reset のクリック後にも状態を更新
+      document.getElementById('btn-run').addEventListener('click', updateStepBtn);
+      document.getElementById('btn-reset').addEventListener('click', function() {
+        // reset 後は running=true になるのでボタンを更新
+        setTimeout(updateStepBtn, 0);
+      });
+      stepBtn.addEventListener('click', function() {
+        if (running) return;
+        workerSend({ type: 'setRunning', running: false });
+        workerSend({ type: 'stepInstr' });
+      });
+    })();
+
+    // ---- トリガー種別変更: 各種別ごとに専用フィールドを表示 ----
+    document.getElementById('trig-type').addEventListener('change', function() {
+      var isVal   = parseInt(this.value, 10) === 6;
+      var isInstr = this.value === 'instr';
+      var isReg   = this.value === 'reg';
+      document.getElementById('trig-val-sig').style.display    = isVal          ? '' : 'none';
+      document.getElementById('trig-instr-pc').style.display   = isInstr        ? '' : 'none';
+      document.getElementById('trig-instr-opc').style.display  = isInstr        ? '' : 'none';
+      document.getElementById('trig-reg-name').style.display   = isReg          ? '' : 'none';
+      document.getElementById('trig-reg-val').style.display    = isReg          ? '' : 'none';
+      document.getElementById('trig-addr').style.display       = (isInstr || isReg) ? 'none' : '';
+    });
+
+    // ---- トリガー設定 ----
+    document.getElementById('btn-trig-set').addEventListener('click', function() {
+      var typeStr  = document.getElementById('trig-type').value;
+      var type     = parseInt(typeStr, 10) || 0;
+      var addrStr  = document.getElementById('trig-addr').value.trim().replace(/^0x/i, '');
+      var addrVal  = addrStr ? (parseInt(addrStr, 16) || 0) : 0;
+      var postStr  = document.getElementById('trig-post').value.trim();
+      var postVal  = postStr ? (parseInt(postStr, 10) || 0) : 0;
+      workerSend({ type: 'setPostDelay', n: postVal });
+      if (typeStr === 'instr') {
+        var pcStr  = document.getElementById('trig-instr-pc').value.trim().replace(/^0x/i, '');
+        var opcStr = document.getElementById('trig-instr-opc').value.trim().replace(/^0x/i, '');
+        var pcVal  = pcStr  ? parseInt(pcStr,  16) : -1;
+        var opcVal = opcStr ? parseInt(opcStr, 16) : -1;
+        workerSend({ type: 'setInstrTrigger', pc: pcVal, opc: opcVal });
+        if (!running) {
+          running = true;
+          document.getElementById('btn-run').textContent = 'Pause';
+          workerSend({ type: 'setRunning', running: true });
+        }
+        return;
+      }
+      if (typeStr === 'reg') {
+        var regId  = parseInt(document.getElementById('trig-reg-name').value, 10) | 0;
+        var rvStr  = document.getElementById('trig-reg-val').value.trim().replace(/^0x/i, '');
+        var regVal = rvStr ? (parseInt(rvStr, 16) || 0) : 0;
+        workerSend({ type: 'setRegTrigger', regId: regId, value: regVal });
+        if (!running) {
+          running = true;
+          document.getElementById('btn-run').textContent = 'Pause';
+          workerSend({ type: 'setRunning', running: true });
+        }
+        return;
+      }
+      if (type === 4 || type === 5) {
+        // エッジトリガー: addrVal = シグナル ID（LA_SIGNALS_ALL のインデックス番号 or bit番号）
+        // 簡易実装: addrVal を Word 0 のビット番号として使用（デフォルトは io_req=bit24）
+        var edgeBit  = addrVal || 24;   // デフォルト: io_req (bit 24 of Word 0)
+        var edgeWord = 0;
+        var edgeDir  = (type === 5) ? 1 : 0;  // type=5 = 立ち下がり
+        workerSend({ type: 'setEdgeTrigger', word: edgeWord, bit: edgeBit, dir: edgeDir });
+      } else if (type === 6) {
+        // 値トリガー: 信号名 → Ring Buffer の Word/mask/cmp に変換
+        var sig = document.getElementById('trig-val-sig').value;
+        var word, mask, cmp;
+        if (sig === 'addr') {
+          word = 1; mask = 0x0000FFFF;  cmp = addrVal & 0xFFFF;
+        } else if (sig === 'dbus') {
+          word = 3; mask = 0xFF000000 | 0; cmp = ((addrVal & 0xFF) << 24) | 0;
+        } else if (sig === 'port') {
+          word = 0; mask = 0x000000FF;  cmp = addrVal & 0xFF;
+        } else { // iodata
+          word = 0; mask = 0x00FF0000;  cmp = (addrVal & 0xFF) << 16;
+        }
+        workerSend({ type: 'setValueTrigger', word: word, mask: mask >>> 0, cmp: cmp >>> 0 });
+      } else {
+        workerSend({ type: 'setTrigger', trigType: type, port: addrVal || 0xFF, addr: addrVal });
+      }
+      if (type > 0 && !running) {
+        running = true;
+        document.getElementById('btn-run').textContent = 'Pause';
+        workerSend({ type: 'setRunning', running: true });
+      }
+    });
+
+    document.getElementById('btn-trig-clear').addEventListener('click', function() {
+      workerSend({ type: 'clearTrigger' });
+      document.getElementById('btn-freeze').textContent = '❄ Freeze';
+      laTrigFireHead = -1;
+    });
+
+    // ---- ⊙Trig: トリガー発火位置をタイミング図中央へ ----
+    document.getElementById('btn-goto-trig').addEventListener('click', function() {
+      if (laTrigFireHead < 0) return;  // 未発火なら何もしない
+      var samplesInView = Math.ceil(VIEW_W / laZoom);
+      // laTrigFireHead は ring_head の絶対カウンタ値（符号なし 32bit で比較）
+      var trigOffset = ((laLastHead >>> 0) - (laTrigFireHead >>> 0)) >>> 0;
+      laPan = Math.max(0, trigOffset - Math.floor(samplesInView / 2));
+    });
+
+    // ---- Call Log クリア ----
+    document.getElementById('btn-clear-calllog').addEventListener('click', function() {
+      workerSend({ type: 'clearCallLog' });
+      ioLog = [];
+      renderIOLog();
+    });
+
+    // ---- Logic Analyzer ズーム / パン ----
+    document.getElementById('la-zoom-in').addEventListener('click', function() {
+      laSetZoom(laZoomIdx + 1);
+    });
+    document.getElementById('la-zoom-out').addEventListener('click', function() {
+      laSetZoom(laZoomIdx - 1);
+    });
+    document.getElementById('la-zoom-lbl').addEventListener('click', function() {
+      laSetZoom(2); laPan = 0;
+    });
+
+    // ---- Logic Analyzer ON/OFF + フレームレート ----
+    document.getElementById('btn-la-toggle').addEventListener('click', function() {
+      laOn = !laOn;
+      this.textContent = laOn ? 'LA ON' : 'LA OFF';
+      this.style.color = laOn ? '' : '#cc3333';
+      workerSend({ type: 'setLA', enabled: laOn });
+      if (!laOn && laCtx) {
+        // LA OFF 時にキャンバスをクリアして「LA OFF」を表示
+        laCtx.setTransform(laDpr, 0, 0, laDpr, 0, 0);
+        laCtx.fillStyle = '#f0f0f0';
+        laCtx.fillRect(0, 0, LA_W, laH || 60);
+        laCtx.fillStyle = '#aaa';
+        laCtx.font = 'bold 14px monospace';
+        laCtx.textAlign = 'center';
+        laCtx.fillText('Logic Analyzer OFF  (速度優先モード)', LA_W / 2, (laH || 60) / 2 + 5);
+      }
+    });
+
+    document.getElementById('la-fps-sel').addEventListener('change', function() {
+      var fps = parseInt(this.value, 10) || 60;
+      workerSend({ type: 'setFrameRate', fps: fps });
+    });
+
+    // ホイールでズーム（canvas 上）
+    var laCanvas = document.getElementById('la');
+    laCanvas.addEventListener('wheel', function(e) {
+      e.preventDefault();
+      laSetZoom(laZoomIdx + (e.deltaY > 0 ? 1 : -1));
+    }, { passive: false });
+
+    // ---- マウス操作（ラベルドラッグ / パン / カーソル / A-B マーカー）----
+    var laDragX    = null; // パンドラッグ開始 X（null = 非パン中）
+    var laDragPan0 = 0;
+
+    laCanvas.addEventListener('mousedown', function(e) {
+      var rect = laCanvas.getBoundingClientRect();
+      var lx   = e.clientX - rect.left;
+      var ly   = e.clientY - rect.top;
+      if (lx < LABEL_W) {
+        // ── ラベル領域: トラックドラッグ開始 ──
+        var sigHd = laH - 2 * TIME_RULER_H - (showDecodeLane ? DECODE_LANE_H : 0);
+        var sigs  = getActiveSigs();
+        var tHd   = sigs.length > 0 ? sigHd / sigs.length : LA_TRACK_H;
+        var decOff = showDecodeLane ? DECODE_LANE_H : 0;
+        var tidx  = Math.floor((ly - TIME_RULER_H - decOff) / tHd);
+        if (tidx >= 0 && tidx < sigs.length) {
+          laTrackDragIdx = tidx;
+          laTrackDragY   = ly;
+        }
+      } else {
+        // ── ウェーブフォーム領域: パンドラッグ開始 ──
+        laDragX    = e.clientX;
+        laDragPan0 = laPan;
+      }
+    });
+
+    laCanvas.addEventListener('mousemove', function(e) {
+      var rect = laCanvas.getBoundingClientRect();
+      var lx   = e.clientX - rect.left;
+      var ly   = e.clientY - rect.top;
+
+      // カーソル位置更新
+      laCursorViewX = laTrackDragIdx !== null ? -1 : Math.max(-1, lx - LABEL_W);
+
+      // CSS カーソルアイコン
+      laCanvas.style.cursor = laTrackDragIdx !== null ? 'grabbing'
+                            : lx < LABEL_W            ? 'grab'
+                            :                           '';
+
+      if (laTrackDragIdx !== null) {
+        laTrackDragY = ly;          // トラックドラッグ中: Y を追跡
+      } else if (laDragX !== null) {
+        var dx    = e.clientX - laDragX;
+        laPan = Math.max(0, laDragPan0 + Math.round(dx / laZoom));
+      }
+    });
+
+    // トラック並び替えを確定する共通関数
+    function commitTrackDrag() {
+      if (laTrackDragIdx === null) return;
+      var sigHc   = laH - 2 * TIME_RULER_H - (showDecodeLane ? DECODE_LANE_H : 0);
+      var sigs    = getActiveSigs();
+      var tHc     = sigs.length > 0 ? sigHc / sigs.length : LA_TRACK_H;
+      var decOff2  = showDecodeLane ? DECODE_LANE_H : 0;
+      var insertAt = Math.max(0, Math.min(Math.round((laTrackDragY - TIME_RULER_H - decOff2) / tHc), sigs.length));
+      var srcIdx   = laTrackDragIdx;
+      laTrackDragIdx = null;
+
+      // 自分自身の前後への挿入は無変化
+      if (insertAt === srcIdx || insertAt === srcIdx + 1) return;
+
+      var srcId    = sigs[srcIdx].id;
+      // sigOrder から srcId を除去
+      var newOrder = sigOrder.filter(function(id) { return id !== srcId; });
+      // 除去後のアクティブ信号リストを再計算
+      var newActive = newOrder
+        .map(function(id) {
+          for (var i = 0; i < LA_SIGNALS_ALL.length; i++) {
+            if (LA_SIGNALS_ALL[i].id === id) return LA_SIGNALS_ALL[i];
+          }
+          return null;
+        })
+        .filter(function(s) { return s && sigVisible[s.id]; });
+      // insertAt をソース除去後のインデックスに合わせる
+      var effInsert = Math.max(0, Math.min(
+        insertAt > srcIdx ? insertAt - 1 : insertAt,
+        newActive.length
+      ));
+      // sigOrder 上の挿入位置を決定
+      var insertOrderIdx;
+      if (effInsert < newActive.length) {
+        insertOrderIdx = newOrder.indexOf(newActive[effInsert].id);
+      } else {
+        insertOrderIdx = newActive.length > 0
+          ? newOrder.indexOf(newActive[newActive.length - 1].id) + 1
+          : newOrder.length;
+      }
+      newOrder.splice(insertOrderIdx, 0, srcId);
+      sigOrder = newOrder;
+      localStorage.setItem('la_sig_order', JSON.stringify(sigOrder));
+      updateLACanvas();
+    }
+
+    laCanvas.addEventListener('mouseup', function() {
+      commitTrackDrag();
+      laDragX = null;
+    });
+    laCanvas.addEventListener('mouseleave', function() {
+      commitTrackDrag();
+      laDragX       = null;
+      laCursorViewX = -1;
+      laCanvas.style.cursor = '';
+    });
+
+    // ---- A/B マーカー設置 ----
+    // クリック        → A マーカー（ラベル領域は無効）
+    // Shift+クリック  → B マーカー
+    // 右クリック      → B マーカー
+    laCanvas.addEventListener('click', function(e) {
+      var rect = laCanvas.getBoundingClientRect();
+      var vx   = (e.clientX - rect.left) - LABEL_W;
+      if (vx < 0) return;   // ラベル領域はドラッグ操作なので無視
+      var samp = laLastStartSamp + Math.floor(vx / laZoom);
+      if (e.shiftKey) { laMarkerB = samp; }
+      else             { laMarkerA = samp; }
+    });
+    laCanvas.addEventListener('contextmenu', function(e) {
+      e.preventDefault();
+      var rect = laCanvas.getBoundingClientRect();
+      var vx   = (e.clientX - rect.left) - LABEL_W;
+      if (vx < 0) return;
+      laMarkerB = laLastStartSamp + Math.floor(vx / laZoom);
+    });
+
+    // タッチ: 1本指パン & 2本指ピンチズーム
+    var laTouch0 = null;
+    laCanvas.addEventListener('touchstart', function(e) {
+      if (e.touches.length === 1) {
+        laTouch0 = { x: e.touches[0].clientX, pan: laPan, dist: null, zoomIdx: laZoomIdx };
+      } else if (e.touches.length === 2) {
+        var tdx = e.touches[0].clientX - e.touches[1].clientX;
+        var tdy = e.touches[0].clientY - e.touches[1].clientY;
+        laTouch0 = { x: 0, pan: laPan, dist: Math.sqrt(tdx*tdx + tdy*tdy), zoomIdx: laZoomIdx };
+      }
+      e.preventDefault();
+    }, { passive: false });
+    laCanvas.addEventListener('touchmove', function(e) {
+      if (!laTouch0) return;
+      e.preventDefault();
+      if (e.touches.length === 1 && laTouch0.dist === null) {
+        // 1本指パン
+        var delta = Math.round(-(e.touches[0].clientX - laTouch0.x) / laZoom);
+        laPan = Math.max(0, laTouch0.pan + delta);
+      } else if (e.touches.length === 2 && laTouch0.dist !== null) {
+        // 2本指ピンチズーム
+        var tdx2 = e.touches[0].clientX - e.touches[1].clientX;
+        var tdy2 = e.touches[0].clientY - e.touches[1].clientY;
+        var dist2 = Math.sqrt(tdx2*tdx2 + tdy2*tdy2);
+        var newIdx = laTouch0.zoomIdx + Math.round(Math.log2(dist2 / laTouch0.dist));
+        laSetZoom(newIdx);
+      }
+    }, { passive: false });
+    laCanvas.addEventListener('touchend', function() { laTouch0 = null; });
+
     term.focus();
     requestAnimationFrame(loop);
 
@@ -1425,6 +2858,47 @@
       document.getElementById('doc-modal').style.display = 'none';
     });
   }
+
+  // ---- ファイルバージョン表示 ----
+  // 主要ファイルの Last-Modified を HEAD リクエストで取得して著作権行に表示する
+  (function() {
+    var FILES = [
+      { label: 'WASM',   file: 'sim.wasm',      url: 'sim.wasm',      desc: 'Verilog RTL → Verilator → Emscripten でビルドした WebAssembly バイナリ' },
+      { label: 'worker', file: 'sim-worker.js',  url: 'sim-worker.js', desc: 'WASM シミュレーションを実行する Web Worker スクリプト' },
+      { label: 'UI',     file: 'index.html',     url: '',              desc: 'ブラウザ UI (HTML / CSS / JS)' },
+    ];
+
+    function fmtDate(httpDateStr) {
+      if (!httpDateStr) return '?';
+      var d = new Date(httpDateStr);
+      if (isNaN(d.getTime())) return '?';
+      var mo = String(d.getMonth() + 1).padStart(2, '0');
+      var dy = String(d.getDate()).padStart(2, '0');
+      var hh = String(d.getHours()).padStart(2, '0');
+      var mi = String(d.getMinutes()).padStart(2, '0');
+      return mo + '/' + dy + ' ' + hh + ':' + mi;
+    }
+
+    var results  = new Array(FILES.length);
+    var remaining = FILES.length;
+
+    FILES.forEach(function(f, idx) {
+      fetch(f.url, { method: 'HEAD', cache: 'no-store' })
+        .then(function(r) { results[idx] = fmtDate(r.headers.get('Last-Modified')); })
+        .catch(function()  { results[idx] = '?'; })
+        .then(function() {
+          if (--remaining > 0) return;
+          var el = document.getElementById('file-versions');
+          if (!el) return;
+          el.innerHTML = FILES.map(function(f, i) {
+            var escaped = f.desc.replace(/"/g, '&quot;');
+            return '<span title="' + escaped + '" style="margin-right:10px;white-space:nowrap;">' +
+              '<b>' + f.label + '</b> ' + f.file + ' ' + results[i] +
+              '</span>';
+          }).join('');
+        });
+    });
+  })();
 
   function openDoc(file) {
     fetch('docs/' + file)

@@ -26,14 +26,14 @@ TURBO.COM（IDE 本体）も同梱されているが、Z80 専用コードのた
 
 シミュレータ UI の **B: Load** で `TurboPascal3.dsk` を選択する。
 
-```
+```text
 A>B:
 B>TURBO
 ```
 
 ### 2-2. メイン画面
 
-```
+```text
 Logged drive: B
 Active directory:
 Work file:
@@ -60,13 +60,13 @@ eXecute     Dir         Quit        compiler Options
 
 メイン画面で：
 
-```
+```text
 Work file name? HELLO    ← .PAS は省略可
 ```
 
 → `R`（Run）を押す。
 
-```
+```text
 Compiling...
 Running...
 Hello, world!
@@ -133,7 +133,7 @@ Hello, world!
 
 メイン画面で：
 
-```
+```text
 Work file name? MYTEST    ← 新ファイル名
 ```
 
