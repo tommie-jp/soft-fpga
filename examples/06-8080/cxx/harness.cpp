@@ -546,14 +546,18 @@ void step()
                 (1u << 1) |
                 ((cpu->__PVT__psw_c  ? 1u : 0u) << 0);
             uint16_t bc = (uint16_t)cpu->__PVT__r16_bc;
-            uint16_t de = (uint16_t)cpu->__PVT__r16_de;
+            // xchg_dh フラグで物理 r16_hl/r16_de の論理マッピングが入れ替わる。
+            // RESET後 xchg_dh=0: 論理HL=物理r16_de、論理DE=物理r16_hl
+            // XCHG後  xchg_dh=1: 論理HL=物理r16_hl、論理DE=物理r16_de  (通常マッピング)
+            bool xchg = (bool)cpu->__PVT__xchg_dh;
+            uint16_t logical_de = xchg ? (uint16_t)cpu->__PVT__r16_de : (uint16_t)cpu->__PVT__r16_hl;
+            uint16_t logical_hl = xchg ? (uint16_t)cpu->__PVT__r16_hl : (uint16_t)cpu->__PVT__r16_de;
             ring[ridx + 2] =
                 ((uint32_t)f_byte             ) |  // [ 7: 0] F フラグ (PSW 個別ビットから再構成)
                 ((uint32_t)((bc >> 8) & 0xFF) <<  8) | // [15: 8] B
                 ((uint32_t)(bc        & 0xFF) << 16) | // [23:16] C
-                ((uint32_t)((de >> 8) & 0xFF) << 24);  // [31:24] D
+                ((uint32_t)((logical_de >> 8) & 0xFF) << 24);  // [31:24] D (論理DEの上位バイト)
             // Word 3: E, H, L, CPU データバス
-            uint16_t hl = (uint16_t)cpu->__PVT__r16_hl;
             // dbus: MEMR=RAMデータ, IO OUT T2+=cpu_dout, IO IN=io_din, その他=io_dout保持
             // SYNC=1 クロックは cpu_dout=ステータスバイトのため除外
             // NOTE: ram[dbg_pc] ではなく cpu_din 組み合わせ論理を直接使う。
@@ -570,9 +574,9 @@ void step()
                 dbus = (uint8_t)top->io_dout; // 保持値
             }
             ring[ridx + 3] =
-                ((uint32_t)(de        & 0xFF)      ) |  // [ 7: 0] E
-                ((uint32_t)((hl >> 8) & 0xFF) <<  8) | // [15: 8] H
-                ((uint32_t)(hl        & 0xFF) << 16) | // [23:16] L
+                ((uint32_t)(logical_de        & 0xFF)      ) |  // [ 7: 0] E (論理DEの下位バイト)
+                ((uint32_t)((logical_hl >> 8) & 0xFF) <<  8) | // [15: 8] H (論理HLの上位バイト)
+                ((uint32_t)(logical_hl        & 0xFF) << 16) | // [23:16] L (論理HLの下位バイト)
                 ((uint32_t)dbus               << 24);  // [31:24] CPU データバス
         }
         ring[ridx + 4] =

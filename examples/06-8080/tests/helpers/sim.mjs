@@ -164,6 +164,84 @@ export class SimWrapper {
   }
 
   /**
+   * セットアップバイト列を 1 回だけ実行してから対象命令をキャプチャする。
+   *
+   * メモリ配置:
+   *   0x0000         : JMP testAddr       (リセットベクター)
+   *   testAddr       : setupBytes         (1 回だけ実行されるセットアップ)
+   *   targetAddr     : instrBytes         (測定対象命令、ループ先)
+   *   targetAddr+len : JMP targetAddr     (セットアップをスキップして対象命令へ)
+   *
+   * セットアップは最初の 1 回のみ実行されるため、例えば
+   * "MVI A,$42 → MOV B,A" のような複数命令のレジスタ値テストに使用する。
+   *
+   * @param {number[]} setupBytes  - 対象命令の前に 1 回だけ実行するバイト列
+   * @param {number[]} instrBytes  - キャプチャ対象の命令バイト列
+   * @param {object}   [opts]      - captureInstruction と同じオプション
+   * @returns {{parsedSamples: Array, instrSamples: Array, timing: object, steps: number}}
+   */
+  captureWithSetup(setupBytes, instrBytes, opts = {}) {
+    const testAddr   = opts.testAddr  ?? 0x0100;
+    const postDelay  = opts.postDelay ?? 80;
+    const maxSteps   = opts.maxSteps  ?? 100000;
+    const targetAddr = testAddr + setupBytes.length;
+
+    // 1) CP/M 初期化
+    this.init();
+
+    // 2) リセットベクター → testAddr
+    this.poke(0x0000, 0xC3);
+    this.poke(0x0001, testAddr & 0xFF);
+    this.poke(0x0002, (testAddr >> 8) & 0xFF);
+
+    // 3) セットアップコードを testAddr に配置
+    this.pokeBytes(testAddr, setupBytes);
+
+    // 4) 対象命令を targetAddr に配置
+    this.pokeBytes(targetAddr, instrBytes);
+    const afterInstr = targetAddr + instrBytes.length;
+
+    // 5) JMP targetAddr (対象命令のみをループ、セットアップはスキップ)
+    this.poke(afterInstr + 0, 0xC3);
+    this.poke(afterInstr + 1, targetAddr & 0xFF);
+    this.poke(afterInstr + 2, (targetAddr >> 8) & 0xFF);
+
+    // 6) targetAddr でトリガー設定
+    this.clearTrigger();
+    this.setInstrTrigger(targetAddr, -1);
+    this.setPostDelay(postDelay);
+
+    // 7) トリガーヒットまでステップ実行
+    let steps = 0;
+    while (!this.isTriggerHit() && steps < maxSteps) {
+      this.step();
+      steps++;
+    }
+
+    if (!this.isTriggerHit()) {
+      throw new Error(
+        `captureWithSetup タイムアウト: ${maxSteps} ステップ内にトリガーが発火しなかった` +
+        ` (targetAddr=0x${targetAddr.toString(16).padStart(4, '0')})`
+      );
+    }
+
+    // 8) リングバッファフリーズ & 読み取り
+    this.M._sim_freeze_ring();
+    const head = this.getHead();
+    const snap = readRingBuffer(
+      this.M.HEAPU32, this.ringBase, this.ringSize, head, postDelay + 1
+    );
+    const parsedSamples = snap.map(parseSample);
+
+    // 9) 先頭 SYNC (targetAddr) から afterAddr SYNC まで命令サンプルを抽出
+    //    afterAddr = targetAddr + instrLen → JMP の M1 SYNC で終端
+    const instrSamples = extractInstrSamples(parsedSamples, instrBytes.length);
+    const timing = analyzeTiming(instrSamples);
+
+    return { parsedSamples, instrSamples, timing, steps };
+  }
+
+  /**
    * 指定アドレスから指定バイト列の命令を実行し、リングバッファを解析する。
    *
    * テスト配置場所: 0x0100 (BIOSや割り込みベクターから離れた安全な領域)
