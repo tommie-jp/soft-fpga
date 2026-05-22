@@ -8,6 +8,7 @@
 #include "Vcpm_top_cpm_top.h"     // ram[], f1, f2 public アクセスに必要
 #include "Vcpm_top_vm80a_core.h"  // cpu->acc 書き換え（ポート $A1h 戻り値）
 #include "verilated.h"
+#include "cpm_const.h"
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #else
@@ -54,8 +55,8 @@ static Vcpm_top* top;
 // [15: 8] = H        (レジスタ H)
 // [23:16] = L        (レジスタ L)
 // [31:24] = dbus     (CPU データバス: MEMR=RAMデータ, MEMW/IOOUT=io_dout, IOIN=io_din)
-static const int RING_SIZE = 4096;
-static uint32_t  ring[RING_SIZE * 6];  // 6 ワード/サンプル
+// RING_SIZE / RING_WORDS は cpm_const.h で定義
+static uint32_t  ring[RING_SIZE * RING_WORDS];  // RING_WORDS ワード/サンプル
 static uint32_t  ring_head = 0;
 
 // 64KB フラット RAM (Verilator 側の ram[] と同期)
@@ -63,17 +64,17 @@ static uint32_t  ring_head = 0;
 static uint8_t   mem[0x10000];
 
 // コンソール入出力キュー
-static uint8_t   con_in_buf[256];
+// CON_IN_SIZE / CON_OUT_SIZE は cpm_const.h で定義
+static uint8_t   con_in_buf[CON_IN_SIZE];
 static int       con_in_head = 0;
 static int       con_in_tail = 0;
 
-static uint8_t   con_out_buf[1024];
+static uint8_t   con_out_buf[CON_OUT_SIZE];
 static int       con_out_head = 0;
 static int       con_out_tail = 0;
 
 // マルチドライブディスクイメージ (IBM 3740 SSSD: 77×26×128 = 256,256 bytes/ドライブ)
-static const int N_DRIVES   = 4;
-static const int DISK_BYTES = 77 * 26 * 128;
+// N_DRIVES / DISK_BYTES は cpm_const.h で定義
 
 static uint8_t   disk_image[N_DRIVES][DISK_BYTES];
 static int       disk_size[N_DRIVES];
@@ -90,7 +91,8 @@ static uint16_t  disk_dma    = 0x0080;
 // BDS C 起動コードは SP=BDOS+6=$E406 にセットするため、CALL スタックが
 // $E400-$E405 (BDOS 先頭) を上書きする。実機 CP/M は WBOOT で CCP+BDOS を
 // ディスクから再読み込みするため、ここでも同じ範囲を復元する。
-static uint8_t   saved_ccp[0x1600];
+// CCP_BDOS_SIZE は cpm_const.h で定義
+static uint8_t   saved_ccp[CCP_BDOS_SIZE];
 
 // ── デバッグ機能 ─────────────────────────────────────────────────
 // レジスタスナップショット: [A, F, B, C, D, E, H, L, SPH, SPL, PCH, PCL]
@@ -109,10 +111,10 @@ static uint8_t  trig_port = 0xFF;   // type=1: 0xFF = 任意ポート
 static uint16_t trig_pc   = 0;      // type=2,3: 0 = 任意アドレス
 static bool     trig_hit  = false;
 
-// コールトレースログ (リング、64エントリ)
+// コールトレースログ (リング、CALL_LOG_SIZE エントリ)
 // buf[i*2+0] = from_pc (bits 15:0) | is_ret (bit 16)
 // buf[i*2+1] = to_addr (bits 15:0)
-static const int CALL_LOG_SIZE = 64;
+// CALL_LOG_SIZE は cpm_const.h で定義
 static uint32_t call_log_buf[CALL_LOG_SIZE * 2];
 static uint32_t call_log_head = 0;
 
@@ -189,22 +191,22 @@ static void load_cpm_image(
 {
     memset(mem, 0, sizeof(mem));
 
-    // CCP+BDOS を $DC00 に配置
+    // CCP+BDOS を CPM_CCP_BASE に配置
     if (cpm_bin && cpm_size > 0)
-        memcpy(mem + 0xDC00, cpm_bin, cpm_size);
+        memcpy(mem + CPM_CCP_BASE, cpm_bin, cpm_size);
 
-    // WBOOT 用に CCP+BDOS (0xDC00-0xF1FF) を保存
-    memcpy(saved_ccp, mem + 0xDC00, sizeof(saved_ccp));
+    // WBOOT 用に CCP+BDOS を保存
+    memcpy(saved_ccp, mem + CPM_CCP_BASE, sizeof(saved_ccp));
 
-    // BIOS を $F200 に配置
+    // BIOS を CPM_BIOS_BASE に配置
     if (bios_bin && bios_size > 0)
-        memcpy(mem + 0xF200, bios_bin, bios_size);
+        memcpy(mem + CPM_BIOS_BASE, bios_bin, bios_size);
 
-    // $0000: JMP $F200 (BIOS BOOT エントリ)
+    // $0000: JMP CPM_BIOS_BASE (BIOS BOOT エントリ)
     // リセット後 CPU は $0000 から実行を開始するため、BIOS BOOT にジャンプさせる
-    mem[0x0000] = 0xC3;   // JMP opcode
-    mem[0x0001] = 0x00;   // $F200 low byte
-    mem[0x0002] = 0xF2;   // $F200 high byte
+    mem[0x0000] = 0xC3;                           // JMP opcode
+    mem[0x0001] = (uint8_t)(CPM_BIOS_BASE      ); // BIOS アドレス low byte
+    mem[0x0002] = (uint8_t)(CPM_BIOS_BASE >> 8 ); // BIOS アドレス high byte
 
     // RAM を Verilator 側にコピー
     for (int i = 0; i < 0x10000; i++)
@@ -236,22 +238,22 @@ static void handle_io(uint8_t port, bool is_write, uint8_t data)
     if (is_write) {
         switch (port) {
         case 0x01: // CONOUT
-            con_out_buf[con_out_tail & 1023] = data;
+            con_out_buf[con_out_tail & (CON_OUT_SIZE - 1)] = data;
             con_out_tail++;
             break;
         case 0x20: // WBOOT: CCP+BDOS を初期イメージから復元
-            for (int i = 0; i < (int)sizeof(saved_ccp); i++)
-                top->cpm_top->ram[0xDC00 + i] = saved_ccp[i];
+            for (int i = 0; i < CCP_BDOS_SIZE; i++)
+                top->cpm_top->ram[CPM_CCP_BASE + i] = saved_ccp[i];
             break;
         case 0x10: { // DCMD: ディスクコマンド
             // disk_sector は BIOS SECTRAN が返す物理セクタ番号 (0-indexed, 0-25)
-            uint32_t offset = (uint32_t)(disk_track * 26 + disk_sector) * 128;
+            uint32_t offset = (uint32_t)(disk_track * DISK_SECTORS + disk_sector) * DISK_SECTOR_SIZE;
             if (data == 0) { // READ: disk → RAM
-                for (int j = 0; j < 128 && offset + j < (uint32_t)disk_size[cur_drive]; j++)
+                for (int j = 0; j < DISK_SECTOR_SIZE && offset + j < (uint32_t)disk_size[cur_drive]; j++)
                     top->cpm_top->ram[(disk_dma + j) & 0xFFFF] = disk_image[cur_drive][offset + j];
             } else { // WRITE: RAM → disk
                 if (!disk_readonly[cur_drive]) {
-                    for (int j = 0; j < 128 && offset + j < (uint32_t)disk_size[cur_drive]; j++)
+                    for (int j = 0; j < DISK_SECTOR_SIZE && offset + j < (uint32_t)disk_size[cur_drive]; j++)
                         disk_image[cur_drive][offset + j] = top->cpm_top->ram[(disk_dma + j) & 0xFFFF];
                     disk_dirty[cur_drive] = true;
                 }
@@ -354,7 +356,7 @@ static uint8_t read_io(uint8_t port)
     switch (port) {
     case 0x00: // CONIN
         if (con_in_head != con_in_tail) {
-            uint8_t c = con_in_buf[con_in_head & 255];
+            uint8_t c = con_in_buf[con_in_head & (CON_IN_SIZE - 1)];
             con_in_head++;
             return c;
         }
@@ -377,6 +379,80 @@ static uint8_t read_io(uint8_t port)
     return 0xFF;
 }
 
+// ── 内部ヘルパー ──────────────────────────────────────────────────
+
+// F レジスタを PSW 個別ビットから Intel 8080 フォーマットで再構成する。
+// S Z 0 AC 0 P 1 C
+// step() と sim_snap_regs() の両方から使用する。
+static uint8_t make_f_byte(const Vcpm_top_vm80a_core* cpu) {
+    return static_cast<uint8_t>(
+        ((cpu->__PVT__psw_s  ? 1u : 0u) << 7) |
+        ((cpu->__PVT__psw_z  ? 1u : 0u) << 6) |
+        ((cpu->__PVT__psw_ac ? 1u : 0u) << 4) |
+        ((cpu->__PVT__psw_p  ? 1u : 0u) << 2) |
+        (1u << 1) |
+        ((cpu->__PVT__psw_c  ? 1u : 0u) << 0));
+}
+
+// トリガー発火状態をクリアする（全 sim_set_*_trigger 関数で共通）。
+static void reset_trigger_state() {
+    trig_hit       = false;
+    trig_fired     = false;
+    trig_fire_head = 0;
+    ring_frozen    = false;
+}
+
+// Verilator モジュールをリセットパルス 2 サイクルで初期化する。
+static void verilator_reset(Vcpm_top* t) {
+    t->io_din = 0;
+    t->reset  = 1;
+    t->clk    = 0; t->eval();
+    t->clk    = 1; t->eval();
+    t->clk    = 0; t->eval();
+    t->clk    = 1; t->eval();
+    t->reset  = 0;
+}
+
+// プログラムを 0x0000 に配置してベアメタル実行し、CONOUT 出力バイト数を返す。
+// idle_timeout: 最後の CONOUT 出力から変化なしで打ち切るクロック数。
+static int run_bare_prog(const uint8_t* prog, int prog_size,
+                         long long max_cycles, long long idle_timeout)
+{
+    con_out_head = con_out_tail = 0;
+    con_in_head  = con_in_tail  = 0;
+
+    top = new Vcpm_top;
+    memset(top->cpm_top->ram.m_storage, 0, sizeof(top->cpm_top->ram.m_storage));
+    for (int i = 0; i < prog_size && i < 0x10000; i++)
+        top->cpm_top->ram[i] = prog[i];
+
+    verilator_reset(top);
+
+    long long last_out_cycle = -1;
+    bool prev_in = false;
+    for (long long c = 0; c < max_cycles; c++) {
+        bool cur_in = (top->io_active && top->io_dbin);
+        if (cur_in && !prev_in)
+            top->io_din = read_io(top->io_port);
+        prev_in = cur_in;
+
+        top->clk = 0; top->eval();
+        top->clk = 1; top->eval();
+
+        int prev_tail = con_out_tail;
+        if (top->io_req && top->io_wr)
+            handle_io(top->io_addr, true, top->io_dout);
+        if (con_out_tail != prev_tail)
+            last_out_cycle = c;
+
+        if (last_out_cycle >= 0 && (c - last_out_cycle) > idle_timeout) break;
+    }
+
+    delete top;
+    top = nullptr;
+    return con_out_tail;
+}
+
 // --------------------------------------------------------------
 // 公開 API (main_linux.cpp / Emscripten から呼ぶ)
 // --------------------------------------------------------------
@@ -389,7 +465,7 @@ EMSCRIPTEN_KEEPALIVE
 int sim_init(const char* bios_path, const char* cpm_path, const char* dsk_path)
 {
     // BIOS
-    uint8_t bios_bin[3584] = {};
+    uint8_t bios_bin[BIOS_MAX_SIZE] = {};
     int bios_size = 0;
     if (bios_path) {
         FILE* f = fopen(bios_path, "rb");
@@ -399,7 +475,7 @@ int sim_init(const char* bios_path, const char* cpm_path, const char* dsk_path)
     }
 
     // CCP+BDOS
-    uint8_t cpm_bin[5632] = {};
+    uint8_t cpm_bin[CCP_BDOS_SIZE] = {};
     int cpm_size = 0;
     if (cpm_path) {
         FILE* f = fopen(cpm_path, "rb");
@@ -465,12 +541,7 @@ int sim_init(const char* bios_path, const char* cpm_path, const char* dsk_path)
     load_cpm_image(bios_bin, bios_size, cpm_bin, cpm_size);
 
     // リセットパルス
-    top->reset = 1;
-    top->clk   = 0; top->eval();
-    top->clk   = 1; top->eval();
-    top->clk   = 0; top->eval();
-    top->clk   = 1; top->eval();
-    top->reset = 0;
+    verilator_reset(top);
     return 0;
 }
 
@@ -516,7 +587,7 @@ void step()
     // ring buffer サンプリング (フリーズ中・LA無効時は書き込まない)
     if (!ring_frozen) {
         if (la_enabled) {
-        uint32_t ridx = (ring_head & (RING_SIZE - 1)) * 6;
+        uint32_t ridx = (ring_head & (RING_SIZE - 1)) * RING_WORDS;
         // IO サイクル中はレジスタ保持値の代わりに組み合わせ信号を使う。
         // io_addr / io_dout は wr_n 立ち上がり時のみ更新されるため、
         // M5 サイクル中は前の OUT の値を保持し続けてしまう。
@@ -554,13 +625,7 @@ void step()
             auto* cpu  = top->cpm_top->cpu;
             // F フラグを PSW 個別ビットから再構成
             // dbg_f = {7'b0, cpu_wr_n} で実 F レジスタとは無関係のため直接アクセス
-            uint8_t f_byte =
-                ((cpu->__PVT__psw_s  ? 1u : 0u) << 7) |
-                ((cpu->__PVT__psw_z  ? 1u : 0u) << 6) |
-                ((cpu->__PVT__psw_ac ? 1u : 0u) << 4) |
-                ((cpu->__PVT__psw_p  ? 1u : 0u) << 2) |
-                (1u << 1) |
-                ((cpu->__PVT__psw_c  ? 1u : 0u) << 0);
+            uint8_t f_byte = make_f_byte(cpu);
             uint16_t bc = (uint16_t)cpu->__PVT__r16_bc;
             // xchg_dh フラグで物理 r16_hl/r16_de の論理マッピングが入れ替わる。
             // RESET後 xchg_dh=0: 論理HL=物理r16_de、論理DE=物理r16_hl
@@ -723,7 +788,7 @@ void sim_run_n(int n) {
 EMSCRIPTEN_KEEPALIVE
 void send_key(uint8_t ch)
 {
-    con_in_buf[con_in_tail & 255] = ch;
+    con_in_buf[con_in_tail & (CON_IN_SIZE - 1)] = ch;
     con_in_tail++;
 }
 
@@ -731,7 +796,7 @@ EMSCRIPTEN_KEEPALIVE
 int get_display_char()
 {
     if (con_out_head == con_out_tail) return -1;
-    uint8_t c = con_out_buf[con_out_head & 1023];
+    uint8_t c = con_out_buf[con_out_head & (CON_OUT_SIZE - 1)];
     con_out_head++;
     return c;
 }
@@ -793,46 +858,8 @@ int sim_load_disk_file(int drive, const char* path)
 EMSCRIPTEN_KEEPALIVE
 int sim_run_bin(const uint8_t* prog, int prog_size, int max_cycles)
 {
-    con_out_head = con_out_tail = 0;
-    con_in_head  = con_in_tail  = 0;
-
-    top = new Vcpm_top;
-    memset(top->cpm_top->ram.m_storage, 0, sizeof(top->cpm_top->ram.m_storage));
-    for (int i = 0; i < prog_size && i < 0x10000; i++)
-        top->cpm_top->ram[i] = prog[i];
-
-    top->io_din = 0;
-    top->reset  = 1;
-    top->clk    = 0; top->eval();
-    top->clk    = 1; top->eval();
-    top->clk    = 0; top->eval();
-    top->clk    = 1; top->eval();
-    top->reset  = 0;
-
-    int last_out_cycle = -1;
-    bool prev_in = false;
-    for (int c = 0; c < max_cycles; c++) {
-        bool cur_in = (top->io_active && top->io_dbin);
-        if (cur_in && !prev_in)
-            top->io_din = read_io(top->io_port);
-        prev_in = cur_in;
-
-        top->clk = 0; top->eval();
-        top->clk = 1; top->eval();
-
-        int prev_tail = con_out_tail;
-        if (top->io_req && top->io_wr)
-            handle_io(top->io_addr, true, top->io_dout);
-        if (con_out_tail != prev_tail)
-            last_out_cycle = c;
-
-        // 出力が 1 文字以上あり、最後の出力から 50000 サイクル無変化 → 打ち切り
-        if (last_out_cycle >= 0 && (c - last_out_cycle) > 50000) break;
-    }
-
-    delete top;
-    top = nullptr;
-    return con_out_tail;
+    // アイドルタイムアウト 50000 サイクル固定
+    return run_bare_prog(prog, prog_size, (long long)max_cycles, 50000LL);
 }
 
 // ------------------------------------------------------------------
@@ -869,51 +896,13 @@ EMSCRIPTEN_KEEPALIVE
 int sim_run_bare(const uint8_t* prog, int prog_size,
                  long long max_cycles, int idle_timeout_cycles)
 {
-    con_out_head = con_out_tail = 0;
-    con_in_head  = con_in_tail  = 0;
-
-    top = new Vcpm_top;
-    memset(top->cpm_top->ram.m_storage, 0, sizeof(top->cpm_top->ram.m_storage));
-    for (int i = 0; i < prog_size && i < 0x10000; i++)
-        top->cpm_top->ram[i] = prog[i];
-
-    top->io_din = 0;
-    top->reset  = 1;
-    top->clk    = 0; top->eval();
-    top->clk    = 1; top->eval();
-    top->clk    = 0; top->eval();
-    top->clk    = 1; top->eval();
-    top->reset  = 0;
-
-    long long last_out_cycle = -1;
-    bool prev_in = false;
-    for (long long c = 0; c < max_cycles; c++) {
-        bool cur_in = (top->io_active && top->io_dbin);
-        if (cur_in && !prev_in)
-            top->io_din = read_io(top->io_port);
-        prev_in = cur_in;
-
-        top->clk = 0; top->eval();
-        top->clk = 1; top->eval();
-
-        int prev_tail = con_out_tail;
-        if (top->io_req && top->io_wr)
-            handle_io(top->io_addr, true, top->io_dout);
-        if (con_out_tail != prev_tail)
-            last_out_cycle = c;
-
-        if (last_out_cycle >= 0 && (c - last_out_cycle) > idle_timeout_cycles) break;
-    }
-
-    delete top;
-    top = nullptr;
-    return con_out_tail;
+    return run_bare_prog(prog, prog_size, max_cycles, (long long)idle_timeout_cycles);
 }
 
 EMSCRIPTEN_KEEPALIVE uint32_t* get_ring_ptr()  { return ring; }
 EMSCRIPTEN_KEEPALIVE uint32_t  get_head()       { return ring_head; }
 EMSCRIPTEN_KEEPALIVE int       get_ring_size()  { return RING_SIZE; }
-EMSCRIPTEN_KEEPALIVE int       get_ring_words() { return 6; }
+EMSCRIPTEN_KEEPALIVE int       get_ring_words() { return RING_WORDS; }
 
 EMSCRIPTEN_KEEPALIVE int      sim_get_cur_drive()   { return cur_drive; }
 EMSCRIPTEN_KEEPALIVE int      sim_get_disk_track()  { return disk_track; }
@@ -999,13 +988,7 @@ EMSCRIPTEN_KEEPALIVE
 uint8_t* sim_snap_regs() {
     if (!top) { memset(reg_snap, 0, sizeof(reg_snap)); return reg_snap; }
     auto* cpu = top->cpm_top->cpu;
-    uint8_t f =
-        ((cpu->__PVT__psw_s  ? 1u : 0u) << 7) |
-        ((cpu->__PVT__psw_z  ? 1u : 0u) << 6) |
-        ((cpu->__PVT__psw_ac ? 1u : 0u) << 4) |
-        ((cpu->__PVT__psw_p  ? 1u : 0u) << 2) |
-        (1u << 1) |
-        ((cpu->__PVT__psw_c  ? 1u : 0u) << 0);
+    uint8_t f = make_f_byte(cpu);
     uint16_t bc = (uint16_t)cpu->__PVT__r16_bc;
     uint16_t de = (uint16_t)cpu->__PVT__r16_de;
     uint16_t hl = (uint16_t)cpu->__PVT__r16_hl;
@@ -1037,13 +1020,10 @@ EMSCRIPTEN_KEEPALIVE int  sim_ring_frozen() { return ring_frozen ? 1 : 0; }
 // pc  : type=2,3 のターゲットアドレスフィルタ (0=任意)
 EMSCRIPTEN_KEEPALIVE
 void sim_set_trigger(int type, int port, int pc) {
-    trig_type      = type;
-    trig_port      = (uint8_t)port;
-    trig_pc        = (uint16_t)pc;
-    trig_hit       = false;
-    trig_fired     = false;
-    trig_fire_head = 0;
-    ring_frozen    = false;
+    trig_type = type;
+    trig_port = (uint8_t)port;
+    trig_pc   = (uint16_t)pc;
+    reset_trigger_state();
 }
 EMSCRIPTEN_KEEPALIVE int  sim_trigger_hit()    { return trig_hit  ? 1 : 0; }
 EMSCRIPTEN_KEEPALIVE int  sim_trigger_fired()  { return trig_fired ? 1 : 0; }
@@ -1054,8 +1034,8 @@ EMSCRIPTEN_KEEPALIVE void sim_set_post_delay(int n) {
     trig_post_delay = (n > 0) ? (uint32_t)n : 0;
 }
 EMSCRIPTEN_KEEPALIVE void sim_clear_trigger() {
-    trig_type = 0; trig_hit = false; trig_fired = false;
-    trig_fire_head = 0; ring_frozen = false;
+    trig_type = 0;
+    reset_trigger_state();
 }
 
 // エッジトリガー設定
@@ -1066,10 +1046,7 @@ void sim_set_edge_trigger(int word, int bit, int dir) {
     trig_edge_word = word;
     trig_edge_bit  = bit;
     trig_edge_dir  = dir;
-    trig_hit       = false;
-    trig_fired     = false;
-    trig_fire_head = 0;
-    ring_frozen    = false;
+    reset_trigger_state();
     prev_edge_val  = 0;
 }
 
@@ -1077,14 +1054,11 @@ void sim_set_edge_trigger(int word, int bit, int dir) {
 // word: Word インデックス (0-4), mask: ビットマスク, cmp: 比較値（mask 適用後）
 EMSCRIPTEN_KEEPALIVE
 void sim_set_value_trigger(int word, int mask, int cmp) {
-    trig_type      = 6;
-    trig_val_word  = word;
-    trig_val_mask  = (uint32_t)mask;
-    trig_val_cmp   = (uint32_t)cmp;
-    trig_hit       = false;
-    trig_fired     = false;
-    trig_fire_head = 0;
-    ring_frozen    = false;
+    trig_type     = 6;
+    trig_val_word = word;
+    trig_val_mask = (uint32_t)mask;
+    trig_val_cmp  = (uint32_t)cmp;
+    reset_trigger_state();
 }
 
 // レジスタ値トリガー設定 (type=7)
@@ -1092,13 +1066,10 @@ void sim_set_value_trigger(int word, int mask, int cmp) {
 // value:  比較値 (8ビットレジスタは下位8ビット、16ビットは下位16ビットを使用)
 EMSCRIPTEN_KEEPALIVE
 void sim_set_reg_trigger(int reg_id, int value) {
-    trig_type      = 7;
-    trig_reg_id    = reg_id;
-    trig_reg_val   = (uint32_t)value;
-    trig_hit       = false;
-    trig_fired     = false;
-    trig_fire_head = 0;
-    ring_frozen    = false;
+    trig_type    = 7;
+    trig_reg_id  = reg_id;
+    trig_reg_val = (uint32_t)value;
+    reset_trigger_state();
 }
 
 // 命令トリガー設定 (type=5)
@@ -1109,10 +1080,7 @@ void sim_set_instr_trigger(int pc, int opc) {
     trig_type      = 5;
     trig_instr_pc  = (pc  < 0) ? 0xFFFF : (uint16_t)pc;
     trig_instr_opc = (opc < 0) ? 0xFF   : (uint8_t)opc;
-    trig_hit       = false;
-    trig_fired     = false;
-    trig_fire_head = 0;
-    ring_frozen    = false;
+    reset_trigger_state();
 }
 
 // Logic Analyzer 有効/無効切替
