@@ -1005,9 +1005,9 @@
 
   // 8080 ステータスバイトからマシンサイクルタイプを判定
   var MTYPE_FETCH  = { label:'FETCH',  color:'rgba(40,90,200,0.60)'  };
-  var MTYPE_MEM_RD = { label:'MEM RD', color:'rgba(30,150,30,0.60)'  };
-  var MTYPE_MEM_WR = { label:'MEM WR', color:'rgba(180,110,0,0.60)'  };
-  var MTYPE_IO_IN  = { label:'IO IN',  color:'rgba(0,120,220,0.65)'  };
+  var MTYPE_MEM_RD = { label:'MEM RD', short:'RD', color:'rgba(30,150,30,0.60)'  };
+  var MTYPE_MEM_WR = { label:'MEM WR', short:'WR', color:'rgba(180,110,0,0.60)'  };
+  var MTYPE_IO_IN  = { label:'IO IN',  short:'IN',  color:'rgba(0,120,220,0.65)'  };
   var MTYPE_IO_OUT = { label:'IO OUT', color:'rgba(200,30,30,0.65)'  };
 
   function getMachineType(s) {
@@ -1240,9 +1240,10 @@
           if (mt && bw > 0.5) {
             ctx.fillStyle = mt.color;
             ctx.fillRect(bx, decY + 1, bw - 1, decH - 2);
-            if (bw > 28) {
-              // ニーモニックまたはタイプラベル
-              var ltext = mt.label;
+            var _minBw = mt.short ? 10 : 28;  // short あり: 10px から表示
+            if (bw > _minBw) {
+              // ニーモニックまたはタイプラベル（短縮版あり: 幅 50px 未満では short を使用）
+              var ltext = (mt.short && bw < 50) ? mt.short : mt.label;
               if ((segStatus & 0x20) && bw > 44) {  // FETCH ブロックで幅十分
                 for (var fi = segStart; fi < di; fi++) {
                   var fw0 = heapu32[ringBase + ((startSamp + fi) & (ringSize - 1)) * RING_WORDS];
@@ -1401,23 +1402,24 @@
             ctx.stroke();
           });
           if (sig.id === 't_state') {
-            // T-state 専用: 10進表示・幅 12px 以上で描画（ズーム 8x 相当から表示）
-            if (s.w > 12) {
+            // T-state 専用: 10進表示・4x 以上で全セグメント表示（重なり許容）
+            if (laZoom >= 4 && s.w > 4) {
               ctx.fillStyle = sig.color; ctx.textAlign = 'center';
               ctx.font = '11px monospace';
               ctx.fillText(String(s.val), s.x + s.w / 2, yMid + 4);
             }
-          } else if (s.w > 24) {
+          } else if ((laZoom >= 4 && s.w > 4) || s.w > 24) {
+            // 4x 以上: 全セグメントに値を表示（重なり許容）; 4x 未満: 幅 24px 超のみ表示
             ctx.fillStyle = sig.color; ctx.textAlign = 'center';
             if (sig.fmt === 'flags8080') {
               ctx.font = '10px monospace';
               ctx.fillText(fmtFlags8080(s.val), s.x + s.w / 2, yMid + 4);
             } else {
               ctx.font = '11px monospace';
-              // 幅が十分なら "0x" + ゼロ埋め、狭ければ "0x" と先頭ゼロを省略
-              var _fullLbl  = '0x' + s.val.toString(16).toUpperCase().padStart(hexPad, '0');
+              // 0x プレフィックスなし: 幅が十分ならゼロ埋め、狭ければ先頭ゼロ省略
+              var _fullLbl  = s.val.toString(16).toUpperCase().padStart(hexPad, '0');
               var _shortLbl = s.val.toString(16).toUpperCase();
-              var _fullThresh = hexPad === 4 ? 52 : 36; // 16bit:6chars, 8bit:4chars
+              var _fullThresh = hexPad === 4 ? 40 : 28; // 16bit:4chars, 8bit:2chars
               ctx.fillText(s.w > _fullThresh ? _fullLbl : _shortLbl,
                            s.x + s.w / 2, yMid + 3);
             }
@@ -1548,7 +1550,7 @@
           parts.push(sig2.label + '=' + fmtFlags8080(v));
         } else {
           var hpad = sig2.width > 8 ? 4 : 2;
-          parts.push(sig2.label + '=0x' + v.toString(16).toUpperCase().padStart(hpad, '0'));
+          parts.push(sig2.label + '=' + v.toString(16).toUpperCase().padStart(hpad, '0'));
         }
       }
       // T ステート情報をカーソルに追加
@@ -2072,6 +2074,21 @@
   var freqHead0 = 0, freqTime0 = performance.now(), freqDisp = '';
   var dirtyState = [false, false, false, false];
 
+  // ── マクロ状態表示の更新（worker.onmessage から参照するためトップレベルに配置）──
+  function setMacroStatus(active, name) {
+    var st  = document.getElementById('macro-status');
+    var btn = document.getElementById('btn-macro-stop');
+    if (!st || !btn) return;
+    if (active) {
+      st.textContent  = '▶ ' + (name || 'macro');
+      st.style.display  = '';
+      btn.style.display = '';
+    } else {
+      st.style.display  = 'none';
+      btn.style.display = 'none';
+    }
+  }
+
   worker.onmessage = function(e) {
     var data = e.data;
     if (data.type === 'frame') {
@@ -2276,20 +2293,6 @@
       clearCurrentInput();
       for (var j = 0; j < entry.length; j++) workerSend({ type: 'sendKey', ch: entry.charCodeAt(j) });
       inputBuf = entry;
-    }
-
-    // ── マクロ状態表示の更新 ──
-    function setMacroStatus(active, name) {
-      var st  = document.getElementById('macro-status');
-      var btn = document.getElementById('btn-macro-stop');
-      if (active) {
-        st.textContent  = '▶ ' + (name || 'macro');
-        st.style.display  = '';
-        btn.style.display = '';
-      } else {
-        st.style.display  = 'none';
-        btn.style.display = 'none';
-      }
     }
 
     async function executeHostCmd(cmd) {

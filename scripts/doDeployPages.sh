@@ -124,6 +124,7 @@ for ex in "${EXAMPLES[@]}"; do
     [ -f "$src/sim.js"        ] && cp "$src/sim.js"        "$dst/"
     [ -f "$src/sim.wasm"      ] && cp "$src/sim.wasm"      "$dst/"
     [ -f "$src/sim-worker.js" ] && cp "$src/sim-worker.js" "$dst/"
+    [ -f "$src/favicon.ico"   ] && cp "$src/favicon.ico"   "$dst/"
     # 追加アセット（QR コードなど）
     for asset in "$src"/*.png "$src"/*.svg; do
         [ -f "$asset" ] && cp "$asset" "$dst/"
