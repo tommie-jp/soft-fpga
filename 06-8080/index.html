@@ -2072,6 +2072,21 @@
   var freqHead0 = 0, freqTime0 = performance.now(), freqDisp = '';
   var dirtyState = [false, false, false, false];
 
+  // ── マクロ状態表示の更新（worker.onmessage から参照するためトップレベルに配置）──
+  function setMacroStatus(active, name) {
+    var st  = document.getElementById('macro-status');
+    var btn = document.getElementById('btn-macro-stop');
+    if (!st || !btn) return;
+    if (active) {
+      st.textContent  = '▶ ' + (name || 'macro');
+      st.style.display  = '';
+      btn.style.display = '';
+    } else {
+      st.style.display  = 'none';
+      btn.style.display = 'none';
+    }
+  }
+
   worker.onmessage = function(e) {
     var data = e.data;
     if (data.type === 'frame') {
@@ -2276,20 +2291,6 @@
       clearCurrentInput();
       for (var j = 0; j < entry.length; j++) workerSend({ type: 'sendKey', ch: entry.charCodeAt(j) });
       inputBuf = entry;
-    }
-
-    // ── マクロ状態表示の更新 ──
-    function setMacroStatus(active, name) {
-      var st  = document.getElementById('macro-status');
-      var btn = document.getElementById('btn-macro-stop');
-      if (active) {
-        st.textContent  = '▶ ' + (name || 'macro');
-        st.style.display  = '';
-        btn.style.display = '';
-      } else {
-        st.style.display  = 'none';
-        btn.style.display = 'none';
-      }
     }
 
     async function executeHostCmd(cmd) {
