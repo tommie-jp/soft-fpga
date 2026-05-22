@@ -45,3 +45,6 @@ CLAUDE.md
 
 # テストフィクスチャ（バイナリでも追跡対象）
 !verif/dormann/*.bin
+examples/06-8080/sw/cpm/disks/work-turbo-pascal/
+test/ss/
+examples/06-8080/tests/node_modules/
