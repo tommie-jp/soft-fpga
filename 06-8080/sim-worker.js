@@ -23,8 +23,75 @@ var laEnabled     = true;   // Logic Analyzer 有効フラグ（false 時は rin
 var frameRateMs   = 16;     // フレームレート目標 ms (16=60fps, 33=30fps, 66=15fps) — 固定速度モードのみ有効
 var fileTimes     = {};   // name → Date.now() ms (writeFS 時刻)
 
+// ── マクロ（!script）状態 ──
+// セグメント配列で管理: chars / sleep / expect の 3 種類
+//   {type:'chars',  data:Uint8Array, pos:0}
+//   {type:'sleep',  ms:200, until:0}       until は開始フレームで Date.now()+ms に確定
+//   {type:'expect', str:'-', ms:200, deadline:0, buf:''}
+// マクロファイル内に書ける制御ディレクティブ:
+//   !sleep N        — N ミリ秒待機してから次の行を注入
+//   !expect STR [N] — STR が CONOUT に現れるまで待機（タイムアウト N ms、省略時 200ms）
+var macroSegments = [];   // パース済みセグメント配列
+var macroSegIdx   = 0;    // 現在処理中のインデックス
+var macroExpect   = null; // expect 待機中: {str, buf, deadline} | null
+
+function injectMacro() {
+  if (macroExpect) return;  // !expect 解決待ち: simLoop 側で CONOUT を監視
+
+  while (macroSegIdx < macroSegments.length) {
+    var seg = macroSegments[macroSegIdx];
+
+    if (seg.type === 'sleep') {
+      if (seg.until === 0) seg.until = Date.now() + seg.ms;  // 初回: タイマー開始
+      if (Date.now() < seg.until) return;                     // まだ待機中
+      macroSegIdx++;
+      continue;
+    }
+
+    if (seg.type === 'expect') {
+      // expect 状態に移行: simLoop の CONOUT 監視に委譲
+      macroExpect = { str: seg.str, buf: '', deadline: Date.now() + seg.ms };
+      macroSegIdx++;
+      return;
+    }
+
+    // type === 'chars'
+    var space  = Module._sim_con_in_space ? Module._sim_con_in_space() : 100;
+    var inject = Math.min(Math.max(0, space - 4), seg.data.length - seg.pos, 64);
+    if (inject > 0) {
+      console.log('[injectMacro] seg=' + macroSegIdx + ' inject=' + inject +
+                  ' remaining=' + (seg.data.length - seg.pos));
+      for (var j = 0; j < inject; j++) Module._send_key(seg.data[seg.pos++]);
+    }
+    if (seg.pos >= seg.data.length) {
+      macroSegIdx++;
+      continue;  // 次セグメントへ（sleep/expect を続けて処理）
+    }
+    return;  // chars がまだ残っている: 次フレームで続き
+  }
+
+  // 全セグメント完了
+  if (macroSegments.length > 0) {
+    macroSegments = [];
+    macroSegIdx   = 0;
+    _dbgMacroActive = true;
+    _dbgMacroFrames = 40;
+    postMessage({ type: 'scriptEnded' });
+  }
+}
+
+// デバッグ: マクロ注入後の出力ログを有効にするか
+var _dbgMacroActive = false;
+var _dbgMacroFrames = 0;
+
 // ---- シミュレーションループ ----
 function simLoop() {
+  // マクロ文字を CONIN バッファへ注入（ステップ前に行い遅延を最小化）
+  // 完了検出は injectMacro() 内で行い _dbgMacroActive をセットする
+  injectMacro();
+  if (_dbgMacroActive && _dbgMacroFrames > 0) _dbgMacroFrames--;
+  else if (_dbgMacroFrames <= 0) _dbgMacroActive = false;
+
   if (running) {
     // stepsPerFrame < 0 は「最高速度」センチネル (applySpeed が -1 を送信)
     var n = stepsPerFrame < 0 ? 100000 : stepsPerFrame;
@@ -40,6 +107,29 @@ function simLoop() {
   var chars = [];
   var ch;
   while ((ch = Module._get_display_char()) !== -1) chars.push(ch & 0x7F);
+  if (_dbgMacroActive && chars.length > 0) {
+    var frameIdx = 40 - _dbgMacroFrames;
+    console.log('[simLoop output] frame=' + frameIdx + ' ' + chars.length + ' chars: ' +
+      JSON.stringify(String.fromCharCode.apply(null, chars)));
+  }
+
+  // ── !expect: CONOUT 出力をパターンマッチ ──
+  if (macroExpect) {
+    if (chars.length > 0) {
+      var _out = String.fromCharCode.apply(null, chars);
+      // フレーム境界をまたぐマッチに備えて直近 (str.length + 64) 文字を保持
+      macroExpect.buf = (macroExpect.buf + _out).slice(-(macroExpect.str.length + 64));
+      if (macroExpect.buf.indexOf(macroExpect.str) !== -1) {
+        console.log('[expect] matched: ' + JSON.stringify(macroExpect.str));
+        macroExpect = null;
+      }
+    }
+    if (macroExpect && Date.now() > macroExpect.deadline) {
+      console.warn('[expect] timeout: ' + JSON.stringify(macroExpect.str));
+      postMessage({ type: 'scriptWarn', msg: '!expect timeout: "' + macroExpect.str + '"' });
+      macroExpect = null;
+    }
+  }
 
   var head    = Module._get_head() >>> 0;
   var pc      = Module._get_pc()   >>> 0;
@@ -229,6 +319,76 @@ self.onmessage = function (e) {
       postMessage({ type: 'fsResult', requestId: data.requestId, ok: true });
       break;
     }
+
+    // ── マクロ（!script）制御 ──
+
+    case 'scriptRun': {
+      var sname = data.name;
+      try {
+        var raw  = Module.FS.readFile('/' + sname);
+        var text = new TextDecoder('utf-8', { fatal: false }).decode(raw);
+        // ラインごとにパースして !sleep / !expect ディレクティブを処理
+        var lines = text.split(/\r\n|\r|\n/);
+        var segs  = [];
+        var cbuf  = [];
+
+        function _flushChars() {
+          if (cbuf.length > 0) {
+            segs.push({ type: 'chars', data: new Uint8Array(cbuf), pos: 0 });
+            cbuf = [];
+          }
+        }
+
+        for (var li = 0; li < lines.length; li++) {
+          var line = lines[li];
+
+          // !sleep N
+          var mSleep = line.match(/^!sleep\s+(\d+)\s*$/i);
+          if (mSleep) {
+            _flushChars();
+            segs.push({ type: 'sleep', ms: parseInt(mSleep[1], 10), until: 0 });
+            continue;
+          }
+
+          // !expect STR [MS]  (\r と \n のエスケープシーケンスを展開)
+          var mExpect = line.match(/^!expect\s+(\S+)(?:\s+(\d+))?\s*$/i);
+          if (mExpect) {
+            _flushChars();
+            var expStr = mExpect[1].replace(/\\r/g, '\r').replace(/\\n/g, '\n');
+            var expMs  = mExpect[2] ? parseInt(mExpect[2], 10) : 200;
+            segs.push({ type: 'expect', str: expStr, ms: expMs, deadline: 0, buf: '' });
+            continue;
+          }
+
+          // 通常テキスト行: ^Z 除去 + 行末 CR を追加
+          for (var ci = 0; ci < line.length; ci++) {
+            if (line.charCodeAt(ci) !== 26) cbuf.push(line.charCodeAt(ci));
+          }
+          cbuf.push(13);  // 行末 CR
+        }
+        _flushChars();
+
+        macroSegments = segs;
+        macroSegIdx   = 0;
+        macroExpect   = null;
+
+        var total = segs.reduce(function(s, sg) {
+          return s + (sg.type === 'chars' ? sg.data.length : 0);
+        }, 0);
+        console.log('[scriptRun] ' + sname + ' segments=' + segs.length + ' chars=' + total);
+        postMessage({ type: 'scriptStarted', name: sname, total: total });
+      } catch (err) {
+        postMessage({ type: 'scriptError', msg: '!' + sname + ': ' + err.message });
+      }
+      break;
+    }
+
+    case 'scriptStop':
+      macroSegments = [];
+      macroSegIdx   = 0;
+      macroExpect   = null;
+      postMessage({ type: 'scriptEnded' });
+      break;
 
     // ── デバッグ制御 ──
 
