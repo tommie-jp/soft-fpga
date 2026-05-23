@@ -90,10 +90,11 @@
     self._rafPending   = false;   // requestAnimationFrame 発行済みフラグ
 
     // ナビゲーションボタン ID (config で上書き可能)
-    self._navLL = c.navLL || 'la-nav-ll';
-    self._navL  = c.navL  || 'la-nav-l';
-    self._navR  = c.navR  || 'la-nav-r';
-    self._navRR = c.navRR || 'la-nav-rr';
+    self._navLL    = c.navLL    || 'la-nav-ll';
+    self._navL     = c.navL     || 'la-nav-l';
+    self._navR     = c.navR     || 'la-nav-r';
+    self._navRR    = c.navRR    || 'la-nav-rr';
+    self._markersId = c.markersId || null;   // マーカーボタン挿入先 ID（null で togglesId に同居）
 
     // ナビ用に draw で更新する状態
     self._lastSamplesInView = 0;
@@ -257,40 +258,158 @@
 
   RTLScopeLA.prototype.buildToggles = function() {
     var self = this;
+
     var el = document.getElementById(self._togglesId);
     if (!el) return;
-    el.innerHTML = '';
 
-    // デコードレーンボタン (decodeLane が設定されている場合のみ)
-    if (self._cbDec) {
-      var decLabel = self._cbDec.label || 'DEC';
-      var decBtn = document.createElement('label');
-      decBtn.className = 'sig-tog' + (self._showDec ? ' on' : '');
-      decBtn.style.background   = self._showDec ? '#445566' : '';
-      decBtn.style.borderRadius = '10px';
-      decBtn.title = 'マシンサイクルデコードレーンの表示切替。';
-      decBtn.innerHTML = '<input type="checkbox"' + (self._showDec ? ' checked' : '') + '> ' + decLabel;
-      decBtn.querySelector('input').addEventListener('change', function() {
-        self._showDec = this.checked;
-        localStorage.setItem(self._prefix + 'decode_lane', this.checked ? '1' : '0');
-        decBtn.className = 'sig-tog' + (this.checked ? ' on' : '');
-        decBtn.style.background = this.checked ? '#445566' : '';
-        self._updateCanvas();
+    // 古いピッカーを破棄（buildToggles 再呼び出し対応）
+    var pickerId = '_la_picker_' + self._togglesId;
+    var oldPicker = document.getElementById(pickerId);
+    if (oldPicker) oldPicker.parentNode.removeChild(oldPicker);
+
+    // ── グループ色マップ: signal.id → group color ──
+    var sigGroupColor = {};
+    self._groups.forEach(function(grp) {
+      var gc = grp.color || '#666';
+      grp.ids.forEach(function(id) { sigGroupColor[id] = gc; });
+    });
+
+    // ── ピッカードロップダウン (body に fixed 配置) ──
+    var picker = document.createElement('div');
+    picker.id = pickerId;
+    picker.style.cssText =
+      'display:none;position:fixed;z-index:600;' +
+      'background:#fff;border:1px solid #bbb;border-radius:4px;' +
+      'box-shadow:0 4px 14px rgba(0,0,0,.22);' +
+      'padding:6px 10px 8px;max-width:460px;min-width:180px;';
+    picker.addEventListener('click', function(e) { e.stopPropagation(); });
+    document.body.appendChild(picker);
+
+    function closePicker() { picker.style.display = 'none'; }
+    document.addEventListener('click', closePicker);
+
+    function positionPicker() {
+      var rect = el.getBoundingClientRect();
+      picker.style.top  = (rect.bottom + 4) + 'px';
+      picker.style.left = rect.left + 'px';
+      // 右端はみ出し補正（次フレームで幅確定後に調整）
+      requestAnimationFrame(function() {
+        var pw = picker.offsetWidth;
+        var vw = window.innerWidth;
+        var left = parseFloat(picker.style.left);
+        if (left + pw > vw - 8) picker.style.left = Math.max(4, vw - pw - 8) + 'px';
       });
-      el.appendChild(decBtn);
-
-      var sep = document.createElement('span');
-      sep.style.cssText = 'color:#bbb;font-size:13px;align-self:center;margin:0 2px;user-select:none;';
-      sep.textContent = '|';
-      el.appendChild(sep);
     }
 
-    // グループ別シグナルトグル
+    // ピッカー内チェックボックスを id で更新
+    function updatePickerCheck(id, checked) {
+      var cb = picker.querySelector('input[data-pid="' + id + '"]');
+      if (!cb) return;
+      var gc = sigGroupColor[id] || '#666';
+      cb.checked = checked;
+      cb.parentElement.className = 'sig-tog' + (checked ? ' on' : '');
+      cb.parentElement.style.background = checked ? gc : '';
+    }
+
+    // ── ピッカー先頭: Marker セクション ──
+    (function() {
+      var mhdr = document.createElement('div');
+      mhdr.style.cssText =
+        'font-size:10px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;' +
+        'color:#666;margin-bottom:4px;';
+      mhdr.textContent = 'Marker';
+      picker.appendChild(mhdr);
+
+      var mRow = document.createElement('div');
+      mRow.style.cssText =
+        'display:flex;align-items:center;gap:4px;' +
+        'padding-bottom:7px;margin-bottom:4px;border-bottom:1px solid #eee;';
+      picker.appendChild(mRow);
+
+      // マーカーボタン生成ヘルパー（ピッカー内に埋め込む）
+      function _mkMarkerBtn(label, colorOn, getOn, setOn, getSamp, setSamp) {
+        var btn = document.createElement('button');
+        btn.textContent = label;
+        var baseStyle = 'font-size:11px;font-weight:bold;padding:1px 8px;line-height:1.5;' +
+                        'border:1px solid #aaa;cursor:pointer;font-family:monospace;' +
+                        'min-width:28px;text-align:center;border-radius:3px;';
+        function _apply() {
+          if (getOn()) {
+            btn.style.cssText = baseStyle + 'background:' + colorOn +
+                                ';color:#fff;border-color:' + colorOn + ';';
+          } else {
+            btn.style.cssText = baseStyle + 'background:#e8e8e8;color:#888;';
+          }
+        }
+        btn._refreshStyle = _apply;
+        _apply();
+        btn.addEventListener('click', function() {
+          var next = !getOn();
+          if (next && getSamp) {
+            // ON のたびにビュー中央へ配置（再 ON も含む）
+            setSamp(self._lastStartSamp + Math.floor(self._lastSamplesInView / 2));
+          }
+          setOn(next);
+          // Freeze 中 かつ ON にしたとき: マーカー位置をビュー中央へパン
+          // 実行中は panOverride をセットしない（ライブ追従を維持）
+          if (next && self._frozen && getSamp && getSamp() !== null) {
+            var samp = getSamp();
+            var head = self._lastHead >>> 0;
+            var sv   = self._lastSamplesInView;
+            self._pan = Math.max(0, head - samp - Math.floor(sv / 2));
+            self._panOverride = true;
+          }
+          self._schedDraw();
+          _apply();
+        });
+        return btn;
+      }
+
+      var btnA = _mkMarkerBtn('A', '#0064e6',
+        function() { return self._markerAOn; },
+        function(v) { self._markerAOn = v; },
+        function() { return self._markerA; },
+        function(s) { self._markerA = s; });
+      self._markerBtnApply.A = function() { btnA._refreshStyle(); };
+      mRow.appendChild(btnA);
+
+      var btnB = _mkMarkerBtn('B', '#c80050',
+        function() { return self._markerBOn; },
+        function(v) { self._markerBOn = v; },
+        function() { return self._markerB; },
+        function(s) { self._markerB = s; });
+      self._markerBtnApply.B = function() { btnB._refreshStyle(); };
+      mRow.appendChild(btnB);
+
+      var btnC = _mkMarkerBtn('C', '#00a050',
+        function() { return self._markerCOn; },
+        function(v) { self._markerCOn = v; },
+        function() { return self._markerC; },
+        function(s) { self._markerC = s; });
+      self._markerBtnApply.C = function() { btnC._refreshStyle(); };
+      mRow.appendChild(btnC);
+
+      var trigBtn = _mkMarkerBtn('Trig', '#cc0000',
+        function() { return self._trigOn; },
+        function(v) { self._trigOn = v; },
+        null, null);
+      self._trigBtnApply = function() { if (trigBtn._refreshStyle) trigBtn._refreshStyle(); };
+      mRow.appendChild(trigBtn);
+    })();
+
+    // ── ピッカー内容を構築（グループ別） ──
     self._groups.forEach(function(grp, gi) {
-      var glbl = document.createElement('span');
-      glbl.style.cssText = 'font-size:10px;color:#888;align-self:center;margin-right:1px;user-select:none;white-space:nowrap;';
-      glbl.textContent = grp.label + ':';
-      el.appendChild(glbl);
+      var gc = grp.color || '#666';
+
+      var ghdr = document.createElement('div');
+      ghdr.style.cssText =
+        'font-size:10px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;' +
+        'color:' + gc + ';margin-top:' + (gi > 0 ? '6px' : '0') + ';margin-bottom:3px;';
+      ghdr.textContent = grp.label;
+      picker.appendChild(ghdr);
+
+      var gRow = document.createElement('div');
+      gRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:3px;';
 
       self._sigOrder.forEach(function(id) {
         if (grp.ids.indexOf(id) < 0) return;
@@ -299,103 +418,101 @@
           if (self._signals[i].id === id) { s = self._signals[i]; break; }
         }
         if (!s) return;
+
+        var isOn = !!self._sigVisible[s.id];
         var lbl = document.createElement('label');
-        lbl.className = 'sig-tog' + (self._sigVisible[s.id] ? ' on' : '');
-        lbl.style.background = self._sigVisible[s.id] ? s.color : '';
+        lbl.className = 'sig-tog' + (isOn ? ' on' : '');
+        lbl.style.background = isOn ? gc : '';
         if (s.tip) lbl.title = s.tip;
-        lbl.innerHTML = '<input type="checkbox"' + (self._sigVisible[s.id] ? ' checked' : '') + '> ' + s.label;
-        lbl.querySelector('input').addEventListener('change', (function(sig, l) {
+        lbl.innerHTML = '<input type="checkbox" data-pid="' + s.id + '"' +
+                        (isOn ? ' checked' : '') + '> ' + s.label;
+
+        lbl.querySelector('input').addEventListener('change', (function(sig, l, groupColor) {
           return function() {
             self._sigVisible[sig.id] = this.checked;
             localStorage.setItem(self._prefix + 'sig_' + sig.id, this.checked ? '1' : '0');
             l.className = 'sig-tog' + (this.checked ? ' on' : '');
-            l.style.background = this.checked ? sig.color : '';
+            l.style.background = this.checked ? groupColor : '';
             self._updateCanvas();
+            rebuildActiveBar();
           };
-        })(s, lbl));
-        el.appendChild(lbl);
+        })(s, lbl, gc));
+
+        gRow.appendChild(lbl);
       });
 
-      if (gi < self._groups.length - 1) {
-        var gsep = document.createElement('span');
-        gsep.style.cssText = 'color:#ddd;font-size:13px;align-self:center;margin:0 1px;user-select:none;';
-        gsep.textContent = '|';
-        el.appendChild(gsep);
-      }
+      picker.appendChild(gRow);
     });
 
-    // ── マーカーパネル ──
-    var msep = document.createElement('span');
-    msep.style.cssText = 'color:#bbb;font-size:13px;align-self:center;margin:0 4px;user-select:none;';
-    msep.textContent = '|';
-    el.appendChild(msep);
+    // ── アクティブバーを再描画するヘルパー ──
+    function rebuildActiveBar() {
+      el.innerHTML = '';
 
-    var mlbl = document.createElement('span');
-    mlbl.style.cssText = 'font-size:10px;color:#888;align-self:center;margin-right:3px;user-select:none;white-space:nowrap;';
-    mlbl.textContent = 'Marker:';
-    el.appendChild(mlbl);
-
-    // マーカートグルボタン生成ヘルパー
-    // ON にしたとき: 位置が null なら中央に配置、既設定なら位置を保持して表示
-    // OFF にしたとき: 位置は保持（MARKER_LANE でグレー表示継続）
-    function _mkMarkerBtn(label, colorOn, getOn, setOn, getSamp, setSamp) {
-      var btn = document.createElement('button');
-      btn.textContent = label;
-      var baseStyle = 'font-size:11px;font-weight:bold;padding:1px 7px;line-height:1.4;' +
-                      'border:1px solid #aaa;cursor:pointer;font-family:monospace;' +
-                      'min-width:26px;text-align:center;border-radius:3px;';
-      function _apply() {
-        if (getOn()) {
-          btn.style.cssText = baseStyle + 'background:' + colorOn + ';color:#fff;border-color:' + colorOn + ';';
-        } else {
-          btn.style.cssText = baseStyle + 'background:#e8e8e8;color:#888;';
-        }
+      // デコードレーンチップ
+      if (self._cbDec) {
+        var decLabel = self._cbDec.label || 'DEC';
+        var decChip = document.createElement('label');
+        decChip.className = 'sig-tog' + (self._showDec ? ' on' : '');
+        decChip.style.background   = self._showDec ? '#445566' : '';
+        decChip.style.borderRadius = '10px';
+        decChip.title = 'マシンサイクルデコードレーンの表示切替';
+        decChip.innerHTML = '<input type="checkbox"' + (self._showDec ? ' checked' : '') + '> ' + decLabel;
+        decChip.querySelector('input').addEventListener('change', function() {
+          self._showDec = this.checked;
+          localStorage.setItem(self._prefix + 'decode_lane', this.checked ? '1' : '0');
+          decChip.className = 'sig-tog' + (this.checked ? ' on' : '');
+          decChip.style.background = this.checked ? '#445566' : '';
+          self._updateCanvas();
+        });
+        el.appendChild(decChip);
       }
-      btn._refreshStyle = _apply;   // 外部からボタン見た目を更新するための参照
-      _apply();
-      btn.addEventListener('click', function() {
-        var next = !getOn();
-        if (next && getSamp && getSamp() === null) {
-          // 初回 ON: ビュー中央に配置
-          setSamp(self._lastStartSamp + Math.floor(self._lastSamplesInView / 2));
+
+      // 表示中の信号チップ（visible のみ、グループ色を使用）
+      self._sigOrder.forEach(function(id) {
+        if (!self._sigVisible[id]) return;
+        var s = null;
+        for (var i = 0; i < self._signals.length; i++) {
+          if (self._signals[i].id === id) { s = self._signals[i]; break; }
         }
-        // OFF 時は位置を保持（setSamp(null) しない）
-        setOn(next);
-        _apply();
+        if (!s) return;
+        var gc = sigGroupColor[id] || s.color || '#666';
+        var chip = document.createElement('label');
+        chip.className = 'sig-tog on';
+        chip.style.background = gc;
+        chip.title = (s.tip ? s.tip.split('\n')[0] : s.label) + '\nクリックで非表示';
+        chip.innerHTML = '<input type="checkbox" checked> ' + s.label;
+        chip.querySelector('input').addEventListener('change', function() {
+          self._sigVisible[s.id] = false;
+          localStorage.setItem(self._prefix + 'sig_' + s.id, '0');
+          self._updateCanvas();
+          rebuildActiveBar();
+          updatePickerCheck(s.id, false);
+        });
+        el.appendChild(chip);
       });
-      return btn;
+
+      // ＋ 追加ボタン
+      var addBtn = document.createElement('button');
+      addBtn.textContent = '＋';
+      addBtn.title = '信号を追加 / 削除';
+      addBtn.style.cssText =
+        'font-size:12px;padding:1px 8px;line-height:1.6;' +
+        'border:1px solid #aaa;cursor:pointer;background:#e8e8e8;color:#444;' +
+        'font-family:monospace;border-radius:10px;flex-shrink:0;';
+      addBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var isOpen = picker.style.display !== 'none';
+        closePicker();
+        if (!isOpen) {
+          positionPicker();
+          picker.style.display = '';
+        }
+      });
+      el.appendChild(addBtn);
     }
 
-    var btnA = _mkMarkerBtn('A', '#0064e6',
-      function() { return self._markerAOn; },
-      function(v) { self._markerAOn = v; },
-      function() { return self._markerA; },
-      function(s) { self._markerA = s; });
-    self._markerBtnApply.A = function() { btnA._refreshStyle(); };
-    el.appendChild(btnA);
-
-    var btnB = _mkMarkerBtn('B', '#c80050',
-      function() { return self._markerBOn; },
-      function(v) { self._markerBOn = v; },
-      function() { return self._markerB; },
-      function(s) { self._markerB = s; });
-    self._markerBtnApply.B = function() { btnB._refreshStyle(); };
-    el.appendChild(btnB);
-
-    var btnC = _mkMarkerBtn('C', '#00a050',
-      function() { return self._markerCOn; },
-      function(v) { self._markerCOn = v; },
-      function() { return self._markerC; },
-      function(s) { self._markerC = s; });
-    self._markerBtnApply.C = function() { btnC._refreshStyle(); };
-    el.appendChild(btnC);
-
-    var trigBtn = _mkMarkerBtn('Trig', '#cc0000',
-      function() { return self._trigOn; },
-      function(v) { self._trigOn = v; },
-      null, null);  // Trig は位置制御なし
-    self._trigBtnApply = function() { if (trigBtn._refreshStyle) trigBtn._refreshStyle(); };
-    el.appendChild(trigBtn);
+    // 初回アクティブバー描画
+    rebuildActiveBar();
   };
 
   // ==================== LA OFF 表示 ====================
@@ -649,9 +766,10 @@
       self._updateCanvas();
     }
 
-    // ---- MARKER_LANE クリック: マーカー表示 ON/OFF トグル ----
-    // lx: canvas 論理 x 座標 → 対応するマーカーを toggle
-    // 位置未設定マーカーの固定バッジ x（_draw の _fixedX と同じ計算）
+    // ---- MARKER_LANE クリック: そのマーカーをビュー中央にスクロール ----
+    // lx: canvas 論理 x 座標
+
+    // バッジ固定 x（OFF 時や ビュー外のフォールバック位置、_draw の _fixedX と同一）
     function _markerFixedX(idx) { return self._LABEL_W + [14, 36, 58, 88][idx]; }
 
     // samp が null or ビュー外なら固定バッジ位置を返す
@@ -661,41 +779,43 @@
       return (mx >= self._LABEL_W - 14 && mx <= self._LA_W + 14) ? mx : fixedX;
     }
 
-    function _toggleMarkerAtX(lx) {
-      var snap = 16;  // バッジ幅の半分 + 余裕
+    // samp をビュー中央になるよう pan を調整する
+    function _centerOnSamp(samp) {
+      if (samp === null) return;
+      var head = self._lastHead >>> 0;
+      var sv   = self._lastSamplesInView;
+      self._pan = Math.max(0, head - samp - Math.floor(sv / 2));
+      self._panOverride = true;
+      self._schedDraw();
+    }
 
-      function tryMarker(samp, fixedX, getOn, setOn, setSamp, applyBtn) {
+    function _markerLaneClick(lx) {
+      var snap = 20;  // バッジ幅の半分 + 余裕
+
+      // ON 状態のマーカーバッジ付近をクリックしたら中央スクロール
+      function tryMarker(samp, isOn, fixedX) {
+        if (!isOn) return false;
         var mx = _markerDisplayX(samp, fixedX);
         if (Math.abs(lx - mx) > snap) return false;
-        var next = !getOn();
-        if (next && samp === null) {
-          // 初回 ON: ビュー中央に配置
-          setSamp(self._lastStartSamp + Math.floor(self._lastSamplesInView / 2));
-        }
-        setOn(next);
-        if (applyBtn) applyBtn();
+        _centerOnSamp(samp);
         return true;
       }
 
-      // TRIG: trigHead 未設定なら固定位置、設定済みなら実位置（ビュー外は固定位置）
+      // TRIG: ON かつ発火済みのとき
       function tryTrig() {
-        var trigSamp = self._trigHead >= 0 ? ((self._trigHead >>> 0) - 1) : null;
+        if (!self._trigOn || self._trigHead < 0) return false;
+        var trigSamp = (self._trigHead >>> 0) - 1;
         var mx = _markerDisplayX(trigSamp, _markerFixedX(3));
         if (Math.abs(lx - mx) > snap) return false;
-        self._trigOn = !self._trigOn;
-        if (self._trigBtnApply) self._trigBtnApply();
+        _centerOnSamp(trigSamp);
         return true;
       }
 
-      tryMarker(self._markerA, _markerFixedX(0),
-        function(){return self._markerAOn;}, function(v){self._markerAOn=v;},
-        function(s){self._markerA=s;}, self._markerBtnApply.A) ||
-      tryMarker(self._markerB, _markerFixedX(1),
-        function(){return self._markerBOn;}, function(v){self._markerBOn=v;},
-        function(s){self._markerB=s;}, self._markerBtnApply.B) ||
-      tryMarker(self._markerC, _markerFixedX(2),
-        function(){return self._markerCOn;}, function(v){self._markerCOn=v;},
-        function(s){self._markerC=s;}, self._markerBtnApply.C) ||
+      // 範囲外バッジは動的配置なのでキャッシュを優先、未初期化時は静的位置にフォールバック
+      var _fxC = self._markerFixedXCache || [];
+      tryMarker(self._markerA, self._markerAOn, _fxC[0] || _markerFixedX(0)) ||
+      tryMarker(self._markerB, self._markerBOn, _fxC[1] || _markerFixedX(1)) ||
+      tryMarker(self._markerC, self._markerCOn, _fxC[2] || _markerFixedX(2)) ||
       tryTrig();
     }
 
@@ -721,7 +841,7 @@
       var lx = (e.clientX - rect.left) * (rect.width  > 0 ? self._LA_W / rect.width  : 1);
       var ly = (e.clientY - rect.top)  * (rect.height > 0 ? self._laH  / rect.height : 1);
       if (ly >= self._laH - self._MARKER_LANE_H) {
-        _toggleMarkerAtX(lx);
+        _markerLaneClick(lx);
       }
     });
 
@@ -844,7 +964,7 @@
       // MARKER_LANE タップ判定（移動なし & 下部エリア）
       if (laTouch0 && !laTouch0.moved && laTouch0.tapCanvasY !== undefined &&
           laTouch0.tapCanvasY >= self._laH - self._MARKER_LANE_H) {
-        _toggleMarkerAtX(laTouch0.tapCanvasX);
+        _markerLaneClick(laTouch0.tapCanvasX);
       }
       if (!self._frozen) self._pan = 0;  // 実行中は最新データへ戻す
       laTouch0 = null;
@@ -1166,23 +1286,37 @@
 
     // ── MARKER_LANE バッジ + マーカー縦線 ──
     // ON のときのみバッジを表示（OFF のときは Marker レーンに表示しない）
-    var _fixedX = [LABEL_W + 14, LABEL_W + 36, LABEL_W + 58, LABEL_W + 88];
+    // [3] は Trig 用固定位置。A/B/C の固定位置は後で動的計算する。
+    var _fixedX = [0, 0, 0, LABEL_W + 88];
     function drawMarker(mLabel, mSamp, isOn, mLineColor, mBadgeColor, fixedX) {
       if (!isOn) return;  // OFF のときはバッジ非表示
       var hasSamp = mSamp !== null;
-      var off = hasSamp ? mSamp - startSamp : null;
-      var mx  = hasSamp ? SIG_X + off * laZoom : fixedX;
-      var inView = hasSamp && off >= 0 && off < samples;
+      var off     = hasSamp ? mSamp - startSamp : null;
+      var mx      = hasSamp ? SIG_X + off * laZoom : fixedX;
+      var inView  = hasSamp && off >= 0 && off < samples;
       var showAtPos = hasSamp && mx >= SIG_X - 12 && mx <= LA_W + 12;
+
+      // 縦線・バッジとも信号領域（x >= LABEL_W）のみに表示
       ctx.save();
-      if (inView) {
-        // ビュー内: 縦破線（信号エリア・T ルーラーを貫く）
-        ctx.strokeStyle = mLineColor; ctx.lineWidth = 2.5;
-        ctx.setLineDash([6, 4]);
-        ctx.beginPath(); ctx.moveTo(mx, 0); ctx.lineTo(mx, mlaneY); ctx.stroke();
+      ctx.beginPath();
+      ctx.rect(LABEL_W, 0, LA_W - LABEL_W, laH);
+      ctx.clip();
+
+      // ── 縦線: 範囲外は端にクランプして常に表示 ──
+      if (hasSamp) {
+        var lineX = inView ? mx
+                  : (mx < LABEL_W ? LABEL_W    // 左（過去）はみ出し → 左端
+                                  : LA_W - 1); // 右（未来）はみ出し → 右端
+        ctx.strokeStyle = mLineColor;
+        ctx.lineWidth   = inView ? 2.5 : 1.5;
+        ctx.setLineDash(inView ? [6, 4] : [2, 5]);
+        ctx.globalAlpha = inView ? 1.0 : 0.45;
+        ctx.beginPath(); ctx.moveTo(lineX, 0); ctx.lineTo(lineX, mlaneY); ctx.stroke();
         ctx.setLineDash([]);
+        ctx.globalAlpha = 1.0;
       }
-      // バッジ: ビュー内ならその位置、ビュー外なら固定位置
+
+      // ── バッジ: ビュー内ならその位置 / ビュー外なら固定位置 ──
       var bx = showAtPos ? mx : fixedX;
       var BW = 20, BH = MARKER_LANE_H;
       ctx.fillStyle = mBadgeColor;
@@ -1192,10 +1326,6 @@
       ctx.fillText(mLabel, bx, mlaneY + BH - 4);
       ctx.restore();
     }
-    drawMarker('A', self._markerA, self._markerAOn, 'rgba(0,100,230,0.85)', '#0064e6', _fixedX[0]);
-    drawMarker('B', self._markerB, self._markerBOn, 'rgba(200,0,80,0.85)',  '#c80050', _fixedX[1]);
-    drawMarker('C', self._markerC, self._markerCOn, 'rgba(0,160,80,0.85)',  '#00a050', _fixedX[2]);
-
     // A-B 差分: ハイライト + T ステート数ラベル
     if (self._markerAOn && self._markerBOn && self._markerA !== null && self._markerB !== null) {
       var diff = Math.abs(self._markerA - self._markerB);
@@ -1298,6 +1428,54 @@
 
     // ── クリップ解除 ──
     ctx.restore();
+
+    // ── マーカー縦線 + バッジ（クリップなし: 範囲外クランプ線を確実に表示）──
+    // 範囲外バッジは「左寄せ / 右寄せ」「文字順ソート / 重なり防止」で動的配置
+    (function() {
+      var BAD_W = 20, BAD_GAP = 2, STEP = BAD_W + BAD_GAP;
+      var _mkrs = [
+        { label:'A', samp:self._markerA, on:self._markerAOn,
+          lc:'rgba(0,100,230,0.85)', bc:'#0064e6' },
+        { label:'B', samp:self._markerB, on:self._markerBOn,
+          lc:'rgba(200,0,80,0.85)',  bc:'#c80050' },
+        { label:'C', samp:self._markerC, on:self._markerCOn,
+          lc:'rgba(0,160,80,0.85)',  bc:'#00a050' },
+      ];
+
+      // 各マーカーが「ビュー内（showAtPos）」か「左範囲外」か「右範囲外」かを判定
+      var leftOut = [], rightOut = [];
+      _mkrs.forEach(function(m) {
+        if (!m.on || m.samp === null) return;
+        var off = m.samp - startSamp;
+        var mx  = SIG_X + off * laZoom;
+        m._showAtPos = mx >= SIG_X - 12 && mx <= LA_W + 12;
+        if (!m._showAtPos) {
+          if (mx < LABEL_W) leftOut.push(m);  // 左（過去）方向
+          else              rightOut.push(m); // 右（未来）方向
+        }
+      });
+
+      // 左寄せ: samp 昇順（古い順）で LABEL_W の右端から右へ並べる
+      leftOut.sort(function(a, b) { return a.samp - b.samp; });
+      leftOut.forEach(function(m, i) {
+        m._fixedX = LABEL_W + BAD_W / 2 + i * STEP;
+      });
+
+      // 右寄せ: samp 昇順（小さい方が左）で右詰め、最後（最大値）が右端に来る
+      rightOut.sort(function(a, b) { return a.samp - b.samp; });
+      rightOut.forEach(function(m, i) {
+        m._fixedX = LA_W - BAD_W / 2 - (rightOut.length - 1 - i) * STEP;
+      });
+
+      // ビュー内マーカーには fixedX 不要（drawMarker が showAtPos で無視する）
+      // クリックハンドラー用にバッジの実際の表示 x をキャッシュする
+      self._markerFixedXCache = _mkrs.map(function(m) {
+        return m._fixedX || LABEL_W + BAD_W / 2;
+      });
+      _mkrs.forEach(function(m) {
+        drawMarker(m.label, m.samp, m.on, m.lc, m.bc, m._fixedX || LABEL_W + BAD_W / 2);
+      });
+    })();
 
     // ── カーソル（縦破線 + 値オーバーレイ、クリップなし）──
     if (self._cursorViewX >= 0 && self._cursorViewX <= VIEW_W && samples > 0) {

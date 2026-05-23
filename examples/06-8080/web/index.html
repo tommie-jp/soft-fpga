@@ -411,6 +411,14 @@
     #dbg-trig-bar button {
       font-size:13px; padding:3px 9px; font-family:monospace;
     }
+    /* Trigger 折りたたみパネル（dbg-trig-bar と同スタイルを継承） */
+    #dbg-trig-detail button {
+      font-size:13px; padding:3px 9px; font-family:monospace;
+    }
+    #dbg-trig-detail select, #dbg-trig-detail input {
+      font-size:13px; padding:2px 4px; border:1px solid #aaa;
+      font-family:monospace; background:#fff;
+    }
     #dbg-trig-bar select, #dbg-trig-bar input {
       font-size:13px; padding:2px 4px; border:1px solid #aaa;
       font-family:monospace; background:#fff;
@@ -672,13 +680,17 @@
         </select>
         <div id="la-toggles"></div>
       </div>
-      <!-- トリガーバー: LA グラフの直上 -->
+      <!-- トリガーバー（常時表示）: Freeze / Next I/O / Step + Trigger 折りたたみトグル -->
       <div id="dbg-trig-bar">
         <button id="btn-freeze"
           title="Ring Buffer を凍結／解除します。凍結中は Bus Analyzer の波形が静止し、CPU バーに FROZEN バッジが表示されます。CPU の動作は継続します。">❄ Freeze</button>
         <button id="btn-run-to-io"
           title="次の IN または OUT 命令が発行された瞬間に自動停止します。停止中のときは実行を開始してから I/O を待ちます。">▶ Next I/O</button>
         <button id="dbg-step" title="1命令ステップ実行 (シミュレーション停止中のみ有効)">▶ Step</button>
+        <button id="btn-trig-toggle" title="トリガー設定を表示／非表示">⚙ Trigger ▸</button>
+      </div>
+      <!-- トリガー設定（折りたたみ） -->
+      <div id="dbg-trig-detail" style="display:none;flex-wrap:wrap;align-items:center;gap:4px;padding:3px 0;border-top:1px solid #e0e0e0;margin-top:2px;">
         <select id="trig-type"
             title="トリガー種別を選択します。条件が成立した瞬間にシミュレーションを自動停止します。">
             <option value="0">No Trigger</option>
@@ -1125,13 +1137,13 @@
     return MTYPE_MEM_WR;
   }
 
-  // シグナルグループ定義
+  // シグナルグループ定義（color: アクティブバー・ピッカーで使うグループ単位の色）
   var LA_SIGNAL_GROUPS = [
-    { label:'I/O',     ids:['port','data','io_req','io_wr','t_state'] },
-    { label:'Control', ids:['dbin','sync','wr_n','hlda','wait','inte','f1','f2'] },
-    { label:'Mem',     ids:['addr','memr','memw','dbus'] },
-    { label:'Data',    ids:['status','ir','din','acc','reg_f','reg_b','reg_c','reg_d','reg_e','reg_h','reg_l'] },
-    { label:'CPU',     ids:['pc','sp'] },
+    { label:'I/O',     color:'#0066bb', ids:['port','data','io_req','io_wr','t_state'] },
+    { label:'Control', color:'#7722aa', ids:['dbin','sync','wr_n','hlda','wait','inte','f1','f2'] },
+    { label:'Mem',     color:'#007755', ids:['addr','memr','memw','dbus'] },
+    { label:'Data',    color:'#445566', ids:['status','ir','din','acc','reg_f','reg_b','reg_c','reg_d','reg_e','reg_h','reg_l'] },
+    { label:'CPU',     color:'#335599', ids:['pc','sp'] },
   ];
 
 
@@ -2153,6 +2165,24 @@
         switchDbgTab(this.getAttribute('data-tab'));
       });
     });
+
+    // ---- Trigger 折りたたみトグル ----
+    (function() {
+      var toggleBtn = document.getElementById('btn-trig-toggle');
+      var detail    = document.getElementById('dbg-trig-detail');
+      var PREF_KEY  = 'la_trig_open';
+      var isOpen    = localStorage.getItem(PREF_KEY) === '1';  // デフォルト: 閉じた状態
+      function applyTrigPanel() {
+        detail.style.display = isOpen ? 'flex' : 'none';
+        toggleBtn.textContent = '⚙ Trigger ' + (isOpen ? '▾' : '▸');
+      }
+      applyTrigPanel();
+      toggleBtn.addEventListener('click', function() {
+        isOpen = !isOpen;
+        localStorage.setItem(PREF_KEY, isOpen ? '1' : '0');
+        applyTrigPanel();
+      });
+    })();
 
     // ---- Freeze / Thaw ----
     document.getElementById('btn-freeze').addEventListener('click', function() {
