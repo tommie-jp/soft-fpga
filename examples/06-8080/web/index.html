@@ -1808,7 +1808,7 @@
             var mcCurSync = mcIsEnd ? 0  : ((p.heapu32[mcIdx] >> 9) & 1);
             var mcRising  = (mcCurSync === 1 && mcPrevSync === 0);
             if (curSt !== segStatus || mcRising) {
-              var bx = p.labelW + segStart * p.laZoom;
+              var bx = (p.sigX !== undefined ? p.sigX : p.labelW) + segStart * p.laZoom;
               var bw = (di - segStart) * p.laZoom;
               var mt = getMachineType(segStatus);
               if (mt && bw > 0.5) {
