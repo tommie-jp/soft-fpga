@@ -45,10 +45,12 @@
     self._ringSize      = c.ringSize      || 4096;
     self._RW            = c.ringWords     || 6;
     self._prefix        = c.storagePrefix !== undefined ? c.storagePrefix : 'la_';
-    self._LA_W          = c.width         || 900;
+    self._initLA_W      = c.width         || 900;   // ユーザー指定の最大幅
+    self._LA_W          = self._initLA_W;            // 実効幅（_updateCanvas で更新）
     self._LABEL_W       = c.labelWidth    || 56;
     self._TRACK_H       = c.trackH        || 28;
     self._TIME_RULER_H  = c.timeRulerH    || 14;
+    self._MARKER_LANE_H = c.markerLaneH   || 18;  // マーカーラベル専用帯の高さ
     self._DEC_LANE_H    = c.decodeLaneH   || 22;
 
     // ---- コールバック ----
@@ -68,6 +70,11 @@
     self._cursorViewX  = -1;
     self._markerA      = null;
     self._markerB      = null;
+    self._markerC      = null;
+    self._markerAOn    = false;
+    self._markerBOn    = false;
+    self._markerCOn    = false;
+    self._trigOn       = false;
     self._lastStartSamp = 0;
     self._lastHead     = 0;
     self._frozen       = false;
@@ -75,6 +82,20 @@
     self._tDragIdx     = null;
     self._tDragY       = 0;
     self._trigHead     = -1;
+    self._touchActive  = false;   // タッチ操作中フラグ（pan リセット抑止）
+    self._panOverride  = false;   // ナビボタンによる pan 維持フラグ
+    self._markerDrag   = null;    // 'A' | 'B' | 'C' | null (マーカードラッグ中)
+    self._markerBtnApply = { A: null, B: null, C: null };  // toggles ボタンのスタイル更新 ref
+
+    // ナビゲーションボタン ID (config で上書き可能)
+    self._navLL = c.navLL || 'la-nav-ll';
+    self._navL  = c.navL  || 'la-nav-l';
+    self._navR  = c.navR  || 'la-nav-r';
+    self._navRR = c.navRR || 'la-nav-rr';
+
+    // ナビ用に draw で更新する状態
+    self._lastSamplesInView = 0;
+    self._lastTotalAvail    = 0;
 
     // デコードレーン表示状態
     self._showDec = localStorage.getItem(self._prefix + 'decode_lane') !== '0';
@@ -102,7 +123,6 @@
     })();
 
     // ---- Canvas / DPR 初期化 ----
-    self._dpr  = window.devicePixelRatio || 1;
     self._ctx  = null;
     self._laH  = 0;
 
@@ -118,7 +138,21 @@
   RTLScopeLA.prototype.update = function(head, heapu32, frozen, trigFireHead) {
     this.setFrozen(!!frozen);
     if (trigFireHead !== undefined && trigFireHead !== null) {
-      this._trigHead = (trigFireHead !== -1) ? (trigFireHead >>> 0) : -1;
+      var newTrig = (trigFireHead !== -1) ? (trigFireHead >>> 0) : -1;
+      // 新しいトリガー発火を検出 → Trig を自動 ON してビュー中央に移動
+      if (newTrig !== -1 && newTrig !== this._trigHead) {
+        this._trigHead = newTrig;
+        this._trigOn   = true;
+        if (this._trigBtnApply) this._trigBtnApply();
+        // head との距離から pan を計算してトリガーをビュー中央へ
+        var h = head >>> 0;
+        var samplesInView = Math.ceil(this._VIEW_W / this._zoom);
+        var trigOffset = (h - newTrig) >>> 0;
+        this._pan = Math.max(0, trigOffset - Math.floor(samplesInView / 2));
+        this._panOverride = true;
+      } else {
+        this._trigHead = newTrig;
+      }
     }
     if (!this._on || !this._ctx) return;
     this._draw(heapu32, head >>> 0);
@@ -130,6 +164,9 @@
     var oldZoom = self._zoom;
     self._zoomIdx = Math.max(0, Math.min(LA_ZOOM_LEVELS.length - 1, idx));
     self._zoom    = LA_ZOOM_LEVELS[self._zoomIdx];
+    // ドロップダウン と レガシー lbl 両方を更新
+    var sel = document.getElementById('la-zoom-sel');
+    if (sel) sel.value = String(self._zoomIdx);
     var lbl = document.getElementById('la-zoom-lbl');
     if (lbl) lbl.textContent = self._zoom >= 1 ? self._zoom + 'x' : '1/' + Math.round(1 / self._zoom) + 'x';
 
@@ -148,7 +185,8 @@
   /** フリーズ状態を設定する */
   RTLScopeLA.prototype.setFrozen = function(b) {
     this._frozen = !!b;
-    if (!b) this._pan = 0;
+    // タッチ操作中・ナビボタン pan 中は pan を維持する
+    if (!b && !this._touchActive && !this._panOverride) this._pan = 0;
   };
 
   /** フリーズする */
@@ -264,6 +302,79 @@
         el.appendChild(gsep);
       }
     });
+
+    // ── マーカーパネル ──
+    var msep = document.createElement('span');
+    msep.style.cssText = 'color:#bbb;font-size:13px;align-self:center;margin:0 4px;user-select:none;';
+    msep.textContent = '|';
+    el.appendChild(msep);
+
+    var mlbl = document.createElement('span');
+    mlbl.style.cssText = 'font-size:10px;color:#888;align-self:center;margin-right:3px;user-select:none;white-space:nowrap;';
+    mlbl.textContent = 'Marker:';
+    el.appendChild(mlbl);
+
+    // マーカートグルボタン生成ヘルパー
+    // ON にしたとき: 位置が null なら中央に配置、既設定なら位置を保持して表示
+    // OFF にしたとき: 位置は保持（MARKER_LANE でグレー表示継続）
+    function _mkMarkerBtn(label, colorOn, getOn, setOn, getSamp, setSamp) {
+      var btn = document.createElement('button');
+      btn.textContent = label;
+      var baseStyle = 'font-size:11px;font-weight:bold;padding:1px 7px;line-height:1.4;' +
+                      'border:1px solid #aaa;cursor:pointer;font-family:monospace;' +
+                      'min-width:26px;text-align:center;border-radius:3px;';
+      function _apply() {
+        if (getOn()) {
+          btn.style.cssText = baseStyle + 'background:' + colorOn + ';color:#fff;border-color:' + colorOn + ';';
+        } else {
+          btn.style.cssText = baseStyle + 'background:#e8e8e8;color:#888;';
+        }
+      }
+      btn._refreshStyle = _apply;   // 外部からボタン見た目を更新するための参照
+      _apply();
+      btn.addEventListener('click', function() {
+        var next = !getOn();
+        if (next && getSamp && getSamp() === null) {
+          // 初回 ON: ビュー中央に配置
+          setSamp(self._lastStartSamp + Math.floor(self._lastSamplesInView / 2));
+        }
+        // OFF 時は位置を保持（setSamp(null) しない）
+        setOn(next);
+        _apply();
+      });
+      return btn;
+    }
+
+    var btnA = _mkMarkerBtn('A', '#0064e6',
+      function() { return self._markerAOn; },
+      function(v) { self._markerAOn = v; },
+      function() { return self._markerA; },
+      function(s) { self._markerA = s; });
+    self._markerBtnApply.A = function() { btnA._refreshStyle(); };
+    el.appendChild(btnA);
+
+    var btnB = _mkMarkerBtn('B', '#c80050',
+      function() { return self._markerBOn; },
+      function(v) { self._markerBOn = v; },
+      function() { return self._markerB; },
+      function(s) { self._markerB = s; });
+    self._markerBtnApply.B = function() { btnB._refreshStyle(); };
+    el.appendChild(btnB);
+
+    var btnC = _mkMarkerBtn('C', '#00a050',
+      function() { return self._markerCOn; },
+      function(v) { self._markerCOn = v; },
+      function() { return self._markerC; },
+      function(s) { self._markerC = s; });
+    self._markerBtnApply.C = function() { btnC._refreshStyle(); };
+    el.appendChild(btnC);
+
+    var trigBtn = _mkMarkerBtn('Trig', '#cc0000',
+      function() { return self._trigOn; },
+      function(v) { self._trigOn = v; },
+      null, null);  // Trig は位置制御なし
+    self._trigBtnApply = function() { if (trigBtn._refreshStyle) trigBtn._refreshStyle(); };
+    el.appendChild(trigBtn);
   };
 
   // ==================== LA OFF 表示 ====================
@@ -298,16 +409,33 @@
 
   RTLScopeLA.prototype._updateCanvas = function() {
     var self = this;
+    var canvas = document.getElementById(self._canvasId);
+    if (!canvas) return;
+
+    // DPR を毎回取得（ブラウザズーム変更・デバイス変更に対応）
+    self._dpr = window.devicePixelRatio || 1;
+
+    // コンテナ実幅を計測し、指定最大幅 (_initLA_W) 以下に収める
+    // → CSS max-width:100% による縮小スケーリングを JS 側で先に吸収し、
+    //   canvas 内部ピクセル = 表示 CSS px × DPR を実現して高精細描画する
+    var parent = canvas.parentElement;
+    var availW = parent ? parent.clientWidth : self._initLA_W;
+    var cssW   = availW > 0 ? Math.min(self._initLA_W, availW) : self._initLA_W;
+    self._LA_W   = Math.max(1, cssW);
+    self._VIEW_W = self._LA_W - self._LABEL_W;
+
     var n = self._getActiveSigs().length || 1;
     self._laH = (self._showDec && self._cbDec ? self._DEC_LANE_H : 0)
                + n * self._TRACK_H
+               + self._MARKER_LANE_H
                + 2 * self._TIME_RULER_H;
-    var canvas = document.getElementById(self._canvasId);
-    if (!canvas) return;
-    canvas.width  = self._LA_W * self._dpr;
-    canvas.height = self._laH  * self._dpr;
-    canvas.style.width  = self._LA_W + 'px';
-    canvas.style.height = self._laH  + 'px';
+
+    // 物理ピクセル = CSS px × DPR（CSS スケーリングなし → ドット等倍で高精細）
+    canvas.width  = Math.round(self._LA_W  * self._dpr);
+    canvas.height = Math.round(self._laH   * self._dpr);
+    canvas.style.width  = self._LA_W  + 'px';
+    canvas.style.height = self._laH   + 'px';
+
     self._ctx = canvas.getContext('2d');
     self._ctx.setTransform(self._dpr, 0, 0, self._dpr, 0, 0);
   };
@@ -317,22 +445,80 @@
   RTLScopeLA.prototype._bindEvents = function() {
     var self = this;
 
+    // ---- ウィンドウリサイズで canvas を再計測・再描画 ----
+    // （DevTools 開閉・向き変更・ブラウザズーム変更に対応）
+    window.addEventListener('resize', function() {
+      self._updateCanvas();
+    });
+
     // ---- ズームボタン ----
     var btnZoomIn  = document.getElementById('la-zoom-in');
     var btnZoomOut = document.getElementById('la-zoom-out');
     var btnZoomLbl = document.getElementById('la-zoom-lbl');
     if (btnZoomIn)  btnZoomIn.addEventListener('click',  function() { self.setZoom(self._zoomIdx + 1); });
     if (btnZoomOut) btnZoomOut.addEventListener('click', function() { self.setZoom(self._zoomIdx - 1); });
-    if (btnZoomLbl) btnZoomLbl.addEventListener('click', function() { self.setZoom(2); self._pan = 0; });
+    if (btnZoomLbl) btnZoomLbl.addEventListener('click', function() { self.setZoom(2); self._pan = 0; self._panOverride = false; });
+    var selZoom = document.getElementById('la-zoom-sel');
+    if (selZoom) selZoom.addEventListener('change', function() { self.setZoom(parseInt(this.value, 10)); });
+
+    // ---- ナビゲーションボタン (<< < > >>) ----
+    // pan を変更し、_panOverride=true にすることで setFrozen(false) 時もパン位置を維持する。
+    // >> のみ _panOverride=false にして live 追従に戻す。
+    function _navClampPan(p) {
+      var max = Math.max(0, self._lastTotalAvail - self._lastSamplesInView);
+      return Math.max(0, Math.min(p, max));
+    }
+    var btnNavLL = document.getElementById(self._navLL);
+    var btnNavL  = document.getElementById(self._navL);
+    var btnNavR  = document.getElementById(self._navR);
+    var btnNavRR = document.getElementById(self._navRR);
+    if (btnNavLL) btnNavLL.addEventListener('click', function() {
+      // 最古データへ（リングバッファの一番古いサンプルを左端に）
+      self._pan = Math.max(0, self._lastTotalAvail - self._lastSamplesInView);
+      self._panOverride = true;
+    });
+    if (btnNavL) btnNavL.addEventListener('click', function() {
+      // 1ページ分左へ（過去方向）
+      self._pan = _navClampPan(self._pan + self._lastSamplesInView);
+      self._panOverride = true;
+    });
+    if (btnNavR) btnNavR.addEventListener('click', function() {
+      // 1ページ分右へ（未来＝最新方向）
+      self._pan = Math.max(0, self._pan - self._lastSamplesInView);
+      self._panOverride = self._pan > 0;  // pan=0 なら live 追従に戻す
+    });
+    if (btnNavRR) btnNavRR.addEventListener('click', function() {
+      // 最新データへ（T=0、live 追従）
+      self._pan = 0;
+      self._panOverride = false;
+    });
 
     var canvas = document.getElementById(self._canvasId);
     if (!canvas) return;
 
     // ---- ホイールズーム ----
+    // 業界標準: 上スクロール(deltaY < 0) = 拡大、下スクロール(deltaY > 0) = 縮小
+    // (Google Maps / Figma / PulseView / GTKWave と同じ方向)
     canvas.addEventListener('wheel', function(e) {
       e.preventDefault();
-      self.setZoom(self._zoomIdx + (e.deltaY > 0 ? 1 : -1));
+      self.setZoom(self._zoomIdx + (e.deltaY > 0 ? -1 : 1));
     }, { passive: false });
+
+    // ---- マーカー近傍判定ヘルパー ----
+    // lx: canvas 論理座標 X → 'A' | 'B' | 'C' | null
+    function _nearMarker(lx, snap) {
+      snap = snap || 7;
+      function mxOf(samp) {
+        if (samp === null) return null;
+        var off = samp - self._lastStartSamp;
+        return self._LABEL_W + off * self._zoom;
+      }
+      var mxA = mxOf(self._markerA), mxB = mxOf(self._markerB), mxC = mxOf(self._markerC);
+      if (mxA !== null && mxA >= self._LABEL_W && Math.abs(lx - mxA) <= snap) return 'A';
+      if (mxB !== null && mxB >= self._LABEL_W && Math.abs(lx - mxB) <= snap) return 'B';
+      if (mxC !== null && mxC >= self._LABEL_W && Math.abs(lx - mxC) <= snap) return 'C';
+      return null;
+    }
 
     // ---- マウスダウン ----
     var laDragX    = null;
@@ -342,9 +528,14 @@
       var rect = canvas.getBoundingClientRect();
       var lx   = e.clientX - rect.left;
       var ly   = e.clientY - rect.top;
+      // マーカードラッグ判定（波形エリアのみ）
+      if (lx >= self._LABEL_W) {
+        var near = _nearMarker(lx);
+        if (near) { self._markerDrag = near; return; }
+      }
       if (lx < self._LABEL_W) {
         var decOff = (self._showDec && self._cbDec) ? self._DEC_LANE_H : 0;
-        var sigHd  = self._laH - 2 * self._TIME_RULER_H - decOff;
+        var sigHd  = self._laH - self._MARKER_LANE_H - 2 * self._TIME_RULER_H - decOff;
         var sigs   = self._getActiveSigs();
         var tHd    = sigs.length > 0 ? sigHd / sigs.length : self._TRACK_H;
         var tidx   = Math.floor((ly - self._TIME_RULER_H - decOff) / tHd);
@@ -364,9 +555,22 @@
       var lx   = e.clientX - rect.left;
       var ly   = e.clientY - rect.top;
 
+      // マーカードラッグ中
+      if (self._markerDrag) {
+        var vxM = lx - self._LABEL_W;
+        var sampM = self._lastStartSamp + Math.floor(vxM / self._zoom);
+        if      (self._markerDrag === 'A') self._markerA = sampM;
+        else if (self._markerDrag === 'B') self._markerB = sampM;
+        else                               self._markerC = sampM;
+        canvas.style.cursor = 'col-resize';
+        return;
+      }
+
+      var nearM = lx >= self._LABEL_W ? _nearMarker(lx) : null;
       self._cursorViewX = self._tDragIdx !== null ? -1 : Math.max(-1, lx - self._LABEL_W);
       canvas.style.cursor = self._tDragIdx !== null ? 'grabbing'
                           : lx < self._LABEL_W      ? 'grab'
+                          : nearM                    ? 'col-resize'
                           :                           '';
 
       if (self._tDragIdx !== null) {
@@ -381,7 +585,7 @@
     function commitTrackDrag() {
       if (self._tDragIdx === null) return;
       var decOff2 = (self._showDec && self._cbDec) ? self._DEC_LANE_H : 0;
-      var sigHc   = self._laH - 2 * self._TIME_RULER_H - decOff2;
+      var sigHc   = self._laH - self._MARKER_LANE_H - 2 * self._TIME_RULER_H - decOff2;
       var sigs    = self._getActiveSigs();
       var tHc     = sigs.length > 0 ? sigHc / sigs.length : self._TRACK_H;
       var insertAt = Math.max(0, Math.min(
@@ -421,53 +625,180 @@
       self._updateCanvas();
     }
 
+    // ---- MARKER_LANE クリック: マーカー表示 ON/OFF トグル ----
+    // lx: canvas 論理 x 座標 → 対応するマーカーを toggle
+    // 位置未設定マーカーの固定バッジ x（_draw の _fixedX と同じ計算）
+    function _markerFixedX(idx) { return self._LABEL_W + [14, 36, 58, 88][idx]; }
+
+    // samp が null or ビュー外なら固定バッジ位置を返す
+    function _markerDisplayX(samp, fixedX) {
+      if (samp === null) return fixedX;
+      var mx = self._LABEL_W + (samp - self._lastStartSamp) * self._zoom;
+      return (mx >= self._LABEL_W - 14 && mx <= self._LA_W + 14) ? mx : fixedX;
+    }
+
+    function _toggleMarkerAtX(lx) {
+      var snap = 16;  // バッジ幅の半分 + 余裕
+
+      function tryMarker(samp, fixedX, getOn, setOn, setSamp, applyBtn) {
+        var mx = _markerDisplayX(samp, fixedX);
+        if (Math.abs(lx - mx) > snap) return false;
+        var next = !getOn();
+        if (next && samp === null) {
+          // 初回 ON: ビュー中央に配置
+          setSamp(self._lastStartSamp + Math.floor(self._lastSamplesInView / 2));
+        }
+        setOn(next);
+        if (applyBtn) applyBtn();
+        return true;
+      }
+
+      // TRIG: trigHead 未設定なら固定位置、設定済みなら実位置（ビュー外は固定位置）
+      function tryTrig() {
+        var trigSamp = self._trigHead >= 0 ? ((self._trigHead >>> 0) - 1) : null;
+        var mx = _markerDisplayX(trigSamp, _markerFixedX(3));
+        if (Math.abs(lx - mx) > snap) return false;
+        self._trigOn = !self._trigOn;
+        if (self._trigBtnApply) self._trigBtnApply();
+        return true;
+      }
+
+      tryMarker(self._markerA, _markerFixedX(0),
+        function(){return self._markerAOn;}, function(v){self._markerAOn=v;},
+        function(s){self._markerA=s;}, self._markerBtnApply.A) ||
+      tryMarker(self._markerB, _markerFixedX(1),
+        function(){return self._markerBOn;}, function(v){self._markerBOn=v;},
+        function(s){self._markerB=s;}, self._markerBtnApply.B) ||
+      tryMarker(self._markerC, _markerFixedX(2),
+        function(){return self._markerCOn;}, function(v){self._markerCOn=v;},
+        function(s){self._markerC=s;}, self._markerBtnApply.C) ||
+      tryTrig();
+    }
+
     canvas.addEventListener('mouseup', function() {
+      self._markerDrag = null;
       commitTrackDrag();
       laDragX = null;
     });
     canvas.addEventListener('mouseleave', function() {
+      self._markerDrag = null;
       commitTrackDrag();
       laDragX            = null;
       self._cursorViewX  = -1;
       canvas.style.cursor = '';
     });
 
-    // ---- A/B マーカー ----
+    // ---- マウスクリック: MARKER_LANE 内ならトグル ----
     canvas.addEventListener('click', function(e) {
+      if (self._markerDrag) return;  // ドラッグ後の click は無視
+      var sc = { x: self._LA_W / canvas.getBoundingClientRect().width || 1,
+                 y: self._laH  / canvas.getBoundingClientRect().height || 1 };
       var rect = canvas.getBoundingClientRect();
-      var vx   = (e.clientX - rect.left) - self._LABEL_W;
-      if (vx < 0) return;
-      var samp = self._lastStartSamp + Math.floor(vx / self._zoom);
-      if (e.shiftKey) { self._markerB = samp; }
-      else             { self._markerA = samp; }
-    });
-    canvas.addEventListener('contextmenu', function(e) {
-      e.preventDefault();
-      var rect = canvas.getBoundingClientRect();
-      var vx   = (e.clientX - rect.left) - self._LABEL_W;
-      if (vx < 0) return;
-      self._markerB = self._lastStartSamp + Math.floor(vx / self._zoom);
+      var lx = (e.clientX - rect.left) * (rect.width  > 0 ? self._LA_W / rect.width  : 1);
+      var ly = (e.clientY - rect.top)  * (rect.height > 0 ? self._laH  / rect.height : 1);
+      if (ly >= self._laH - self._MARKER_LANE_H) {
+        _toggleMarkerAtX(lx);
+      }
     });
 
     // ---- タッチ操作 ----
+    // ※ canvas は CSS で max-width:100% によりモバイル幅に縮小されるため、
+    //   タッチ座標（CSS px）を canvas 論理座標（canvas px）へ変換してから各判定に使う。
     var laTouch0 = null;
+
+    // CSS 座標 → canvas 論理座標への変換スケールを取得
+    function _touchScale() {
+      var r = canvas.getBoundingClientRect();
+      return {
+        x: r.width  > 0 ? self._LA_W / r.width  : 1,
+        y: r.height > 0 ? self._laH  / r.height : 1,
+        rect: r
+      };
+    }
+
     canvas.addEventListener('touchstart', function(e) {
+      var sc = _touchScale();
       if (e.touches.length === 1) {
-        laTouch0 = { x: e.touches[0].clientX, pan: self._pan, dist: null, zoomIdx: self._zoomIdx };
+        var tx = (e.touches[0].clientX - sc.rect.left) * sc.x;  // canvas logical px
+        var ty = (e.touches[0].clientY - sc.rect.top)  * sc.y;
+        // マーカードラッグ判定（タッチは SNAP を広く取る）
+        if (tx >= self._LABEL_W) {
+          var nearT = _nearMarker(tx, 14);
+          if (nearT) {
+            self._markerDrag  = nearT;
+            self._touchActive = true;
+            if (e.cancelable) e.preventDefault();
+            return;
+          }
+        }
+        if (tx < self._LABEL_W) {
+          // ラベルエリア: 信号名の並び替えドラッグ開始
+          var decOff = (self._showDec && self._cbDec) ? self._DEC_LANE_H : 0;
+          var sigHd  = self._laH - self._MARKER_LANE_H - 2 * self._TIME_RULER_H - decOff;
+          var sigs   = self._getActiveSigs();
+          var tHd    = sigs.length > 0 ? sigHd / sigs.length : self._TRACK_H;
+          var tidx   = Math.floor((ty - self._TIME_RULER_H - decOff) / tHd);
+          if (tidx >= 0 && tidx < sigs.length) {
+            self._tDragIdx  = tidx;
+            self._tDragY    = ty;   // canvas logical px
+            self._touchActive = true;
+            laTouch0 = null;
+          } else {
+            laTouch0 = { x: e.touches[0].clientX, pan: self._pan,
+                         dist: null, zoomIdx: self._zoomIdx, scaleX: sc.x,
+                         tapCanvasX: tx, tapCanvasY: ty, moved: false };
+            self._touchActive = true;
+          }
+        } else {
+          laTouch0 = { x: e.touches[0].clientX, pan: self._pan,
+                       dist: null, zoomIdx: self._zoomIdx, scaleX: sc.x,
+                       tapCanvasX: tx, tapCanvasY: ty, moved: false };
+          self._touchActive = true;
+        }
       } else if (e.touches.length === 2) {
+        self._tDragIdx = null;
         var tdx = e.touches[0].clientX - e.touches[1].clientX;
         var tdy = e.touches[0].clientY - e.touches[1].clientY;
-        laTouch0 = { x: 0, pan: self._pan, dist: Math.sqrt(tdx*tdx + tdy*tdy), zoomIdx: self._zoomIdx };
+        laTouch0 = { x: 0, pan: self._pan,
+                     dist: Math.sqrt(tdx*tdx + tdy*tdy), zoomIdx: self._zoomIdx, scaleX: sc.x };
+        self._touchActive = true;
       }
-      e.preventDefault();
+      if (e.cancelable) e.preventDefault();
     }, { passive: false });
+
     canvas.addEventListener('touchmove', function(e) {
-      if (!laTouch0) return;
-      e.preventDefault();
-      if (e.touches.length === 1 && laTouch0.dist === null) {
-        var delta = Math.round(-(e.touches[0].clientX - laTouch0.x) / self._zoom);
+      // マーカードラッグ中
+      if (self._markerDrag) {
+        if (e.cancelable) e.preventDefault();
+        var scMD = _touchScale();
+        var txMD = (e.touches[0].clientX - scMD.rect.left) * scMD.x;
+        var vxMD = txMD - self._LABEL_W;
+        var sampMD = self._lastStartSamp + Math.floor(vxMD / self._zoom);
+        if      (self._markerDrag === 'A') self._markerA = sampMD;
+        else if (self._markerDrag === 'B') self._markerB = sampMD;
+        else                               self._markerC = sampMD;
+        return;
+      }
+      if (!laTouch0 && self._tDragIdx === null) return;
+      if (e.cancelable) e.preventDefault();
+      // 移動量でタップ/パンを判別（8px 以上動いたら moved=true）
+      if (laTouch0 && !laTouch0.moved && laTouch0.tapCanvasX !== undefined) {
+        var _sc2 = _touchScale();
+        var _dx = (e.touches[0].clientX - _sc2.rect.left) * _sc2.x - laTouch0.tapCanvasX;
+        var _dy = (e.touches[0].clientY - _sc2.rect.top)  * _sc2.y - laTouch0.tapCanvasY;
+        if (_dx * _dx + _dy * _dy > 64) laTouch0.moved = true;
+      }
+      if (self._tDragIdx !== null) {
+        // 信号名ドラッグ: canvas 論理 Y を追跡
+        var scM = _touchScale();
+        self._tDragY = (e.touches[0].clientY - scM.rect.top) * scM.y;
+      } else if (e.touches.length === 1 && laTouch0 && laTouch0.dist === null) {
+        // パン: CSS delta → canvas 論理 delta → サンプル数
+        // 右ドラッグ = delta 正 = pan 増加 = 古いデータ表示 = 波形が右へ（自然スクロール）
+        var deltaCanvas = (e.touches[0].clientX - laTouch0.x) * (laTouch0.scaleX || 1);
+        var delta = Math.round(deltaCanvas / self._zoom);
         self._pan = Math.max(0, laTouch0.pan + delta);
-      } else if (e.touches.length === 2 && laTouch0.dist !== null) {
+      } else if (e.touches.length === 2 && laTouch0 && laTouch0.dist !== null) {
         var tdx2 = e.touches[0].clientX - e.touches[1].clientX;
         var tdy2 = e.touches[0].clientY - e.touches[1].clientY;
         var dist2 = Math.sqrt(tdx2*tdx2 + tdy2*tdy2);
@@ -475,7 +806,25 @@
         self.setZoom(newIdx);
       }
     }, { passive: false });
-    canvas.addEventListener('touchend', function() { laTouch0 = null; });
+
+    canvas.addEventListener('touchend', function() {
+      // マーカードラッグ終了
+      if (self._markerDrag) {
+        self._markerDrag  = null;
+        self._touchActive = false;
+        laTouch0 = null;
+        return;
+      }
+      self._touchActive = false;
+      commitTrackDrag();
+      // MARKER_LANE タップ判定（移動なし & 下部エリア）
+      if (laTouch0 && !laTouch0.moved && laTouch0.tapCanvasY !== undefined &&
+          laTouch0.tapCanvasY >= self._laH - self._MARKER_LANE_H) {
+        _toggleMarkerAtX(laTouch0.tapCanvasX);
+      }
+      if (!self._frozen) self._pan = 0;  // 実行中は最新データへ戻す
+      laTouch0 = null;
+    });
   };
 
   // ==================== 内部: 描画 ====================
@@ -489,7 +838,8 @@
     var LABEL_W     = self._LABEL_W;
     var VIEW_W      = self._VIEW_W;
     var TRACK_H     = self._TRACK_H;
-    var TIME_RULER_H = self._TIME_RULER_H;
+    var TIME_RULER_H  = self._TIME_RULER_H;
+    var MARKER_LANE_H = self._MARKER_LANE_H;
     var cbDec       = self._showDec ? self._cbDec : null;
     var cbFmt       = self._cbFmt;
     var cbBg        = self._cbBg;
@@ -503,25 +853,41 @@
 
     var sigs  = self._getActiveSigs();
     var decH  = (cbDec) ? self._DEC_LANE_H : 0;
-    var sigY  = TIME_RULER_H + decH;
-    var sigH  = laH - 2 * TIME_RULER_H - decH;
+    var sigY  = TIME_RULER_H + decH;                              // 上部: T ルーラー + デコードレーン
+    var sigH  = laH - MARKER_LANE_H - 2 * TIME_RULER_H - decH;  // 下部: MARKER_LANE を除く
     var tH    = sigs.length > 0 ? sigH / sigs.length : TRACK_H;
 
     // ── 背景 ──
-    ctx.fillStyle = '#e0e0ea'; ctx.fillRect(0, 0,            LA_W, TIME_RULER_H);
+    ctx.fillStyle = '#e0e0ea'; ctx.fillRect(0, 0,             LA_W, TIME_RULER_H);   // 上部 T ルーラー
     if (cbDec) {
       ctx.fillStyle = '#e8e8e8'; ctx.fillRect(0, TIME_RULER_H, LA_W, decH);
     }
-    ctx.fillStyle = '#f5f5f5'; ctx.fillRect(0, sigY,         LA_W, sigH);
-    ctx.fillStyle = '#e0e0ea'; ctx.fillRect(0, sigY + sigH,  LA_W, TIME_RULER_H);
+    ctx.fillStyle = '#f5f5f5'; ctx.fillRect(0, sigY,          LA_W, sigH);
+    ctx.fillStyle = '#e0e0ea'; ctx.fillRect(0, sigY + sigH,   LA_W, TIME_RULER_H);   // 下部 T ルーラー
+    ctx.fillStyle = '#c8c8d8'; ctx.fillRect(0, laH - MARKER_LANE_H, LA_W, MARKER_LANE_H); // マーカーレーン
+
+    // ── 信号エリア外枠 + ラベル縦区切り ──
+    ctx.strokeStyle = '#aaa'; ctx.lineWidth = 1;
+    // 波形表示エリアを囲む矩形（ラベル幅より右）
+    ctx.strokeRect(LABEL_W + 0.5, sigY + 0.5, VIEW_W - 1, sigH - 1);
+    // ラベルエリア | 波形エリア の縦区切り（タイムルーラも貫く）
+    ctx.beginPath();
+    ctx.moveTo(LABEL_W + 0.5, 0); ctx.lineTo(LABEL_W + 0.5, laH);
+    ctx.stroke();
 
     // ── ズーム / パン計算 ──
+    // pan=0（T=0 表示）のときのみ右マージンを設けて T=0 ラベルを見せる。
+    // pan!=0（過去データ閲覧中）は幅いっぱいに信号を表示する。
     var totalAvail    = Math.min(head >>> 0, ringSize);
-    var samplesInView = Math.min(Math.ceil(VIEW_W / laZoom), ringSize);
+    var MARGIN_W      = (self._pan === 0) ? Math.round(VIEW_W * 0.10) : 0;
+    var DATA_W        = VIEW_W - MARGIN_W;
+    var samplesInView = Math.min(Math.ceil(DATA_W / laZoom), ringSize);
     self._pan = Math.max(0, Math.min(self._pan, Math.max(0, totalAvail - samplesInView)));
     var samples   = Math.min(samplesInView, totalAvail - self._pan);
     var startSamp = (head >>> 0) - self._pan - samples;
-    self._lastStartSamp = startSamp;
+    self._lastStartSamp     = startSamp;
+    self._lastSamplesInView = samplesInView;
+    self._lastTotalAvail    = totalAvail;
 
     // ── デコードレーン描画 ──
     if (cbDec && samples > 0) {
@@ -654,20 +1020,39 @@
           if (v !== pv) { segs.push({ x: ss, w: xn - ss, val: pv }); ss = xn; pv = v; }
         }
         segs.push({ x: ss, w: LABEL_W + samples * laZoom - ss, val: pv });
+
+        // ── 左端縦棒抑制: view 外にデータがあり値が連続している場合は縦棒なし ──
+        var v0h = (gw0h >> sig.bit) & MASK;
+        var hasLeftTrans = true;
+        if (startSamp > 0) {
+          var gwPrevL = heapu32[((startSamp - 1) & (ringSize - 1)) * RW + sw];
+          hasLeftTrans = ((gwPrevL >> sig.bit) & MASK) !== v0h;
+        }
+        // ── 右端縦棒抑制: view 後のサンプルが存在し値が連続している場合は縦棒なし ──
+        var nextSampAbsH = startSamp + samples;  // = head - pan
+        var hasRightTrans = false;
+        if (nextSampAbsH < (head >>> 0)) {
+          var vL = (heapu32[((nextSampAbsH - 1) & (ringSize - 1)) * RW + sw] >> sig.bit) & MASK;
+          var vN = (heapu32[(nextSampAbsH         & (ringSize - 1)) * RW + sw] >> sig.bit) & MASK;
+          hasRightTrans = (vL !== vN);
+        }
+
         ctx.lineWidth = 1;
         for (var si = 0; si < segs.length; si++) {
           var s = segs[si];
           if (s.w < 0.5) continue;
           ctx.strokeStyle = sig.color;
-          (function(seg) {
+          var drawL = (si > 0) || hasLeftTrans;
+          var drawR = (si < segs.length - 1) || hasRightTrans;
+          (function(seg, dL, dR) {
             [[yTop,yTop],[yBot,yBot],[yTop,yBot],[yTop,yBot]].forEach(function(ys, ii) {
               ctx.beginPath();
               if (ii < 2)        { ctx.moveTo(seg.x, ys[0]);         ctx.lineTo(seg.x + seg.w, ys[0]); }
-              else if (ii === 2) { ctx.moveTo(seg.x, yTop);          ctx.lineTo(seg.x, yBot); }
-              else               { ctx.moveTo(seg.x + seg.w, yTop);  ctx.lineTo(seg.x + seg.w, yBot); }
+              else if (ii === 2) { if (!dL) return; ctx.moveTo(seg.x, yTop);         ctx.lineTo(seg.x, yBot); }
+              else               { if (!dR) return; ctx.moveTo(seg.x + seg.w, yTop); ctx.lineTo(seg.x + seg.w, yBot); }
               ctx.stroke();
             });
-          })(s);
+          })(s, drawL, drawR);
 
           if (sig.fmt === 'dec') {
             // 10進表示
@@ -719,25 +1104,51 @@
       }
     }
 
-    // ── A/B マーカー ──
-    function drawMarker(mLabel, mSamp, mColor) {
-      if (mSamp === null) return;
-      var off = mSamp - startSamp;
-      if (off < 0 || off >= samples) return;
-      var mx = LABEL_W + off * laZoom;
+    // ── MARKER_LANE ──
+    var mlaneY = laH - MARKER_LANE_H;  // マーカーレーンの y 座標
+
+    // 区切り線（T ルーラーとの境界）
+    ctx.strokeStyle = '#aaa'; ctx.lineWidth = 1; ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(0, mlaneY); ctx.lineTo(LA_W, mlaneY); ctx.stroke();
+
+    // ラベルエリア「Marker」固定テキスト
+    ctx.fillStyle = '#666'; ctx.font = '9px monospace'; ctx.textAlign = 'left';
+    ctx.fillText('Marker', 2, mlaneY + MARKER_LANE_H - 5);
+
+    // バッジ描画: 位置設定済みならその x に、未設定なら左端固定位置に表示
+    // ON: マーカー色 + 縦破線、OFF: グレーバッジのみ
+    var _fixedX = [LABEL_W + 14, LABEL_W + 36, LABEL_W + 58, LABEL_W + 88]; // 位置未設定時の固定 x
+    function drawMarker(mLabel, mSamp, isOn, mLineColor, mBadgeColor, fixedX) {
+      var hasSamp = mSamp !== null;
+      var off = hasSamp ? mSamp - startSamp : null;
+      var mx  = hasSamp ? LABEL_W + off * laZoom : fixedX;
+      // ビュー外バッジは固定位置にフォールバック（左端に固定表示）
+      var inView = hasSamp && off >= 0 && off < samples;
+      var showAtPos = hasSamp && mx >= LABEL_W - 12 && mx <= LA_W + 12;
       ctx.save();
-      ctx.strokeStyle = mColor; ctx.lineWidth = 1.5; ctx.setLineDash([]);
-      ctx.beginPath(); ctx.moveTo(mx, sigY); ctx.lineTo(mx, sigY + sigH); ctx.stroke();
-      ctx.fillStyle = mColor;
-      ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText(mLabel, mx, sigY + 10);
+      if (isOn && inView) {
+        // ON かつビュー内: 縦破線（信号エリア・T ルーラーを貫く）
+        ctx.strokeStyle = mLineColor; ctx.lineWidth = 2.5;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath(); ctx.moveTo(mx, 0); ctx.lineTo(mx, mlaneY); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      // バッジ: 位置設定済みなら波形位置、未設定なら固定位置
+      var bx = showAtPos ? mx : fixedX;
+      var BW = 20, BH = MARKER_LANE_H;
+      ctx.fillStyle = isOn ? mBadgeColor : '#999';
+      ctx.fillRect(bx - BW / 2, mlaneY, BW, BH);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(mLabel, bx, mlaneY + BH - 4);
       ctx.restore();
     }
-    drawMarker('A', self._markerA, 'rgba(0,100,230,0.9)');
-    drawMarker('B', self._markerB, 'rgba(200,0,80,0.9)');
+    drawMarker('A', self._markerA, self._markerAOn, 'rgba(0,100,230,0.85)', '#0064e6', _fixedX[0]);
+    drawMarker('B', self._markerB, self._markerBOn, 'rgba(200,0,80,0.85)',  '#c80050', _fixedX[1]);
+    drawMarker('C', self._markerC, self._markerCOn, 'rgba(0,160,80,0.85)',  '#00a050', _fixedX[2]);
 
     // A-B 差分: ハイライト + T ステート数ラベル
-    if (self._markerA !== null && self._markerB !== null) {
+    if (self._markerAOn && self._markerBOn && self._markerA !== null && self._markerB !== null) {
       var diff = Math.abs(self._markerA - self._markerB);
       var offA = self._markerA - startSamp, offB = self._markerB - startSamp;
       var xL = LABEL_W + Math.max(0, Math.min(offA, offB)) * laZoom;
@@ -774,23 +1185,35 @@
       ctx.restore();
     }
 
-    // ── トリガー発火位置（赤縦線）──
-    if (self._trigHead >= 0 && samples > 0) {
-      var fireOff = ((self._trigHead >>> 0) - 1) - startSamp;
-      if (fireOff >= 0 && fireOff < samples) {
-        var fireX = LABEL_W + fireOff * laZoom;
-        ctx.save();
-        ctx.strokeStyle = 'rgba(220,0,0,0.85)'; ctx.lineWidth = 2; ctx.setLineDash([]);
-        ctx.beginPath();
-        ctx.moveTo(fireX, TIME_RULER_H);
-        ctx.lineTo(fireX, sigY + sigH + TIME_RULER_H);
-        ctx.stroke();
-        ctx.fillStyle = 'rgba(220,0,0,0.85)';
-        ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
-        ctx.fillText('TRIG', fireX, TIME_RULER_H - 2);
-        ctx.restore();
+    // ── トリガー発火位置 ──
+    // trigHead 未設定でも TRIG バッジを固定位置に常時表示（グレー）
+    (function() {
+      var hasTrig = self._trigHead >= 0;
+      var TBW = 34, TBH = MARKER_LANE_H;
+      var trigFixX = _fixedX[3];  // 位置未設定時の固定 x
+      var fireX = trigFixX;
+      var inView = false;
+      if (hasTrig) {
+        var fireOff = ((self._trigHead >>> 0) - 1) - startSamp;
+        var fx = LABEL_W + fireOff * laZoom;
+        if (fx >= LABEL_W - 18 && fx <= LA_W + 18) { fireX = fx; }
+        inView = fireOff >= 0 && fireOff < samples;
       }
-    }
+      ctx.save();
+      if (hasTrig && self._trigOn && inView) {
+        // ON かつビュー内: 太い点線（短点 3-6）
+        ctx.strokeStyle = 'rgba(220,0,0,0.85)'; ctx.lineWidth = 2.5;
+        ctx.setLineDash([3, 6]);
+        ctx.beginPath(); ctx.moveTo(fireX, 0); ctx.lineTo(fireX, mlaneY); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      ctx.fillStyle = (hasTrig && self._trigOn) ? '#dc0000' : '#999';
+      ctx.fillRect(fireX - TBW / 2, mlaneY, TBW, TBH);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center';
+      ctx.fillText('TRIG', fireX, mlaneY + TBH - 4);
+      ctx.restore();
+    })();
 
     // ── カーソル（縦破線 + 値オーバーレイ）──
     if (self._cursorViewX >= 0 && self._cursorViewX <= VIEW_W && samples > 0) {
@@ -847,12 +1270,16 @@
 
       ctx.font = '10px monospace'; ctx.textAlign = 'center';
 
-      for (var tick = firstTick; tick < startSamp + samples; tick += tickSamp) {
+      // tick ループを右マージン内まで延長して T=0 ラベルを描画する
+      for (var tick = firstTick; ; tick += tickSamp) {
         var toff = tick - startSamp;
         var tx2  = LABEL_W + toff * laZoom;
-        if (tx2 < LABEL_W || tx2 > LA_W) continue;
-        var tNum = Math.round(toff / 2);
-        var lbl2 = '' + tNum;
+        if (tx2 >= LA_W - 1) break;          // キャンバス右端を超えたら終了
+        if (tx2 < LABEL_W) continue;
+        // ヘッド(最新サンプル)を 0 とし、過去方向を負で示す。
+        // pan=0 のとき T=0 は右マージン左端(~90%)に表示される。
+        var tNum = toff - samples - self._pan;
+        var lbl2 = (tNum === 0 ? '0' : (tNum > 0 ? '+' + tNum : '' + tNum));
 
         ctx.strokeStyle = '#888'; ctx.lineWidth = 0.5;
         ctx.beginPath(); ctx.moveTo(tx2, 0); ctx.lineTo(tx2, 5); ctx.stroke();
@@ -861,22 +1288,21 @@
         ctx.beginPath(); ctx.moveTo(tx2, sigY); ctx.lineTo(tx2, sigY + 5); ctx.stroke();
 
         ctx.beginPath(); ctx.moveTo(tx2, sigY + sigH); ctx.lineTo(tx2, sigY + sigH + 5); ctx.stroke();
-        ctx.fillStyle = '#444'; ctx.fillText(lbl2, tx2, laH - 2);
+        ctx.fillStyle = '#444'; ctx.fillText(lbl2, tx2, sigY + sigH + 11);
       }
 
       ctx.fillStyle = '#888'; ctx.font = '10px monospace'; ctx.textAlign = 'left';
       ctx.fillText('T', 2, 11);
-      ctx.fillText('T', 2, laH - 2);
+      ctx.fillText('T', 2, sigY + sigH + 11);
     }
 
-    // ── ズーム/パン情報オーバーレイ ──
-    if (laZoom !== 1 || self._pan !== 0) {
-      var zStr = laZoom >= 1 ? laZoom + 'x' : '1/' + Math.round(1 / laZoom) + 'x';
-      var info = zStr + ' | ' + samples + ' smpl' + (self._pan > 0 ? ' | -' + self._pan : '');
-      ctx.fillStyle = 'rgba(0,0,0,0.4)';
-      ctx.font = '10px monospace'; ctx.textAlign = 'right';
-      ctx.fillText(info, LA_W - 4, sigY - 3);
-    }
+    // ── 右端縦線（タイムルーラーを含むキャンバス全高 — 最後に重ねて確実に表示）──
+    // LA_W - 0.5 だと DPR×2 時に右半ピクセルがクリップされるため LA_W - 1 に配置
+    ctx.strokeStyle = '#999'; ctx.lineWidth = 1; ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(LA_W - 1, 0);
+    ctx.lineTo(LA_W - 1, laH);
+    ctx.stroke();
   };
 
   // ==================== エクスポート ====================

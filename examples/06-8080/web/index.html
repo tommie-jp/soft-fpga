@@ -97,7 +97,7 @@
       /* terminal-wrap をキャンバス幅に合わせ、背景が 80 桁分を覆うようにする */
       #terminal-wrap { width:max-content; }
       #fs-panel { width:100%; box-sizing:border-box; margin-top:8px; }
-      #la { max-width:100%; height:auto; }
+      /* #la のサイズは rtlscope-la.js が JS でコンテナ幅を計測して設定する（CSS スケール不要） */
 
       /* ^C ^D 等のボタンを画面下部に固定 */
       #ctrl-zone {
@@ -148,18 +148,22 @@
     /* FS table: 名前 | サイズ | 時刻 */
     .fs-thead, .fs-row {
       display:grid;
-      grid-template-columns:1fr 40px 90px;
+      grid-template-columns:1fr 50px 90px;   /* Size 列: 40→50px でソート矢印込みでも省略しない */
       gap:0 4px;
       align-items:baseline;
     }
+    /* fs-thead-fixed: #fs-list の外に固定するコンテナ */
+    #fs-thead-fixed {
+      border-bottom:2px solid #bbb;
+      padding-bottom:2px; margin-bottom:2px;
+    }
     .fs-thead {
       font-size:12px; color:#444;
-      border-bottom:2px solid #bbb;
-      padding-bottom:2px; margin-bottom:1px;
     }
     .fs-th {
       cursor:pointer; user-select:none;
-      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+      white-space:nowrap;
+      /* overflow:hidden / text-overflow:ellipsis を除去 — "Size ↑" が "Size⋯" に截断されないように */
     }
     .fs-th:hover { color:#111; }
     .fs-th.active { color:#0055aa; }
@@ -183,6 +187,28 @@
       min-width:34px; text-align:center; cursor:pointer; user-select:none;
     }
     #la-zoom-lbl:hover { color:#111; }
+    /* Bus Analyzer ナビゲーションバー */
+    #la-nav {
+      display:flex; align-items:center;
+      padding:2px 0; margin-top:2px;
+    }
+    /* 左(«‹): 左寄せ、flex:1 で中央グループを真ん中に押す */
+    .la-nav-left  { display:flex; align-items:center; gap:3px; flex:1; }
+    /* 中央(ズームコントロール): 中央寄せ */
+    .la-nav-center { display:flex; align-items:center; gap:3px; justify-content:center; }
+    /* 右(›»): 右寄せ、flex:1 */
+    .la-nav-right  { display:flex; align-items:center; gap:3px; flex:1; justify-content:flex-end; }
+    #la-nav button {
+      font-size:13px; padding:1px 8px; line-height:1.4;
+      font-family:monospace; background:#e8e8e8; border:1px solid #aaa;
+      cursor:pointer; color:#222; min-width:28px; text-align:center;
+    }
+    #la-nav button:hover { background:#d0d0d0; }
+    #la-zoom-sel {
+      font-size:13px; padding:1px 2px; line-height:1.4;
+      font-family:monospace; border:1px solid #aaa; background:#fff;
+      cursor:pointer; min-width:46px; text-align:center;
+    }
     /* Bus Analyzer 信号トグル */
     #la-toggles { display:flex; flex-wrap:wrap; gap:3px; }
     .sig-tog {
@@ -302,8 +328,9 @@
     #docs-panel a:last-child { border-bottom:none; }
     #docs-panel a:hover { background:#e8f0ff; color:#0033aa; }
     @media (max-width:500px) {
-      #top-row { flex-direction:column; gap:6px; }
-      #docs-panel { max-height:128px; }
+      /* #top-row を縦積みにし、子要素を画面幅いっぱいに引き伸ばす */
+      #top-row { flex-direction:column; gap:6px; align-items:stretch; }
+      #docs-panel { max-height:128px; min-width:0; width:100%; box-sizing:border-box; }
     }
 
     /* ---- Doc content ---- */
@@ -416,6 +443,74 @@
     #tab-calltrace .ct-arr  { color:#aaa; }
     #tab-calltrace .ct-to   { color:#111; font-weight:bold; width:4em; }
     #tab-calltrace .ct-sym  { color:#888; font-size:11px; }
+
+    /* ---- ファイルバージョン表 (copyright 内) ---- */
+    /* JS が 3列(ラベル|ファイル名|日付)を直接グリッドに並べる。
+       inline-grid でコンテンツ幅のみ確保し、全幅には伸ばさない。
+       薄い枠線で表としての視覚的まとまりを与える。 */
+    #file-versions {
+      display: inline-grid;
+      grid-template-columns: auto auto auto;
+      gap: 2px 14px;
+      margin-top: 5px;
+      padding: 4px 8px;
+      border: 1px solid #e0e0e0;
+      border-radius: 3px;
+      font-size: 11px; color: #bbb; font-family: monospace;
+    }
+    .fv-lbl  { color: #bbb; font-weight: bold; }
+    .fv-file { color: #bbb; white-space: nowrap; }
+    .fv-date { color: #bbb; white-space: nowrap; text-align: right; }
+
+    /* ================================================================
+       モバイル追加レスポンシブ (max-width:500px)
+       ボタン・コントロール類が 375px 幅に収まるように調整
+       ================================================================ */
+    @media (max-width:500px) {
+      /* h2 タイトル: 18px→15px に縮小し、長いリンクテキストを折り返す */
+      h2 { font-size:15px; overflow-wrap:break-word; line-height:1.5; margin-bottom:6px; }
+
+      /* 説明 <p>: 少し小さくして余裕を作る */
+      body > p { font-size:12px; }
+
+      /* Drive パネル: 名前欄を固定幅180px→flex:1（利用可能幅を使い切る）、
+         時刻欄を90px→60px に短縮。buttons は flex-shrink:0 なのでそのまま */
+      .drive-name { width:auto; flex:1 1 80px; min-width:0; }
+      .drive-time { width:60px; }
+      /* Load / Save / DL ボタンのパディングを少し詰める */
+      .btn-load, .btn-save, .btn-dl { padding:3px 7px; font-size:12px; }
+
+      /* Presets: 折り返し許可（Preset: + ボタン群が 1 行に入らないとき折り返す） */
+      .presets { flex-wrap:wrap; gap:4px 8px; }
+      .presets button { padding:4px 10px; }
+
+      /* Controls: gap を詰め、選択肢が折り返せるようにする（flex-wrap:wrap は既存） */
+      .controls { gap:6px 10px; }
+      /* Speed 入力は狭い画面では短く */
+      #speed-num { width:80px !important; }
+
+      /* テーマボタン: 幅を固定しない */
+      .theme-btn { white-space:nowrap; }
+
+      /* CPU bar: 折り返し許可。レジスタ名を少し小さく */
+      #cpu-bar { flex-wrap:wrap; padding:4px 6px; gap:4px; font-size:12px; }
+      #cpu-bar .val   { font-size:13px; }
+      #cpu-bar .r-sep { margin:0 2px; }
+      #r-disasm       { font-size:11px; width:10ch; }
+
+      /* FS panel の max-width を解除（width:100% は上の block で設定済み） */
+      #fs-panel { max-width:none; }
+
+      /* Bus section ヘッダ: la-toggles が多いとき折り返す（flex-wrap:wrap は既存） */
+      .sig-label-row { gap:4px 6px; }
+
+      /* trig-bar: 折り返し許可 */
+      #dbg-trig-bar { flex-wrap:wrap; }
+
+      /* copyright: inline-grid でコンテンツ幅のみ確保（全幅には伸ばさない） */
+      #copyright { overflow:hidden; }
+      #file-versions { display:inline-grid; margin-left:0 !important; }
+    }
   </style>
 </head>
 <body>
@@ -575,11 +670,6 @@
           <option value="30">30fps</option>
           <option value="15">15fps</option>
         </select>
-        <div class="la-zoom-ctrl">
-          <button id="la-zoom-out" title="ズームアウト — より多くのサンプルを表示（マウスホイールでも操作可）">−</button>
-          <span id="la-zoom-lbl" title="現在のズーム倍率。クリックで 1x にリセット">1x</span>
-          <button id="la-zoom-in"  title="ズームイン — サンプルを拡大表示（マウスホイールでも操作可）">＋</button>
-        </div>
         <div id="la-toggles"></div>
       </div>
       <!-- トリガーバー: LA グラフの直上 -->
@@ -644,6 +734,32 @@
         <button id="btn-clear-calllog"
           title="Call Trace タブの記録をすべて消去します。">CL</button>
       </div>
+      <!-- ナビゲーションバー: 左(«‹) | 中央ズーム | 右(›») -->
+      <div id="la-nav">
+        <div class="la-nav-left">
+          <button id="la-nav-ll" title="最古データへ（リングバッファ先頭）">&#x00AB;</button><!-- « -->
+          <button id="la-nav-l"  title="1ページ分左へスクロール（過去方向）">&#x2039;</button><!-- ‹ -->
+        </div>
+        <div class="la-nav-center">
+          <button id="la-zoom-out" title="ズームアウト（マウスホイールでも操作可）">−</button>
+          <select id="la-zoom-sel" title="ズーム倍率を直接選択">
+            <option value="0">1/4x</option>
+            <option value="1">1/2x</option>
+            <option value="2" selected>1x</option>
+            <option value="3">2x</option>
+            <option value="4">4x</option>
+            <option value="5">8x</option>
+            <option value="6">16x</option>
+            <option value="7">32x</option>
+            <option value="8">64x</option>
+          </select>
+          <button id="la-zoom-in" title="ズームイン（マウスホイールでも操作可）">＋</button>
+        </div>
+        <div class="la-nav-right">
+          <button id="la-nav-r"  title="1ページ分右へスクロール（最新方向）">&#x203A;</button><!-- › -->
+          <button id="la-nav-rr" title="最新データへ（T=0、ライブ追従）">&#x00BB;</button><!-- » -->
+        </div>
+      </div>
       <canvas id="la" width="900" height="120"></canvas>
     </div>
 
@@ -678,6 +794,8 @@
       </div>
       <div id="drop-hint">Drop / Upload → WASM FS &nbsp;|&nbsp; CP/M: <b>R filename</b></div>
       <div id="drop-status"></div>
+      <!-- ヘッダ行: スクロールに追従しない固定表示 -->
+      <div id="fs-thead-fixed"></div>
       <div id="fs-list"></div>
     </div>
 
@@ -685,7 +803,7 @@
       &copy; 2026 <a href="https://github.com/tommie-jp" target="_blank" rel="noopener" style="color:#aaa;">tommie.jp</a>
       &nbsp;&mdash;&nbsp;
       <a href="06-8080-QR.png" target="_blank" rel="noopener" style="color:#aaa;">QR</a>
-      <span id="file-versions" style="font-size:11px;color:#bbb;margin-left:10px;font-family:monospace;"></span>
+      <span id="file-versions"></span>
     </p>
   </div>
 
@@ -1108,7 +1226,8 @@
 
   async function updateFSList() {
     if (!workerReady) return;
-    var el = document.getElementById('fs-list');
+    var el      = document.getElementById('fs-list');
+    var theadEl = document.getElementById('fs-thead-fixed');
     try {
       var result  = await workerRequest({ type: 'listFS' });
       var entries = result.entries;
@@ -1130,6 +1249,7 @@
       });
 
       if (!entries.length) {
+        if (theadEl) theadEl.innerHTML = '';
         el.innerHTML = '<div style="color:#aaa;font-size:11px;">(empty)</div>';
         return;
       }
@@ -1155,9 +1275,12 @@
           '</div>';
       }).join('');
 
-      el.innerHTML = thead + rows;
+      // ヘッダは固定コンテナ (#fs-thead-fixed) へ、行だけ #fs-list (スクロール可能) へ
+      if (theadEl) theadEl.innerHTML = thead;
+      el.innerHTML = rows;
 
-      el.querySelectorAll('.fs-th').forEach(function(th) {
+      // ヘッダのソートクリックを固定コンテナに登録
+      (theadEl || el).querySelectorAll('.fs-th').forEach(function(th) {
         th.addEventListener('click', function() {
           var col = this.getAttribute('data-col');
           if (fsSort.col === col) fsSort.asc = !fsSort.asc;
@@ -2281,9 +2404,10 @@
   // 主要ファイルの Last-Modified を HEAD リクエストで取得して著作権行に表示する
   (function() {
     var FILES = [
-      { label: 'WASM',   file: 'sim.wasm',      url: 'sim.wasm',      desc: 'Verilog RTL → Verilator → Emscripten でビルドした WebAssembly バイナリ' },
-      { label: 'worker', file: 'sim-worker.js',  url: 'sim-worker.js', desc: 'WASM シミュレーションを実行する Web Worker スクリプト' },
-      { label: 'UI',     file: 'index.html',     url: '',              desc: 'ブラウザ UI (HTML / CSS / JS)' },
+      { label: 'WASM',   file: 'sim.wasm',        url: 'sim.wasm',                  desc: 'Verilog RTL → Verilator → Emscripten でビルドした WebAssembly バイナリ' },
+      { label: 'worker', file: 'sim-worker.js',  url: 'sim-worker.js',             desc: 'WASM シミュレーションを実行する Web Worker スクリプト' },
+      { label: 'LA',     file: 'rtlscope-la.js', url: '../../../js/rtlscope-la.js',desc: 'Logic Analyzer ライブラリ (RTLScopeLA)' },
+      { label: 'UI',     file: 'index.html',     url: '',                          desc: 'ブラウザ UI (HTML / CSS / JS)' },
     ];
 
     function fmtDate(httpDateStr) {
@@ -2308,11 +2432,12 @@
           if (--remaining > 0) return;
           var el = document.getElementById('file-versions');
           if (!el) return;
+          // 3列グリッド: ラベル | ファイル名 | 日付 を直接グリッドセルとして並べる
           el.innerHTML = FILES.map(function(f, i) {
             var escaped = f.desc.replace(/"/g, '&quot;');
-            return '<span title="' + escaped + '" style="margin-right:10px;white-space:nowrap;">' +
-              '<b>' + f.label + '</b> ' + f.file + ' ' + results[i] +
-              '</span>';
+            return '<span class="fv-lbl"  title="' + escaped + '">' + f.label    + '</span>' +
+                   '<span class="fv-file" title="' + escaped + '">' + f.file     + '</span>' +
+                   '<span class="fv-date" title="' + escaped + '">' + results[i] + '</span>';
           }).join('');
         });
     });
