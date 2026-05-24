@@ -267,10 +267,6 @@
     #editor-linenum.ln-off { opacity:0.45; }
     #editor-close { margin-left:auto; }
     #editor-cm { flex:1; overflow:hidden; }
-    #editor-cm.hide-linenum .cm-gutters { display:none; }
-    #editor-cm .cm-editor { height:100%; }
-    #editor-cm .cm-scroller { overflow:auto; font-family:'Courier New',monospace; font-size:16px; }
-    #editor-cm textarea { font-size:16px !important; }
 
     /* ---- Doc toolbar ---- */
     #doc-toolbar {
@@ -2508,8 +2504,8 @@
     term.focus();
     requestAnimationFrame(loop);
 
-    // ---- テキストエディタ共通 (CodeMirror / textarea フォールバック) ----
-    // window._editor = { type:'cm'|'textarea', view|el, name } | null
+    // ---- テキストエディタ共通 (Monaco / textarea フォールバック) ----
+    // window._editor = { type:'monaco'|'textarea', editor|el, name } | null
     window._editor = null;
 
     // CodeMirror 未ロード時の textarea フォールバック
@@ -2523,7 +2519,7 @@
       var ta = document.createElement('textarea');
       ta.value = text;
       ta.style.cssText = 'width:100%;height:100%;box-sizing:border-box;'
-        + 'font-family:"Courier New",monospace;font-size:16px;'
+        + 'font-family:"Courier New",monospace;font-size:14px;'
         + 'border:none;resize:none;padding:8px;outline:none;';
       cm.appendChild(ta);
       window._editor = { type: 'textarea', el: ta, name: name };
@@ -2548,12 +2544,12 @@
     // 行番号 ON/OFF トグル
     (function() {
       var btn = document.getElementById('editor-linenum');
-      var cm  = document.getElementById('editor-cm');
       // localStorage で状態を復元（デフォルト: ON）
       var on = localStorage.getItem('editor-linenum') !== '0';
       function applyLineNum() {
-        cm.classList.toggle('hide-linenum', !on);
         btn.classList.toggle('ln-off', !on);
+        // Monaco が開いていれば即反映、未初期化時は次の open() で反映される
+        if (window._wasmEd) window._wasmEd.setLineNumbers(on);
       }
       applyLineNum();
       btn.addEventListener('click', function() {
@@ -2571,7 +2567,7 @@
     document.getElementById('editor-save').addEventListener('click', async function() {
       var ed = window._editor;
       if (!ed) return;
-      var text = ed.type === 'cm' ? ed.view.state.doc.toString() : ed.el.value;
+      var text = ed.type === 'monaco' ? ed.editor.getValue() : ed.el.value;
       text = text.replace(/\n/g, '\r\n') + '\x1a';
       var bytes = new TextEncoder().encode(text);
       var buf   = bytes.buffer;
@@ -2584,7 +2580,7 @@
     document.getElementById('editor-download').addEventListener('click', function() {
       var ed = window._editor;
       if (!ed) return;
-      var text = (ed.type === 'cm' ? ed.view.state.doc.toString() : ed.el.value)
+      var text = (ed.type === 'monaco' ? ed.editor.getValue() : ed.el.value)
                    .replace(/\n/g, '\r\n');
       var blob = new Blob([text], { type: 'text/plain' });
       var a = Object.assign(document.createElement('a'), {
@@ -2597,8 +2593,8 @@
       if (!this.files.length || !window._editor) return;
       var text = (await this.files[0].text()).replace(/\r\n|\r/g, '\n');
       var ed = window._editor;
-      if (ed.type === 'cm') {
-        ed.view.dispatch({ changes: { from: 0, to: ed.view.state.doc.length, insert: text } });
+      if (ed.type === 'monaco') {
+        ed.editor.setValue(text);
       } else {
         ed.el.value = text;
       }
@@ -2759,182 +2755,43 @@
   <script src="../../../js/xterm-jp106.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
-  <!-- ============================================================
-       CodeMirror 6 — WASM FS テキストエディタ
-       Phase 2: CDN ロード   Phase 3: FS 読み書き
-       Phase 4: Save/Download/Upload   Phase 5: ASCII 制限
-       Phase 6: 言語モード (C / ASM)
-  ============================================================ -->
-  <script type="module">
-  // --- imports (esm.sh が peer deps を自動解決) ---
-  import { EditorView, basicSetup }
-    from 'https://esm.sh/codemirror@6.0.1';
-  import { EditorState }
-    from 'https://esm.sh/@codemirror/state@6';
-  import { cpp }
-    from 'https://esm.sh/@codemirror/lang-cpp@6';
-
-  let cmView = null;
-
-  // --- 横スクロール防止: 文字入力時に CM6 が誤って右スクロールするのを抑制 ---
-  // Windows の物理スクロールバーが clientWidth を削るため、CM6 の scrollIntoView が
-  // カーソルを「範囲外」と誤判定して右スクロールする。
-  //
-  // 動作原理:
-  //   1. beforeinput (capture) で scrollLeft を保存、_sfIsTyping = true にする。
-  //      同時にダブル rAF でフラグをリセット（CM6 の rAF より後に実行されることを保証）。
-  //   2. CM6 は自前の beforeinput (bubble) ハンドラで view.dispatch() → requestMeasure()
-  //      (rAF) を登録する。rAF の実行順は登録順なので CM6 の rAF は我々の rAF の後。
-  //   3. CM6 の rAF が .cm-scroller の scrollLeft を変更 → scroll イベント発火。
-  //      _sfIsTyping が true のときだけ「カーソルが元位置でも可視か」を判定し、
-  //      可視なら scrollLeft を戻す。
-  let _sfIsTyping = false;
-  let _sfSavedLeft = 0;
-
-  function setupScrollFix(container) {
-    if (container._sfSetup) return;
-    container._sfSetup = true;
-
-    container.addEventListener('beforeinput', (e) => {
-      if (e.inputType !== 'insertText') return;
-      const scroller = container.querySelector('.cm-scroller');
-      if (!scroller) return;
-      _sfIsTyping = true;
-      _sfSavedLeft = scroller.scrollLeft;
-      // CM6 は自分の beforeinput ハンドラ（bubble フェーズ）で rAF を登録する。
-      // こちらは capture フェーズで先に動くため、ダブル rAF でリセットすれば
-      // CM6 の scroll rAF より確実に後でフラグを落とせる。
-      requestAnimationFrame(() => requestAnimationFrame(() => { _sfIsTyping = false; }));
-    }, true);
-  }
-
-  function attachScrollFix(scroller) {
-    if (scroller._sfAttached) return;
-    scroller._sfAttached = true;
-
-    scroller.addEventListener('scroll', () => {
-      if (!_sfIsTyping) return;
-      const delta = scroller.scrollLeft - _sfSavedLeft;
-      if (delta <= 0) return; // 右スクロールのみ対象
-
-      if (!cmView) return;
-      const cursor = cmView.state.selection.main.head;
-      const coords = cmView.coordsAtPos(cursor);
-      if (!coords) return;
-
-      const rect = scroller.getBoundingClientRect();
-      // スクロール後の viewport 座標を使ってスクロール前の可視位置を逆算:
-      //   スクロール前の表示 X = (coords.left - rect.left) + delta
-      // これが clientWidth 以下なら元位置でもカーソルは可視 → 右スクロール不要
-      const cursorXBeforeScroll = coords.left - rect.left + delta;
-      if (cursorXBeforeScroll <= scroller.clientWidth) {
-        scroller.scrollLeft = _sfSavedLeft; // 元の位置に戻す
-      }
+  <!-- Monaco Editor — WASM FS テキストエディタ -->
+  <script src="../../../js/monaco-wasm-editor.js"></script>
+  <script>
+  (function () {
+    // ── エディタ初期化 ──────────────────────────────────────────
+    var _wasmEd = new MonacoWasmEditor({
+      container : '#editor-cm',
+      asciiOnly : true,
+      fontSize  : 14,
+      fontFamily: '"Courier New", Courier, monospace',
+      wordWrap  : 'on',
+      // C, H, TXT, MAC はライブラリの DEFAULT_LANG_MAP に定義済み
     });
-  }
+    // 行番号トグルから参照できるよう window に公開する
+    window._wasmEd = _wasmEd;
 
-  // --- Phase 5: ASCII 制限 ---
-  const asciiFilter = EditorState.transactionFilter.of(tr => {
-    if (!tr.docChanged) return tr;
-    let ok = true;
-    tr.changes.iterChanges((_f, _t, _ff, _tt, ins) => {
-      if (!ok) return;
-      const s = ins.toString();
-      for (let i = 0; i < s.length; i++) {
-        if (s.charCodeAt(i) > 127) { ok = false; break; }
-      }
-    });
-    return ok ? tr : [];
-  });
+    // ── WASM FS → エディタ ──────────────────────────────────────
+    window.openEditorFile = async function (name) {
+      document.getElementById('editor-filename').textContent = name;
+      document.getElementById('editor-modal').style.display = '';
 
-  // --- Phase 6: 言語モード ---
-  function getLang(name) {
-    const dot = name.lastIndexOf('.');
-    if (dot < 0) return [];
-    switch (name.slice(dot + 1).toUpperCase()) {
-      case 'C': case 'H': return [cpp()];
-      default: return [];
-    }
-  }
+      var result = await window.workerRequest({ type: 'readFS', name: name });
+      var bytes  = new Uint8Array(result.data);
+      var text   = new TextDecoder('latin1').decode(bytes)
+                     .replace(/\r\n/g, '\n')
+                     .replace(/\x1a[\s\S]*/g, '');
 
-  function makeView(doc, name) {
-    const container = document.getElementById('editor-cm');
-    if (cmView) { cmView.destroy(); cmView = null; }
+      await _wasmEd.open(name, text);
+      // JIS キーボード補正: xterm-jp106.js の attachToInput を内部で流用
+      _wasmEd.attachJP106(window._jp106);
+      window._editor = { type: 'monaco', editor: _wasmEd, name: name };
+      if (window._syncEditorKbd) window._syncEditorKbd();
+    };
 
-    // JP106 キーボード補正を domEventHandlers 経由で CM の keydown pipeline に組み込む。
-    // capture フェーズリスナーを container に付けると CM 内部のスクロール処理と干渉するため、
-    // CM 専用 API である domEventHandlers を使う。
-    //   return true  → CM が e.preventDefault() を呼び、独自の文字挿入も行わない
-    //   return false → CM が通常どおりイベントを処理する
-    const jp106Ext = window._jp106 ? EditorView.domEventHandlers({
-      keydown(e, view) {
-        if (window._jp106.getLayout() !== 'jp106') { return false; }
-        if (e.ctrlKey || e.metaKey || e.altKey)    { return false; }
-        if (window.XtermJP106.SUPPRESS_CODES[e.code]) { e.preventDefault(); return true; }
-        const entry = window.XtermJP106.TABLE[e.code];
-        if (!entry) { return false; }
-        const ch = e.shiftKey ? entry[1] : entry[0];
-        if (ch === null || ch === undefined) { e.preventDefault(); return true; }
-        // scrollIntoView: true で文字挿入後にカーソル位置へ確実にスクロール
-        view.dispatch({ ...view.state.replaceSelection(ch), scrollIntoView: true });
-        return true;
-      },
-    }) : [];
-
-    // ガター（行番号）の幅を scrollMargins.left に設定する。
-    // CM6 の scrollIntoView はガターを考慮せず Chrome がカーソルを左端に寄せると
-    // ガターの裏にカーソルが隠れてしまう既知の不具合 (Issue #752) の公式対処。
-    // @codemirror/view 6.17.0 以降はガタープラグインが自動設定するが、
-    // esm.sh 経由のバンドルでは確実に適用されない場合があるため明示的に追加する。
-    // display:none でガターを非表示にすると offsetWidth=0 になり自動的に無効になる。
-    const gutterScrollMargin = EditorView.scrollMargins.of(view => {
-      const gutterEl = view.dom.querySelector('.cm-gutters');
-      return gutterEl ? { left: gutterEl.offsetWidth } : null;
-    });
-
-    cmView = new EditorView({
-      state: EditorState.create({
-        doc,
-        extensions: [
-          basicSetup,
-          asciiFilter,
-          ...getLang(name),
-          EditorView.theme({ '&': { height: '100%' } }),
-          gutterScrollMargin,
-          jp106Ext,
-        ],
-      }),
-      parent: container,
-    });
-    // 横スクロール防止セットアップ
-    setupScrollFix(container);
-    const scroller = container.querySelector('.cm-scroller');
-    if (scroller) { attachScrollFix(scroller); }
-    // エディタを開いたら即フォーカスを移す。
-    // フォーカスがないと xterm.js の textarea がキー入力を受け取り続け、
-    // CP/M にキーが送られてターミナルカーソルが右移動してしまう。
-    cmView.focus();
-  }
-
-  // --- Phase 3: FS → エディタ ---
-  window.openEditorFile = async function(name) {
-    document.getElementById('editor-filename').textContent = name;
-    document.getElementById('editor-modal').style.display = '';
-
-    const result = await window.workerRequest({ type: 'readFS', name });
-    const bytes  = new Uint8Array(result.data);
-    const text = new TextDecoder('latin1').decode(bytes)
-                   .replace(/\r\n/g, '\n')
-                   .replace(/\x1a[\s\S]*/g, '');
-    makeView(text, name);
-    window._editor = { type: 'cm', view: cmView, name: name };
-    if (window._syncEditorKbd) { window._syncEditorKbd(); }
-  };
-
-  // closeEditor / イベントリスナーは通常スクリプト側で登録済み
-  window._destroyEditor = function() {
-    if (cmView) { cmView.destroy(); cmView = null; }
-  };
+    // closeEditor のコールバック（通常スクリプト側が window._destroyEditor を呼ぶ）
+    window._destroyEditor = function () { _wasmEd.destroy(); };
+  }());
   </script>
 </body>
 </html>
