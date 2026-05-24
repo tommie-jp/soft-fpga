@@ -373,7 +373,7 @@
       self._markerBtnApply.A = function() { btnA._refreshStyle(); };
       mRow.appendChild(btnA);
 
-      var btnB = _mkMarkerBtn('B', '#c80050',
+      var btnB = _mkMarkerBtn('B', '#e07800',
         function() { return self._markerBOn; },
         function(v) { self._markerBOn = v; },
         function() { return self._markerB; },
@@ -801,21 +801,24 @@
         return true;
       }
 
-      // TRIG: ON かつ発火済みのとき
+      // TRIG: ON かつ発火済みのとき（TRIG バッジは幅 34px なので snap を拡大）
       function tryTrig() {
         if (!self._trigOn || self._trigHead < 0) return false;
         var trigSamp = (self._trigHead >>> 0) - 1;
-        var mx = _markerDisplayX(trigSamp, _markerFixedX(3));
-        if (Math.abs(lx - mx) > snap) return false;
+        var _fxC4 = self._markerFixedXCache || [];
+        var trigFx = _fxC4[3] !== null && _fxC4[3] !== undefined
+                   ? _fxC4[3] : _markerFixedX(3);
+        var mx = _markerDisplayX(trigSamp, trigFx);
+        if (Math.abs(lx - mx) > snap + 7) return false;  // halfW=17, snap 余裕 +7
         _centerOnSamp(trigSamp);
         return true;
       }
 
       // 範囲外バッジは動的配置なのでキャッシュを優先、未初期化時は静的位置にフォールバック
       var _fxC = self._markerFixedXCache || [];
-      tryMarker(self._markerA, self._markerAOn, _fxC[0] || _markerFixedX(0)) ||
-      tryMarker(self._markerB, self._markerBOn, _fxC[1] || _markerFixedX(1)) ||
-      tryMarker(self._markerC, self._markerCOn, _fxC[2] || _markerFixedX(2)) ||
+      tryMarker(self._markerA, self._markerAOn, _fxC[0] != null ? _fxC[0] : _markerFixedX(0)) ||
+      tryMarker(self._markerB, self._markerBOn, _fxC[1] != null ? _fxC[1] : _markerFixedX(1)) ||
+      tryMarker(self._markerC, self._markerCOn, _fxC[2] != null ? _fxC[2] : _markerFixedX(2)) ||
       tryTrig();
     }
 
@@ -1364,31 +1367,7 @@
       ctx.restore();
     }
 
-    // ── トリガー発火位置 ──
-    // ON かつトリガーが発火済みのときのみバッジ表示（OFF のときは非表示）
-    (function() {
-      var hasTrig = self._trigHead >= 0;
-      if (!hasTrig || !self._trigOn) return;
-      var TBW = 34, TBH = MARKER_LANE_H;
-      var trigFixX = _fixedX[3];
-      var fireOff = ((self._trigHead >>> 0) - 1) - startSamp;
-      var fx = SIG_X + fireOff * laZoom;
-      var fireX = (fx >= SIG_X - 18 && fx <= LA_W + 18) ? fx : trigFixX;
-      var inView = fireOff >= 0 && fireOff < samples;
-      ctx.save();
-      if (inView) {
-        ctx.strokeStyle = 'rgba(220,0,0,0.85)'; ctx.lineWidth = 2.5;
-        ctx.setLineDash([3, 6]);
-        ctx.beginPath(); ctx.moveTo(fireX, 0); ctx.lineTo(fireX, mlaneY); ctx.stroke();
-        ctx.setLineDash([]);
-      }
-      ctx.fillStyle = '#dc0000';
-      ctx.fillRect(fireX - TBW / 2, mlaneY, TBW, TBH);
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center';
-      ctx.fillText('TRIG', fireX, mlaneY + TBH - 4);
-      ctx.restore();
-    })();
+    // TRIG 描画はクリップ解除後の統合 IIFE に移動
 
     // ── クロックルーラー（クリップ内: tick はサブピクセルシフト済み）──
     if (samples > 0) {
@@ -1429,51 +1408,96 @@
     // ── クリップ解除 ──
     ctx.restore();
 
-    // ── マーカー縦線 + バッジ（クリップなし: 範囲外クランプ線を確実に表示）──
-    // 範囲外バッジは「左寄せ / 右寄せ」「文字順ソート / 重なり防止」で動的配置
+    // ── マーカー縦線 + バッジ（クリップなし: A/B/C/TRIG 統合動的配置）──
+    // 左寄せ / 右寄せ、samp 昇順ソート、バッジ幅考慮の重なり防止
     (function() {
-      var BAD_W = 20, BAD_GAP = 2, STEP = BAD_W + BAD_GAP;
+      var GAP = 2;
+      var hasTrig  = self._trigHead >= 0 && self._trigOn;
+      var trigSamp = hasTrig ? (self._trigHead >>> 0) - 1 : null;
+
+      // 各マーカー定義（halfW: バッジ半幅）
       var _mkrs = [
-        { label:'A', samp:self._markerA, on:self._markerAOn,
+        { idx:0, label:'A', samp:self._markerA, on:self._markerAOn, halfW:10,
           lc:'rgba(0,100,230,0.85)', bc:'#0064e6' },
-        { label:'B', samp:self._markerB, on:self._markerBOn,
-          lc:'rgba(200,0,80,0.85)',  bc:'#c80050' },
-        { label:'C', samp:self._markerC, on:self._markerCOn,
+        { idx:1, label:'B', samp:self._markerB, on:self._markerBOn, halfW:10,
+          lc:'rgba(224,120,0,0.85)', bc:'#e07800' },
+        { idx:2, label:'C', samp:self._markerC, on:self._markerCOn, halfW:10,
           lc:'rgba(0,160,80,0.85)',  bc:'#00a050' },
+        { idx:3, label:'TRIG', samp:trigSamp,   on:hasTrig,         halfW:17 },
       ];
 
-      // 各マーカーが「ビュー内（showAtPos）」か「左範囲外」か「右範囲外」かを判定
+      // ビュー内 / 左範囲外 / 右範囲外 を分類
       var leftOut = [], rightOut = [];
       _mkrs.forEach(function(m) {
         if (!m.on || m.samp === null) return;
         var off = m.samp - startSamp;
         var mx  = SIG_X + off * laZoom;
-        m._showAtPos = mx >= SIG_X - 12 && mx <= LA_W + 12;
+        m._mx       = mx;
+        m._inView   = off >= 0 && off < samples;
+        m._showAtPos = mx >= SIG_X - (m.halfW + 2) && mx <= LA_W + (m.halfW + 2);
         if (!m._showAtPos) {
-          if (mx < LABEL_W) leftOut.push(m);  // 左（過去）方向
-          else              rightOut.push(m); // 右（未来）方向
+          if (mx < LABEL_W) leftOut.push(m);
+          else              rightOut.push(m);
         }
       });
 
-      // 左寄せ: samp 昇順（古い順）で LABEL_W の右端から右へ並べる
+      // 左寄せ: samp 昇順（古い順）で LABEL_W の右端から右へ、幅を考慮して並べる
       leftOut.sort(function(a, b) { return a.samp - b.samp; });
-      leftOut.forEach(function(m, i) {
-        m._fixedX = LABEL_W + BAD_W / 2 + i * STEP;
+      var lCursor = LABEL_W;
+      leftOut.forEach(function(m) {
+        lCursor   += m.halfW;
+        m._fixedX  = lCursor;
+        lCursor   += m.halfW + GAP;
       });
 
-      // 右寄せ: samp 昇順（小さい方が左）で右詰め、最後（最大値）が右端に来る
+      // 右寄せ: samp 昇順（最大 samp が最右端）、右端から逆順に配置
       rightOut.sort(function(a, b) { return a.samp - b.samp; });
-      rightOut.forEach(function(m, i) {
-        m._fixedX = LA_W - BAD_W / 2 - (rightOut.length - 1 - i) * STEP;
-      });
+      var rCursor = LA_W;
+      for (var ri = rightOut.length - 1; ri >= 0; ri--) {
+        rCursor          -= rightOut[ri].halfW;
+        rightOut[ri]._fixedX = rCursor;
+        rCursor          -= rightOut[ri].halfW + GAP;
+      }
 
-      // ビュー内マーカーには fixedX 不要（drawMarker が showAtPos で無視する）
-      // クリックハンドラー用にバッジの実際の表示 x をキャッシュする
-      self._markerFixedXCache = _mkrs.map(function(m) {
-        return m._fixedX || LABEL_W + BAD_W / 2;
-      });
+      // クリックハンドラー用キャッシュ更新（A/B/C は idx 0-2、TRIG は idx 3）
+      var cache = [null, null, null, null];
+      _mkrs.forEach(function(m) { cache[m.idx] = m._fixedX || null; });
+      self._markerFixedXCache = cache;
+
+      // ── 描画 ──
       _mkrs.forEach(function(m) {
-        drawMarker(m.label, m.samp, m.on, m.lc, m.bc, m._fixedX || LABEL_W + BAD_W / 2);
+        if (!m.on || m.samp === null) return;
+        var fxFallback = m._mx < LABEL_W ? LABEL_W + m.halfW : LA_W - m.halfW;
+        var fixedX = m._fixedX !== undefined ? m._fixedX : fxFallback;
+
+        if (m.idx < 3) {
+          // A / B / C: 既存 drawMarker を使用
+          drawMarker(m.label, m.samp, m.on, m.lc, m.bc, fixedX);
+        } else {
+          // TRIG: 専用描画（バッジ幅 34px）
+          var TBW = m.halfW * 2, TBH = MARKER_LANE_H;
+          var fireX = m._showAtPos ? m._mx : fixedX;
+          var lineX = m._inView  ? m._mx
+                    : (m._mx < LABEL_W ? LABEL_W : LA_W - 1);
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(LABEL_W, 0, LA_W - LABEL_W, laH);
+          ctx.clip();
+          // 縦線
+          ctx.strokeStyle = 'rgba(220,0,0,0.85)';
+          ctx.lineWidth   = m._inView ? 2.5 : 1.5;
+          ctx.setLineDash(m._inView ? [3, 6] : [2, 5]);
+          ctx.globalAlpha = m._inView ? 1.0 : 0.45;
+          ctx.beginPath(); ctx.moveTo(lineX, 0); ctx.lineTo(lineX, mlaneY); ctx.stroke();
+          ctx.setLineDash([]); ctx.globalAlpha = 1.0;
+          // バッジ
+          ctx.fillStyle = '#dc0000';
+          ctx.fillRect(fireX - TBW / 2, mlaneY, TBW, TBH);
+          ctx.fillStyle = '#fff';
+          ctx.font = 'bold 10px monospace'; ctx.textAlign = 'center';
+          ctx.fillText('TRIG', fireX, mlaneY + TBH - 4);
+          ctx.restore();
+        }
       });
     })();
 

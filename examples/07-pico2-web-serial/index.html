@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pico 2 ADC — Web Serial Scope</title>
+<style>
+  /* ── ダーク UI ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:      #0d1117;
+    --panel:   #161b22;
+    --border:  #30363d;
+    --text:    #c9d1d9;
+    --muted:   #8b949e;
+    --accent:  #58a6ff;
+    --ch0:     #3fb950;  /* CH0: 緑 */
+    --ch1:     #f78166;  /* CH1: オレンジ */
+    --btn-bg:  #21262d;
+    --btn-hover: #30363d;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  /* ── ヘッダ ── */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  header h1 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    flex: 1;
+  }
+
+  .badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .badge.connected { border-color: var(--ch0); color: var(--ch0); }
+
+  /* ── ボタン ── */
+  button {
+    cursor: pointer;
+    background: var(--btn-bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 14px;
+    font-size: 13px;
+    transition: background 0.15s;
+  }
+  button:hover:not(:disabled) { background: var(--btn-hover); }
+  button:disabled { opacity: 0.4; cursor: default; }
+  button.primary { border-color: var(--accent); color: var(--accent); }
+
+  /* ── チャート領域 ── */
+  main {
+    flex: 1;
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow: hidden;
+  }
+
+  .chart-wrap {
+    flex: 1;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    position: relative;
+    min-height: 0;
+  }
+
+  canvas { display: block; width: 100% !important; height: 100% !important; }
+
+  /* ── ステータスバー ── */
+  footer {
+    display: flex;
+    gap: 24px;
+    padding: 6px 16px;
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+
+  .stat { display: flex; gap: 6px; align-items: center; }
+  .stat-val { color: var(--text); font-variant-numeric: tabular-nums; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .dot-ch0 { background: var(--ch0); }
+  .dot-ch1 { background: var(--ch1); }
+
+  /* ── エラートースト ── */
+  #toast {
+    position: fixed;
+    bottom: 44px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #3d1c1c;
+    border: 1px solid #f78166;
+    color: #f78166;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    display: none;
+    z-index: 100;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Pico 2 ADC — Web Serial Scope</h1>
+  <span class="badge" id="connBadge">未接続</span>
+  <button class="primary" id="btnConnect">接続</button>
+  <button id="btnDisconnect" disabled>切断</button>
+  <button id="btnClear">クリア</button>
+</header>
+
+<main>
+  <div class="chart-wrap">
+    <canvas id="chart"></canvas>
+  </div>
+</main>
+
+<footer>
+  <div class="stat"><span class="dot dot-ch0"></span>CH0: <span class="stat-val" id="valCh0">—</span></div>
+  <div class="stat"><span class="dot dot-ch1"></span>CH1: <span class="stat-val" id="valCh1">—</span></div>
+  <div class="stat">レート: <span class="stat-val" id="valRate">—</span> SPS</div>
+  <div class="stat">フレーム: <span class="stat-val" id="valFrames">0</span></div>
+  <div class="stat">エラー: <span class="stat-val" id="valErrors">0</span></div>
+</footer>
+
+<div id="toast"></div>
+
+<!-- Chart.js v4 CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+<script>
+'use strict';
+
+/* ================================================================== */
+/* 定数                                                                 */
+/* ================================================================== */
+const FRAME_BYTES   = 8;     /* sizeof(Frame) */
+const MAX_POINTS    = 2000;  /* グラフに表示するサンプル数 */
+const BAUD          = 0;     /* Web Serial は USB CDC なので baud 任意 */
+
+/* ================================================================== */
+/* COBS デコード                                                        */
+/* ================================================================== */
+/**
+ * COBS エンコードされた Uint8Array (0x00 を含まない本体部分) をデコードする。
+ * 末尾の 0x00 は呼び出し前に除去しておくこと。
+ * @param {Uint8Array} encoded
+ * @returns {Uint8Array}
+ */
+function cobsDecode(encoded) {
+    const out = [];
+    let i = 0;
+    while (i < encoded.length) {
+        const code = encoded[i++];
+        for (let j = 1; j < code; j++) {
+            out.push(encoded[i++]);
+        }
+        if (code < 0xFF && i < encoded.length) {
+            out.push(0x00);
+        }
+    }
+    return new Uint8Array(out);
+}
+
+/* ================================================================== */
+/* Frame パーサ                                                         */
+/* ================================================================== */
+/**
+ * デコード済み 8 バイト配列を Frame オブジェクトに変換する。
+ * @param {Uint8Array} bytes
+ * @returns {{ ts_ms: number, ch0: number, ch1: number }|null}
+ */
+function parseFrame(bytes) {
+    if (bytes.byteLength < FRAME_BYTES) return null;
+    const dv = new DataView(bytes.buffer, bytes.byteOffset, FRAME_BYTES);
+    return {
+        ts_ms: dv.getUint32(0, /* littleEndian= */ true),
+        ch0:   dv.getUint16(4, true),
+        ch1:   dv.getUint16(6, true),
+    };
+}
+
+/* ================================================================== */
+/* COBSFrameSplitter — TransformStream で 0x00 区切りフレームを分割    */
+/* ================================================================== */
+class COBSFrameSplitter {
+    constructor() {
+        /** @type {number[]} */
+        this._buf = [];
+    }
+
+    /**
+     * TransformStream 用 transformer を返す。
+     * @returns {Transformer<Uint8Array, Uint8Array>}
+     */
+    get transformer() {
+        return {
+            transform: (chunk, controller) => {
+                for (const byte of chunk) {
+                    if (byte === 0x00) {
+                        /* 0x00 が来たらフレーム確定 */
+                        if (this._buf.length > 0) {
+                            controller.enqueue(new Uint8Array(this._buf));
+                            this._buf = [];
+                        }
+                    } else {
+                        this._buf.push(byte);
+                    }
+                }
+            },
+            flush: (controller) => {
+                if (this._buf.length > 0) {
+                    controller.enqueue(new Uint8Array(this._buf));
+                    this._buf = [];
+                }
+            },
+        };
+    }
+}
+
+/* ================================================================== */
+/* Chart.js 初期化                                                      */
+/* ================================================================== */
+const ctx = document.getElementById('chart').getContext('2d');
+
+const chartData = {
+    labels:   [], /* ts_ms 列 */
+    datasets: [
+        {
+            label:       'CH0',
+            data:        [],
+            borderColor: 'rgb(63, 185, 80)',
+            borderWidth: 1,
+            pointRadius: 0,
+            tension:     0,
+        },
+        {
+            label:       'CH1',
+            data:        [],
+            borderColor: 'rgb(247, 129, 102)',
+            borderWidth: 1,
+            pointRadius: 0,
+            tension:     0,
+        },
+    ],
+};
+
+const chart = new Chart(ctx, {
+    type: 'line',
+    data: chartData,
+    options: {
+        animation:   false,
+        responsive:  true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        scales: {
+            x: {
+                type:    'linear',
+                title:   { display: true, text: 'Time [ms]', color: '#8b949e' },
+                ticks:   { color: '#8b949e', maxTicksLimit: 8 },
+                grid:    { color: '#21262d' },
+            },
+            y: {
+                min:     0,
+                max:     4095,
+                title:   { display: true, text: 'ADC Raw (12-bit)', color: '#8b949e' },
+                ticks:   { color: '#8b949e' },
+                grid:    { color: '#21262d' },
+            },
+        },
+        plugins: {
+            legend: {
+                labels: { color: '#c9d1d9', boxWidth: 12 },
+            },
+        },
+    },
+});
+
+/* ================================================================== */
+/* 状態管理                                                              */
+/* ================================================================== */
+let port       = null;
+let reader     = null;
+let readerTask = null; /* Promise */
+
+let frameCount = 0;
+let errorCount = 0;
+let dirty      = false; /* RAF dirty フラグ */
+
+/* レート計測 */
+let rateFrames   = 0;
+let rateLastTime = performance.now();
+
+/* ================================================================== */
+/* データ追加                                                            */
+/* ================================================================== */
+/**
+ * フレームをチャートバッファへ追加する。
+ * MAX_POINTS を超えたら先頭を削除して固定長を維持する。
+ * @param {{ ts_ms: number, ch0: number, ch1: number }} frame
+ */
+function pushFrame(frame) {
+    chartData.labels.push(frame.ts_ms);
+    chartData.datasets[0].data.push(frame.ch0);
+    chartData.datasets[1].data.push(frame.ch1);
+
+    if (chartData.labels.length > MAX_POINTS) {
+        chartData.labels.shift();
+        chartData.datasets[0].data.shift();
+        chartData.datasets[1].data.shift();
+    }
+
+    /* UI 数値更新 */
+    document.getElementById('valCh0').textContent    = frame.ch0;
+    document.getElementById('valCh1').textContent    = frame.ch1;
+    document.getElementById('valFrames').textContent = ++frameCount;
+
+    /* レート計測 */
+    rateFrames++;
+    const now    = performance.now();
+    const elapsed = now - rateLastTime;
+    if (elapsed >= 1000) {
+        const sps = Math.round(rateFrames * 1000 / elapsed);
+        document.getElementById('valRate').textContent = sps;
+        rateFrames    = 0;
+        rateLastTime  = now;
+    }
+
+    dirty = true; /* RAF でグラフ更新 */
+}
+
+/* ================================================================== */
+/* requestAnimationFrame ループ（最大 60 fps）                          */
+/* ================================================================== */
+function rafLoop() {
+    if (dirty) {
+        chart.update('none'); /* アニメーションなしで即時更新 */
+        dirty = false;
+    }
+    requestAnimationFrame(rafLoop);
+}
+requestAnimationFrame(rafLoop);
+
+/* ================================================================== */
+/* シリアル受信ループ                                                    */
+/* ================================================================== */
+/**
+ * ポートが開いている間、COBS フレームを読み続ける。
+ * @param {ReadableStream} readable
+ */
+async function readLoop(readable) {
+    const splitter = new COBSFrameSplitter();
+    const stream   = readable
+        .pipeThrough(new TransformStream(splitter.transformer));
+    const r = stream.getReader();
+    reader = r;
+
+    try {
+        while (true) {
+            const { value, done } = await r.read();
+            if (done) break;
+
+            /* COBS デコード */
+            let decoded;
+            try {
+                decoded = cobsDecode(value);
+            } catch (e) {
+                document.getElementById('valErrors').textContent = ++errorCount;
+                continue;
+            }
+
+            /* Frame パース */
+            const frame = parseFrame(decoded);
+            if (!frame) {
+                document.getElementById('valErrors').textContent = ++errorCount;
+                continue;
+            }
+
+            pushFrame(frame);
+        }
+    } catch (e) {
+        /* ポート切断など */
+        if (port) showToast('受信エラー: ' + e.message);
+    } finally {
+        r.releaseLock();
+        reader = null;
+    }
+}
+
+/* ================================================================== */
+/* 接続 / 切断                                                          */
+/* ================================================================== */
+async function connect() {
+    if (!('serial' in navigator)) {
+        showToast('このブラウザは Web Serial API に対応していません（Chrome 89+ 必須）');
+        return;
+    }
+
+    try {
+        port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 115200 }); /* USB CDC は実質任意 */
+    } catch (e) {
+        port = null;
+        showToast('接続失敗: ' + e.message);
+        return;
+    }
+
+    setConnected(true);
+    readerTask = readLoop(port.readable);
+}
+
+async function disconnect() {
+    setConnected(false);
+
+    /* リーダをキャンセルして完了を待つ */
+    if (reader) {
+        try { await reader.cancel(); } catch (_) { /* ignore */ }
+    }
+    if (readerTask) {
+        try { await readerTask; } catch (_) { /* ignore */ }
+        readerTask = null;
+    }
+
+    if (port) {
+        try { await port.close(); } catch (_) { /* ignore */ }
+        port = null;
+    }
+}
+
+/* ================================================================== */
+/* UI ヘルパ                                                             */
+/* ================================================================== */
+/**
+ * 接続/切断状態に合わせてボタンとバッジを更新する。
+ * @param {boolean} connected
+ */
+function setConnected(connected) {
+    document.getElementById('btnConnect').disabled    =  connected;
+    document.getElementById('btnDisconnect').disabled = !connected;
+    const badge = document.getElementById('connBadge');
+    badge.textContent = connected ? '接続中' : '未接続';
+    badge.classList.toggle('connected', connected);
+}
+
+/**
+ * グラフデータをクリアする。
+ */
+function clearChart() {
+    chartData.labels = [];
+    chartData.datasets.forEach(ds => (ds.data = []));
+    frameCount = 0;
+    errorCount = 0;
+    document.getElementById('valCh0').textContent    = '—';
+    document.getElementById('valCh1').textContent    = '—';
+    document.getElementById('valRate').textContent   = '—';
+    document.getElementById('valFrames').textContent = '0';
+    document.getElementById('valErrors').textContent = '0';
+    chart.update('none');
+}
+
+/**
+ * エラートーストを表示する（3 秒で自動消滅）。
+ * @param {string} msg
+ */
+function showToast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.style.display = 'block';
+    setTimeout(() => (el.style.display = 'none'), 3000);
+}
+
+/* ================================================================== */
+/* イベントリスナ                                                        */
+/* ================================================================== */
+document.getElementById('btnConnect').addEventListener('click', connect);
+document.getElementById('btnDisconnect').addEventListener('click', disconnect);
+document.getElementById('btnClear').addEventListener('click', clearChart);
+
+/* ポートが外部から切断された場合の検知 */
+navigator.serial?.addEventListener('disconnect', async (event) => {
+    if (event.target === port) {
+        await disconnect();
+        showToast('デバイスが切断されました');
+    }
+});
+</script>
+</body>
+</html>

@@ -263,29 +263,43 @@
       touch-action:manipulation; -webkit-tap-highlight-color:transparent;
     }
     #editor-toolbar button:hover, #editor-toolbar label:hover { background:#c8c8c8; }
+    #editor-kbd.kbd-jis { background:#ffd54f; }
+    #editor-linenum.ln-off { opacity:0.45; }
     #editor-close { margin-left:auto; }
     #editor-cm { flex:1; overflow:hidden; }
+    #editor-cm.hide-linenum .cm-gutters { display:none; }
     #editor-cm .cm-editor { height:100%; }
     #editor-cm .cm-scroller { overflow:auto; font-family:'Courier New',monospace; font-size:16px; }
     #editor-cm textarea { font-size:16px !important; }
 
     /* ---- Doc toolbar ---- */
     #doc-toolbar {
-      display:flex; align-items:center; gap:6px; padding:5px 8px;
+      display:flex; align-items:center; gap:4px; padding:5px 8px;
       border-bottom:1px solid #ccc; background:#f0f0f0; flex-shrink:0;
       padding-left: max(8px, env(safe-area-inset-left));
       padding-right: max(8px, env(safe-area-inset-right));
     }
-    #doc-toolbar-title { font-size:13px; font-weight:bold; flex:1; min-width:0;
-      overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-      color:#222; font-family:sans-serif; }
     #doc-toolbar button {
       background:#e0e0e0; color:#111; border:1px solid #aaa;
-      padding:2px 10px; cursor:pointer; font-size:12px;
-      white-space:nowrap;
+      padding:2px 8px; cursor:pointer; font-size:12px;
+      white-space:nowrap; flex-shrink:0;
       touch-action:manipulation; -webkit-tap-highlight-color:transparent;
     }
-    #doc-toolbar button:hover { background:#c8c8c8; }
+    #doc-toolbar button:hover:not(:disabled) { background:#c8c8c8; }
+    #doc-toolbar button:disabled { color:#aaa; cursor:default; }
+    /* 前・次ボタン: 長いタイトルは省略記号で切る */
+    #doc-prev, #doc-next {
+      max-width:140px; overflow:hidden; text-overflow:ellipsis;
+      text-align:left; flex-shrink:1;
+    }
+    #doc-next { text-align:right; }
+    /* 中央ドロップダウン */
+    #doc-select {
+      flex:1; min-width:0; font-size:12px; font-family:sans-serif;
+      border:1px solid #aaa; background:#fff; color:#111;
+      padding:2px 4px; cursor:pointer;
+      overflow:hidden; text-overflow:ellipsis;
+    }
 
     /* ---- Doc content ---- */
 
@@ -320,7 +334,7 @@
     }
     #docs-panel a {
       display:block; color:#0055aa; text-decoration:none;
-      font-size:13px; padding:4px 8px;
+      font-size:13px; padding:2px 8px;
       white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
       border-bottom:1px solid #f0f0f0;
       touch-action:manipulation; -webkit-tap-highlight-color:transparent;
@@ -629,6 +643,20 @@
     </div>
 
     <div id="terminal-col">
+      <div id="kbd-layout-bar" style="display:flex;align-items:center;gap:6px;padding:2px 4px 3px;font-size:11px;font-family:monospace;color:#555;border-bottom:1px solid #ddd;background:#f5f5f5;">
+        <span style="color:#888;">KBD:</span>
+        <label style="cursor:pointer;display:flex;align-items:center;gap:3px;">
+          <input type="radio" name="kbd-layout" value="us" style="margin:0;">
+          <span>US</span>
+        </label>
+        <label style="cursor:pointer;display:flex;align-items:center;gap:3px;">
+          <input type="radio" name="kbd-layout" value="jp106" style="margin:0;">
+          <span>JIS</span>
+        </label>
+        <span style="color:#ddd;margin:0 2px;">|</span>
+        <button id="btn-copy"  title="選択テキストをクリップボードにコピー (Ctrl+C の代替)" style="padding:1px 6px;font-size:11px;font-family:monospace;cursor:pointer;border:1px solid #bbb;border-radius:3px;background:#fff;color:#333;">COPY</button>
+        <button id="btn-paste" title="クリップボードからターミナルへ貼り付け (Ctrl+V の代替)" style="padding:1px 6px;font-size:11px;font-family:monospace;cursor:pointer;border:1px solid #bbb;border-radius:3px;background:#fff;color:#333;">PASTE</button>
+      </div>
       <div id="terminal-wrap"><div id="terminal"></div></div>
       <div id="ctrl-zone">
         <div class="ctrl-bar">
@@ -824,8 +852,10 @@
     <div id="doc-overlay"></div>
     <div id="doc-pane">
       <div id="doc-toolbar">
-        <span id="doc-toolbar-title">—</span>
-        <button id="doc-close">✕ Close</button>
+        <button id="doc-prev" title="前の文書へ" disabled>‹</button>
+        <select id="doc-select" title="文書を選択"></select>
+        <button id="doc-next" title="次の文書へ" disabled>›</button>
+        <button id="doc-close" style="margin-left:4px;">✕ Close</button>
       </div>
       <div id="doc-content"></div>
     </div>
@@ -840,6 +870,8 @@
         <button id="editor-save">Save</button>
         <button id="editor-download">Download</button>
         <label>Upload<input id="editor-upload" type="file" style="display:none;"></label>
+        <button id="editor-linenum" title="Line numbers ON/OFF">Ln</button>
+        <button id="editor-kbd" title="キーボードレイアウト切り替え（クリックで US ↔ JIS）">US</button>
         <button id="editor-close">✕ Close</button>
       </div>
       <div id="editor-cm"></div>
@@ -1774,6 +1806,136 @@
     });
     term.open(document.getElementById('terminal'));
 
+    // ── キーボードレイアウト選択 (US / 104JP) ── xterm-jp106.js が担当
+    var _jp106 = new XtermJP106({
+      term:        term,
+      storageKey:  'cpm_kbd_layout',
+      autoDetect:  true,   // localStorage 未設定時に getLayoutMap() で自動検知
+      onSendKey:   function (charCode) {
+        workerSend({ type: 'sendKey', ch: charCode });
+      },
+      onSendSeq:   function (seq) {
+        for (var i = 0; i < seq.length; i++) {
+          workerSend({ type: 'sendKey', ch: seq.charCodeAt(i) });
+        }
+      },
+      onInputChar: function (ch) {
+        inputBuf += ch;
+        histIdx = -1;
+      },
+      debug: true,
+    });
+    _jp106.bindLayoutBar(document.querySelectorAll('input[name="kbd-layout"]'));
+    window._jp106 = _jp106;  // module スクリプトからアクセスするため公開
+
+    // ── editor KBD トグルボタン ─────────────────────────────────
+    // エディタが開いたときに現在のレイアウトを反映し、クリックで US ↔ JIS を切り替える。
+    // （エディタはモーダルでターミナルの KBD バーは隠れるため、独立したトグルが必要）
+    window._syncEditorKbd = function () {
+      var btn = document.getElementById('editor-kbd');
+      if (!btn) { return; }
+      var isJis = _jp106.getLayout() === 'jp106';
+      btn.textContent = isJis ? 'JIS' : 'US';
+      btn.classList.toggle('kbd-jis', isJis);
+    };
+    document.getElementById('editor-kbd').addEventListener('click', function () {
+      var next = _jp106.getLayout() === 'jp106' ? 'us' : 'jp106';
+      _jp106.setLayout(next);   // ターミナルの KBD バーのラジオボタンも自動同期
+      window._syncEditorKbd();
+    });
+
+    // ── COPY / PASTE / CUT ボタン ────────────────────────────────
+    // Ctrl+C/V/X が captureCtrl により端末へ横取りされるため、
+    // クリップボード操作用の代替ボタンを提供する。
+
+    // COPY: xterm.js の選択テキストをクリップボードへ
+    document.getElementById('btn-copy').addEventListener('click', function () {
+      var sel = term.getSelection();
+      if (!sel) { term.focus(); return; }
+      navigator.clipboard.writeText(sel).then(function () {
+        term.clearSelection();
+        _flashBtn('btn-copy');
+        term.focus();
+      }).catch(function (err) {
+        console.error('[COPY] clipboard.writeText 失敗:', err);
+        term.focus();
+      });
+    });
+
+    // PASTE: クリップボードのテキストをターミナルへ送信
+    // CP/M へテキストを送信する共通処理（CR+LF → CR 正規化）
+    function _doPaste(text) {
+      if (!text) { return; }
+      for (var i = 0; i < text.length; i++) {
+        var code = text.charCodeAt(i);
+        if (code === 0x0A && i > 0 && text.charCodeAt(i - 1) === 0x0D) { continue; }
+        if (code === 0x0A) { code = 0x0D; }
+        workerSend({ type: 'sendKey', ch: code });
+      }
+      _flashBtn('btn-paste');
+    }
+
+    // Clipboard API が使えないとき（権限拒否・Windows設定等）のフォールバック:
+    // 小さなダイアログを開き、ユーザーが Ctrl+V で貼り付けた内容を取得して送信する。
+    function _showPasteDialog() {
+      var ov = document.createElement('div');
+      ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);'
+        + 'display:flex;align-items:center;justify-content:center;';
+      ov.innerHTML =
+        '<div style="background:#fff;border-radius:6px;padding:14px 16px;min-width:300px;'
+        + 'max-width:90vw;box-shadow:0 4px 20px rgba(0,0,0,.4);font-size:13px;">'
+        + '<div style="margin-bottom:8px;color:#555;">ブラウザのクリップボードアクセスが<br>'
+        + 'ブロックされています。下のエリアに<br>'
+        + '<strong>Ctrl+V</strong> で貼り付けて <strong>送信</strong> してください。</div>'
+        + '<textarea id="_ptd-ta" rows="4"'
+        + ' style="width:100%;box-sizing:border-box;font-family:monospace;font-size:12px;'
+        + 'border:1px solid #aaa;padding:6px;resize:vertical;"'
+        + ' placeholder="ここに Ctrl+V で貼り付け"></textarea>'
+        + '<div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end;">'
+        + '<button id="_ptd-ok"  style="padding:3px 16px;cursor:pointer;">送信</button>'
+        + '<button id="_ptd-can" style="padding:3px 16px;cursor:pointer;">キャンセル</button>'
+        + '</div></div>';
+      document.body.appendChild(ov);
+      var ta  = ov.querySelector('#_ptd-ta');
+      var ok  = ov.querySelector('#_ptd-ok');
+      var can = ov.querySelector('#_ptd-can');
+      ta.focus();
+      function close() { document.body.removeChild(ov); term.focus(); }
+      ok.addEventListener('click', function () {
+        var t = ta.value; close(); _doPaste(t);
+      });
+      can.addEventListener('click', close);
+      ov.addEventListener('click',  function (e) { if (e.target === ov) { close(); } });
+      ta.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { close(); }
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { ok.click(); }
+      });
+    }
+
+    document.getElementById('btn-paste').addEventListener('click', function () {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        navigator.clipboard.readText()
+          .then(function (text) {
+            if (text) { _doPaste(text); } else { _showPasteDialog(); }
+            term.focus();
+          })
+          .catch(function (err) {
+            console.warn('[PASTE] Clipboard API ブロック:', err.name, err.message);
+            _showPasteDialog();
+          });
+      } else {
+        _showPasteDialog();
+      }
+    });
+
+    // ボタンを一時的にハイライトするフィードバック
+    function _flashBtn(id) {
+      var btn = document.getElementById(id);
+      if (!btn) { return; }
+      btn.style.background = '#c8e6c9';
+      setTimeout(function () { btn.style.background = '#fff'; }, 300);
+    }
+
     // ターミナルは常に 80 桁固定。モバイルは水平スクロール可・自動スクロール無効。
     if (window.innerWidth <= 500) {
       var _termCol = document.getElementById('terminal-col');
@@ -2365,8 +2527,12 @@
         + 'border:none;resize:none;padding:8px;outline:none;';
       cm.appendChild(ta);
       window._editor = { type: 'textarea', el: ta, name: name };
+      // JP106 キーボード補正をテキストエリアに付与
+      if (window._jp106) { window._jp106.attachToInput(ta); }
       document.getElementById('editor-filename').textContent = name;
       document.getElementById('editor-modal').style.display = '';
+      ta.focus(); // xterm にフォーカスが残らないよう即移す
+      if (window._syncEditorKbd) { window._syncEditorKbd(); }
     };
 
     // 閉じる（module 側が window._destroyEditor をセットすれば CM も破棄）
@@ -2378,6 +2544,24 @@
 
     document.getElementById('editor-close').addEventListener('click', window.closeEditor);
     document.getElementById('editor-overlay').addEventListener('click', window.closeEditor);
+
+    // 行番号 ON/OFF トグル
+    (function() {
+      var btn = document.getElementById('editor-linenum');
+      var cm  = document.getElementById('editor-cm');
+      // localStorage で状態を復元（デフォルト: ON）
+      var on = localStorage.getItem('editor-linenum') !== '0';
+      function applyLineNum() {
+        cm.classList.toggle('hide-linenum', !on);
+        btn.classList.toggle('ln-off', !on);
+      }
+      applyLineNum();
+      btn.addEventListener('click', function() {
+        on = !on;
+        localStorage.setItem('editor-linenum', on ? '1' : '0');
+        applyLineNum();
+      });
+    })();
     document.addEventListener('keydown', function(e) {
       if (e.key === 'Escape' && document.getElementById('editor-modal').style.display !== 'none') {
         window.closeEditor();
@@ -2428,6 +2612,34 @@
     document.getElementById('doc-overlay').addEventListener('click', function() {
       document.getElementById('doc-modal').style.display = 'none';
     });
+    // Escape キーで閉じる
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && document.getElementById('doc-modal').style.display !== 'none') {
+        document.getElementById('doc-modal').style.display = 'none';
+      }
+    });
+
+    // ---- Doc ナビゲーション ----
+    document.getElementById('doc-prev').addEventListener('click', function() {
+      if (_docIdx > 0) { openDoc(DOC_LIST[_docIdx - 1].file); }
+    });
+    document.getElementById('doc-next').addEventListener('click', function() {
+      if (_docIdx < DOC_LIST.length - 1) { openDoc(DOC_LIST[_docIdx + 1].file); }
+    });
+    document.getElementById('doc-select').addEventListener('change', function() {
+      openDoc(this.value);
+    });
+
+    // select の option を DOC_LIST から生成
+    (function() {
+      var sel = document.getElementById('doc-select');
+      DOC_LIST.forEach(function(d) {
+        var opt = document.createElement('option');
+        opt.value = d.file;
+        opt.textContent = d.label;
+        sel.appendChild(opt);
+      });
+    })();
   }
 
   // ---- ファイルバージョン表示 ----
@@ -2473,19 +2685,68 @@
     });
   })();
 
+  // ── CP/M DOCS 文書リスト（docs-panel の順序と一致させること）──
+  var DOC_LIST = [
+    { file: '02-CP_M-歴史的価値.md',              label: '02 CP/M 歴史的価値' },
+    { file: '03-開発ツール.md',                    label: '03 開発ツール' },
+    { file: '12-CP_M-コマンドリファレンス.md',     label: '12 CP/M コマンドリファレンス' },
+    { file: '14-cpm-コマンド説明.md',              label: '14 CP/M コマンド説明' },
+    { file: '15-ファイル構成とファイル交換.md',    label: '15 ファイル構成・交換方法' },
+    { file: '16-CP_M-ソフトウェア入手先.md',      label: '16 CP/M ソフトウェア入手先' },
+    { file: '17-MBASIC-使い方.md',                label: '17 MBASIC 使い方' },
+    { file: '18-BDS-C-使い方.md',                 label: '18 BDS C 使い方' },
+    { file: '19-インタラクティブコマンド.md',      label: '19 インタラクティブコマンド' },
+    { file: '20-サイクルカウンタ.md',             label: '20 サイクルカウンタ' },
+    { file: '22-クロック計測とベンチマーク手順.md',label: '22 クロック計測・ベンチマーク' },
+    { file: '23-WordMaster-使い方.md',            label: '23 WordMaster 使い方' },
+    { file: '24-TurboPascal3-使い方.md',          label: '24 Turbo Pascal 3' },
+    { file: '25-デバッグパネル-使い方.md',        label: '25 デバッグパネル・信号線表示' },
+    { file: '30-BIOS実装.md',                     label: '30 カスタム BIOS 実装' },
+    { file: '52-メモリマップ.md',                 label: '52 メモリマップ & I/O ポート' },
+    { file: '53-参考資料.md',                     label: '53 参考資料' },
+  ];
+  var _docIdx = -1; // 現在開いている文書の DOC_LIST インデックス
+
   function openDoc(file) {
+    // DOC_LIST 内のインデックスを求め、前・次ボタンとドロップダウンを更新する
+    var idx = -1;
+    for (var i = 0; i < DOC_LIST.length; i++) {
+      if (DOC_LIST[i].file === file) { idx = i; break; }
+    }
+    _docIdx = idx;
+
+    var btnPrev = document.getElementById('doc-prev');
+    var btnNext = document.getElementById('doc-next');
+    var sel     = document.getElementById('doc-select');
+
+    if (idx > 0) {
+      btnPrev.textContent = '‹ ' + DOC_LIST[idx - 1].label; // ‹ prev
+      btnPrev.disabled = false;
+    } else {
+      btnPrev.textContent = '‹';
+      btnPrev.disabled = true;
+    }
+    if (idx >= 0 && idx < DOC_LIST.length - 1) {
+      btnNext.textContent = DOC_LIST[idx + 1].label + ' ›'; // next ›
+      btnNext.disabled = false;
+    } else {
+      btnNext.textContent = '›';
+      btnNext.disabled = true;
+    }
+    if (sel && idx >= 0) { sel.value = file; }
+
     fetch('docs/' + file)
       .then(function(r) {
         if (!r.ok) throw new Error('HTTP ' + r.status);
         return r.text();
       })
       .then(function(md) {
-        var title = file.replace(/^\d+-/, '').replace(/\.md$/, '').replace(/-/g, ' ');
-        document.getElementById('doc-toolbar-title').textContent = title;
         var html = marked.parse(md)
           .replace(/<table/g, '<div class="table-wrap"><table')
           .replace(/<\/table>/g, '</table></div>');
-        document.getElementById('doc-content').innerHTML = html;
+        var content = document.getElementById('doc-content');
+        content.innerHTML = html;
+        content.scrollTop = 0;
         document.getElementById('doc-modal').style.display = 'flex';
       })
       .catch(function(e) {
@@ -2495,6 +2756,7 @@
   </script>
 
   <script src="../../../js/rtlscope-la.js"></script>
+  <script src="../../../js/xterm-jp106.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
   <!-- ============================================================
@@ -2513,6 +2775,63 @@
     from 'https://esm.sh/@codemirror/lang-cpp@6';
 
   let cmView = null;
+
+  // --- 横スクロール防止: 文字入力時に CM6 が誤って右スクロールするのを抑制 ---
+  // Windows の物理スクロールバーが clientWidth を削るため、CM6 の scrollIntoView が
+  // カーソルを「範囲外」と誤判定して右スクロールする。
+  //
+  // 動作原理:
+  //   1. beforeinput (capture) で scrollLeft を保存、_sfIsTyping = true にする。
+  //      同時にダブル rAF でフラグをリセット（CM6 の rAF より後に実行されることを保証）。
+  //   2. CM6 は自前の beforeinput (bubble) ハンドラで view.dispatch() → requestMeasure()
+  //      (rAF) を登録する。rAF の実行順は登録順なので CM6 の rAF は我々の rAF の後。
+  //   3. CM6 の rAF が .cm-scroller の scrollLeft を変更 → scroll イベント発火。
+  //      _sfIsTyping が true のときだけ「カーソルが元位置でも可視か」を判定し、
+  //      可視なら scrollLeft を戻す。
+  let _sfIsTyping = false;
+  let _sfSavedLeft = 0;
+
+  function setupScrollFix(container) {
+    if (container._sfSetup) return;
+    container._sfSetup = true;
+
+    container.addEventListener('beforeinput', (e) => {
+      if (e.inputType !== 'insertText') return;
+      const scroller = container.querySelector('.cm-scroller');
+      if (!scroller) return;
+      _sfIsTyping = true;
+      _sfSavedLeft = scroller.scrollLeft;
+      // CM6 は自分の beforeinput ハンドラ（bubble フェーズ）で rAF を登録する。
+      // こちらは capture フェーズで先に動くため、ダブル rAF でリセットすれば
+      // CM6 の scroll rAF より確実に後でフラグを落とせる。
+      requestAnimationFrame(() => requestAnimationFrame(() => { _sfIsTyping = false; }));
+    }, true);
+  }
+
+  function attachScrollFix(scroller) {
+    if (scroller._sfAttached) return;
+    scroller._sfAttached = true;
+
+    scroller.addEventListener('scroll', () => {
+      if (!_sfIsTyping) return;
+      const delta = scroller.scrollLeft - _sfSavedLeft;
+      if (delta <= 0) return; // 右スクロールのみ対象
+
+      if (!cmView) return;
+      const cursor = cmView.state.selection.main.head;
+      const coords = cmView.coordsAtPos(cursor);
+      if (!coords) return;
+
+      const rect = scroller.getBoundingClientRect();
+      // スクロール後の viewport 座標を使ってスクロール前の可視位置を逆算:
+      //   スクロール前の表示 X = (coords.left - rect.left) + delta
+      // これが clientWidth 以下なら元位置でもカーソルは可視 → 右スクロール不要
+      const cursorXBeforeScroll = coords.left - rect.left + delta;
+      if (cursorXBeforeScroll <= scroller.clientWidth) {
+        scroller.scrollLeft = _sfSavedLeft; // 元の位置に戻す
+      }
+    });
+  }
 
   // --- Phase 5: ASCII 制限 ---
   const asciiFilter = EditorState.transactionFilter.of(tr => {
@@ -2541,6 +2860,38 @@
   function makeView(doc, name) {
     const container = document.getElementById('editor-cm');
     if (cmView) { cmView.destroy(); cmView = null; }
+
+    // JP106 キーボード補正を domEventHandlers 経由で CM の keydown pipeline に組み込む。
+    // capture フェーズリスナーを container に付けると CM 内部のスクロール処理と干渉するため、
+    // CM 専用 API である domEventHandlers を使う。
+    //   return true  → CM が e.preventDefault() を呼び、独自の文字挿入も行わない
+    //   return false → CM が通常どおりイベントを処理する
+    const jp106Ext = window._jp106 ? EditorView.domEventHandlers({
+      keydown(e, view) {
+        if (window._jp106.getLayout() !== 'jp106') { return false; }
+        if (e.ctrlKey || e.metaKey || e.altKey)    { return false; }
+        if (window.XtermJP106.SUPPRESS_CODES[e.code]) { e.preventDefault(); return true; }
+        const entry = window.XtermJP106.TABLE[e.code];
+        if (!entry) { return false; }
+        const ch = e.shiftKey ? entry[1] : entry[0];
+        if (ch === null || ch === undefined) { e.preventDefault(); return true; }
+        // scrollIntoView: true で文字挿入後にカーソル位置へ確実にスクロール
+        view.dispatch({ ...view.state.replaceSelection(ch), scrollIntoView: true });
+        return true;
+      },
+    }) : [];
+
+    // ガター（行番号）の幅を scrollMargins.left に設定する。
+    // CM6 の scrollIntoView はガターを考慮せず Chrome がカーソルを左端に寄せると
+    // ガターの裏にカーソルが隠れてしまう既知の不具合 (Issue #752) の公式対処。
+    // @codemirror/view 6.17.0 以降はガタープラグインが自動設定するが、
+    // esm.sh 経由のバンドルでは確実に適用されない場合があるため明示的に追加する。
+    // display:none でガターを非表示にすると offsetWidth=0 になり自動的に無効になる。
+    const gutterScrollMargin = EditorView.scrollMargins.of(view => {
+      const gutterEl = view.dom.querySelector('.cm-gutters');
+      return gutterEl ? { left: gutterEl.offsetWidth } : null;
+    });
+
     cmView = new EditorView({
       state: EditorState.create({
         doc,
@@ -2549,10 +2900,20 @@
           asciiFilter,
           ...getLang(name),
           EditorView.theme({ '&': { height: '100%' } }),
+          gutterScrollMargin,
+          jp106Ext,
         ],
       }),
       parent: container,
     });
+    // 横スクロール防止セットアップ
+    setupScrollFix(container);
+    const scroller = container.querySelector('.cm-scroller');
+    if (scroller) { attachScrollFix(scroller); }
+    // エディタを開いたら即フォーカスを移す。
+    // フォーカスがないと xterm.js の textarea がキー入力を受け取り続け、
+    // CP/M にキーが送られてターミナルカーソルが右移動してしまう。
+    cmView.focus();
   }
 
   // --- Phase 3: FS → エディタ ---
@@ -2567,6 +2928,7 @@
                    .replace(/\x1a[\s\S]*/g, '');
     makeView(text, name);
     window._editor = { type: 'cm', view: cmView, name: name };
+    if (window._syncEditorKbd) { window._syncEditorKbd(); }
   };
 
   // closeEditor / イベントリスナーは通常スクリプト側で登録済み
