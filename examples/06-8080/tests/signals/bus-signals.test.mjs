@@ -238,10 +238,10 @@ describe('t_state — T ステートカウンタ', () => {
     expect(result.instrSamples[2].t_state).toBe(2);
   });
 
-  it('M1 T2 f2: t_state = 3', async () => {
+  it('M1 T2 f1: t_state = 2', async () => {
     const sim = await loadSim();
     const result = sim.captureInstruction([0x3E, 0xFF]);
-    expect(result.instrSamples[3].t_state).toBe(3);
+    expect(result.instrSamples[3].t_state).toBe(2);
   });
 
   it('M2 T1 f1: t_state = 1 (新マシンサイクルでリセット)', async () => {
@@ -251,11 +251,11 @@ describe('t_state — T ステートカウンタ', () => {
     expect(cycles[1].samples[0].t_state).toBe(1);
   });
 
-  it('M1(4T) 全 8 サンプルの t_state は [1,1,2,3,4,5,6,7]', async () => {
+  it('M1(4T) 全 8 サンプルの t_state は [1,1,2,2,3,3,4,4]', async () => {
     const sim = await loadSim();
     const result = sim.captureInstruction([0x3E, 0xFF]);
     const m1 = getCycles(result)[0].samples; // M1 は 4T = 8 サンプル
-    const expected = [1, 1, 2, 3, 4, 5, 6, 7];
+    const expected = [1, 1, 2, 2, 3, 3, 4, 4];
     expect(m1.map(s => s.t_state)).toEqual(expected);
   });
 });
