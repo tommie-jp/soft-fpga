@@ -472,6 +472,16 @@ self.onmessage = function (e) {
       frameRateMs = data.fps > 0 ? Math.round(1000 / data.fps) : 16;
       break;
 
+    case 'setMemWatch':
+      // data.slot:   0/1/2
+      // data.addr:   監視アドレス (uint16)、-1 で無効化
+      // data.enable: true=有効 / false=無効
+      if (Module._sim_set_mem_watch) {
+        var mwEn = (data.enable !== false && data.addr >= 0) ? 1 : 0;
+        Module._sim_set_mem_watch(data.slot | 0, (data.addr | 0) & 0xFFFF, mwEn);
+      }
+      break;
+
     // ── メモリ直接アクセス API（テスト用）────────────────────────────────────
 
     case 'writeMem': {
