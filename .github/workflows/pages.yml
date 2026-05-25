@@ -75,6 +75,7 @@ jobs:
           cp index.html _site/index.html
           cp -r examples _site/examples
           cp -r docs _site/docs
+          cp -r js _site/js
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
