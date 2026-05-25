@@ -47,6 +47,15 @@ services:
     entrypoint: ["scripts/_test-cocotb-inner.sh"]
     command: []
 
+  test-8080-cpm:
+    # 8080 CP/M シミュレータ cmake ビルド＋全テスト。
+    # doTestAll.sh [05] から呼び出される。
+    # 内容: RTL lint / --test / --run-test / --boot-test / --exec 8080EX1 / --ddt-ctrlc-test
+    <<: *base
+    init: true
+    entrypoint: ["scripts/_test-8080-cpm-inner.sh"]
+    command: []
+
   build-wasm:
     # WASM ビルド (Verilator + Emscripten)。
     # scripts/build-wasm-06.sh などを直接呼び出す。

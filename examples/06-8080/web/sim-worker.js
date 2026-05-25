@@ -471,5 +471,53 @@ self.onmessage = function (e) {
       // data.fps: 60, 30, 15 など
       frameRateMs = data.fps > 0 ? Math.round(1000 / data.fps) : 16;
       break;
+
+    // ── メモリ直接アクセス API（テスト用）────────────────────────────────────
+
+    case 'writeMem': {
+      // data.addr  : 先頭アドレス (uint16)
+      // data.bytes : ArrayBuffer (Uint8Array のバッファ) — Transferable で受け取る
+      var wmBytes = new Uint8Array(data.bytes);
+      var wmBase  = data.addr | 0;
+      for (var wmi = 0; wmi < wmBytes.length; wmi++)
+        Module._sim_poke((wmBase + wmi) & 0xFFFF, wmBytes[wmi]);
+      break;
+    }
+
+    case 'readMem': {
+      // data.addr   : 先頭アドレス (uint16)
+      // data.length : 読み出しバイト数
+      // 応答: { requestId, bytes: ArrayBuffer }
+      var rmResult = new Uint8Array(data.length | 0);
+      for (var rmi = 0; rmi < rmResult.length; rmi++)
+        rmResult[rmi] = Module._sim_read_byte((data.addr + rmi) & 0xFFFF);
+      if (data.requestId !== undefined)
+        postMessage({ type: 'memData', requestId: data.requestId,
+                      bytes: rmResult.buffer }, [rmResult.buffer]);
+      break;
+    }
+
+    case 'setPC':
+      // data.addr : 設定する PC 値 (uint16)
+      // 注意: 命令境界（stepInstr 後や freeze 中）で呼ぶこと
+      Module._sim_set_pc(data.addr | 0);
+      break;
+
+    case 'getRegs': {
+      // sim_snap_regs() → [A, F, B, C, D, E, H, L, SPH, SPL, PCH, PCL] (12 bytes)
+      // 応答: { requestId, regs: ArrayBuffer }
+      var grPtr  = Module._sim_snap_regs();
+      var grSnap = new Uint8Array(Module.HEAPU8.buffer, grPtr, 12).slice();
+      if (data.requestId !== undefined)
+        postMessage({ type: 'regsData', requestId: data.requestId,
+                      regs: grSnap.buffer }, [grSnap.buffer]);
+      break;
+    }
+
+    case 'setReg':
+      // data.regId: 0=A, 1=B, 2=C, 3=D, 4=E, 5=H, 6=L, 7=SP
+      // data.value: 8bit レジスタは 0–FF、SP は 0–FFFF
+      Module._sim_set_reg(data.regId | 0, data.value | 0);
+      break;
   }
 };

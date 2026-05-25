@@ -1,16 +1,20 @@
 #!/usr/bin/env bash
-# doAllTest.sh — examples/06-8080 の全自動テストを順次実行する
+# scripts/_doAllTest.sh — examples/06-8080 の全自動テストを順次実行する
+#
+# ⚠️  非推奨: このスクリプトは doTestAll.sh に統合されました。
+#    今後は doTestAll.sh を使用してください。
+#    このスクリプトはローカルでネイティブビルド済みの build/cpm がある場合の
+#    デバッグ用途としてのみ残しています。
 #
 # 終了コード: 0 = 全 PASS、1 = 1 件以上 FAIL
 #
 # 実行手順:
-#   cd ~/36-soft-FPGA
-#   bash doAllTest.sh
+#   bash scripts/_doAllTest.sh
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-CPM_DIR="${SCRIPT_DIR}/examples/06-8080"
+CPM_DIR="${SCRIPT_DIR}/../examples/06-8080"
 CPM_BIN="${CPM_DIR}/build/cpm"
 
 # ANSI カラー

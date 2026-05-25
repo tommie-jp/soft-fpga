@@ -1126,4 +1126,59 @@ EMSCRIPTEN_KEEPALIVE void      sim_clear_call_log() {
     memset(call_log_buf, 0, sizeof(call_log_buf));
 }
 
+// ── メモリ直接アクセス API（テスト用）────────────────────────────
+
+// バイト列の一括書き込み（RAM と Verilator RAM の両方を更新）
+// addr: 先頭アドレス, data: バイト配列, len: バイト数
+// 主用途: テストコードを任意アドレスに配置する
+EMSCRIPTEN_KEEPALIVE
+void sim_poke_block(uint16_t addr, const uint8_t* data, int len)
+{
+    for (int i = 0; i < len; i++) {
+        uint16_t a = (uint16_t)((addr + i) & 0xFFFF);
+        mem[a] = data[i];
+        if (top) top->cpm_top->ram[a] = data[i];
+    }
+}
+
+// PC レジスタを直接設定する（命令境界で呼ぶこと）
+// CPU は次の eval() から新しい PC で実行を開始する。
+// 注意: sim_step_instr() または sim_freeze_ring() で命令境界に止めてから呼ぶ。
+EMSCRIPTEN_KEEPALIVE
+void sim_set_pc(uint16_t addr)
+{
+    if (!top) return;
+    top->cpm_top->cpu->__PVT__r16_pc = addr;
+    top->eval();  // Verilator モデルに変更を反映
+}
+
+// 汎用レジスタを直接設定する（命令境界で呼ぶこと）
+// regId: 0=A, 1=B, 2=C, 3=D, 4=E, 5=H, 6=L, 7=SP
+// value: 8bit レジスタは 0–0xFF、SP は 0–0xFFFF
+// F レジスタはビット単位保持のため別途 sim_set_flags() が必要（未実装）
+EMSCRIPTEN_KEEPALIVE
+void sim_set_reg(int reg_id, int value)
+{
+    if (!top) return;
+    auto* cpu = top->cpm_top->cpu;
+    switch (reg_id) {
+        case 0: cpu->acc            = (uint8_t)(value & 0xFF); break;
+        case 1: cpu->__PVT__r16_bc  = (cpu->__PVT__r16_bc & 0x00FF)
+                                    | ((uint16_t)(value & 0xFF) << 8); break;
+        case 2: cpu->__PVT__r16_bc  = (cpu->__PVT__r16_bc & 0xFF00)
+                                    | (uint16_t)(value & 0xFF); break;
+        case 3: cpu->__PVT__r16_de  = (cpu->__PVT__r16_de & 0x00FF)
+                                    | ((uint16_t)(value & 0xFF) << 8); break;
+        case 4: cpu->__PVT__r16_de  = (cpu->__PVT__r16_de & 0xFF00)
+                                    | (uint16_t)(value & 0xFF); break;
+        case 5: cpu->__PVT__r16_hl  = (cpu->__PVT__r16_hl & 0x00FF)
+                                    | ((uint16_t)(value & 0xFF) << 8); break;
+        case 6: cpu->__PVT__r16_hl  = (cpu->__PVT__r16_hl & 0xFF00)
+                                    | (uint16_t)(value & 0xFF); break;
+        case 7: cpu->__PVT__r16_sp  = (uint16_t)(value & 0xFFFF); break;
+        default: break;
+    }
+    top->eval();
+}
+
 } // extern "C"
