@@ -1210,6 +1210,7 @@
   let customDisks = [null, null, null, null]; // Uint8Array | null
   let diskTimes   = [null, null, null, null]; // Date.now() ms | null
   let workerReady = false;
+  window.workerReady = false;  // Playwright テスト用 (let は window スコープ外のため)
   let running     = false;
   let fsDirty     = false;
 
@@ -1673,6 +1674,7 @@
     }
     if (data.type === 'ready') {
       workerReady = true;
+      window.workerReady = true;  // Playwright テスト用
       initUI();
       return;
     }
@@ -2324,6 +2326,11 @@
       /** トリガーを解除する */
       clearTrigger: function() {
         workerSend({ type: 'clearTrigger' });
+        // JS 側の LA 状態もリセット（stale な _trigOn/_trigHead を持ち越さないため）
+        if (window.la) {
+          window.la._trigOn   = false;
+          window.la._trigHead = -1;
+        }
       },
 
       /**
@@ -2481,7 +2488,7 @@
           if (key === 'pc') {
             workerSend({ type: 'setPC', addr: regs.pc & 0xFFFF });
           } else if (key === 'f') {
-            console.warn('[sim.setRegs] F レジスタは未サポート（vm80a はビット単位で保持）');
+            workerSend({ type: 'setFlags', value: regs.f & 0xFF });
           } else if (MAP[key]) {
             workerSend({ type: 'setReg', regId: MAP[key][0], value: regs[key] & MAP[key][1] });
           } else {

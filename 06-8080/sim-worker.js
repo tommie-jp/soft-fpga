@@ -3,8 +3,9 @@
 // Emscripten Module 設定オブジェクト（importScripts の前に定義する）
 var Module = {
   onRuntimeInitialized: function () {
-    RING_SIZE = Module._get_ring_size();
-    ringBase  = Module._get_ring_ptr() >>> 2; // byte ptr → HEAPU32 index
+    RING_SIZE  = Module._get_ring_size();
+    RING_WORDS = Module._get_ring_words();   // ワード/サンプル（harness.cpp の RING_WORDS と一致）
+    ringBase   = Module._get_ring_ptr() >>> 2; // byte ptr → HEAPU32 index
     callLogBase = Module._sim_get_call_log_ptr() >>> 0; // byte ptr
     postMessage({ type: 'ready' });
     scheduleNext();
@@ -15,6 +16,7 @@ importScripts('sim.js');
 
 // ---- 状態 ----
 var RING_SIZE     = 0;
+var RING_WORDS    = 7;   // ワード/サンプル（harness.cpp の RING_WORDS と一致、初期化時に上書き）
 var ringBase      = 0;
 var callLogBase   = 0;
 var running       = false;
@@ -145,7 +147,7 @@ function simLoop() {
   // 最高速度モードでも毎フレーム転送する（FPS制御は setTimeout 側で行う）
   var doRing = laEnabled;
   var snap = doRing
-      ? Module.HEAPU32.subarray(ringBase, ringBase + RING_SIZE * 6).slice()
+      ? Module.HEAPU32.subarray(ringBase, ringBase + RING_SIZE * RING_WORDS).slice()
       : new Uint32Array(0);
 
   // ── デバッグ情報 ──
@@ -528,6 +530,11 @@ self.onmessage = function (e) {
       // data.regId: 0=A, 1=B, 2=C, 3=D, 4=E, 5=H, 6=L, 7=SP
       // data.value: 8bit レジスタは 0–FF、SP は 0–FFFF
       Module._sim_set_reg(data.regId | 0, data.value | 0);
+      break;
+
+    case 'setFlags':
+      // data.value: F レジスタ (PSW フォーマット S Z 0 AC 0 P 1 C)
+      Module._sim_set_flags(data.value | 0);
       break;
   }
 };
