@@ -108,11 +108,13 @@ class SimAPI:
         return self._ev("() => sim.getRegs()")
 
     def set_regs(self, **regs: int) -> None:
-        """レジスタを部分指定で設定（F は未サポート）。
+        """レジスタを部分指定で設定。
+
+        対応レジスタ: a, b, c, d, e, h, l, sp, pc, f (PSW フォーマット)
 
         例::
 
-            sim.set_regs(a=0xFF, h=0x03, l=0x00, pc=0x0300)
+            sim.set_regs(a=0xAB, f=0x02, sp=0x0400, pc=0x0300)
         """
         self._ev(f"() => sim.setRegs({json.dumps(regs)})")
 

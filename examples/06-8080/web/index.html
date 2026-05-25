@@ -2488,7 +2488,7 @@
           if (key === 'pc') {
             workerSend({ type: 'setPC', addr: regs.pc & 0xFFFF });
           } else if (key === 'f') {
-            console.warn('[sim.setRegs] F レジスタは未サポート（vm80a はビット単位で保持）');
+            workerSend({ type: 'setFlags', value: regs.f & 0xFF });
           } else if (MAP[key]) {
             workerSend({ type: 'setReg', regId: MAP[key][0], value: regs[key] & MAP[key][1] });
           } else {

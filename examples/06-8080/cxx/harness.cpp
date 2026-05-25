@@ -1178,7 +1178,7 @@ void sim_set_pc(uint16_t addr)
 // 汎用レジスタを直接設定する（命令境界で呼ぶこと）
 // regId: 0=A, 1=B, 2=C, 3=D, 4=E, 5=H, 6=L, 7=SP
 // value: 8bit レジスタは 0–0xFF、SP は 0–0xFFFF
-// F レジスタはビット単位保持のため別途 sim_set_flags() が必要（未実装）
+// F レジスタは sim_set_flags() で設定する（psw_* ビット単位保持のため）
 EMSCRIPTEN_KEEPALIVE
 void sim_set_reg(int reg_id, int value)
 {
@@ -1220,6 +1220,22 @@ void sim_set_reg(int reg_id, int value)
         case 7: cpu->__PVT__r16_sp  = (uint16_t)(value & 0xFFFF); break;
         default: break;
     }
+    top->eval();
+}
+
+// F レジスタを Intel 8080 PSW フォーマット (S Z 0 AC 0 P 1 C) で設定する。
+// make_f_byte() の逆操作: バイトを 5 本の psw_* ビットに分解する。
+// bit5/3 は固定 0、bit1 は固定 1 のため value から無視される。
+EMSCRIPTEN_KEEPALIVE
+void sim_set_flags(int flags)
+{
+    if (!top) return;
+    auto* cpu = top->cpm_top->cpu;
+    cpu->__PVT__psw_s  = (flags >> 7) & 1;
+    cpu->__PVT__psw_z  = (flags >> 6) & 1;
+    cpu->__PVT__psw_ac = (flags >> 4) & 1;
+    cpu->__PVT__psw_p  = (flags >> 2) & 1;
+    cpu->__PVT__psw_c  = (flags >> 0) & 1;
     top->eval();
 }
 

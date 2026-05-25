@@ -424,11 +424,12 @@ _G: list[TimingCase] = [
                setup_mem_watch={0: 0x03FF, 1: 0x03FE},
                desc='Push BC onto Stack'),
 
-    # PUSH PSW — 11T/3M  A と F レジスタをプッシュ
+    # PUSH PSW — 11T/3M  A=0xAB, F=0x02(C のみ) をスタックにプッシュ
+    # 0x03FF に A=0xAB、0x03FE に F=0x02 が書かれることを MemWatch で確認
     TimingCase(44, 'push_psw',  0xF5, 11, 3,
                [0x00, 0xF5, 0x76],
                SIG_STD_MEM + ['mem1', 'mem2'], '16x', 42,
-               setup_regs={'a': 0xAB, 'sp': 0x0400},
+               setup_regs={'a': 0xAB, 'f': 0x02, 'sp': 0x0400},
                setup_mem_watch={0: 0x03FF, 1: 0x03FE},
                desc='Push AF (PSW) onto Stack'),
 

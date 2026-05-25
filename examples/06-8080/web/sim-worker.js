@@ -531,5 +531,10 @@ self.onmessage = function (e) {
       // data.value: 8bit レジスタは 0–FF、SP は 0–FFFF
       Module._sim_set_reg(data.regId | 0, data.value | 0);
       break;
+
+    case 'setFlags':
+      // data.value: F レジスタ (PSW フォーマット S Z 0 AC 0 P 1 C)
+      Module._sim_set_flags(data.value | 0);
+      break;
   }
 };
