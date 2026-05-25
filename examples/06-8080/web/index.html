@@ -1157,12 +1157,14 @@
   var MTYPE_IO_OUT = { label:'IO OUT', color:'rgba(200,30,30,0.65)'  };
 
   function getMachineType(s) {
-    if (!s) return null;
+    // 8080 MEMW ステータスバイト = 0x00（WO_BAR=0、他ビット全て0）のため
+    // falsy チェック(!s)は使わない。0x00 は MTYPE_MEM_WR として正しく扱う。
+    if (s == null) return null;
     if (s & 0x40) return MTYPE_IO_IN;   // cycle_inp = status[6]
     if (s & 0x10) return MTYPE_IO_OUT;  // cycle_out = status[4]
     if (s & 0x20) return MTYPE_FETCH;   // M1 bit = status[5] (0xA2 に存在)
     if (s & 0x80) return MTYPE_MEM_RD;  // bit7 (0x82 に存在)
-    return MTYPE_MEM_WR;
+    return MTYPE_MEM_WR;                // 0x00 = MEMW / 0x04 = Stack WR など
   }
 
   // シグナルグループ定義（color: アクティブバー・ピッカーで使うグループ単位の色）

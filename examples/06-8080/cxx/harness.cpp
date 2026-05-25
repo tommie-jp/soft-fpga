@@ -647,6 +647,10 @@ void step()
             if (top->dbg_memr) {
                 // cpu_din は always@(*) で ram[cpu_addr] に直結 → タイミング一致保証
                 dbus = (uint8_t)top->cpm_top->__PVT__cpu_din;
+            } else if (top->dbg_memw) {
+                // MEMW T2+: WR_N=0 && !cycle_io → cpu_dout = 書き込みデータ（MOV M,A の A 等）
+                // io_dout は OUT 命令でラッチされた保持値のため使用不可
+                dbus = (uint8_t)top->dbg_a;
             } else if (top->io_active && (current_status & 0x10u) && !top->dbg_sync) {
                 dbus = (uint8_t)top->dbg_a;  // IO OUT T2+: cpu_dout = xr = 出力データ
             } else if (top->io_req && !top->io_wr) {
@@ -990,22 +994,26 @@ uint8_t* sim_snap_regs() {
     auto* cpu = top->cpm_top->cpu;
     uint8_t f = make_f_byte(cpu);
     uint16_t bc = (uint16_t)cpu->__PVT__r16_bc;
-    uint16_t de = (uint16_t)cpu->__PVT__r16_de;
-    uint16_t hl = (uint16_t)cpu->__PVT__r16_hl;
+    // xchg_dh フラグで物理 r16_hl/r16_de の論理マッピングが入れ替わる。
+    // RESET後 xchg_dh=0: 論理HL=物理r16_de、論理DE=物理r16_hl
+    // XCHG後  xchg_dh=1: 論理HL=物理r16_hl、論理DE=物理r16_de  (通常マッピング)
+    bool xchg_s = (bool)cpu->__PVT__xchg_dh;
+    uint16_t logical_de_s = xchg_s ? (uint16_t)cpu->__PVT__r16_de : (uint16_t)cpu->__PVT__r16_hl;
+    uint16_t logical_hl_s = xchg_s ? (uint16_t)cpu->__PVT__r16_hl : (uint16_t)cpu->__PVT__r16_de;
     uint16_t sp = (uint16_t)cpu->__PVT__r16_sp;
     uint16_t pc = (uint16_t)cpu->__PVT__r16_pc;
     reg_snap[ 0] = cpu->acc;
     reg_snap[ 1] = f;
-    reg_snap[ 2] = (bc >> 8) & 0xFF;   // B
-    reg_snap[ 3] = bc & 0xFF;           // C
-    reg_snap[ 4] = (de >> 8) & 0xFF;   // D
-    reg_snap[ 5] = de & 0xFF;           // E
-    reg_snap[ 6] = (hl >> 8) & 0xFF;   // H
-    reg_snap[ 7] = hl & 0xFF;           // L
-    reg_snap[ 8] = (sp >> 8) & 0xFF;   // SPH
-    reg_snap[ 9] = sp & 0xFF;           // SPL
-    reg_snap[10] = (pc >> 8) & 0xFF;   // PCH
-    reg_snap[11] = pc & 0xFF;           // PCL
+    reg_snap[ 2] = (bc >> 8) & 0xFF;           // B
+    reg_snap[ 3] = bc & 0xFF;                   // C
+    reg_snap[ 4] = (logical_de_s >> 8) & 0xFF;  // D (論理D)
+    reg_snap[ 5] = logical_de_s & 0xFF;          // E (論理E)
+    reg_snap[ 6] = (logical_hl_s >> 8) & 0xFF;  // H (論理H)
+    reg_snap[ 7] = logical_hl_s & 0xFF;          // L (論理L)
+    reg_snap[ 8] = (sp >> 8) & 0xFF;            // SPH
+    reg_snap[ 9] = sp & 0xFF;                   // SPL
+    reg_snap[10] = (pc >> 8) & 0xFF;            // PCH
+    reg_snap[11] = pc & 0xFF;                   // PCL
     return reg_snap;
 }
 
@@ -1167,14 +1175,33 @@ void sim_set_reg(int reg_id, int value)
                                     | ((uint16_t)(value & 0xFF) << 8); break;
         case 2: cpu->__PVT__r16_bc  = (cpu->__PVT__r16_bc & 0xFF00)
                                     | (uint16_t)(value & 0xFF); break;
-        case 3: cpu->__PVT__r16_de  = (cpu->__PVT__r16_de & 0x00FF)
-                                    | ((uint16_t)(value & 0xFF) << 8); break;
-        case 4: cpu->__PVT__r16_de  = (cpu->__PVT__r16_de & 0xFF00)
-                                    | (uint16_t)(value & 0xFF); break;
-        case 5: cpu->__PVT__r16_hl  = (cpu->__PVT__r16_hl & 0x00FF)
-                                    | ((uint16_t)(value & 0xFF) << 8); break;
-        case 6: cpu->__PVT__r16_hl  = (cpu->__PVT__r16_hl & 0xFF00)
-                                    | (uint16_t)(value & 0xFF); break;
+        // D/E/H/L: xchg_dh フラグで物理レジスタの論理マッピングが入れ替わる。
+        // RESET後 xchg_dh=0: 論理HL=物理r16_de、論理DE=物理r16_hl
+        // XCHG後  xchg_dh=1: 論理HL=物理r16_hl、論理DE=物理r16_de
+        case 3: {  // D (論理D)
+            bool xchg_r = (bool)cpu->__PVT__xchg_dh;
+            if (xchg_r) cpu->__PVT__r16_de = (cpu->__PVT__r16_de & 0x00FF) | ((uint16_t)(value & 0xFF) << 8);
+            else        cpu->__PVT__r16_hl = (cpu->__PVT__r16_hl & 0x00FF) | ((uint16_t)(value & 0xFF) << 8);
+            break;
+        }
+        case 4: {  // E (論理E)
+            bool xchg_r = (bool)cpu->__PVT__xchg_dh;
+            if (xchg_r) cpu->__PVT__r16_de = (cpu->__PVT__r16_de & 0xFF00) | (uint16_t)(value & 0xFF);
+            else        cpu->__PVT__r16_hl = (cpu->__PVT__r16_hl & 0xFF00) | (uint16_t)(value & 0xFF);
+            break;
+        }
+        case 5: {  // H (論理H)
+            bool xchg_r = (bool)cpu->__PVT__xchg_dh;
+            if (xchg_r) cpu->__PVT__r16_hl = (cpu->__PVT__r16_hl & 0x00FF) | ((uint16_t)(value & 0xFF) << 8);
+            else        cpu->__PVT__r16_de = (cpu->__PVT__r16_de & 0x00FF) | ((uint16_t)(value & 0xFF) << 8);
+            break;
+        }
+        case 6: {  // L (論理L)
+            bool xchg_r = (bool)cpu->__PVT__xchg_dh;
+            if (xchg_r) cpu->__PVT__r16_hl = (cpu->__PVT__r16_hl & 0xFF00) | (uint16_t)(value & 0xFF);
+            else        cpu->__PVT__r16_de = (cpu->__PVT__r16_de & 0xFF00) | (uint16_t)(value & 0xFF);
+            break;
+        }
         case 7: cpu->__PVT__r16_sp  = (uint16_t)(value & 0xFFFF); break;
         default: break;
     }
