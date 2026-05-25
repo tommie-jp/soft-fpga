@@ -3,8 +3,9 @@
 // Emscripten Module 設定オブジェクト（importScripts の前に定義する）
 var Module = {
   onRuntimeInitialized: function () {
-    RING_SIZE = Module._get_ring_size();
-    ringBase  = Module._get_ring_ptr() >>> 2; // byte ptr → HEAPU32 index
+    RING_SIZE  = Module._get_ring_size();
+    RING_WORDS = Module._get_ring_words();   // ワード/サンプル（harness.cpp の RING_WORDS と一致）
+    ringBase   = Module._get_ring_ptr() >>> 2; // byte ptr → HEAPU32 index
     callLogBase = Module._sim_get_call_log_ptr() >>> 0; // byte ptr
     postMessage({ type: 'ready' });
     scheduleNext();
@@ -15,6 +16,7 @@ importScripts('sim.js');
 
 // ---- 状態 ----
 var RING_SIZE     = 0;
+var RING_WORDS    = 7;   // ワード/サンプル（harness.cpp の RING_WORDS と一致、初期化時に上書き）
 var ringBase      = 0;
 var callLogBase   = 0;
 var running       = false;
@@ -145,7 +147,7 @@ function simLoop() {
   // 最高速度モードでも毎フレーム転送する（FPS制御は setTimeout 側で行う）
   var doRing = laEnabled;
   var snap = doRing
-      ? Module.HEAPU32.subarray(ringBase, ringBase + RING_SIZE * 6).slice()
+      ? Module.HEAPU32.subarray(ringBase, ringBase + RING_SIZE * RING_WORDS).slice()
       : new Uint32Array(0);
 
   // ── デバッグ情報 ──
@@ -470,6 +472,16 @@ self.onmessage = function (e) {
     case 'setFrameRate':
       // data.fps: 60, 30, 15 など
       frameRateMs = data.fps > 0 ? Math.round(1000 / data.fps) : 16;
+      break;
+
+    case 'setMemWatch':
+      // data.slot:   0/1/2
+      // data.addr:   監視アドレス (uint16)、-1 で無効化
+      // data.enable: true=有効 / false=無効
+      if (Module._sim_set_mem_watch) {
+        var mwEn = (data.enable !== false && data.addr >= 0) ? 1 : 0;
+        Module._sim_set_mem_watch(data.slot | 0, (data.addr | 0) & 0xFFFF, mwEn);
+      }
       break;
 
     // ── メモリ直接アクセス API（テスト用）────────────────────────────────────

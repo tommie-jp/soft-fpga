@@ -164,6 +164,18 @@ class SimAPI:
         """トリガー後にリングバッファへ記録を続けるサンプル数を設定。"""
         self._ev(f"() => sim.setPostDelay({n})")
 
+    def set_mem_watch(self, slot: int, addr: int) -> None:
+        """MemWatch スロット (0/1/2) に監視アドレスを設定する。
+
+        設定すると ring buffer Word 6 の対応バイトに毎クロック RAM[addr] が記録される。
+        addr=-1 でそのスロットを無効化。
+        """
+        self._ev(f"() => sim.setMemWatch({slot}, {addr})")
+
+    def clear_mem_watch(self, slot: int) -> None:
+        """MemWatch スロットを無効化する（addr=-1 と等価）。"""
+        self._ev(f"() => sim.setMemWatch({slot}, -1)")
+
     def await_wait_trigger(self, timeout_ms: int = 30_000) -> dict[str, int]:
         """トリガーが発火するまで待機（内部で JS Promise を解決）。
 

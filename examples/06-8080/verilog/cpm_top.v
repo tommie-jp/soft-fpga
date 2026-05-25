@@ -129,27 +129,41 @@ module cpm_top (
     end
 
     // ---------------------------------------------------------
-    // I/O タイミング
+    // I/O タイミング  ─  io_req / io_wr は vm80a にはない合成 1 クロックパルス信号。
+    //   vm80a が持つのは標準 8080 バス信号（pin_wr_n / pin_dbin / pin_sync）のみ。
+    //   cpm_top.v でこれらと f1/f2 フェーズを組み合わせて IO アクセスを 1 パルスに変換する。
     //
-    // IN 命令: dbin_pin が立った次サイクルに di ← pin_din が実行される。
-    //   ハーネスは io_dbin=1 を検出後、次の posedge 前に io_din を設定する。
+    // ─ OUT 命令 ─────────────────────────────────────────────────────────────────
+    //   vm80a は「if (f1) wr_n <= ...」で T3_f1 に WR_N を落とす（アサート）。
+    //   cpu_dout（= xr）は T3_f1 では古い値のまま; 次の T3_f2 で正しい値が確定する。
+    //   WR_N 立ち上がり（T3 末 ≒ HLT T1 頭）を使うと io_req が次 M-CYC に入ってしまうため、
+    //   f2 かつ WR_N Low（= IO OUT T3_f2）で発火し io_req を IO OUT M-CYC 内に収める。
     //
-    // OUT 命令: wr_n が低下する f1 サイクルでは db がまだ古い値。
-    //   db（= cpu_dout）は次の f2 サイクルで正しい値に更新されるため、
-    //   1 サイクル遅らせて io_req を発行し、正しい cpu_dout を捕捉する。
+    // ─ IN 命令 ──────────────────────────────────────────────────────────────────
+    //   vm80a は「if (f2) dbin_pin <= ...」で T2_f2 に DBIN をアサートする。
+    //   ハーネスは DBIN 立ち上がりを検出して次ステップ前に io_din をセット済み。
+    //   f1 かつ DBIN High（= IO IN T3_f1）で発火することで
+    //     ① io_req が IO IN M-CYC 内に収まる
+    //     ② io_din 確定後に捕捉できる
     // ---------------------------------------------------------
-    reg prev_wr_n;   // wr_n の 1 サイクル前の値（立ち上がりエッジ検出用）
 
     always @(posedge clk) begin
-        prev_wr_n <= cpu_wr_n;
-        io_req    <= 1'b0;
+        io_req <= 1'b0;   // 毎クロックデフォルト 0 → 発火クロックのみ 1 パルス
+        io_wr  <= 1'b0;   // io_req と同様に毎クロックデフォルト 0（ホールドしない）
 
-        // OUT: wr_n の立ち上がりエッジでのみ発火（cpu_dout が確定したタイミング）
-        if (cycle_out && !prev_wr_n && cpu_wr_n) begin
+        // OUT: IO OUT T3_f2 — WR_N Low & f2 フェーズ（cpu_dout が確定したタイミング）
+        if (cycle_out && f2 && !cpu_wr_n) begin
             io_req  <= 1'b1;
             io_wr   <= 1'b1;
             io_addr <= cpu_addr[7:0];
             io_dout <= cpu_dout;
+        end
+
+        // IN: IO IN T3_f1 — DBIN High & f1 フェーズ（io_din 確定後・IO IN M-CYC 内）
+        if (cycle_inp && f1 && cpu_dbin) begin
+            io_req  <= 1'b1;
+            // io_wr はデフォルト 0 のまま（IN = 読み込み）
+            io_addr <= cpu_addr[7:0];
         end
     end
 

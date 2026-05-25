@@ -28,5 +28,6 @@ static constexpr int N_DRIVES         = 4;
 static constexpr int CON_IN_SIZE   = 256;   // コンソール入力キュー
 static constexpr int CON_OUT_SIZE  = 1024;  // コンソール出力キュー
 static constexpr int RING_SIZE     = 4096;  // Logic Analyzer リングバッファ (サンプル数)
-static constexpr int RING_WORDS    = 6;     // 1 サンプルあたりの uint32_t ワード数
+static constexpr int RING_WORDS    = 7;     // 1 サンプルあたりの uint32_t ワード数
+                                            // Word 6: MemWatch [7:0]=mem1, [15:8]=mem2, [23:16]=mem3
 static constexpr int CALL_LOG_SIZE = 64;    // コールトレースログエントリ数

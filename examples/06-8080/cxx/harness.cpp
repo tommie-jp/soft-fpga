@@ -131,6 +131,11 @@ static uint8_t  t_state_cnt = 0;
 // 現在のマシンサイクルタイプ（SYNC=1 のクロックで cpu_dout = ステータスバイトをラッチ）
 static uint8_t  current_status = 0;
 
+// MemWatch: 3 アドレスのメモリ値を毎クロック ring buffer に記録（Word 6）
+// sim_set_mem_watch() で設定する。enable=false の間は 0x00 をサンプリング。
+static uint16_t mem_watch_addr[3] = {0, 0, 0};
+static bool     mem_watch_en[3]   = {false, false, false};
+
 // エッジトリガー追加パラメータ (trig_type=4 時に使用)
 static int      trig_edge_word = 0;    // Word インデックス (0-4)
 static int      trig_edge_bit  = 24;   // ビット番号
@@ -143,15 +148,15 @@ static uint32_t trig_val_mask = 0x0000FFFF; // ビットマスク
 static uint32_t trig_val_cmp  = 0;          // 比較値（mask 済み）
 
 // 命令トリガー追加パラメータ (trig_type=5 時に使用)
-// 0xFFFF=任意 PC, 0xFF=任意オペコード
+// -1=任意 PC / -1=任意オペコード (int で保持することで 0xFF=RST7 などと区別する)
 
 // レジスタ値トリガー追加パラメータ (trig_type=7 時に使用)
 // reg_id: 0=A 1=F 2=B 3=C 4=D 5=E 6=H 7=L 8=SP 9=PC 10=BC 11=DE 12=HL
 static int      trig_reg_id  = 0;
 static uint32_t trig_reg_val = 0;
-// 0xFFFF=任意 PC, 0xFF=任意オペコード
-static uint16_t trig_instr_pc  = 0xFFFF;
-static uint8_t  trig_instr_opc = 0xFF;
+// -1=任意 PC / -1=任意オペコード  (int で保持することで 0xFF=RST7 などと区別する)
+static int trig_instr_pc  = -1;   // -1=任意, 0〜0xFFFF=アドレス一致
+static int trig_instr_opc = -1;   // -1=任意, 0〜0xFF=オペコード一致
 
 // ポストトリガー: 発火後も trig_post_delay クロック分だけ ring 書き込みを継続する
 static uint32_t trig_post_delay = 0;     // 発火後に記録するクロック数（0 = 即座に Freeze）
@@ -676,6 +681,14 @@ void step()
                 ((uint32_t)(uint16_t)cpu5->__PVT__r16_pc      ) |  // [15: 0] PC
                 ((uint32_t)(uint16_t)cpu5->__PVT__r16_sp << 16);   // [31:16] SP
         }
+        // Word 6: MemWatch — 指定 3 アドレスのメモリ値を毎クロックサンプリング
+        ring[ridx + 6] =
+            ((uint32_t)(mem_watch_en[0]
+                ? (uint8_t)top->cpm_top->ram[mem_watch_addr[0]] : 0u)      ) |  // [ 7: 0] MEM1
+            ((uint32_t)(mem_watch_en[1]
+                ? (uint8_t)top->cpm_top->ram[mem_watch_addr[1]] : 0u) <<  8) |  // [15: 8] MEM2
+            ((uint32_t)(mem_watch_en[2]
+                ? (uint8_t)top->cpm_top->ram[mem_watch_addr[2]] : 0u) << 16);   // [23:16] MEM3
         } // end if (la_enabled)
         ring_head++;
     }
@@ -716,9 +729,10 @@ void step()
             }
         }
         // On Instruction トリガー (type=5): M1 フェッチ時に PC・オペコードでフィルタ
+        // trig_instr_pc/opc は -1=任意、0以上=一致比較 (0xFF=RST7 などの実オペコードと衝突しない)
         if (!trig_fired && trig_type == 5 && (current_status & 0x20u)) {
-            bool pc_match  = (trig_instr_pc  == 0xFFFF) || (pc  == trig_instr_pc);
-            bool opc_match = (trig_instr_opc == 0xFF  ) || (op  == trig_instr_opc);
+            bool pc_match  = (trig_instr_pc  < 0) || (pc  == (uint16_t)trig_instr_pc);
+            bool opc_match = (trig_instr_opc < 0) || (op  == (uint8_t)trig_instr_opc);
             if (pc_match && opc_match) { trig_fired = true; trig_fire_head = ring_head; }
         }
     }
@@ -734,7 +748,7 @@ void step()
     // エッジトリガーチェック (type=4) — ring 書き込み (la_enabled) が必要
     if (la_enabled && !trig_fired && trig_type == 4) {
         // 今書き込んだサンプルの Word を直接参照（ring_head は既にインクリメント済み）
-        uint32_t samp_ridx = ((ring_head - 1) & (RING_SIZE - 1)) * 6;
+        uint32_t samp_ridx = ((ring_head - 1) & (RING_SIZE - 1)) * RING_WORDS;
         uint32_t cur = (ring[samp_ridx + trig_edge_word] >> trig_edge_bit) & 1u;
         bool hit = trig_edge_dir ? (prev_edge_val && !cur) : (!prev_edge_val && cur);
         prev_edge_val = cur;
@@ -743,7 +757,7 @@ void step()
 
     // 値トリガーチェック (type=6) — ring 書き込み (la_enabled) が必要
     if (la_enabled && !trig_fired && trig_type == 6 && !ring_frozen) {
-        uint32_t samp_ridx = ((ring_head - 1) & (RING_SIZE - 1)) * 6;
+        uint32_t samp_ridx = ((ring_head - 1) & (RING_SIZE - 1)) * RING_WORDS;
         if ((ring[samp_ridx + trig_val_word] & trig_val_mask) == trig_val_cmp) {
             trig_fired = true; trig_fire_head = ring_head;
         }
@@ -1081,13 +1095,14 @@ void sim_set_reg_trigger(int reg_id, int value) {
 }
 
 // 命令トリガー設定 (type=5)
-// pc:  ターゲット PC アドレス (-1 = 任意)
-// opc: ターゲット オペコード  (-1 = 任意)
+// pc:  ターゲット PC アドレス (-1 = 任意, 0〜0xFFFF = アドレス一致)
+// opc: ターゲット オペコード  (-1 = 任意, 0〜0xFF   = オペコード一致)
+//      ※ 0xFF は RST 7 の実オペコードのため -1 でワイルドカードを指定すること
 EMSCRIPTEN_KEEPALIVE
 void sim_set_instr_trigger(int pc, int opc) {
     trig_type      = 5;
-    trig_instr_pc  = (pc  < 0) ? 0xFFFF : (uint16_t)pc;
-    trig_instr_opc = (opc < 0) ? 0xFF   : (uint8_t)opc;
+    trig_instr_pc  = (pc  < 0) ? -1 : (int)(uint16_t)pc;
+    trig_instr_opc = (opc < 0) ? -1 : (int)(uint8_t)opc;
     reset_trigger_state();
 }
 
@@ -1206,6 +1221,17 @@ void sim_set_reg(int reg_id, int value)
         default: break;
     }
     top->eval();
+}
+
+// ── MemWatch API ──────────────────────────────────────────────────────────────
+// slot:   0/1/2
+// addr:   監視する RAM アドレス (0x0000 〜 0xFFFF)
+// enable: 1 = 有効、0 = 無効（ring buffer に 0x00 を書く）
+EMSCRIPTEN_KEEPALIVE
+void sim_set_mem_watch(int slot, int addr, int enable) {
+    if (slot < 0 || slot > 2) return;
+    mem_watch_addr[slot] = (uint16_t)(addr & 0xFFFF);
+    mem_watch_en[slot]   = (enable != 0);
 }
 
 } // extern "C"

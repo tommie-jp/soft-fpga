@@ -697,11 +697,12 @@
       <div class="sig-label-row">
         <span class="sig-label">Logic Analyzer</span>
         <button id="btn-la-toggle" title="Logic Analyzer ON/OFF。OFFにするとリングバッファへの書き込みをスキップして速度向上。エッジ/値トリガーは無効になります。" style="font-size:13px;padding:2px 8px;font-family:monospace;">LA ON</button>
-        <select id="la-fps-sel" title="描画フレームレート。下げるとフレームオーバーヘッドが減り速度向上。" style="font-size:13px;padding:2px 4px;border:1px solid #aaa;background:#fff;font-family:monospace;">
-          <option value="60">60fps</option>
-          <option value="30">30fps</option>
-          <option value="15">15fps</option>
-        </select>
+        <label id="la-fill-label" title="信号レーンの塗りつぶし ON/OFF" style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;font-size:13px;font-family:monospace;padding:2px 7px;border:1px solid #aaa;border-radius:3px;background:#f8f8f8;user-select:none;">
+          <input type="checkbox" id="la-fill-chk" checked style="cursor:pointer;margin:0;accent-color:#446;"> Fill
+        </label>
+        <label id="la-hatch-label" title="信号レーンの網目パターン ON/OFF" style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;font-size:13px;font-family:monospace;padding:2px 7px;border:1px solid #aaa;border-radius:3px;background:#f8f8f8;user-select:none;">
+          <input type="checkbox" id="la-hatch-chk" checked style="cursor:pointer;margin:0;accent-color:#446;"> Hatch
+        </label>
         <div id="la-toggles"></div>
       </div>
       <!-- トリガーバー（常時表示）: Freeze / Next I/O / Step + Trigger 折りたたみトグル -->
@@ -796,7 +797,11 @@
           <button id="la-nav-rr" title="最新データへ（T=0、ライブ追従）">&#x00BB;</button><!-- » -->
         </div>
       </div>
-      <canvas id="la" width="900" height="120"></canvas>
+      <div id="la-wrap" style="position:relative;display:block;">
+        <canvas id="la" width="900" height="120"></canvas>
+        <!-- MemWatch アドレス入力オーバーレイ（信号レーンのラベルエリアに重畳） -->
+        <div id="la-mem-overlay" style="position:absolute;top:0;left:0;pointer-events:none;overflow:hidden;"></div>
+      </div>
     </div>
 
     <!-- Debug panel: Bus Analyzer 直下 -->
@@ -1124,12 +1129,12 @@
     // --- アドレスバス (Word 1) ---
     { id:'addr',   label:'addr',   word:1, bit:0,  type:'hex', width:16, color:'#880088', on:false, tip:'アドレスバス（16 ビット）。命令フェッチ時は PC、メモリ読み書き時はアクセス先アドレス（HL/SP/BC/DE など）、IN/OUT 時は I/O ポート番号が現れます。MEMR/MEMW/SYNC と組み合わせると各サイクルのアクセス先が読み取れます。' },
     // --- バスサイクル制御 (Word 0) ---
-    { id:'dbin',   label:'DBIN',   word:0, bit:8,  type:'bit', width:1,  color:'#0099cc', on:false, tip:'Data Bus IN（データバス入力イネーブル）。CPU がバスからデータを読むクロックで 1 になります。' },
-    { id:'sync',   label:'SYNC',   word:0, bit:9,  type:'bit', width:1,  color:'#9900cc', on:false, tip:'マシンサイクル開始ストローブ。M1（命令フェッチ）やメモリ・I/O サイクルの先頭クロックで 1 になります。SYNC 立ち上がりでオペコードを確定します。' },
-    { id:'wr_n',   label:'WR_N',   word:0, bit:10, type:'bit', width:1,  color:'#cc5500', on:false, tip:'バス書き込みストローブ（負論理）。メモリ書き込みまたは OUT 命令のデータ確定クロックで 0 になります。' },
-    { id:'hlda',   label:'HLDA',   word:0, bit:11, type:'bit', width:1,  color:'#887700', on:false, tip:'バスホールド応答（HLDA）。DMA 等のバスホールド要求に対して CPU がバスを開放したことを示します。' },
-    { id:'wait',   label:'WAIT',   word:0, bit:12, type:'bit', width:1,  color:'#888888', on:false, tip:'ウェイト状態。このシミュレーターでは常に 0 です（WAIT ステートなし）。' },
-    { id:'inte',   label:'INTE',   word:0, bit:13, type:'bit', width:1,  color:'#006688', on:false, tip:'割り込みイネーブルフラグ（INTE）。EI 命令で 1、DI 命令で 0 になります。' },
+    { id:'dbin',   label:'pin_DBIN', word:0, bit:8,  type:'bit', width:1,  color:'#0099cc', on:false, tip:'[8080 ピン] Data Bus IN（データバス入力イネーブル）。CPU がバスからデータを読むクロックで 1 になります。vm80a: pin_dbin' },
+    { id:'sync',   label:'pin_SYNC', word:0, bit:9,  type:'bit', width:1,  color:'#9900cc', on:false, tip:'[8080 ピン] マシンサイクル開始ストローブ。M1（命令フェッチ）やメモリ・I/O サイクルの先頭クロックで 1 になります。SYNC 立ち上がりでオペコードを確定します。vm80a: pin_sync' },
+    { id:'wr_n',   label:'pin_WR_N', word:0, bit:10, type:'bit', width:1,  color:'#cc5500', on:false, tip:'[8080 ピン] バス書き込みストローブ（負論理）。メモリ書き込みまたは OUT 命令のデータ確定クロックで 0 になります。vm80a: pin_wr_n' },
+    { id:'hlda',   label:'pin_HLDA', word:0, bit:11, type:'bit', width:1,  color:'#887700', on:false, tip:'[8080 ピン] バスホールド応答。DMA 等のバスホールド要求に対して CPU がバスを開放したことを示します。vm80a: pin_hlda' },
+    { id:'wait',   label:'pin_WAIT', word:0, bit:12, type:'bit', width:1,  color:'#888888', on:false, tip:'[8080 ピン] ウェイト状態。このシミュレーターでは常に 0 です（WAIT ステートなし）。vm80a: pin_wait' },
+    { id:'inte',   label:'pin_INTE', word:0, bit:13, type:'bit', width:1,  color:'#006688', on:false, tip:'[8080 ピン] 割り込みイネーブルフラグ。EI 命令で 1、DI 命令で 0 になります。vm80a: pin_inte' },
     // --- メモリアクセス (Word 0) ---
     { id:'memr',   label:'MEMR',   word:0, bit:14, type:'bit', width:1,  color:'#007744', on:false, tip:'メモリ読み出しサイクル。命令フェッチ・LDAX など、メモリからデータを読むクロックで 1 になります。' },
     { id:'memw',   label:'MEMW',   word:0, bit:15, type:'bit', width:1,  color:'#005522', on:false, tip:'メモリ書き込みサイクル。STAX・PUSH など、メモリへデータを書くクロックで 1 になります。' },
@@ -1146,8 +1151,12 @@
     { id:'reg_h',  label:'H',      word:3, bit:8,  type:'hex', width:8,  color:'#6600aa', on:false, tip:'レジスタ H。HL ペアの上位バイト。主にメモリポインタとして使われます（M = (HL)）。' },
     { id:'reg_l',  label:'L',      word:3, bit:16, type:'hex', width:8,  color:'#9900cc', on:false, tip:'レジスタ L。HL ペアの下位バイト。MEMR/MEMW と合わせると HL が指すアドレスへのアクセスを確認できます。' },
     { id:'dbus',   label:'dbus',   word:3, bit:24, type:'hex', width:8,  color:'#cc0066', on:false, tip:'CPU データバス（全サイクル対応）。MEMR=RAMの読み出しデータ、MEMW/IO OUT=CPUが書くデータ、IO IN=周辺が返すデータ。din とは異なりメモリアクセスのデータも表示します。' },
+    // --- MemWatch (Word 6) ---
+    { id:'mem1', label:'M1', word:6, bit:0,  type:'hex', width:8, color:'#996633', on:false, tip:'MemWatch 1: アドレス入力で指定したメモリアドレスの値を毎クロックサンプリング。アドレスは信号レーンのラベル右に表示されるテキストボックスで設定。' },
+    { id:'mem2', label:'M2', word:6, bit:8,  type:'hex', width:8, color:'#996633', on:false, tip:'MemWatch 2: アドレス入力で指定したメモリアドレスの値を毎クロックサンプリング。' },
+    { id:'mem3', label:'M3', word:6, bit:16, type:'hex', width:8, color:'#996633', on:false, tip:'MemWatch 3: アドレス入力で指定したメモリアドレスの値を毎クロックサンプリング。' },
   ];
-  const RING_WORDS    = 6;   // ワード/サンプル (harness: RING_SIZE * 6)
+  const RING_WORDS    = 7;   // ワード/サンプル (harness: RING_SIZE * 7)
 
   // 8080 ステータスバイトからマシンサイクルタイプを判定
   var MTYPE_FETCH  = { label:'FETCH',  color:'rgba(40,90,200,0.60)'  };
@@ -1169,11 +1178,12 @@
 
   // シグナルグループ定義（color: アクティブバー・ピッカーで使うグループ単位の色）
   var LA_SIGNAL_GROUPS = [
-    { label:'I/O',     color:'#0066bb', ids:['port','data','io_req','io_wr','t_state'] },
-    { label:'Control', color:'#7722aa', ids:['dbin','sync','wr_n','hlda','wait','inte','f1','f2'] },
-    { label:'Mem',     color:'#007755', ids:['addr','memr','memw','dbus'] },
-    { label:'Data',    color:'#445566', ids:['status','ir','din','acc','reg_f','reg_b','reg_c','reg_d','reg_e','reg_h','reg_l'] },
-    { label:'CPU',     color:'#335599', ids:['pc','sp'] },
+    { label:'I/O',      color:'#0066bb', ids:['port','data','io_req','io_wr','t_state'] },
+    { label:'Control',  color:'#7722aa', ids:['dbin','sync','wr_n','hlda','wait','inte','f1','f2'] },
+    { label:'Mem',      color:'#007755', ids:['addr','memr','memw','dbus'] },
+    { label:'Data',     color:'#445566', ids:['status','ir','din','acc','reg_f','reg_b','reg_c','reg_d','reg_e','reg_h','reg_l'] },
+    { label:'CPU',      color:'#335599', ids:['pc','sp'] },
+    { label:'MemWatch', color:'#996633', ids:['mem1','mem2','mem3'] },
   ];
 
 
@@ -1200,6 +1210,7 @@
   let customDisks = [null, null, null, null]; // Uint8Array | null
   let diskTimes   = [null, null, null, null]; // Date.now() ms | null
   let workerReady = false;
+  window.workerReady = false;  // Playwright テスト用 (let は window スコープ外のため)
   let running     = false;
   let fsDirty     = false;
 
@@ -1663,6 +1674,7 @@
     }
     if (data.type === 'ready') {
       workerReady = true;
+      window.workerReady = true;  // Playwright テスト用
       initUI();
       return;
     }
@@ -1964,12 +1976,14 @@
       ringSize:      RING_SIZE,
       ringWords:     RING_WORDS,
       storagePrefix: 'la_',
+      labelWidth:      100,   // MemWatch アドレス入力のため拡張（デフォルト 56）
+      numberedLabels:  true,  // 信号レーン名に連番を付加（01 M-CYC, 02 port, ...）
 
       decodeLane: {
         label: 'M-CYC',
         render: function(ctx, p) {
           ctx.fillStyle = '#555'; ctx.font = 'bold 12px monospace'; ctx.textAlign = 'left';
-          ctx.fillText('M-CYC', 2, p.decY + p.decH * 0.72);
+          ctx.fillText('01 M-CYC', 2, p.decY + p.decH * 0.72);
           var RW = p.ringWords;
           var segStart  = 0;
           var segStatus = p.heapu32[(p.startSamp & (p.ringSize - 1)) * RW + 4] & 0xFF;
@@ -2045,6 +2059,166 @@
     });
     var la = window.la;
     la.buildToggles();
+
+    // ── MemWatch アドレス入力オーバーレイ ────────────────────────────────────
+    // 信号レーンのラベルエリア（左 100px）に M1/M2/M3 のアドレス入力を重畳する。
+    // canvas は position:relative の #la-wrap 内に配置済み。
+    (function() {
+      var MEM_IDS    = ['mem1', 'mem2', 'mem3'];
+      var mwEls      = [null, null, null];   // overlay 行 div
+      var mwAddrs    = [0, 0, 0];            // 現在設定中のアドレス（有効なもののみ）
+      var mwEnabled  = [false, false, false]; // アドレス入力済みフラグ
+
+      var overlay = document.getElementById('la-mem-overlay');
+
+      // 3 スロット分の行要素を生成
+      for (var s = 0; s < 3; s++) {
+        var row = document.createElement('div');
+        row.style.cssText =
+          'position:absolute;display:none;left:0;width:100px;' +
+          'align-items:center;justify-content:flex-end;padding-right:4px;' +
+          'box-sizing:border-box;pointer-events:none;';
+
+        var inp = document.createElement('input');
+        inp.type        = 'text';
+        inp.maxLength   = 4;
+        inp.placeholder = 'ADDR';
+        inp.style.cssText =
+          'width:52px;font-family:monospace;font-size:10px;padding:1px 3px;' +
+          'border:1px solid #bbb;border-radius:2px;background:#fff8ef;color:#553300;' +
+          'text-transform:uppercase;letter-spacing:.04em;pointer-events:all;' +
+          'box-sizing:border-box;';
+        inp.title = 'MEM' + (s + 1) + ' ウォッチアドレス（16進 4桁、例: 0350）';
+
+        // アドレス確定時に WASM に通知
+        (function(slot, input) {
+          function applyAddr() {
+            var raw = input.value.replace(/[^0-9a-fA-F]/g, '');
+            if (!raw) return;
+            var addr = parseInt(raw, 16) & 0xFFFF;
+            mwAddrs[slot]   = addr;
+            mwEnabled[slot] = true;
+            input.value = addr.toString(16).toUpperCase().padStart(4, '0');
+            workerSend({ type: 'setMemWatch', slot: slot, addr: addr, enable: true });
+          }
+          input.addEventListener('blur',    applyAddr);
+          input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { applyAddr(); input.blur(); }
+          });
+        })(s, inp);
+
+        row.appendChild(inp);
+        overlay.appendChild(row);
+        mwEls[s] = row;
+      }
+
+      // ── レイアウト計算ヘルパー ─────────────────────────────────────────────
+      function _laLayout() {
+        var laH  = la._laH || 0;
+        var decH = (la._showDec && la._cbDec) ? la._DEC_LANE_H : 0;
+        var sigY = la._TIME_RULER_H + decH;
+        var sigH = laH - la._MARKER_LANE_H - 2 * la._TIME_RULER_H - decH;
+        var sigs = la._getActiveSigs();
+        var tH   = sigs.length > 0 ? sigH / sigs.length : la._TRACK_H;
+        return { laH: laH, sigY: sigY, sigs: sigs, tH: tH };
+      }
+
+      // ── HTML オーバーレイ位置更新（入力欄の y 座標を信号行に合わせる）──
+      function updateOverlay() {
+        var canvas = document.getElementById('la');
+        if (!canvas || !la) return;
+        var lay = _laLayout();
+        overlay.style.width  = canvas.offsetWidth  + 'px';
+        overlay.style.height = canvas.offsetHeight + 'px';
+        for (var s = 0; s < 3; s++) {
+          var idx = -1;
+          for (var i = 0; i < lay.sigs.length; i++) {
+            if (lay.sigs[i].id === MEM_IDS[s]) { idx = i; break; }
+          }
+          var el = mwEls[s];
+          if (idx < 0) { el.style.display = 'none'; continue; }
+          var yTop = lay.sigY + idx * lay.tH;
+          el.style.display    = 'flex';
+          el.style.top        = yTop + 'px';
+          el.style.height     = lay.tH + 'px';
+          el.style.lineHeight = lay.tH + 'px';
+        }
+      }
+
+      // ── canvas にアドレスを直接描画（スクリーンショットにも写る）──────────
+      // RTLScopeLA の "M1" ラベルを上書きし、"23 M1[0350]" 形式で描く。
+      // la._draw() が canvas を毎回クリア→再描画するため、その直後に呼ぶ。
+      function drawMemWatchLabels() {
+        var canvas = document.getElementById('la');
+        if (!canvas || !la) return;
+        var ctx = canvas.getContext('2d');
+        var dpr = la._dpr || 1;
+        var lay = _laLayout();
+        var lw  = la._LABEL_W || 56;
+        ctx.save();
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.textAlign = 'left';
+        for (var s = 0; s < 3; s++) {
+          if (!mwEnabled[s]) continue;
+          var idx = -1;
+          for (var i = 0; i < lay.sigs.length; i++) {
+            if (lay.sigs[i].id === MEM_IDS[s]) { idx = i; break; }
+          }
+          if (idx < 0) continue;
+          var yTop    = lay.sigY + idx * lay.tH;
+          var tH      = lay.tH;
+          var addrStr = mwAddrs[s].toString(16).toUpperCase().padStart(4, '0');
+          var _decOff = (la._cbDec && la._showDec) ? 1 : 0;
+          var _mwNum  = String(idx + 1 + _decOff).padStart(2, '0');
+          var label   = _mwNum + ' ' + lay.sigs[idx].label + '[' + addrStr + ']';
+          // 行全体（上下 2px マージン）を背景で塗り、既存ラベルを上書き
+          ctx.fillStyle = 'rgba(255,248,239,0.92)';
+          ctx.fillRect(0, yTop + 1, lw - 1, tH - 2);
+          // 他のレーン名と同じ 12px monospace で描画
+          ctx.font = '12px monospace';
+          ctx.fillStyle = '#111';
+          ctx.fillText(label, 3, yTop + tH * 0.65);
+        }
+        ctx.restore();
+      }
+
+      // ── 外部から状態を更新するブリッジ（sim.setMemWatch → IIFE 内部同期）──
+      // テストコードや DevTools から sim.setMemWatch() を呼んだとき、
+      // WASM にメッセージを送るだけでなく JS 側の mwEnabled/mwAddrs も更新する。
+      window._laMemWatchSet = function(slot, addr) {
+        if (slot < 0 || slot > 2) return;
+        var en = (addr >= 0);
+        mwEnabled[slot] = en;
+        if (en) mwAddrs[slot] = addr & 0xFFFF;
+        // 入力欄の表示値も同期
+        var el = mwEls[slot];
+        if (el) {
+          var inp = el.querySelector('input');
+          if (inp) inp.value = en
+            ? (addr & 0xFFFF).toString(16).toUpperCase().padStart(4, '0')
+            : '';
+        }
+        drawMemWatchLabels();
+        updateOverlay();
+      };
+
+      // ── la._draw() をフックして両方の後処理を実行 ─────────────────────────
+      // _draw は update() / _updateCanvas() / _schedDraw() の全経路から呼ばれる。
+      var _origDraw = la._draw.bind(la);
+      la._draw = function(heapu32, head) {
+        _origDraw(heapu32, head);
+        drawMemWatchLabels();
+        updateOverlay();
+      };
+
+      // _updateCanvas() もフック（canvas リサイズ時に _draw を呼ばないケースがある）
+      var _origUpdateCanvas = la._updateCanvas.bind(la);
+      la._updateCanvas = function() {
+        _origUpdateCanvas();
+        drawMemWatchLabels();
+        updateOverlay();
+      };
+    })();
 
     // ── window.sim — テスト用パブリック API ──────────────────────────────────
     //
@@ -2152,6 +2326,24 @@
       /** トリガーを解除する */
       clearTrigger: function() {
         workerSend({ type: 'clearTrigger' });
+        // JS 側の LA 状態もリセット（stale な _trigOn/_trigHead を持ち越さないため）
+        if (window.la) {
+          window.la._trigOn   = false;
+          window.la._trigHead = -1;
+        }
+      },
+
+      /**
+       * MemWatch: 指定スロット(0/1/2)のアドレスを設定してサンプリングを開始する。
+       * addr=-1 または enable=false でそのスロットを無効化。
+       * @param {number} slot  0/1/2
+       * @param {number} addr  0x0000-0xFFFF (-1 で無効)
+       */
+      setMemWatch: function(slot, addr) {
+        var en = (addr >= 0);
+        workerSend({ type: 'setMemWatch', slot: slot | 0, addr: en ? addr & 0xFFFF : 0, enable: en });
+        // IIFE 内の mwEnabled/mwAddrs と入力欄の表示値を同期する
+        if (window._laMemWatchSet) window._laMemWatchSet(slot | 0, addr);
       },
 
       /**
@@ -2842,7 +3034,7 @@
       renderIOLog();
     });
 
-    // ---- Logic Analyzer ON/OFF + フレームレート ----
+    // ---- Logic Analyzer ON/OFF ----
     document.getElementById('btn-la-toggle').addEventListener('click', function() {
       la.setEnabled(!la.enabled);
       this.textContent = la.enabled ? 'LA ON' : 'LA OFF';
@@ -2851,9 +3043,16 @@
       if (!la.enabled) la._drawOff();
     });
 
-    document.getElementById('la-fps-sel').addEventListener('change', function() {
-      var fps = parseInt(this.value, 10) || 60;
-      workerSend({ type: 'setFrameRate', fps: fps });
+    // ---- Fill トグル ----
+    document.getElementById('la-fill-chk').addEventListener('change', function() {
+      la.setFillEnabled(this.checked);
+      la._updateCanvas();
+    });
+
+    // ---- 網目トグル ----
+    document.getElementById('la-hatch-chk').addEventListener('change', function() {
+      la.setHatchEnabled(this.checked);
+      la._updateCanvas();
     });
 
     term.focus();

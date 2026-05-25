@@ -12,6 +12,31 @@
   var LA_ZOOM_LEVELS = [0.25, 0.5, 1, 2, 4, 8, 16, 32, 64];
 
   /**
+   * 網目（ハッチング）描画ヘルパー。
+   * ctx は既に save() 済み・clip 済みの前提で呼ぶ。
+   * type: 0=/ 右上がり  1=\ 右下がり  2=× 斜め格子  3=+ 直角格子
+   */
+  function _drawHatch(ctx, x0, x1, y0, y1, type, sp) {
+    var h = y1 - y0;
+    ctx.beginPath();
+    if (type === 0 || type === 2) {   // / 右上がり斜線
+      for (var x = x0 - h; x < x1 + h; x += sp) {
+        ctx.moveTo(x, y1); ctx.lineTo(x + h, y0);
+      }
+    }
+    if (type === 1 || type === 2) {   // \ 右下がり斜線
+      for (var x = x0 - h; x < x1 + h; x += sp) {
+        ctx.moveTo(x, y0); ctx.lineTo(x + h, y1);
+      }
+    }
+    if (type === 3) {                 // + 直角格子
+      for (var x = x0; x < x1 + sp; x += sp) { ctx.moveTo(x, y0); ctx.lineTo(x, y1); }
+      for (var y = y0; y < y1 + sp; y += sp)  { ctx.moveTo(x0, y); ctx.lineTo(x1, y); }
+    }
+    ctx.stroke();
+  }
+
+  /**
    * RTLScopeLA コンストラクタ
    *
    * @param {Object} config
@@ -47,9 +72,12 @@
     self._prefix        = c.storagePrefix !== undefined ? c.storagePrefix : 'la_';
     self._initLA_W      = c.width         || 900;   // ユーザー指定の最大幅
     self._LA_W          = self._initLA_W;            // 実効幅（_updateCanvas で更新）
-    self._LABEL_W       = c.labelWidth    || 56;
-    self._TRACK_H       = c.trackH        || 28;
-    self._TIME_RULER_H  = c.timeRulerH    || 14;
+    self._LABEL_W         = c.labelWidth      || 56;
+    self._numberedLabels  = c.numberedLabels  || false;  // 信号レーン名に連番を付加
+    self._fillEnabled     = c.fillEnabled    !== false; // 塗りつぶし（デフォルト ON）
+    self._hatchEnabled    = c.hatchEnabled   !== false; // 網目パターン（デフォルト ON）
+    self._TRACK_H         = c.trackH          || 28;
+    self._TIME_RULER_H    = c.timeRulerH      || 14;
     self._MARKER_LANE_H = c.markerLaneH   || 18;  // マーカーラベル専用帯の高さ
     self._DEC_LANE_H    = c.decodeLaneH   || 22;
 
@@ -220,6 +248,16 @@
   /** ON/OFF を設定する */
   RTLScopeLA.prototype.setEnabled = function(b) {
     this._on = !!b;
+  };
+
+  /** 信号塗りつぶし ON/OFF */
+  RTLScopeLA.prototype.setFillEnabled = function(b) {
+    this._fillEnabled = !!b;
+  };
+
+  /** 網目パターン ON/OFF */
+  RTLScopeLA.prototype.setHatchEnabled = function(b) {
+    this._hatchEnabled = !!b;
   };
 
   /** トリガー発火ヘッドを設定する */
@@ -1058,7 +1096,9 @@
       ctx.strokeStyle = '#ccc'; ctx.lineWidth = 0.5;
       ctx.beginPath(); ctx.moveTo(0, _yb + tH); ctx.lineTo(LA_W, _yb + tH); ctx.stroke();
       ctx.fillStyle = '#111'; ctx.font = '12px monospace'; ctx.textAlign = 'left';
-      ctx.fillText(_sig.label, 3, _yb + tH * 0.65);
+      var _lbl = self._numberedLabels
+        ? (String(t + 1 + (cbDec ? 1 : 0)).padStart(2, '0') + ' ' + _sig.label) : _sig.label;
+      ctx.fillText(_lbl, 3, _yb + tH * 0.65);
     }
 
     // MARKER_LANE 区切り線 + 「Marker」固定テキスト（クリップなし）
@@ -1107,20 +1147,37 @@
           var yHigh = yBase + 4, yLow = yBase + tH - 4;
 
           if (laZoom >= 1) {
-            // ── 等倍 / ズームイン ──
-            ctx.globalAlpha = 0.15; ctx.fillStyle = sig.color;
-            var fillStart = null;
+            // ── 等倍 / ズームイン ── HIGH スパンを収集してから塗り + 網目
+            var _bSpans = [], _bF = null;
             for (var i = 0; i < samples; i++) {
               var gw = heapu32[((startSamp + i) & (ringSize - 1)) * RW + sw];
               var v  = (gw >> sig.bit) & 1, fx = SIG_X + i * laZoom;
-              if (v && fillStart === null) fillStart = fx;
-              if (!v && fillStart !== null) {
-                ctx.fillRect(fillStart, yHigh, fx - fillStart, yLow - yHigh); fillStart = null;
-              }
+              if (v && _bF === null) _bF = fx;
+              if (!v && _bF !== null) { _bSpans.push([_bF, fx]); _bF = null; }
             }
-            if (fillStart !== null)
-              ctx.fillRect(fillStart, yHigh, SIG_X + samples * laZoom - fillStart, yLow - yHigh);
-            ctx.globalAlpha = 1;
+            if (_bF !== null) _bSpans.push([_bF, SIG_X + samples * laZoom]);
+            // 塗り
+            if (self._fillEnabled) {
+              ctx.globalAlpha = 0.12; ctx.fillStyle = sig.color;
+              for (var _bi = 0; _bi < _bSpans.length; _bi++) {
+                ctx.fillRect(_bSpans[_bi][0], yHigh, _bSpans[_bi][1] - _bSpans[_bi][0], yLow - yHigh);
+              }
+              ctx.globalAlpha = 1;
+            }
+            // 網目（HIGH スパンをまとめてクリップして描画）
+            if (self._hatchEnabled && _bSpans.length > 0 && laZoom >= 2) {
+              ctx.save();
+              ctx.globalAlpha = 0.18; ctx.strokeStyle = sig.color;
+              ctx.lineWidth = 0.7; ctx.setLineDash([]);
+              ctx.beginPath();
+              for (var _bi = 0; _bi < _bSpans.length; _bi++) {
+                ctx.rect(_bSpans[_bi][0], yHigh, _bSpans[_bi][1] - _bSpans[_bi][0], yLow - yHigh);
+              }
+              ctx.clip();
+              _drawHatch(ctx, _bSpans[0][0], _bSpans[_bSpans.length - 1][1],
+                         yHigh, yLow, t % 4, 8);
+              ctx.restore();
+            }
             ctx.strokeStyle = sig.color; ctx.lineWidth = 1.5; ctx.beginPath();
             var gw0b = heapu32[(startSamp & (ringSize - 1)) * RW + sw];
             ctx.moveTo(SIG_X, ((gw0b >> sig.bit) & 1) ? yHigh : yLow);
@@ -1219,6 +1276,34 @@
             hasRightTrans = (vL !== vN);
           }
 
+          // セグメント薄背景（信号枠内 yTop〜yBot）
+          if (self._fillEnabled) {
+            ctx.save();
+            ctx.globalAlpha = 0.08;
+            ctx.fillStyle = sig.color;
+            for (var si = 0; si < segs.length; si++) {
+              if (segs[si].w >= 0.5) ctx.fillRect(segs[si].x, yTop, segs[si].w, yBot - yTop);
+            }
+            ctx.restore();
+          }
+
+          // 網目（全セグメントをまとめてクリップして描画）
+          if (self._hatchEnabled) {
+            ctx.save();
+            ctx.globalAlpha = 0.18; ctx.strokeStyle = sig.color;
+            ctx.lineWidth = 0.7; ctx.setLineDash([]);
+            ctx.beginPath();
+            for (var si = 0; si < segs.length; si++) {
+              if (segs[si].w >= 0.5) ctx.rect(segs[si].x, yTop, segs[si].w, yBot - yTop);
+            }
+            ctx.clip();
+            if (segs.length > 0) {
+              var _hx0 = segs[0].x, _hx1 = segs[segs.length - 1].x + segs[segs.length - 1].w;
+              _drawHatch(ctx, _hx0, _hx1, yTop, yBot, t % 4, 8);
+            }
+            ctx.restore();
+          }
+
           ctx.lineWidth = 1;
           for (var si = 0; si < segs.length; si++) {
             var s = segs[si];
@@ -1226,6 +1311,18 @@
             ctx.strokeStyle = sig.color;
             var drawL = (si > 0) || hasLeftTrans;
             var drawR = (si < segs.length - 1) || hasRightTrans;
+            // 値変化点の縦補助線（レーン全体高さ）
+            ctx.save();
+            ctx.strokeStyle = sig.color;
+            ctx.globalAlpha = 0.30;
+            ctx.lineWidth = 0.5;
+            if (drawL) {
+              ctx.beginPath(); ctx.moveTo(s.x, yBase); ctx.lineTo(s.x, yBase + tH); ctx.stroke();
+            }
+            if (drawR) {
+              ctx.beginPath(); ctx.moveTo(s.x + s.w, yBase); ctx.lineTo(s.x + s.w, yBase + tH); ctx.stroke();
+            }
+            ctx.restore();
             (function(seg, dL, dR) {
               [[yTop,yTop],[yBot,yBot],[yTop,yBot],[yTop,yBot]].forEach(function(ys, ii) {
                 ctx.beginPath();
@@ -1236,55 +1333,67 @@
               });
             })(s, drawL, drawR);
 
+            // テキスト描画: 文字列・フォントを決定してから白背景 → 文字の順に描く
+            var _str = null, _fnt = '11px monospace';
             if (sig.fmt === 'dec') {
-              // 10進表示
-              if (laZoom >= 4 && s.w > 4) {
-                ctx.fillStyle = sig.color; ctx.textAlign = 'center';
-                ctx.font = '11px monospace';
-                ctx.fillText(String(s.val), s.x + s.w / 2, yMid + 4);
-              }
+              if (laZoom >= 4 && s.w > 4) { _str = String(s.val); }
             } else if ((laZoom >= 4 && s.w > 4) || s.w > 24) {
-              ctx.fillStyle = sig.color; ctx.textAlign = 'center';
               if (sig.fmt && cbFmt[sig.fmt]) {
-                ctx.font = '10px monospace';
-                ctx.fillText(cbFmt[sig.fmt](s.val), s.x + s.w / 2, yMid + 4);
+                _fnt = '10px monospace';
+                _str = cbFmt[sig.fmt](s.val);
               } else {
-                ctx.font = '11px monospace';
                 var _fullLbl  = s.val.toString(16).toUpperCase().padStart(hexPad, '0');
                 var _shortLbl = s.val.toString(16).toUpperCase();
                 var _fullThresh = hexPad === 4 ? 40 : 28;
-                ctx.fillText(s.w > _fullThresh ? _fullLbl : _shortLbl,
-                             s.x + s.w / 2, yMid + 3);
+                _str = s.w > _fullThresh ? _fullLbl : _shortLbl;
               }
+            }
+            if (_str !== null) {
+              ctx.font = _fnt; ctx.textAlign = 'center';
+              var _tx = s.x + s.w / 2;
+              var _tw = ctx.measureText(_str).width;
+              // 数字部分の白背景
+              ctx.fillStyle = 'rgba(255,255,255,0.85)';
+              ctx.fillRect(_tx - _tw / 2 - 2, yMid - 6, _tw + 4, 14);
+              // 文字
+              ctx.fillStyle = sig.color;
+              ctx.fillText(_str, _tx, yMid + 4);
             }
           }
         }
       } // end signal loop
     }
 
-    // ── T ステートグリッド線 ──
+    // ── 1T 補助線（点線）: laZoom >= 4 のとき全サンプルに描画 ──
+    if (samples > 0 && laZoom >= 4) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(80,80,200,0.12)';
+      ctx.lineWidth = 0.5;
+      ctx.setLineDash([2, 3]);
+      ctx.beginPath();
+      for (var gi = 0; gi < samples; gi++) {
+        var gx = SIG_X + gi * laZoom;
+        ctx.moveTo(gx, sigY); ctx.lineTo(gx, sigY + sigH);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+    // ── T1（マシンサイクル境界）実線 ──
     if (cbTs && samples > 0 && laZoom >= 1) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(80,80,200,0.28)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([]);
+      ctx.beginPath();
       for (var gi = 0; gi < samples; gi++) {
         var gw0g = heapu32[((startSamp + gi) & (ringSize - 1)) * RW];
-        var ts   = cbTs(gw0g);
-        if (ts === 1) {
+        if (cbTs(gw0g) === 1) {
           var gx = SIG_X + gi * laZoom;
-          ctx.save();
-          ctx.strokeStyle = 'rgba(80,80,200,0.28)';
-          ctx.lineWidth = 1;
-          ctx.setLineDash([]);
-          ctx.beginPath(); ctx.moveTo(gx, sigY); ctx.lineTo(gx, sigY + sigH); ctx.stroke();
-          ctx.restore();
-        } else if (laZoom >= 4 && ts > 1 && (ts & 1) === 1) {
-          var gx = SIG_X + gi * laZoom;
-          ctx.save();
-          ctx.strokeStyle = 'rgba(80,80,200,0.10)';
-          ctx.lineWidth = 0.5;
-          ctx.setLineDash([2, 3]);
-          ctx.beginPath(); ctx.moveTo(gx, sigY); ctx.lineTo(gx, sigY + sigH); ctx.stroke();
-          ctx.restore();
+          ctx.moveTo(gx, sigY); ctx.lineTo(gx, sigY + sigH);
         }
       }
+      ctx.stroke();
+      ctx.restore();
     }
 
     // ── MARKER_LANE バッジ + マーカー縦線 ──
@@ -1354,7 +1463,10 @@
       ctx.fillRect(0, sigY + self._tDragIdx * tH, LA_W, tH);
       ctx.fillStyle = 'rgba(40,80,220,0.9)';
       ctx.font = 'bold 12px monospace'; ctx.textAlign = 'left';
-      ctx.fillText(sigs[self._tDragIdx].label, 3, sigY + self._tDragIdx * tH + tH * 0.65);
+      var _dlbl = self._numberedLabels
+        ? (String(self._tDragIdx + 1 + (cbDec ? 1 : 0)).padStart(2, '0') + ' ' + sigs[self._tDragIdx].label)
+        : sigs[self._tDragIdx].label;
+      ctx.fillText(_dlbl, 3, sigY + self._tDragIdx * tH + tH * 0.65);
       var insertAt = Math.max(0, Math.min(Math.round((self._tDragY - sigY) / tH), sigs.length));
       var iy = sigY + insertAt * tH;
       ctx.save();
@@ -1371,6 +1483,18 @@
 
     // ── クロックルーラー（クリップ内: tick はサブピクセルシフト済み）──
     if (samples > 0) {
+      // 1T 細目盛り（laZoom >= 4 のとき全サンプルに短い tick を表示）
+      if (laZoom >= 4) {
+        ctx.strokeStyle = '#ccc'; ctx.lineWidth = 0.5;
+        for (var fi = 0; fi < samples; fi++) {
+          var fx = SIG_X + fi * laZoom;
+          ctx.beginPath();
+          ctx.moveTo(fx, 0);           ctx.lineTo(fx, 3);           // 上部ルーラー
+          ctx.moveTo(fx, sigY + sigH); ctx.lineTo(fx, sigY + sigH + 3); // 下部ルーラー
+          ctx.stroke();
+        }
+      }
+
       var NICE = [2, 4, 10, 20, 40, 100, 200, 400, 1000, 2000, 4000, 8000];
       var rawSamp  = (laZoom >= 16) ? 2 : (80 / laZoom);
       var tickSamp = NICE[NICE.length - 1];
