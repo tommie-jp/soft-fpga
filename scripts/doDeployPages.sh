@@ -32,7 +32,7 @@ declare -a EXAMPLES=(
     "03:build-wasm-03.sh:examples/03-uart/web:03-uart"
     "04:build-wasm.sh:examples/04-6502/web:04-6502"
     "05:build-wasm.sh:examples/05-dormann/web:05-dormann"
-    "06:build-wasm-06.sh:examples/06-8080/web:06-8080"
+    "06:build-wasm-06.sh:examples/06-8080/web:examples/06-8080/web"
 )
 
 # ---------- filter by targets ----------
@@ -138,13 +138,56 @@ for ex in "${EXAMPLES[@]}"; do
     done
 
     # docs/ ディレクトリ（Markdown ドキュメント）
-    docs_src="$ROOT/docs/$deploy_subdir"
-    if [ -d "$docs_src" ]; then
+    # deploy_subdir が深い場合（例: examples/06-8080/web）は
+    # スラッシュ区切りの各コンポーネントを候補として順に試す
+    docs_src=""
+    # 完全一致を最初に試し、次にパスの各コンポーネントを順に試す
+    if [ -d "$ROOT/docs/$deploy_subdir" ]; then
+        docs_src="$ROOT/docs/$deploy_subdir"
+    else
+        IFS='/' read -ra _parts <<< "$deploy_subdir"
+        for _part in "${_parts[@]}"; do
+            [[ -z "$_part" ]] && continue
+            if [ -d "$ROOT/docs/$_part" ]; then
+                docs_src="$ROOT/docs/$_part"; break
+            fi
+        done
+    fi
+    if [[ -n "$docs_src" ]]; then
         mkdir -p "$dst/docs"
         cp "$docs_src"/*.md "$dst/docs/" 2>/dev/null || true
         echo "  Copied docs → /${deploy_subdir}/docs/"
     fi
 done
+
+# ── example 06 専用: js/ パス深度合わせのための追加処理 ──────────────────────
+# index.html が ../../../js/ を参照するため、ローカル開発と同じ深度
+# (examples/06-8080/web/) にデプロイし、旧 URL (06-8080/) はリダイレクトで転送する。
+if [[ -f "$WORKTREE/examples/06-8080/web/index.html" ]]; then
+    # 旧 06-8080/ 内の本体ファイルを削除（index.html のリダイレクトのみ残す）
+    for old_file in sim.js sim.wasm sim-worker.js; do
+        [ -f "$WORKTREE/06-8080/$old_file" ] && \
+            git -C "$WORKTREE" rm -f "06-8080/$old_file" 2>/dev/null && \
+            echo "Removed legacy 06-8080/$old_file"
+    done
+
+    # 旧 URL 06-8080/ → 実体 examples/06-8080/web/ へリダイレクト
+    mkdir -p "$WORKTREE/06-8080"
+    cat > "$WORKTREE/06-8080/index.html" <<'REDIRECT'
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="refresh" content="0; url=../examples/06-8080/web/">
+  <title>Intel 8080 / CP/M 2.2</title>
+</head>
+<body>
+  <p>移動しました → <a href="../examples/06-8080/web/">Intel 8080 / CP/M 2.2</a></p>
+</body>
+</html>
+REDIRECT
+    echo "Created redirect: 06-8080/ → examples/06-8080/web/"
+fi
 
 cd "$WORKTREE"
 git add -A
