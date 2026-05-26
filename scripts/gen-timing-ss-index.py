@@ -62,12 +62,12 @@ def collect_runs() -> list[tuple[str, str, list[str]]]:
 
 
 # ── viewer.html ───────────────────────────────────────────────────────────────
-# CSS / JS は js/timing-ss-viewer.{css,js} として分離されたライブラリを参照する。
+# CSS / JS は js/image-viewer.{css,js} として分離されたライブラリを参照する。
 # viewer.html はデータ JSON の埋め込みのみ担当する薄いラッパー。
 
 # viewer.html から js/ への相対パス（test/ss/{cpu}/viewer.html → js/）
-_LIB_CSS = "../../../js/timing-ss-viewer.css"
-_LIB_JS  = "../../../js/timing-ss-viewer.js"
+_LIB_CSS = "../../../js/image-viewer.css"
+_LIB_JS  = "../../../js/image-viewer.js"
 
 
 def generate_viewer(runs: list[tuple[str, str, list[str]]]) -> str:
@@ -88,11 +88,11 @@ def generate_viewer(runs: list[tuple[str, str, list[str]]]) -> str:
   <link rel="stylesheet" href="{_LIB_CSS}">
 </head>
 <body>
-  <div id="tsv-root"></div>
+  <div id="iv-root"></div>
   <script src="{_LIB_JS}"></script>
   <script>
     const DATA = {data_json};
-    TimingSSViewer.init(document.getElementById('tsv-root'), DATA);
+    ImageViewer.init(document.getElementById('iv-root'), DATA);
   </script>
 </body>
 </html>

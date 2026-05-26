@@ -1,8 +1,8 @@
 /**
- * timing-ss-viewer.js — タイミング図スクリーンショットビューアーライブラリ
+ * image-viewer.js — タイミング図スクリーンショットビューアーライブラリ
  *
  * 使い方:
- *   TimingSSViewer.init(container, data);
+ *   ImageViewer.init(container, data);
  *
  * data 形式:
  *   {
@@ -13,8 +13,8 @@
  *   }
  *
  * container 内に以下の要素を生成する:
- *   #tsv-bar        — ナビゲーションバー（3カラムグリッド）
- *   #tsv-img-wrap   — 画像表示エリア
+ *   #iv-bar        — ナビゲーションバー（3カラムグリッド）
+ *   #iv-img-wrap   — 画像表示エリア
  *
  * URL パラメーター:
  *   ?run=timing-YYYY-MM-DD-HHMM&i=0
@@ -26,7 +26,7 @@
  *   End       — 最後へ
  */
 
-/* global */ const TimingSSViewer = (() => {
+/* global */ const ImageViewer = (() => {
   'use strict';
 
   // ── ユーティリティ ───────────────────────────────────────────────────────
@@ -43,24 +43,24 @@
 
   function buildDOM(container) {
     container.innerHTML = [
-      '<div id="tsv-bar">',
-      '  <div class="tsv-bar-left">',
-      '    <button id="tsv-btn-ll" title="最初へ (Home)">&#x00AB;</button>',
-      '    <button id="tsv-btn-l"  title="前へ (← / PgUp)">&#x2039;</button>',
+      '<div id="iv-bar">',
+      '  <div class="iv-bar-left">',
+      '    <button id="iv-btn-ll" title="最初へ (Home)">&#x00AB;</button>',
+      '    <button id="iv-btn-l"  title="前へ (← / PgUp)">&#x2039;</button>',
       '  </div>',
-      '  <div class="tsv-bar-center">',
-      '    <select id="tsv-case-sel" title="ケースを選択"></select>',
-      '    <span   id="tsv-counter"></span>',
+      '  <div class="iv-bar-center">',
+      '    <select id="iv-case-sel" title="ケースを選択"></select>',
+      '    <span   id="iv-counter"></span>',
       '  </div>',
-      '  <div class="tsv-bar-right">',
-      '    <button id="tsv-btn-r"  title="次へ (→ / PgDn)">&#x203A;</button>',
-      '    <button id="tsv-btn-rr" title="最後へ (End)">&#x00BB;</button>',
-      '    <a id="tsv-raw-link"  class="tsv-bar-link" href="#"          target="_blank" rel="noopener">PNG ↗</a>',
-      '    <a id="tsv-back-link" class="tsv-bar-link" href="index.html">▤ Gallery</a>',
+      '  <div class="iv-bar-right">',
+      '    <button id="iv-btn-r"  title="次へ (→ / PgDn)">&#x203A;</button>',
+      '    <button id="iv-btn-rr" title="最後へ (End)">&#x00BB;</button>',
+      '    <a id="iv-raw-link"  class="iv-bar-link" href="#"          target="_blank" rel="noopener">PNG ↗</a>',
+      '    <a id="iv-back-link" class="iv-bar-link" href="index.html">▤ Gallery</a>',
       '  </div>',
       '</div>',
-      '<div id="tsv-img-wrap">',
-      '  <img id="tsv-main-img" alt="">',
+      '<div id="iv-img-wrap">',
+      '  <img id="iv-main-img" alt="">',
       '</div>',
     ].join('\n');
   }
@@ -88,7 +88,7 @@
     // ── ドロップダウン ─────────────────────────────────────────────────
 
     function populateSelect() {
-      const sel = document.getElementById('tsv-case-sel');
+      const sel = document.getElementById('iv-case-sel');
       sel.innerHTML = '';
       images().forEach((fn, i) => {
         const opt = document.createElement('option');
@@ -105,14 +105,14 @@
       const fn   = imgs[idx] || '';
       const src  = runKey + '/' + fn;
 
-      document.getElementById('tsv-main-img').src         = src;
-      document.getElementById('tsv-case-sel').value        = idx;
-      document.getElementById('tsv-counter').textContent   = (idx + 1) + ' / ' + imgs.length;
-      document.getElementById('tsv-raw-link').href         = src;
-      document.getElementById('tsv-btn-ll').disabled       = (idx === 0);
-      document.getElementById('tsv-btn-l' ).disabled       = (idx === 0);
-      document.getElementById('tsv-btn-r' ).disabled       = (idx === imgs.length - 1);
-      document.getElementById('tsv-btn-rr').disabled       = (idx === imgs.length - 1);
+      document.getElementById('iv-main-img').src         = src;
+      document.getElementById('iv-case-sel').value        = idx;
+      document.getElementById('iv-counter').textContent   = (idx + 1) + ' / ' + imgs.length;
+      document.getElementById('iv-raw-link').href         = src;
+      document.getElementById('iv-btn-ll').disabled       = (idx === 0);
+      document.getElementById('iv-btn-l' ).disabled       = (idx === 0);
+      document.getElementById('iv-btn-r' ).disabled       = (idx === imgs.length - 1);
+      document.getElementById('iv-btn-rr').disabled       = (idx === imgs.length - 1);
       document.title = '[' + (idx + 1) + '/' + imgs.length + '] ' + label(fn) + ' — Timing SS';
     }
 
@@ -129,20 +129,20 @@
 
     // ── イベントリスナー ───────────────────────────────────────────────
 
-    document.getElementById('tsv-btn-ll').addEventListener('click', () => navigate(0));
-    document.getElementById('tsv-btn-l' ).addEventListener('click', () => navigate(idx - 1));
-    document.getElementById('tsv-btn-r' ).addEventListener('click', () => navigate(idx + 1));
-    document.getElementById('tsv-btn-rr').addEventListener('click', () => navigate(images().length - 1));
+    document.getElementById('iv-btn-ll').addEventListener('click', () => navigate(0));
+    document.getElementById('iv-btn-l' ).addEventListener('click', () => navigate(idx - 1));
+    document.getElementById('iv-btn-r' ).addEventListener('click', () => navigate(idx + 1));
+    document.getElementById('iv-btn-rr').addEventListener('click', () => navigate(images().length - 1));
 
     // ドロップダウン: 選択後に blur() でキーボード操作を即座に有効化
-    document.getElementById('tsv-case-sel').addEventListener('change', e => {
+    document.getElementById('iv-case-sel').addEventListener('change', e => {
       navigate(parseInt(e.target.value, 10));
       e.target.blur();
     });
 
     // キーボード: select フォーカス中は無効化して select 内操作と干渉しない
     document.addEventListener('keydown', e => {
-      if (document.activeElement === document.getElementById('tsv-case-sel')) return;
+      if (document.activeElement === document.getElementById('iv-case-sel')) return;
       if (e.key === 'ArrowLeft'  || e.key === 'PageUp')   { navigate(idx - 1); e.preventDefault(); }
       if (e.key === 'ArrowRight' || e.key === 'PageDown') { navigate(idx + 1); e.preventDefault(); }
       if (e.key === 'Home') { navigate(0);                 e.preventDefault(); }

@@ -1,7 +1,7 @@
 /**
- * timing-ss-viewer.css — タイミング図スクリーンショットビューアー スタイルシート
+ * image-viewer.css — タイミング図スクリーンショットビューアー スタイルシート
  *
- * timing-ss-viewer.js と組み合わせて使用する。
+ * image-viewer.js と組み合わせて使用する。
  * 生成された viewer.html から <link> で参照される。
  */
 
@@ -20,7 +20,7 @@ body {
 /* ── ナビゲーションバー ─────────────────────────────────────────────────── */
 
 /* 3カラムグリッド: 左ボタン | 中央ドロップダウン | 右ボタン+リンク */
-#tsv-bar {
+#iv-bar {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
@@ -30,13 +30,13 @@ body {
   flex-shrink: 0;
 }
 
-.tsv-bar-left  { display: flex; align-items: center; gap: 6px; }
-.tsv-bar-center { display: flex; align-items: center; justify-content: center; gap: 6px; }
-.tsv-bar-right  { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+.iv-bar-left  { display: flex; align-items: center; gap: 6px; }
+.iv-bar-center { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.iv-bar-right  { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
 
 /* ── ナビボタン ────────────────────────────────────────────────────────── */
 
-#tsv-bar button {
+#iv-bar button {
   font-size: 16px;
   padding: 2px 10px;
   background: #333;
@@ -47,12 +47,12 @@ body {
   border-radius: 3px;
   line-height: 1.4;
 }
-#tsv-bar button:hover:not(:disabled) { background: #444; color: #fff; }
-#tsv-bar button:disabled { opacity: .3; cursor: default; }
+#iv-bar button:hover:not(:disabled) { background: #444; color: #fff; }
+#iv-bar button:disabled { opacity: .3; cursor: default; }
 
 /* ── ケース選択ドロップダウン ──────────────────────────────────────────── */
 
-#tsv-case-sel {
+#iv-case-sel {
   font-family: monospace;
   font-size: 13px;
   background: #2a2a2a;
@@ -64,15 +64,15 @@ body {
   min-width: 180px;
   max-width: 360px;
 }
-#tsv-case-sel:focus { outline: 1px solid #777; }
+#iv-case-sel:focus { outline: 1px solid #777; }
 
 /* ── カウンター (n / total) ──────────────────────────────────────────── */
 
-#tsv-counter { font-size: 11px; color: #555; white-space: nowrap; }
+#iv-counter { font-size: 11px; color: #555; white-space: nowrap; }
 
 /* ── バーリンク (PNG ↗ / Gallery) ───────────────────────────────────── */
 
-.tsv-bar-link {
+.iv-bar-link {
   font-size: 11px;
   color: #666;
   text-decoration: none;
@@ -81,11 +81,11 @@ body {
   border-radius: 3px;
   white-space: nowrap;
 }
-.tsv-bar-link:hover { color: #aaa; border-color: #666; }
+.iv-bar-link:hover { color: #aaa; border-color: #666; }
 
 /* ── 画像表示エリア ─────────────────────────────────────────────────── */
 
-#tsv-img-wrap {
+#iv-img-wrap {
   flex: 1;
   display: flex;
   align-items: flex-start;
@@ -94,4 +94,4 @@ body {
   background: #111;
   padding: 4px;
 }
-#tsv-main-img { max-width: 100%; display: block; }
+#iv-main-img { max-width: 100%; display: block; }
