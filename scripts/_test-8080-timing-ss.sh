@@ -51,7 +51,7 @@ for i in $(seq 1 10); do
 done
 
 echo "Playwright テスト実行 (test_timing_ss.py)..."
-echo "出力先: ${PROJECT_ROOT}/test/ss/timing/"
+echo "出力先: ${PROJECT_ROOT}/test/ss/8080/timing-*/"
 echo ""
 
 # 追加の pytest 引数（-k フィルタなど）をそのまま渡す
@@ -63,5 +63,5 @@ echo ""
     "$@"
 
 echo ""
-echo "スクリーンショット保存先: ${PROJECT_ROOT}/test/ss/timing/"
-ls "${PROJECT_ROOT}/test/ss/timing/" 2>/dev/null | tail -5 || true
+echo "スクリーンショット保存先: ${PROJECT_ROOT}/test/ss/8080/"
+ls "${PROJECT_ROOT}/test/ss/8080/" 2>/dev/null | tail -5 || true

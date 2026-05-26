@@ -26,7 +26,7 @@ from sim_api import SimAPI
 # ── 出力先 ────────────────────────────────────────────────────────────────────
 # テスト実行開始時刻を一度だけ取得し、ディレクトリ名に埋め込む（全ケース共通）
 _RUN_TS = datetime.now().strftime("%Y-%m-%d-%H%M")
-_SS_DIR = pathlib.Path(__file__).parent.parent.parent / "test" / "ss" / f"timing-{_RUN_TS}"
+_SS_DIR = pathlib.Path(__file__).parent.parent.parent / "test" / "ss" / "8080" / f"timing-{_RUN_TS}"
 
 # ── 信号グループ定数 ──────────────────────────────────────────────────────────
 #  全レジスタ（常時表示）
