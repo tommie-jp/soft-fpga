@@ -74,15 +74,20 @@ body {
   flex-direction: column;
   overflow: hidden;
 }
+/* 3カラムグリッド: 左ボタン | 中央ドロップダウン | 右ボタン+リンク */
 #bar {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 6px;
+  gap: 0;
   padding: 5px 10px;
   background: #1e1e1e;
   border-bottom: 1px solid #333;
   flex-shrink: 0;
 }
+.bar-left  { display: flex; align-items: center; gap: 6px; }
+.bar-center { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.bar-right  { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
 #bar button {
   font-size: 16px;
   padding: 2px 10px;
@@ -96,16 +101,20 @@ body {
 }
 #bar button:hover:not(:disabled) { background: #444; color: #fff; }
 #bar button:disabled { opacity: .3; cursor: default; }
-#info {
-  flex: 1;
-  font-size: 12px;
-  color: #bbb;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  min-width: 0;
+#case-sel {
+  font-family: monospace;
+  font-size: 13px;
+  background: #2a2a2a;
+  color: #eee;
+  border: 1px solid #555;
+  border-radius: 3px;
+  padding: 3px 6px;
+  cursor: pointer;
+  min-width: 180px;
+  max-width: 360px;
 }
-#counter { font-size: 12px; color: #666; white-space: nowrap; }
+#case-sel:focus { outline: 1px solid #777; }
+#counter { font-size: 11px; color: #555; white-space: nowrap; }
 .bar-link {
   font-size: 11px;
   color: #666;
@@ -149,6 +158,18 @@ if (!runKey || !runs[runKey]) runKey = runKeys[0] || '';
 
 function images() { return runs[runKey] || []; }
 
+// ドロップダウンに全ケースを一度だけ列挙する
+function populateSelect() {
+  const sel  = document.getElementById('case-sel');
+  sel.innerHTML = '';
+  images().forEach((fn, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = label(fn);
+    sel.appendChild(opt);
+  });
+}
+
 function navigate(newIdx) {
   idx = Math.max(0, Math.min(images().length - 1, newIdx));
   render();
@@ -163,7 +184,7 @@ function render() {
   const fn   = imgs[idx] || '';
   const src  = runKey + '/' + fn;
   document.getElementById('main-img').src = src;
-  document.getElementById('info').textContent = label(fn);
+  document.getElementById('case-sel').value = idx;
   document.getElementById('counter').textContent = (idx + 1) + ' / ' + imgs.length;
   document.getElementById('raw-link').href = src;
   document.getElementById('btn-ll').disabled = (idx === 0);
@@ -178,13 +199,22 @@ document.getElementById('btn-l' ).addEventListener('click', () => navigate(idx -
 document.getElementById('btn-r' ).addEventListener('click', () => navigate(idx + 1));
 document.getElementById('btn-rr').addEventListener('click', () => navigate(images().length - 1));
 
+// ドロップダウン選択でナビゲート（選択後フォーカスを外してキーボード操作を維持）
+document.getElementById('case-sel').addEventListener('change', e => {
+  navigate(parseInt(e.target.value, 10));
+  e.target.blur();
+});
+
+// キーボードナビゲーション（select フォーカス中は無効化して干渉を避ける）
 document.addEventListener('keydown', e => {
+  if (document.activeElement === document.getElementById('case-sel')) return;
   if (e.key === 'ArrowLeft'  || e.key === 'PageUp')   { navigate(idx - 1); e.preventDefault(); }
   if (e.key === 'ArrowRight' || e.key === 'PageDown') { navigate(idx + 1); e.preventDefault(); }
   if (e.key === 'Home') { navigate(0);                e.preventDefault(); }
   if (e.key === 'End')  { navigate(images().length - 1); e.preventDefault(); }
 });
 
+populateSelect();
 render();
 """
 
@@ -210,14 +240,23 @@ def generate_viewer(runs: list[tuple[str, str, list[str]]]) -> str:
 </head>
 <body>
   <div id="bar">
-    <button id="btn-ll" title="最初へ (Home)">&#x00AB;</button><!-- « -->
-    <button id="btn-l"  title="前へ (← / PgUp)">&#x2039;</button><!-- ‹ -->
-    <span   id="info"></span>
-    <span   id="counter"></span>
-    <button id="btn-r"  title="次へ (→ / PgDn)">&#x203A;</button><!-- › -->
-    <button id="btn-rr" title="最後へ (End)">&#x00BB;</button><!-- » -->
-    <a id="raw-link" class="bar-link" href="#" target="_blank" rel="noopener">PNG ↗</a>
-    <a id="back-link" class="bar-link" href="index.html">▤ Gallery</a>
+    <!-- 左: 前ナビボタン -->
+    <div class="bar-left">
+      <button id="btn-ll" title="最初へ (Home)">&#x00AB;</button><!-- « -->
+      <button id="btn-l"  title="前へ (← / PgUp)">&#x2039;</button><!-- ‹ -->
+    </div>
+    <!-- 中央: ドロップダウン + カウンター -->
+    <div class="bar-center">
+      <select id="case-sel" title="ケースを選択"></select>
+      <span   id="counter"></span>
+    </div>
+    <!-- 右: 次ナビボタン + リンク -->
+    <div class="bar-right">
+      <button id="btn-r"  title="次へ (→ / PgDn)">&#x203A;</button><!-- › -->
+      <button id="btn-rr" title="最後へ (End)">&#x00BB;</button><!-- » -->
+      <a id="raw-link" class="bar-link" href="#" target="_blank" rel="noopener">PNG ↗</a>
+      <a id="back-link" class="bar-link" href="index.html">▤ Gallery</a>
+    </div>
   </div>
   <div id="img-wrap">
     <img id="main-img" alt="">
