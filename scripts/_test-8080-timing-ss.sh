@@ -65,3 +65,7 @@ echo ""
 echo ""
 echo "スクリーンショット保存先: ${PROJECT_ROOT}/test/ss/8080/"
 ls "${PROJECT_ROOT}/test/ss/8080/" 2>/dev/null | tail -5 || true
+
+echo ""
+echo "ギャラリー生成中..."
+"${VENV}/bin/python" "${SCRIPT_DIR}/gen-timing-ss-index.py"

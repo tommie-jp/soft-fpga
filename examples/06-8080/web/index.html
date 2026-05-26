@@ -204,6 +204,14 @@
       cursor:pointer; color:#222; min-width:28px; text-align:center;
     }
     #la-nav button:hover { background:#d0d0d0; }
+    #la-ss-link {
+      font-size:12px; padding:1px 6px; line-height:1.4;
+      font-family:monospace; background:#e8e8e8; border:1px solid #aaa;
+      cursor:pointer; color:#444; text-decoration:none;
+      white-space:nowrap; border-radius:2px;
+      margin-left:6px;
+    }
+    #la-ss-link:hover { background:#d0d0d0; color:#111; }
     #la-zoom-sel {
       font-size:13px; padding:1px 2px; line-height:1.4;
       font-family:monospace; border:1px solid #aaa; background:#fff;
@@ -337,6 +345,10 @@
     }
     #docs-panel a:last-child { border-bottom:none; }
     #docs-panel a:hover { background:#e8f0ff; color:#0033aa; }
+    #docs-panel .docs-sep {
+      display:block; height:0; border-bottom:1px solid #ccc; margin:2px 0;
+    }
+    #docs-panel a.ss-link { color:#666; font-size:12px; }
     @media (max-width:500px) {
       /* #top-row を縦積みにし、子要素を画面幅いっぱいに引き伸ばす */
       #top-row { flex-direction:column; gap:6px; align-items:stretch; }
@@ -560,6 +572,9 @@
       <a href="#" onclick="openDoc('30-BIOS実装.md');return false;">30 カスタム BIOS 実装</a>
       <a href="#" onclick="openDoc('52-メモリマップ.md');return false;">52 メモリマップ &amp; I/O ポート</a>
       <a href="#" onclick="openDoc('53-参考資料.md');return false;">53 参考資料</a>
+      <span class="docs-sep"></span>
+      <a class="ss-link" href="../../../test/ss/8080/index.html" target="_blank"
+         rel="noopener" title="タイミング図スクリーンショット一覧">&#x1F4F7; Timing SS Gallery</a>
     </div>
   </div>
 
@@ -795,6 +810,8 @@
         <div class="la-nav-right">
           <button id="la-nav-r"  title="1ページ分右へスクロール（最新方向）">&#x203A;</button><!-- › -->
           <button id="la-nav-rr" title="最新データへ（T=0、ライブ追従）">&#x00BB;</button><!-- » -->
+          <a id="la-ss-link" href="../../../test/ss/8080/index.html" target="_blank"
+             rel="noopener" title="タイミング図スクリーンショット一覧">&#x1F4F7; SS</a>
         </div>
       </div>
       <div id="la-wrap" style="position:relative;display:block;">
