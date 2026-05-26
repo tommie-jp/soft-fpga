@@ -127,7 +127,11 @@ for ex in "${EXAMPLES[@]}"; do
 
     echo "--- Deploying example $id → /${deploy_subdir} ---"
     mkdir -p "$dst"
-    cp "$src/index.html" "$dst/"
+    # index.html 内の <!-- DEPLOY_DATETIME --> をデプロイ日時で置換する。
+    # プレースホルダーがなければ通常コピーと同等。
+    DEPLOY_DT=$(date '+%Y-%m-%d %H:%M')
+    sed "s|<!-- DEPLOY_DATETIME -->| \&nbsp;updated on ${DEPLOY_DT}|g" \
+        "$src/index.html" > "$dst/index.html"
     [ -f "$src/sim.js"        ] && cp "$src/sim.js"        "$dst/"
     [ -f "$src/sim.wasm"      ] && cp "$src/sim.wasm"      "$dst/"
     [ -f "$src/sim-worker.js" ] && cp "$src/sim-worker.js" "$dst/"
