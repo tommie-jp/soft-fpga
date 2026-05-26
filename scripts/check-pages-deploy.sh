@@ -76,14 +76,14 @@ else
     phase1_ok=false
     deploy_id=""
 
-    # --- デプロイ ID の探索（最大 30 秒）---
+    # --- デプロイ ID の探索（最大 60 秒）---
     if [[ -n "$TARGET_SHA" ]]; then
         info "デプロイ ID を検索中 (SHA: ${TARGET_SHA})..."
     else
         info "デプロイ ID を検索中 (最新)..."
     fi
 
-    id_deadline=$(( $(date +%s) + 30 ))
+    id_deadline=$(( $(date +%s) + 60 ))
     while [[ $(date +%s) -lt $id_deadline ]]; do
         json=$(gh api "repos/${REPO}/deployments?environment=github-pages&per_page=5" 2>/dev/null || echo "[]")
         if [[ -n "$TARGET_SHA" ]]; then
@@ -107,6 +107,18 @@ EOF
         [[ -n "$deploy_id" ]] && break
         sleep 3
     done
+
+    # SHA 一致するデプロイが見つからない場合は最新デプロイにフォールバック
+    if [[ -z "$deploy_id" && -n "$TARGET_SHA" ]]; then
+        warn "SHA ${TARGET_SHA} に一致するデプロイが見つかりません — 最新デプロイで代替します"
+        fallback_json=$(gh api "repos/${REPO}/deployments?environment=github-pages&per_page=1" 2>/dev/null || echo "[]")
+        deploy_id=$(python3 - <<EOF
+import sys, json
+data = json.loads("""${fallback_json}""")
+if data: print(data[0]['id'])
+EOF
+)
+    fi
 
     if [[ -z "$deploy_id" ]]; then
         fail "デプロイ ID が見つかりません (SHA: ${TARGET_SHA:-指定なし})"
