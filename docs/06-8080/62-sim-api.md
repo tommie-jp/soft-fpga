@@ -41,8 +41,9 @@ await sim.readMem(addr, len)            // → Uint8Array  (DDT D コマンド�
 sim.setPC(addr)                         // PC のみ設定（実行開始しない）
 sim.runFrom(addr)                       // setPC + run() の短縮形（DDT G コマンド相当）
 sim.stepInstr()                         // 1 命令実行して停止（DDT T コマンド相当）
-sim.setRegs({a?, b?, c?, d?, e?,
-             h?, l?, sp?, pc?})         // レジスタ部分指定書き込み（F は未サポート）
+sim.setRegs({a?, f?, b?, c?, d?, e?,
+             h?, l?, sp?, pc?})         // レジスタ部分指定書き込み
+                                        //   f は setFlags 経由（PSW: S Z 0 AC 0 P 1 C）
 await sim.getRegs()                     // → {a, f, b, c, d, e, h, l, sp, pc}
 ```
 
@@ -59,7 +60,7 @@ await sim.getRegs()                     // → {a, f, b, c, d, e, h, l, sp, pc}
 | `l`  | 6 | 8 bit |
 | `sp` | 7 | 16 bit |
 | `pc` | — | 16 bit（`setPC` に委譲） |
-| `f`  | — | 未サポート（warning ログ） |
+| `f`  | — | 8 bit（`setFlags` に委譲。PSW フォーマット S Z 0 AC 0 P 1 C） |
 
 ### 1.5 トリガー設定
 
@@ -87,12 +88,18 @@ sim.setPostDelay(n)         // 発火後にリングバッファへ記録し続�
 await sim.waitTrigger(timeoutMs=60000)  // → {trigHead}  タイムアウト時は例外
 ```
 
-### 1.7 ring buffer 読み取り
+### 1.7 ring buffer 読み取り・制御
 
 ```js
 sim.readSample(signalId, offset=0)
 // offset: 0=発火点, +n=後方, -n=前方
 // → number | undefined（未発火・不明シグナル時）
+
+sim.freezeRing()                        // ring buffer への記録を手動で停止（フリーズ）
+sim.thawRing()                          // フリーズ解除して記録を再開
+                                        //   トリガー自動フリーズ後、実行再開前に呼ぶ
+sim.setMemWatch(slot, addr)             // MemWatch スロット(0/1/2)に監視アドレスを設定
+                                        //   addr=-1 で無効化。LA の mem1/mem2/mem3 信号に反映
 ```
 
 ### 1.8 信号メタデータ
@@ -192,7 +199,7 @@ data: bytes = sim.await_read_mem(addr: int, length: int)
 sim.set_pc(addr: int)                              # PC のみ設定
 sim.run_from(addr: int)                            # setPC + run
 sim.step_instr()                                   # 1 命令ステップ
-sim.set_regs(a=?, b=?, c=?, d=?, e=?, h=?, l=?, sp=?, pc=?)
+sim.set_regs(a=?, f=?, b=?, c=?, d=?, e=?, h=?, l=?, sp=?, pc=?)  # f は PSW フォーマット
 regs: dict = sim.await_get_regs()                 # {'a':…, 'pc':…, …}
 ```
 
@@ -329,7 +336,7 @@ print([s["id"] for s in writable])
 ## 5. 注意事項
 
 - `setPC` / `setRegs` / `write_mem` は **命令境界**（`step_instr()` 後または `pause()` 中）で呼ぶこと。実行中に呼ぶと RTL の内部パイプラインと競合する可能性がある。
-- `f` (フラグレジスタ) は vm80a がビット単位で保持しているため `setRegs` では設定できない。
+- `f` (フラグレジスタ) は vm80a がビット単位（PSW: S Z 0 AC 0 P 1 C）で保持しているため、`setRegs({f})` は内部で `setFlags` に委譲して各ビットを設定する。なお `getSignals()` の `writable` 一覧には現状 `reg_f` は含まれない（書き換えは `setRegs({f})` を使用）。
 - `screenshotCanvas` はキャンバス要素の **現在の描画** を取得する。LA の更新は RAF（requestAnimationFrame）で行われるため、トリガー発火後 0.3〜0.5 秒待ってから呼ぶこと。
 - `screenshot_canvas_to_file` は **ホストのファイルシステム**に書き込む（WASM FS ではない）。
   JS 側でキャンバスを DataURL に変換し、Python 側でデコードしてファイルに保存する。

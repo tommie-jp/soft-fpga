@@ -34,10 +34,9 @@ module cpm_top (
     output wire        io_active, // = cycle_io (I/O サイクル中)
     output wire [7:0]  io_port,   // = cpu_addr[7:0] (ポート番号、cycle_io=1 時有効)
 
-    // デバッグ用シグナル
-    output wire [15:0] dbg_pc,
-    output wire [7:0]  dbg_a,
-    output wire [7:0]  dbg_f,
+    // デバッグ用シグナル（バス信号 — 名称は実体に合わせる）
+    output wire [15:0] dbg_addr,   // アドレスバス cpu_addr（命令フェッチ時のみ PC と一致）
+    output wire [7:0]  dbg_dbus,   // CPU データ出力バス cpu_dout
 
     // バスアナライザ用追加信号
     output wire        dbg_sync,   // SYNC: マシンサイクル開始パルス
@@ -176,9 +175,10 @@ module cpm_top (
     // ---------------------------------------------------------
     // デバッグ信号
     // ---------------------------------------------------------
-    assign dbg_pc = cpu_addr;
-    assign dbg_a  = cpu_dout;              // 実際の CPU データ出力バス
-    assign dbg_f  = {7'b0, cpu_wr_n};     // bit0 = WR_n
+    // dbg_addr/dbg_dbus はバス信号。本物の PC/A/F は vm80a 内部レジスタ
+    // (r16_pc / acc / psw_*) を harness が直接参照して取得する。
+    assign dbg_addr = cpu_addr;            // アドレスバス
+    assign dbg_dbus = cpu_dout;            // CPU データ出力バス
     assign dbg_sync = cpu_sync;
     assign dbg_wr_n = cpu_wr_n;
     assign dbg_hlda = cpu_hlda;

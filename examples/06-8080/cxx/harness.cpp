@@ -44,9 +44,9 @@ static Vcpm_top* top;
 // Word 1:
 // [15: 0] = addr     (16 ビットアドレスバス — SYNC=1 T1 でラッチ、T2〜T4 保持。実 8080A 外部挙動に準拠)
 // [23:16] = io_din   (I/O 読みデータ — IN 命令でCPUが受け取る値)
-// [31:24] = dbg_a    (アキュムレータ A)
+// [31:24] = acc     (アキュムレータ A — vm80a 内部レジスタ acc を直接参照)
 // Word 2:
-// [ 7: 0] = dbg_f    (フラグレジスタ F)
+// [ 7: 0] = F        (フラグレジスタ F — PSW 個別ビットから make_f_byte() で再構成)
 // [15: 8] = B        (レジスタ B)
 // [23:16] = C        (レジスタ C)
 // [31:24] = D        (レジスタ D)
@@ -581,8 +581,8 @@ void step()
     //   → 実物 8080A は T1 でアドレス確定後 T3 まで保持。vm80a は T3〜T4 で 0 になるため
     //     ラッチすることで外部から見たアドレスバスの挙動に合わせる。
     if (top->dbg_sync) {
-        current_status = (uint8_t)top->dbg_a;
-        latched_addr   = (uint16_t)(top->dbg_pc & 0xFFFF);
+        current_status = (uint8_t)top->dbg_dbus;
+        latched_addr   = (uint16_t)(top->dbg_addr & 0xFFFF);
     }
 
     // IO 要求の立ち上がりで OUT 処理
@@ -604,7 +604,7 @@ void step()
         // SYNC=1 のクロックでは cpu_dout = ステータスバイトのため除外し、
         // SYNC 後 T2 以降（cpu_dout = xr = アキュムレータ）を使う
         uint8_t samp_data = (top->io_active && (current_status & 0x10u) && !top->dbg_sync)
-                            ? (uint8_t)top->dbg_a     // IO OUT T2+: cpu_dout = xr = 出力データ
+                            ? (uint8_t)top->dbg_dbus  // IO OUT T2+: cpu_dout = xr = 出力データ
                             : (uint8_t)top->io_dout;  // 保持値 (SYNC クロック含む)
         ring[ridx] =
             ((uint32_t)samp_port      ) |          // [ 7: 0] I/O ポート
@@ -629,7 +629,7 @@ void step()
             // Word 2: 全レジスタ F, B, C, D
             auto* cpu  = top->cpm_top->cpu;
             // F フラグを PSW 個別ビットから再構成
-            // dbg_f = {7'b0, cpu_wr_n} で実 F レジスタとは無関係のため直接アクセス
+            // （旧 dbg_f は {7'b0, cpu_wr_n} で実 F とは無関係だったため廃止済み）
             uint8_t f_byte = make_f_byte(cpu);
             uint16_t bc = (uint16_t)cpu->__PVT__r16_bc;
             // xchg_dh フラグで物理 r16_hl/r16_de の論理マッピングが入れ替わる。
@@ -646,7 +646,7 @@ void step()
             // Word 3: E, H, L, CPU データバス
             // dbus: MEMR=RAMデータ, IO OUT T2+=cpu_dout, IO IN=io_din, その他=io_dout保持
             // SYNC=1 クロックは cpu_dout=ステータスバイトのため除外
-            // NOTE: ram[dbg_pc] ではなく cpu_din 組み合わせ論理を直接使う。
+            // NOTE: ram[dbg_addr] ではなく cpu_din 組み合わせ論理を直接使う。
             //   cpu_dbin と cpu_addr の T ステートずれを回避するため。
             uint8_t dbus;
             if (top->dbg_memr) {
@@ -655,9 +655,9 @@ void step()
             } else if (top->dbg_memw) {
                 // MEMW T2+: WR_N=0 && !cycle_io → cpu_dout = 書き込みデータ（MOV M,A の A 等）
                 // io_dout は OUT 命令でラッチされた保持値のため使用不可
-                dbus = (uint8_t)top->dbg_a;
+                dbus = (uint8_t)top->dbg_dbus;
             } else if (top->io_active && (current_status & 0x10u) && !top->dbg_sync) {
-                dbus = (uint8_t)top->dbg_a;  // IO OUT T2+: cpu_dout = xr = 出力データ
+                dbus = (uint8_t)top->dbg_dbus;  // IO OUT T2+: cpu_dout = xr = 出力データ
             } else if (top->io_req && !top->io_wr) {
                 dbus = (uint8_t)top->io_din; // IO IN: ポートが返したデータ
             } else {
@@ -669,11 +669,19 @@ void step()
                 ((uint32_t)(logical_hl        & 0xFF) << 16) | // [23:16] L (論理HLの下位バイト)
                 ((uint32_t)dbus               << 24);  // [31:24] CPU データバス
         }
-        ring[ridx + 4] =
-            (uint32_t)current_status |                              // [ 7: 0] ステータスバイト
-            ((uint32_t)top->cpm_top->cpu->__PVT__i       << 8)  | // [15: 8] 命令レジスタ (IR)
-            ((uint32_t)(top->cpm_top->f1 ? 1u : 0u)      << 16) | // [16]    クロック φ1
-            ((uint32_t)(top->cpm_top->f2 ? 1u : 0u)      << 17);  // [17]    クロック φ2
+        {
+            // マシンサイクル番号: vm80a の m1..m5 (one-hot) を 1..5 にエンコード（0=該当なし）
+            auto* cpu4 = top->cpm_top->cpu;
+            uint8_t mcyc = cpu4->m1 ? 1u : cpu4->m2 ? 2u :
+                           cpu4->m3 ? 3u : cpu4->m4 ? 4u :
+                           cpu4->m5 ? 5u : 0u;
+            ring[ridx + 4] =
+                (uint32_t)current_status |                              // [ 7: 0] ステータスバイト
+                ((uint32_t)top->cpm_top->cpu->__PVT__i       << 8)  | // [15: 8] 命令レジスタ (IR)
+                ((uint32_t)(top->cpm_top->f1 ? 1u : 0u)      << 16) | // [16]    クロック φ1
+                ((uint32_t)(top->cpm_top->f2 ? 1u : 0u)      << 17) | // [17]    クロック φ2
+                ((uint32_t)mcyc                              << 18);  // [20:18] マシンサイクル番号 (1=M1..5=M5)
+        }
         {
             // Word 5: PC レジスタ + SP レジスタ（vm80a 内部レジスタから直接取得）
             auto* cpu5 = top->cpm_top->cpu;
@@ -698,7 +706,8 @@ void step()
     if (cur_sync && !prev_dbg_sync) {
         // SYNC 立ち上がりエッジ: 新しいマシンサイクル開始
         // PC アドレスにある命令バイトを読んで CALL/RET を検出する
-        uint16_t pc = (uint16_t)top->dbg_pc;
+        // SYNC=1（M1 フェッチ先頭）ではアドレスバス = フェッチ対象アドレスなので dbg_addr で正しい
+        uint16_t pc = (uint16_t)top->dbg_addr;
         uint8_t  op = (uint8_t)top->cpm_top->ram[pc];
         bool is_call = (op == 0xCD) || ((op & 0xC7) == 0xC4);
         bool is_ret  = (op == 0xC9) || ((op & 0xC7) == 0xC0);
@@ -770,7 +779,7 @@ void step()
         uint32_t regval = 0;
         switch (trig_reg_id) {
         case  0: regval = (uint32_t)cpu7->acc;                         break;
-        case  1: regval = (uint32_t)top->dbg_f;                        break;
+        case  1: regval = (uint32_t)make_f_byte(cpu7);                 break;
         case  2: regval = ((uint32_t)cpu7->__PVT__r16_bc >>  8) & 0xFF; break;
         case  3: regval =  (uint32_t)cpu7->__PVT__r16_bc        & 0xFF; break;
         case  4: regval = ((uint32_t)cpu7->__PVT__r16_de >>  8) & 0xFF; break;
@@ -822,7 +831,10 @@ int get_display_char()
 EMSCRIPTEN_KEEPALIVE
 uint16_t get_pc()
 {
-    return top ? (uint16_t)top->dbg_pc : 0;
+    // 本物の PC（vm80a r16_pc）を返す。sim-worker は命令デコード用に PC 周辺バイトを
+    // 読むため、アドレスバス（dbg_addr=cpu_addr。M1 フェッチ時以外は PC と不一致）ではなく
+    // 内部レジスタを参照する必要がある。
+    return top ? (uint16_t)top->cpm_top->cpu->__PVT__r16_pc : 0;
 }
 
 EMSCRIPTEN_KEEPALIVE

@@ -323,7 +323,9 @@ static int run_mode_run_test(const char* bin_path) {
     bool all_pass = true;
     int  groups   = 0;
     for (int i = 0; i < n; i++) {
-        char c = (char)(get_display_char() & 0x7F);
+        int ch = get_display_char();
+        if (ch < 0) break;   // バッファ枯渇（n が実出力数より大きい場合）で打ち切る
+        char c = (char)(ch & 0x7F);
         fputc(c, stdout);
         if (c == 'P') groups++;
         if (c == 'F') { all_pass = false; groups++; }

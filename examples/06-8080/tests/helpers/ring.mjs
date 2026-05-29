@@ -52,7 +52,7 @@ export function readRingBuffer(heapu32, ringBase, ringSize, head, count = ringSi
   const n = Math.min(count, ringSize);
   const samples = [];
   for (let i = n - 1; i >= 0; i--) {
-    const idx = ((head - 1 - i + ringSize) % ringSize) * 6;
+    const idx = ((head - 1 - i + ringSize) % ringSize) * 7;  // RING_WORDS=7 (cpm_const.h と一致させる)
     samples.push({
       w0: heapu32[ringBase + idx + 0],
       w1: heapu32[ringBase + idx + 1],
