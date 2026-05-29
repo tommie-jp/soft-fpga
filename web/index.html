@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>soft-FPGA — RTL Simulators</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <style>
@@ -26,6 +27,17 @@
     }
     .footer { font-size:11px; color:#aaa; margin-top:32px; }
     .footer a { color:#aaa; }
+
+    /* ---- Mobile (<=500px): テーブルを縦積みカードに ---- */
+    @media (max-width:500px) {
+      body { margin:20px 16px; max-width:none; }
+      thead { display:none; }
+      table, tbody, tr, td { display:block; width:100%; }
+      tr { border-bottom:1px solid #ddd; padding:10px 0; }
+      td { padding:2px 0; border-bottom:none; }
+      td:first-child { white-space:normal; }
+      .ex-link { font-size:16px; }
+    }
   </style>
 </head>
 <body>

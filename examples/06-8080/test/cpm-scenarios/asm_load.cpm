@@ -1,0 +1,9 @@
+# ASM + LOAD — アセンブル → HEX → COM 化 → 実行（トランジェント）
+# PROG.ASM を ASM.COM でアセンブルし PROG.HEX を生成、LOAD.COM で PROG.COM 化、実行して "ASM OK" を確認。
+!timeout 200000000
+ASM PROG
+!expect A>
+LOAD PROG
+!expect A>
+PROG
+!expect ASM OK

@@ -196,26 +196,33 @@ static void ensure_orig_file(const char* orig, const char* src) {
 
 // ── 実行モードヘルパー ────────────────────────────────────────────
 
-// CP/M が "A>" プロンプトを出力するまで最大 max_steps ステップ待つ。
-// output[0..max_buf-1] に文字を蓄積し、プロンプトを見つけたら true を返す。
-// out_pos は呼び出し元が 0 で初期化して渡す。
-static bool wait_for_prompt(char* output, int& out_pos, int max_buf,
-                             long long max_steps, long long idle_timeout)
+// output 末尾に needle 文字列が現れるまで最大 max_steps ステップ待つ。
+// output[0..max_buf-1] に文字を蓄積し、見つけたら true を返す。
+// idle_timeout ステップ無音が続いたら打ち切る。out_pos は呼出元が 0 で初期化して渡す。
+static bool wait_for_str(char* output, int& out_pos, int max_buf,
+                         const char* needle, long long max_steps, long long idle_timeout)
 {
+    int nlen = (int)strlen(needle);
     long long last_out_step = -1;
     for (long long s = 0; s < max_steps; s++) {
         step();
         int ch;
         while ((ch = get_display_char()) >= 0 && out_pos < max_buf - 1) {
-            char c = (char)(ch & 0x7F);
-            output[out_pos++] = c;
+            output[out_pos++] = (char)(ch & 0x7F);
             last_out_step = s;
-            if (out_pos >= 2 && output[out_pos - 2] == 'A' && output[out_pos - 1] == '>')
+            if (out_pos >= nlen && strncmp(output + out_pos - nlen, needle, nlen) == 0)
                 return true;
         }
         if (last_out_step >= 0 && (s - last_out_step) > idle_timeout) break;
     }
     return false;
+}
+
+// CP/M が "A>" プロンプトを出力するまで待つ（wait_for_str の薄いラッパ）。
+static bool wait_for_prompt(char* output, int& out_pos, int max_buf,
+                             long long max_steps, long long idle_timeout)
+{
+    return wait_for_str(output, out_pos, max_buf, "A>", max_steps, idle_timeout);
 }
 
 // ─── 各実行モード ────────────────────────────────────────────────
@@ -301,6 +308,112 @@ static int run_mode_exec(const char* bios_path, const char* cpm_path,
                 exec_cmd, out_pos);
         return 1;
     }
+}
+
+// --cpm-script <file>: シナリオファイルで CP/M コマンドを逐次実行しアサートする。
+// 形式（Web の !script/!expect に準拠）:
+//   # コメント / 空行         … 無視
+//   <通常行>                  … コマンドとして送信（末尾 CR 付与）
+//   !expect STR               … STR が出力に現れるまで待機（idle で打切り）
+//   !assert STR               … その時点の出力バッファに STR が含まれるか（待機なし）
+//   !send-raw HH              … 16進 1バイトを送出（例 03=Ctrl+C）
+//   !sleep N                  … N×1000 ステップ実行して出力をドレイン
+//   !prompt C                 … 以降の対話プロンプト文字（!expect-prompt 用、現状は保持のみ）
+static int run_mode_cpm_script(const char* bios_path, const char* cpm_path,
+                               const char* dsk_path,  const char* dsk_b_path,
+                               const char* dsk_c_path, const char* dsk_d_path,
+                               const char* script_path, bool save_disks)
+{
+    if (sim_init(bios_path, cpm_path, dsk_path) != 0) return 1;
+    if (dsk_b_path && sim_load_disk_file(1, dsk_b_path) != 0) return 1;
+    if (dsk_c_path && sim_load_disk_file(2, dsk_c_path) != 0) return 1;
+    if (dsk_d_path && sim_load_disk_file(3, dsk_d_path) != 0) return 1;
+
+    // --cpm-save 指定時のみ終了後にディスクへ書き戻す（cpmls 生成物検証用）。
+    // 既定は no-save で元ディスクを保護。ランナーは作業コピーに対して save させる。
+    if (save_disks) {
+        g_dsk_paths[0] = dsk_path;
+        g_dsk_paths[1] = dsk_b_path;
+        g_dsk_paths[2] = dsk_c_path;
+        g_dsk_paths[3] = dsk_d_path;
+    }
+
+    FILE* f = fopen(script_path, "r");
+    if (!f) { fprintf(stderr, "cannot open script: %s\n", script_path); return 1; }
+
+    static char output[524288];   // 512KB 出力バッファ（累積）
+    int out_pos = 0;
+
+    // 起動 A> 待ち
+    if (!wait_for_prompt(output, out_pos, (int)sizeof(output), 10000000LL, 2000000LL)) {
+        fprintf(stderr, "CP/M boot failed (A> not found)\n");
+        fclose(f);
+        return 1;
+    }
+
+    char prompt[16] = "A>";   // !prompt で変更可能（対話コマンド用、現状は保持のみ）
+    long long expect_idle = 5000000LL;  // !expect の無音打切りステップ数（!timeout で変更）
+    int  checks = 0, fails = 0;
+    char line[1024];
+    while (fgets(line, sizeof(line), f)) {
+        size_t len = strlen(line);
+        while (len > 0 && (line[len-1] == '\n' || line[len-1] == '\r')) line[--len] = '\0';
+        if (len == 0 || line[0] == '#') continue;
+
+        if (line[0] == '!') {
+            char* sp  = strchr(line, ' ');
+            char* arg = sp ? sp + 1 : nullptr;
+            if (sp) *sp = '\0';
+            const char* cmd = line + 1;
+
+            if (!strcmp(cmd, "timeout") && arg) {
+                expect_idle = atoll(arg);
+            } else if (!strcmp(cmd, "expect") && arg) {
+                bool ok = wait_for_str(output, out_pos, (int)sizeof(output),
+                                       arg, 2000000000LL, expect_idle);
+                checks++;
+                fprintf(stdout, "  [%s] !expect '%s'%s\n", ok ? "ok" : "FAIL",
+                        arg, ok ? "" : " (timeout)");
+                if (!ok) fails++;
+            } else if (!strcmp(cmd, "assert") && arg) {
+                output[out_pos] = '\0';
+                bool ok = (strstr(output, arg) != nullptr);
+                checks++;
+                fprintf(stdout, "  [%s] !assert '%s'%s\n", ok ? "ok" : "FAIL",
+                        arg, ok ? "" : " (not found)");
+                if (!ok) fails++;
+            } else if (!strcmp(cmd, "send-raw") && arg) {
+                unsigned v = 0; sscanf(arg, "%x", &v);
+                send_key((uint8_t)v);
+            } else if (!strcmp(cmd, "sleep") && arg) {
+                long long n = atoll(arg);
+                for (long long s = 0; s < n * 1000; s++) {
+                    step();
+                    int ch;
+                    while ((ch = get_display_char()) >= 0 && out_pos < (int)sizeof(output)-1)
+                        output[out_pos++] = (char)(ch & 0x7F);
+                }
+            } else if (!strcmp(cmd, "prompt") && arg) {
+                strncpy(prompt, arg, sizeof(prompt)-1);
+                prompt[sizeof(prompt)-1] = '\0';
+            } else {
+                fprintf(stderr, "  unknown directive: !%s\n", cmd);
+            }
+        } else {
+            // 通常行 = コマンド送信（CR 付与）。出力は後続の !expect/!sleep が回収する。
+            for (const char* p = line; *p; p++) send_key((uint8_t)*p);
+            send_key('\r');
+        }
+    }
+    fclose(f);
+
+    output[out_pos] = '\0';
+    fprintf(stdout, "%s\n", output);
+    fprintf(stdout, "--- cpm-script '%s': %d checks, %d failed ---\n",
+            script_path, checks, fails);
+
+    if (save_disks) save_dirty_disks();
+    return fails == 0 ? 0 : 1;
 }
 
 // --run-test <file>: ベアメタルバイナリを実行してグループ合否を判定する
@@ -647,6 +760,8 @@ int main(int argc, char* argv[]) {
     bool        run_test_default = false;
     const char* exec_cmd     = nullptr;
     const char* bare_test    = nullptr;
+    const char* cpm_script   = nullptr;
+    bool        cpm_save     = false;
     for (int i = 1; i < argc; i++) {
         if      (!strcmp(argv[i], "-hj")) {
             fprintf(stdout,
@@ -702,6 +817,7 @@ int main(int argc, char* argv[]) {
                 "                           (default: <binary>/../test/test_all.bin)\n"
                 "  --bare-test <file>       Run bare-metal binary (extended timeout)\n"
                 "  --exec <cmd>             Boot CP/M, run command, print output\n"
+                "  --cpm-script <file>      Run a CP/M command scenario and assert output\n"
                 "\n"
                 "File options (defaults resolved relative to binary):\n"
                 "  --bios <path>            BIOS binary     (default: <binary>/../sw/cpm/bios/bios.bin)\n"
@@ -734,6 +850,8 @@ int main(int argc, char* argv[]) {
             else { run_test_bin = DEFAULT_RUN_TEST; run_test_default = true; }
         }
         else if (!strcmp(argv[i], "--exec")      && i+1<argc)  exec_cmd  = argv[++i];
+        else if (!strcmp(argv[i], "--cpm-script") && i+1<argc) cpm_script = argv[++i];
+        else if (!strcmp(argv[i], "--cpm-save"))               cpm_save   = true;
         else if (!strcmp(argv[i], "--bare-test") && i+1<argc)  bare_test = argv[++i];
         else if (!strcmp(argv[i], "--ddt-ctrlc-test")) ddt_ctrlc_test = true;
         else if (!strcmp(argv[i], "--bios")      && i+1<argc)  bios_path  = argv[++i];
@@ -821,6 +939,11 @@ int main(int argc, char* argv[]) {
     if (exec_cmd)
         return run_mode_exec(bios_path, cpm_path, dsk_path,
                              dsk_b_path, dsk_c_path, dsk_d_path, exec_cmd);
+
+    if (cpm_script)
+        return run_mode_cpm_script(bios_path, cpm_path, dsk_path,
+                                   dsk_b_path, dsk_c_path, dsk_d_path,
+                                   cpm_script, cpm_save);
 
     // --bare-test <file>: バイナリを 0x0000 に配置してベアメタル実行
     if (bare_test)

@@ -1,0 +1,7 @@
+# REN — ファイル名変更（CCP 内蔵）
+# HELLO.TXT を NEW.TXT にリネームし、DIR で確認。
+REN NEW.TXT=HELLO.TXT
+!expect A>
+DIR NEW.TXT
+!expect A>
+!assert NEW

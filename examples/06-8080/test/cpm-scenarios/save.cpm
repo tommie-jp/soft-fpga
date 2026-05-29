@@ -1,0 +1,7 @@
+# SAVE — メモリページをファイルに保存（CCP 内蔵）
+# 1 ページ (256B) を BLK.COM として保存し、DIR で確認。
+SAVE 1 BLK.COM
+!expect A>
+DIR BLK.COM
+!expect A>
+!assert BLK

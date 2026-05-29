@@ -1,0 +1,12 @@
+# ED — 行エディタで新規ファイル作成 → 1行挿入 → 保存（対話・最小）
+# 挿入モード I → 1行入力 → ^Z(0x1A) で抜け → E で保存。生成物は cpmls で検証。
+!timeout 50000000
+ED EDTEST.TXT
+!expect *
+I
+!sleep 10
+HELLO ED LINE
+!send-raw 1A
+!expect *
+E
+!expect A>

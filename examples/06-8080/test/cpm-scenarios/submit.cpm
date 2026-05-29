@@ -1,0 +1,4 @@
+# SUBMIT — バッチ実行（トランジェント）
+# DOIT.SUB（STAT を含む）を SUBMIT し、バッチで STAT が自動実行されることを確認。
+SUBMIT DOIT
+!expect A:

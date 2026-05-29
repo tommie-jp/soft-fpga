@@ -1,0 +1,6 @@
+# DIR — ディレクトリ一覧（CCP 内蔵コマンド）
+# cpm22.dsk に収録された COM ファイルが一覧表示され、A> に復帰することを確認する。
+DIR
+!expect A>
+!assert STAT
+!assert PIP

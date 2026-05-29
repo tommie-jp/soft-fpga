@@ -1,0 +1,7 @@
+# ERA — ファイル削除（CCP 内蔵）
+# HELLO.TXT を削除し、DIR で "No file" を確認。
+ERA HELLO.TXT
+!expect A>
+DIR HELLO.TXT
+!expect A>
+!assert NO FILE

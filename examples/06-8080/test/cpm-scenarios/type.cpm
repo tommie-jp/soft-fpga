@@ -1,0 +1,5 @@
+# TYPE — テキストファイル表示（CCP 内蔵）
+# fixtures/HELLO.TXT の内容が表示されることを確認。
+TYPE HELLO.TXT
+!expect A>
+!assert HELLO FROM CPM TEST

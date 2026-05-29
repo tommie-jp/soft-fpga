@@ -2,6 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>05 — Klaus Dormann 6502 Functional Test — rtlscope</title>
   <style>
     body { background:#1a1a1a; color:#eee; font-family:monospace; margin:20px; }
@@ -35,8 +36,9 @@
     #prog-bar.fail { background:#a44; }
 
     /* canvas */
-    canvas { display:block; border:1px solid #333; }
+    canvas { display:block; border:1px solid #333; max-width:100%; height:auto; }
     .sig-label { font-size:11px; color:#555; margin-bottom:2px; }
+    @media (max-width:500px) { body { margin:12px; } }
   </style>
 </head>
 <body>

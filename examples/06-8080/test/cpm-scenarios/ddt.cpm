@@ -1,0 +1,9 @@
+# DDT — デバッガ起動 → L で逆アセンブル → Ctrl+C でウォームブート（対話・最小）
+# G（実行）はハングリスクがあるため使わない。
+!timeout 50000000
+DDT
+!expect -
+L100
+!expect -
+!send-raw 03
+!expect A>

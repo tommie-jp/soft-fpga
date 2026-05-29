@@ -1,0 +1,16 @@
+# BDS C — HELLO.C をコンパイル→リンク→実行（B: の bdsc.dsk 作業コピー）
+# 既存の HELLO.CRL/COM を消してから CC で再生成し、コンパイラが実際に動く証明とする。
+# CC/CLINK はシミュレータ上で長時間かかるため idle 打切りを大きく取る。
+B:
+!expect B>
+ERA HELLO.CRL
+!expect B>
+ERA HELLO.COM
+!expect B>
+!timeout 2000000000
+CC HELLO.C
+!expect B>
+CLINK HELLO
+!expect B>
+HELLO
+!expect Hello, CP/M!

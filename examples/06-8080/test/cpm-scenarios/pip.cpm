@@ -1,0 +1,7 @@
+# PIP — ファイルコピー（トランジェント）
+# HELLO.TXT を COPY.TXT に複製し、DIR で確認。
+PIP COPY.TXT=HELLO.TXT
+!expect A>
+DIR COPY.TXT
+!expect A>
+!assert COPY

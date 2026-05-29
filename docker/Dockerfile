@@ -15,6 +15,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update \
         python3 python3-dev python3-pip \
         passwd \
         ccache \
+        cpmtools \
     && rm -rf /var/lib/apt/lists/*
 
 ARG COCOTB_VERSION=2.0.0

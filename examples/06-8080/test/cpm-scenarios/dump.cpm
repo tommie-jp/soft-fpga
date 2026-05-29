@@ -1,0 +1,5 @@
+# DUMP — ファイルを16進ダンプ（トランジェント）
+# HELLO.TXT のダンプ先頭アドレス行 "0000" を確認。
+DUMP HELLO.TXT
+!expect A>
+!assert 0000
