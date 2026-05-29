@@ -399,6 +399,18 @@ static uint8_t make_f_byte(const Vcpm_top_vm80a_core* cpu) {
         ((cpu->__PVT__psw_c  ? 1u : 0u) << 0));
 }
 
+// 論理 DE / HL レジスタ値を取得する（読み取り用）。
+// xchg_dh フラグで物理 r16_de/r16_hl の論理マッピングが入れ替わる。
+//   RESET後 xchg_dh=0: 論理HL=物理r16_de、論理DE=物理r16_hl
+//   XCHG後  xchg_dh=1: 論理HL=物理r16_hl、論理DE=物理r16_de（通常マッピング）
+// step() と sim_snap_regs() の両方から使用する。
+static uint16_t logical_de(const Vcpm_top_vm80a_core* cpu) {
+    return cpu->__PVT__xchg_dh ? (uint16_t)cpu->__PVT__r16_de : (uint16_t)cpu->__PVT__r16_hl;
+}
+static uint16_t logical_hl(const Vcpm_top_vm80a_core* cpu) {
+    return cpu->__PVT__xchg_dh ? (uint16_t)cpu->__PVT__r16_hl : (uint16_t)cpu->__PVT__r16_de;
+}
+
 // トリガー発火状態をクリアする（全 sim_set_*_trigger 関数で共通）。
 static void reset_trigger_state() {
     trig_hit       = false;
@@ -632,17 +644,13 @@ void step()
             // （旧 dbg_f は {7'b0, cpu_wr_n} で実 F とは無関係だったため廃止済み）
             uint8_t f_byte = make_f_byte(cpu);
             uint16_t bc = (uint16_t)cpu->__PVT__r16_bc;
-            // xchg_dh フラグで物理 r16_hl/r16_de の論理マッピングが入れ替わる。
-            // RESET後 xchg_dh=0: 論理HL=物理r16_de、論理DE=物理r16_hl
-            // XCHG後  xchg_dh=1: 論理HL=物理r16_hl、論理DE=物理r16_de  (通常マッピング)
-            bool xchg = (bool)cpu->__PVT__xchg_dh;
-            uint16_t logical_de = xchg ? (uint16_t)cpu->__PVT__r16_de : (uint16_t)cpu->__PVT__r16_hl;
-            uint16_t logical_hl = xchg ? (uint16_t)cpu->__PVT__r16_hl : (uint16_t)cpu->__PVT__r16_de;
+            uint16_t de = logical_de(cpu);
+            uint16_t hl = logical_hl(cpu);
             ring[ridx + 2] =
                 ((uint32_t)f_byte             ) |  // [ 7: 0] F フラグ (PSW 個別ビットから再構成)
                 ((uint32_t)((bc >> 8) & 0xFF) <<  8) | // [15: 8] B
                 ((uint32_t)(bc        & 0xFF) << 16) | // [23:16] C
-                ((uint32_t)((logical_de >> 8) & 0xFF) << 24);  // [31:24] D (論理DEの上位バイト)
+                ((uint32_t)((de >> 8) & 0xFF) << 24);  // [31:24] D (論理DEの上位バイト)
             // Word 3: E, H, L, CPU データバス
             // dbus: MEMR=RAMデータ, IO OUT T2+=cpu_dout, IO IN=io_din, その他=io_dout保持
             // SYNC=1 クロックは cpu_dout=ステータスバイトのため除外
@@ -664,9 +672,9 @@ void step()
                 dbus = (uint8_t)top->io_dout; // 保持値
             }
             ring[ridx + 3] =
-                ((uint32_t)(logical_de        & 0xFF)      ) |  // [ 7: 0] E (論理DEの下位バイト)
-                ((uint32_t)((logical_hl >> 8) & 0xFF) <<  8) | // [15: 8] H (論理HLの上位バイト)
-                ((uint32_t)(logical_hl        & 0xFF) << 16) | // [23:16] L (論理HLの下位バイト)
+                ((uint32_t)(de        & 0xFF)      ) |  // [ 7: 0] E (論理DEの下位バイト)
+                ((uint32_t)((hl >> 8) & 0xFF) <<  8) | // [15: 8] H (論理HLの上位バイト)
+                ((uint32_t)(hl        & 0xFF) << 16) | // [23:16] L (論理HLの下位バイト)
                 ((uint32_t)dbus               << 24);  // [31:24] CPU データバス
         }
         {
@@ -938,7 +946,7 @@ EMSCRIPTEN_KEEPALIVE int      sim_get_cur_drive()   { return cur_drive; }
 EMSCRIPTEN_KEEPALIVE int      sim_get_disk_track()  { return disk_track; }
 EMSCRIPTEN_KEEPALIVE int      sim_get_disk_sector() { return disk_sector; }
 EMSCRIPTEN_KEEPALIVE uint16_t sim_get_disk_dma()    { return disk_dma; }
-EMSCRIPTEN_KEEPALIVE int      sim_con_in_space()     { return 255 - (con_in_tail - con_in_head); }
+EMSCRIPTEN_KEEPALIVE int      sim_con_in_space()     { return (CON_IN_SIZE - 1) - (con_in_tail - con_in_head); }
 EMSCRIPTEN_KEEPALIVE uint32_t sim_get_cycle_count() { return cycle_count; }
 
 // WASM 用ラッパー: JS から const char* を直接渡せないため埋め込みパスを使用
@@ -1020,12 +1028,8 @@ uint8_t* sim_snap_regs() {
     auto* cpu = top->cpm_top->cpu;
     uint8_t f = make_f_byte(cpu);
     uint16_t bc = (uint16_t)cpu->__PVT__r16_bc;
-    // xchg_dh フラグで物理 r16_hl/r16_de の論理マッピングが入れ替わる。
-    // RESET後 xchg_dh=0: 論理HL=物理r16_de、論理DE=物理r16_hl
-    // XCHG後  xchg_dh=1: 論理HL=物理r16_hl、論理DE=物理r16_de  (通常マッピング)
-    bool xchg_s = (bool)cpu->__PVT__xchg_dh;
-    uint16_t logical_de_s = xchg_s ? (uint16_t)cpu->__PVT__r16_de : (uint16_t)cpu->__PVT__r16_hl;
-    uint16_t logical_hl_s = xchg_s ? (uint16_t)cpu->__PVT__r16_hl : (uint16_t)cpu->__PVT__r16_de;
+    uint16_t logical_de_s = logical_de(cpu);
+    uint16_t logical_hl_s = logical_hl(cpu);
     uint16_t sp = (uint16_t)cpu->__PVT__r16_sp;
     uint16_t pc = (uint16_t)cpu->__PVT__r16_pc;
     reg_snap[ 0] = cpu->acc;

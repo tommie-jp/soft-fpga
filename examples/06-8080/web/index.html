@@ -1338,9 +1338,14 @@
                  '" data-col="' + c.key + '">' + c.label + a + '</span>';
         }).join('') + '</div>';
 
+      var escHtml = function(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      };
       var rows = entries.map(function(e) {
-        return '<div class="fs-row" data-name="' + e.name + '" title="Click to download | CP/M: R ' + e.name + '">' +
-          '<span class="fs-name">' + e.name + '</span>' +
+        var nm = escHtml(e.name);
+        return '<div class="fs-row" data-name="' + nm + '" title="Click to download | CP/M: R ' + nm + '">' +
+          '<span class="fs-name">' + nm + '</span>' +
           '<span class="fs-sz">'  + fmtSize(e.size) + '</span>' +
           '<span class="fs-mt">'  + fmtMtime(e.mtime) + '</span>' +
           '</div>';
@@ -2556,7 +2561,7 @@
        */
       getSignals: function() {
         var WRITABLE = {
-          acc: true, reg_b: true, reg_c: true, reg_d: true,
+          acc: true, reg_f: true, reg_b: true, reg_c: true, reg_d: true,
           reg_e: true, reg_h: true, reg_l: true, sp: true, pc: true,
         };
         return LA_SIGNALS_ALL.map(function(s) {

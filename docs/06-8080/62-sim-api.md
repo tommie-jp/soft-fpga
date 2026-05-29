@@ -115,6 +115,7 @@ sim.getSignals()
 | id | label | 設定メソッド |
 |----|-------|-------------|
 | `acc`   | A | `sim.setRegs({a: …})` |
+| `reg_f` | F | `sim.setRegs({f: …})`（PSW フォーマット） |
 | `reg_b` | B | `sim.setRegs({b: …})` |
 | `reg_c` | C | `sim.setRegs({c: …})` |
 | `reg_d` | D | `sim.setRegs({d: …})` |
@@ -314,7 +315,7 @@ sim.screenshot_canvas_to_file(
 signals = sim.get_signals()
 writable = [s for s in signals if s["writable"]]
 print([s["id"] for s in writable])
-# ['acc', 'reg_b', 'reg_c', 'reg_d', 'reg_e', 'reg_h', 'reg_l', 'sp', 'pc']
+# ['acc', 'reg_f', 'reg_b', 'reg_c', 'reg_d', 'reg_e', 'reg_h', 'reg_l', 'sp', 'pc']
 ```
 
 ---
@@ -336,7 +337,7 @@ print([s["id"] for s in writable])
 ## 5. 注意事項
 
 - `setPC` / `setRegs` / `write_mem` は **命令境界**（`step_instr()` 後または `pause()` 中）で呼ぶこと。実行中に呼ぶと RTL の内部パイプラインと競合する可能性がある。
-- `f` (フラグレジスタ) は vm80a がビット単位（PSW: S Z 0 AC 0 P 1 C）で保持しているため、`setRegs({f})` は内部で `setFlags` に委譲して各ビットを設定する。なお `getSignals()` の `writable` 一覧には現状 `reg_f` は含まれない（書き換えは `setRegs({f})` を使用）。
+- `f` (フラグレジスタ) は vm80a がビット単位（PSW: S Z 0 AC 0 P 1 C）で保持しているため、`setRegs({f})` は内部で `setFlags` に委譲して各ビットを設定する。`getSignals()` の `writable` 一覧にも `reg_f` が含まれる。
 - `screenshotCanvas` はキャンバス要素の **現在の描画** を取得する。LA の更新は RAF（requestAnimationFrame）で行われるため、トリガー発火後 0.3〜0.5 秒待ってから呼ぶこと。
 - `screenshot_canvas_to_file` は **ホストのファイルシステム**に書き込む（WASM FS ではない）。
   JS 側でキャンバスを DataURL に変換し、Python 側でデコードしてファイルに保存する。

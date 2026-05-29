@@ -54,6 +54,8 @@ export class SimWrapper {
     this.ringBase = M._get_ring_ptr() >>> 2;
     /** @type {number} リングバッファのサンプル数 */
     this.ringSize = M._get_ring_size();
+    /** @type {number} 1 サンプルあたりの uint32 ワード数（cpm_const.h の RING_WORDS） */
+    this.ringWords = M._get_ring_words();
   }
 
   /**
@@ -229,7 +231,7 @@ export class SimWrapper {
     this.M._sim_freeze_ring();
     const head = this.getHead();
     const snap = readRingBuffer(
-      this.M.HEAPU32, this.ringBase, this.ringSize, head, postDelay + 1
+      this.M.HEAPU32, this.ringBase, this.ringSize, head, postDelay + 1, this.ringWords
     );
     const parsedSamples = snap.map(parseSample);
 
@@ -311,7 +313,8 @@ export class SimWrapper {
       this.ringBase,
       this.ringSize,
       head,
-      postDelay + 1  // +1: トリガーサンプル(M1 SYNC f1)を含むため
+      postDelay + 1,  // +1: トリガーサンプル(M1 SYNC f1)を含むため
+      this.ringWords
     );
     const parsedSamples = snap.map(parseSample);
 

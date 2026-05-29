@@ -48,11 +48,11 @@ export const CTRL = {
  * @param {number} count     - 取り出すサンプル数 (未指定時: ringSize 全体)
  * @returns {Array<{w0,w1,w2,w3,w4,w5}>} サンプル配列 (head から遡った順 → 古い順)
  */
-export function readRingBuffer(heapu32, ringBase, ringSize, head, count = ringSize) {
+export function readRingBuffer(heapu32, ringBase, ringSize, head, count = ringSize, ringWords = 7) {
   const n = Math.min(count, ringSize);
   const samples = [];
   for (let i = n - 1; i >= 0; i--) {
-    const idx = ((head - 1 - i + ringSize) % ringSize) * 7;  // RING_WORDS=7 (cpm_const.h と一致させる)
+    const idx = ((head - 1 - i + ringSize) % ringSize) * ringWords;  // ringWords は _get_ring_words() 由来
     samples.push({
       w0: heapu32[ringBase + idx + 0],
       w1: heapu32[ringBase + idx + 1],

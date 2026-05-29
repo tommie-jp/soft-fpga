@@ -56,17 +56,54 @@ ring buffer の Word4 空きビット `[20:18]` に番号（1=M1 … 5=M5、0=�
 | #6 | `11-vm80a-タイミング解析.md` | §5.1 の掲載コードを現行の f2 フェーズ発火方式に更新 |
 | #7 | `62-sim-api.md` | `setMemWatch` / `thawRing` / `freezeRing` を追記 |
 
-## 4. 検証結果
+## 4. 追加修正（レビュー MEDIUM/LOW 項目）
+
+レビューで挙がった保守性・規約・軽微項目もまとめて対応した。
+
+### 4.1 DRY: 論理 DE/HL 取得の重複解消
+
+`harness.cpp` の xchg_dh 論理マッピング（読み取り）が `step()` と `sim_snap_regs()` に
+コピペされていた。`logical_de()` / `logical_hl()` ヘルパーに抽出。
+（`sim_set_reg` 側は書き込みで逆方向のため対象外）
+
+### 4.2 マジックナンバー除去
+
+`sim_con_in_space()` の `255` を `CON_IN_SIZE - 1` に変更（`CON_IN_SIZE` 変更時の齟齬防止）。
+
+### 4.3 エラー握りつぶしの解消
+
+`sim-worker.js` の `listFS` / `deleteFS` の空 `catch` に `console.warn` を追加
+（CLAUDE.md「catch でエラーを握りつぶさない」準拠）。
+
+### 4.4 XSS 対策
+
+`index.html` の FS ファイル名を `innerHTML` に挿入する際、HTML エスケープを追加
+（`data-name` 属性・`title`・`<span>` の 3 箇所。self-XSS だが規約準拠）。
+
+### 4.5 WRITABLE 整合 + ring.mjs ストライド連動（前回残課題の解消）
+
+- `index.html` の `WRITABLE` に `reg_f: true` を追加。`setRegs({f})` 対応と `getSignals()` の
+  `writable` 一覧が揃った。`62-sim-api.md` の表・出力例・注意事項も追従更新。
+- `tests/helpers/ring.mjs` の `readRingBuffer` に `ringWords` 引数を追加し、
+  `sim.mjs` が `_get_ring_words()` の値を渡すよう変更。`* 7` ハードコードを排除し再発防止。
+
+### 4.6 ドキュメント整合
+
+- `19-インタラクティブコマンド.md`: §3 配下の見出し番号衝突（`2.1`〜`2.4`）を `3.1`〜`3.4` に修正。
+- `26-Vitestタイミングテスト.md`: テスト数「143 (56+87)」→ 実測「418 (タイミング 331 + 信号値 87)」。
+  （`61-全命令タイミングテスト計画.md` の 331 は `timing/` 系のみの計画値で正しいため据え置き）
+
+## 5. 検証結果
 
 - ネイティブスモークテスト: `./build/cpm --test` → exit 0（`sim_test: 2 bytes out (Hi)`）
 - wasm ビルド: `scripts/build-wasm-06.sh` 成功（`web/sim.js` / `sim.wasm` / `tests/sim-test.mjs`）
-- Vitest: 15 ファイル / 418 テスト全 PASS
-- markdownlint: 編集 3 ファイルともエラー 0
+- Vitest: 15 ファイル / 418 テスト全 PASS（タイミング系 331 + 信号値系 87）
+- markdownlint: 編集ファイルすべてエラー 0
 
-## 5. 残課題（任意改善）
+## 6. 未対応（要相談・大規模）
 
-- `index.html` の `WRITABLE` マップに `reg_f` が無く、`getSignals()` の `writable` には
-  `reg_f` が現れない。`setRegs({f})` は動作するため、一貫性のため `WRITABLE` に
-  `reg_f: true` を足すと `getSignals()` と挙動が揃う。
-- `ring.mjs` の `RING_WORDS` はハードコード（`* 7`）。`cpm_const.h` と連動させるか
-  `_get_ring_words()` から取得すると再発を防げる。
+以下は単独で大規模リファクタとなり回帰リスクが高いため、別途方針を確認のうえ着手する。
+
+- `index.html` のインラインスクリプト約 2400 行のモジュール分割（規約 800 行/ファイル超過）。
+- SharedArrayBuffer によるゼロコピー経路の新規実装（現状は毎フレーム約 112KB の `slice()` コピー転送。
+  機能は動作しており、規約「ゼロコピー」未達だが性能最適化の位置づけ）。
