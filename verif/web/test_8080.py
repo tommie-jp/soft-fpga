@@ -327,31 +327,39 @@ class TestLogicAnalyzer:
         DDT を経由せず SimAPI で直接メモリ書き込み・PC 設定を行う。
         信号値の正しさは Vitest（ring buffer テスト）に委ね、ここではトリガー機構と
         キャンバス描画のみを検証する。
-        """
-        # 1. MVI A,$FF (3E FF) + HLT (76) を 0x0300 に書き込む
-        sim.write_mem(0x0300, [0x3E, 0xFF, 0x76])
 
-        # 2. PC=0300 でトリガーを設定してから実行開始
+        ループプログラムを使う理由:
+          setPC(0x0300) 呼び出し時に vm80a 内部の tree0 レジスタが 1 だと
+          最初の clock edge で PC が即座に 0x0301 に進んでしまい、
+          HLT で停止するため PC=0x0300 が二度と現れない。
+          MVI A,$FF → JMP 0x0300 のループにすることで PC=0x0300 が
+          繰り返し現れ、type="reg" トリガーが確実に発火する。
+        """
+        # 1. 前テストの残留トリガーを解除（JS 側の _trigOn/_trigHead をリセット）
+        sim.clear_trigger()
+
+        # 2. MVI A,$FF (3E FF) + JMP 0x0300 (C3 00 03) をループとして 0x0300 に書き込む
+        # HLT の代わりに JMP 0x0300 を使い、PC=0x0300 が繰り返し現れるようにする
+        sim.write_mem(0x0300, [0x3E, 0xFF, 0xC3, 0x00, 0x03])
+
+        # 3. PC=0300 でトリガーを設定してから実行開始
         sim.set_trigger(type="reg", regId=9, value=0x0300)
         sim.set_post_delay(100)
         sim.run_from(0x0300)
 
-        # 3. トリガー発火を待つ（内部で JS Promise を解決）
-        # タイムアウトは 60s（waitTrigger の JS 既定値と一致）。トリガーは runFrom(0x0300)
-        # 直後の最初の M1 フェッチで発火するため通常 1〜2 秒だが、doTest.sh フルスイートでは
-        # 直前の重いビルドステップで CPU が逼迫し worker のスケジューリングが遅れることがある。
-        # 余裕を持たせて環境フレーキー（30s タイムアウト超過）を防ぐ。
-        sim.await_wait_trigger(60_000)
+        # 4. トリガー発火を待つ（内部で JS Promise を解決）
+        # ループにより PC=0x0300 が数命令ごとに現れるため、通常数百 ms 以内に発火する。
+        sim.await_wait_trigger(10_000)
         time.sleep(0.4)   # RAF が la._lastHeapu32 を更新するまで待つ
 
-        # 4. 全レジスタ表示・ズーム 16x・TRIG 中央に設定してスクリーンショット
+        # 5. 全レジスタ表示・ズーム 16x・TRIG 中央に設定してスクリーンショット
         sim.show_signals(*_ALL_REGS)
         sim.set_zoom('16x')
         time.sleep(0.2)
         sim.goto_trigger()
         time.sleep(0.3)
 
-        # 5. TRIG マーカーの確認
+        # 6. TRIG マーカーの確認
         assert sim.trig_fired, "sim.trig_fired が False: TRIG マーカーが描画されていない"
         assert sim.trig_head >= 0, "sim.trig_head が無効 (-1)"
 
@@ -369,7 +377,7 @@ class TestLogicAnalyzer:
         }""")
         assert has_trig_pixel, "キャンバスに TRIG マーカー（赤ピクセル）が見つからない"
 
-        # 6. スクリーンショット保存（目視確認用）
+        # 7. スクリーンショット保存（目視確認用）
         sim.screenshot_canvas_to_file(
             _SS_DIR / "la_trig_pc0300.png",
             title="test_trigger_fires_on_pc — PC=0x0300 トリガー発火確認 [16x]",
