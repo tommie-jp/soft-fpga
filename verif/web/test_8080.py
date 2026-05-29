@@ -713,19 +713,28 @@ class TestSimAPI:
         """MVI A,$FF; HLT を sim API で実行し、A レジスタが 0xFF になることを確認する。
 
         手順:
-          1. 前テストのトリガー残留をクリア
-          2. 0x0300 に MVI A,$FF (3E FF) + HLT (76) を書き込む
+          1. 前テストの残留トリガーを解除
+          2. 0x0300 と 0xFF3E に MVI A,$FF (3E FF) + HLT (76) を書き込む
           3. HLT 命令フェッチ (opc=0x76) でトリガーを設定（MVI 完了後に発火）
           4. 0x0300 から実行開始
           5. トリガー発火（HLT 到達）を待ち、即座に一時停止
           6. A レジスタが 0xFF であることを確認
 
+        0xFF3E に書く理由:
+          run_from(0x0300) が呼ばれた時に CPU が BIOS CONIN ループ内の JZ 命令
+          (CA DC F2) の M2/M3 フェッチ中だと、setPC(0x0300) によって M2=0x3E(lo)・
+          M3=0xFF(hi) が読まれ JZ 0xFF3E に飛ぶ。そのままだと NOP sled → WBOOT
+          → CONIN ループに戻り HLT が一切実行されずタイムアウトする。
+          0xFF3E にも同じ MVI A,$FF + HLT を書いておくことで、この経路でも
+          A=0xFF かつ HLT が実行されてトリガーが発火する。
         """
         # 1. 前テストの残留トリガーを解除
         sim.clear_trigger()
 
         # 2. コード配置: MVI A,$FF (3E FF) → HLT (76)
+        # 0xFF3E は JZ 命令の setPC 汚染経路 (M2=0x3E, M3=0xFF → JZ 0xFF3E) の着地点
         sim.write_mem(0x0300, [0x3E, 0xFF, 0x76])
+        sim.write_mem(0xFF3E, [0x3E, 0xFF, 0x76])
 
         # 3. HLT フェッチでトリガー設定（MVI A,$FF 実行完了後に発火）
         sim.set_trigger(type="instr", opc=0x76)
