@@ -51,6 +51,19 @@ Pico 移植はフロントエンドの差し替えが中心で、コアロジッ
 | 案1（推奨） | Pico はコアだけ動かし、信号を COBS over USB-CDC でストリーム。ブラウザ側で `RTLScopeLA` が描画 | 07 の Web Serial パイプライン + [`docs/91`](../91-rtlscope-la-LogicAnalyzerライブラリ.md) をそのまま接続。「実機 vs ブラウザ」対比デモになる |
 | 案2 | Pico ファームはコンソール専用、LA 省略 | 最小構成 |
 
+#### フロントエンド形態の判断：Web Serial ブラウザアプリを推奨
+
+LA ビューアのフロントエンドは **Web Serial API を使ったブラウザアプリ**で作る。Electron や独自ネイティブアプリは本プロジェクトでは過剰。
+
+| 方式 | 長所 | 短所 |
+| --- | --- | --- |
+| **Web Serial（推奨）** | 07 の実績・COBS デコード流用、`RTLScopeLA` を WASM 版と共有、インストール不要・GitHub Pages 配信可 | Chromium 系のみ（Firefox/Safari 非対応）、HTTPS or localhost 必須 |
+| Electron | 同じ Web 資産を使いつつ `node-serialport` でブラウザ制約を回避・全ブラウザ非依存 | 配布物が重い（100MB+）・更新運用増・本用途には重厚すぎ |
+| ネイティブ別アプリ | 最高性能・OS シリアル直叩き | 開発コスト大・LA 資産を作り直し・showcase 性を損なう |
+
+- **理由**: ①07 で Web Serial 連携を確立済み ②`RTLScopeLA` が Canvas 描画ライブラリで Web 前提のため WASM 版と同一 UI を共有できる ③CLAUDE.md の「ブラウザ上で動かす可視化ショーケース」と整合。
+- **段階戦略**: まず Web Serial で開始し、Firefox/Safari 固定環境や閉域・高スループットで Web Serial 制約が実際に問題化した段階で、**同一 Web UI を Electron でラップ**する（Web 資産はそのまま移植可能）。Electron を検討すべきケースは現状該当しない。
+
 ---
 
 ## 4. 実装フェーズ

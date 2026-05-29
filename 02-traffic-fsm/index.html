@@ -2,6 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>02-traffic-fsm — rtlscope</title>
   <style>
     body { background:#1a1a1a; color:#eee; font-family:monospace; margin:20px; }
@@ -13,12 +14,13 @@
     #btn-ped:hover { background:#003a55; }
     label { font-size:12px; color:#aaa; }
     #cycle-info { font-size:12px; color:#666; }
-    canvas { display:block; border:1px solid #333; }
-    .bottom-row { display:flex; gap:12px; align-items:flex-start; margin-top:8px; }
+    canvas { display:block; border:1px solid #333; max-width:100%; height:auto; }
+    .bottom-row { display:flex; gap:12px; align-items:flex-start; margin-top:8px; flex-wrap:wrap; }
     #reg-panel {
       border:1px solid #333; padding:10px 16px;
       font-size:13px; line-height:1.9; color:#ccc; min-width:160px;
     }
+    @media (max-width:500px) { body { margin:12px; } }
     #reg-panel .val { color:#eee; }
     #reg-panel .label { color:#666; }
   </style>
