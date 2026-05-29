@@ -204,6 +204,14 @@
       cursor:pointer; color:#222; min-width:28px; text-align:center;
     }
     #la-nav button:hover { background:#d0d0d0; }
+    #la-ss-link {
+      font-size:12px; padding:1px 6px; line-height:1.4;
+      font-family:monospace; background:#e8e8e8; border:1px solid #aaa;
+      cursor:pointer; color:#444; text-decoration:none;
+      white-space:nowrap; border-radius:2px;
+      margin-left:6px;
+    }
+    #la-ss-link:hover { background:#d0d0d0; color:#111; }
     #la-zoom-sel {
       font-size:13px; padding:1px 2px; line-height:1.4;
       font-family:monospace; border:1px solid #aaa; background:#fff;
@@ -337,6 +345,10 @@
     }
     #docs-panel a:last-child { border-bottom:none; }
     #docs-panel a:hover { background:#e8f0ff; color:#0033aa; }
+    #docs-panel .docs-sep {
+      display:block; height:0; border-bottom:1px solid #ccc; margin:2px 0;
+    }
+    #docs-panel a.ss-link { color:#666; font-size:12px; }
     @media (max-width:500px) {
       /* #top-row を縦積みにし、子要素を画面幅いっぱいに引き伸ばす */
       #top-row { flex-direction:column; gap:6px; align-items:stretch; }
@@ -532,7 +544,7 @@
   </style>
 </head>
 <body>
-  <h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #999;">soft-FPGA</a> | 06 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/06-8080" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #999;">Intel 8080 / CP/M 2.2 RTL Simulator</a> <span style="font-size:11px;color:#999;font-weight:normal;">Ver. 1.0.0 &nbsp;updated on 2026-05-26 13:25</span></h2>
+  <h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #999;">soft-FPGA</a> | 06 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/06-8080" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #999;">Intel 8080 / CP/M 2.2 RTL Simulator</a> <span style="font-size:11px;color:#999;font-weight:normal;">Ver. 1.0.0 &nbsp;updated on 2026-05-29 13:34</span></h2>
   <p style="font-size:13px;color:#555;margin:0 0 4px;"><a href="https://github.com/1801BM1/vm80a" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">vm80a</a> (decapped die RTL) → <a href="https://www.veripool.org/verilator/" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">Verilator</a> → <a href="https://en.wikipedia.org/wiki/WebAssembly" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">WASM</a> &nbsp;|&nbsp; <a href="https://en.wikipedia.org/wiki/CP/M" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">CP/M 2.2</a> + <a href="https://github.com/tommie-jp/soft-fpga/blob/main/docs/06-8080/30-BIOS実装.md" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">custom BIOS</a></p>
 
   <!-- Top row: drives + CP/M DOCS 横並び -->
@@ -560,6 +572,9 @@
       <a href="#" onclick="openDoc('30-BIOS実装.md');return false;">30 カスタム BIOS 実装</a>
       <a href="#" onclick="openDoc('52-メモリマップ.md');return false;">52 メモリマップ &amp; I/O ポート</a>
       <a href="#" onclick="openDoc('53-参考資料.md');return false;">53 参考資料</a>
+      <span class="docs-sep"></span>
+      <a class="ss-link" href="../../../test/ss/8080/index.html" target="_blank"
+         rel="noopener" title="タイミング図スクリーンショット一覧">&#x1F4F7; Timing SS Gallery</a>
     </div>
   </div>
 
@@ -795,6 +810,8 @@
         <div class="la-nav-right">
           <button id="la-nav-r"  title="1ページ分右へスクロール（最新方向）">&#x203A;</button><!-- › -->
           <button id="la-nav-rr" title="最新データへ（T=0、ライブ追従）">&#x00BB;</button><!-- » -->
+          <a id="la-ss-link" href="../../../test/ss/8080/index.html" target="_blank"
+             rel="noopener" title="タイミング図スクリーンショット一覧">&#x1F4F7; SS</a>
         </div>
       </div>
       <div id="la-wrap" style="position:relative;display:block;">
@@ -1122,6 +1139,7 @@
     { id:'ir',     label:'IR',    word:4, bit:8,  type:'hex', width:8,  color:'#aa3366', on:false, tip:'命令レジスタ (Instruction Register)。M1 フェッチサイクル完了後に確定するオペコード。MVI A=3E, OUT=D3, HLT=76 など。フェッチ中（MEMR=1 のクロック）はまだ古い値を保持していることがあります。' },
     { id:'f1',     label:'f1',    word:4, bit:16, type:'bit', width:1,  color:'#2288dd', on:false, tip:'クロック φ1 フェーズ（cpm_top.f1）。T-state の前半で High。ステートマシンの前半更新タイミングを確認できます。' },
     { id:'f2',     label:'f2',    word:4, bit:17, type:'bit', width:1,  color:'#dd8822', on:false, tip:'クロック φ2 フェーズ（cpm_top.f2）。T-state の後半で High。レジスタ確定・バスサンプルのタイミングを確認できます。' },
+    { id:'mcycle', label:'M-CYC', word:4, bit:18, type:'hex', width:3,  color:'#7755aa', on:false, fmt:'dec', tip:'マシンサイクル番号（M1〜M5）。vm80a の m1..m5 を 1〜5 にエンコード（0=該当なし）。命令フェッチ=M1、以降オペランド読み・メモリ/I-O アクセスごとに M2..M5 と進みます。T ステートと組み合わせるとマイクロシーケンサの進行が観測できます。' },
     { id:'pc',   label:'PC',   word:5, bit:0,  type:'hex', width:16, color:'#2255aa', on:false,
       group:'CPU', desc:'プログラムカウンタ (vm80a r16_pc レジスタ値)' },
     { id:'sp',   label:'SP',   word:5, bit:16, type:'hex', width:16, color:'#aa5522', on:false,
@@ -1320,9 +1338,14 @@
                  '" data-col="' + c.key + '">' + c.label + a + '</span>';
         }).join('') + '</div>';
 
+      var escHtml = function(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      };
       var rows = entries.map(function(e) {
-        return '<div class="fs-row" data-name="' + e.name + '" title="Click to download | CP/M: R ' + e.name + '">' +
-          '<span class="fs-name">' + e.name + '</span>' +
+        var nm = escHtml(e.name);
+        return '<div class="fs-row" data-name="' + nm + '" title="Click to download | CP/M: R ' + nm + '">' +
+          '<span class="fs-name">' + nm + '</span>' +
           '<span class="fs-sz">'  + fmtSize(e.size) + '</span>' +
           '<span class="fs-mt">'  + fmtMtime(e.mtime) + '</span>' +
           '</div>';
@@ -2538,7 +2561,7 @@
        */
       getSignals: function() {
         var WRITABLE = {
-          acc: true, reg_b: true, reg_c: true, reg_d: true,
+          acc: true, reg_f: true, reg_b: true, reg_c: true, reg_d: true,
           reg_e: true, reg_h: true, reg_l: true, sp: true, pc: true,
         };
         return LA_SIGNALS_ALL.map(function(s) {

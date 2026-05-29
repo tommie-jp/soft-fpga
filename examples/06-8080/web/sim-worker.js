@@ -308,15 +308,15 @@ self.onmessage = function (e) {
             if (Module.FS.isDir(st.mode)) return;
             if (st.size >= 65536) return;
             entries.push({ name: f, size: st.size, mtime: fileTimes[f] || (st.mtime * 1000) });
-          } catch (e) {}
+          } catch (e) { console.warn('[Worker] listFS stat 失敗:', f, e); }
         });
-      } catch (e) {}
+      } catch (e) { console.warn('[Worker] listFS readdir 失敗:', e); }
       postMessage({ type: 'fsEntries', requestId: data.requestId, entries: entries });
       break;
     }
 
     case 'deleteFS': {
-      try { Module.FS.unlink('/' + data.name); } catch (e) {}
+      try { Module.FS.unlink('/' + data.name); } catch (e) { console.warn('[Worker] deleteFS unlink 失敗:', data.name, e); }
       delete fileTimes[data.name];
       postMessage({ type: 'fsResult', requestId: data.requestId, ok: true });
       break;
