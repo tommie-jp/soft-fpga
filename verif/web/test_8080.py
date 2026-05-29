@@ -718,46 +718,44 @@ class TestSimAPI:
     """
 
     def test_mvi_a_ff(self, sim: SimAPI) -> None:
-        """MVI A,$FF; HLT を sim API で実行し、A レジスタが 0xFF になることを確認する。
+        """MVI A,$FF + JMP 0x0300 ループを sim API で実行し、A=0xFF を確認する。
 
         手順:
           1. 前テストの残留トリガーを解除
-          2. 0x0300 と 0xFF3E に MVI A,$FF (3E FF) + HLT (76) を書き込む
-          3. HLT 命令フェッチ (opc=0x76) でトリガーを設定（MVI 完了後に発火）
+          2. 0x0300 に MVI A,$FF (3E FF) + JMP 0x0300 (C3 00 03) ループを書き込む
+          3. A=0xFF (type="reg") トリガーを設定
           4. 0x0300 から実行開始
-          5. トリガー発火（HLT 到達）を待ち、即座に一時停止
+          5. トリガー発火（A=0xFF 達成）を待ち、一時停止
           6. A レジスタが 0xFF であることを確認
 
-        0xFF3E に書く理由:
-          run_from(0x0300) が呼ばれた時に CPU が BIOS CONIN ループ内の JZ 命令
-          (CA DC F2) の M2/M3 フェッチ中だと、setPC(0x0300) によって M2=0x3E(lo)・
-          M3=0xFF(hi) が読まれ JZ 0xFF3E に飛ぶ。そのままだと NOP sled → WBOOT
-          → CONIN ループに戻り HLT が一切実行されずタイムアウトする。
-          0xFF3E/0x76FF への書き込みに加え、BIOS CONIN (0xF2DC) 自体を
-          JMP 0x0300 に差し替える。これにより NOP sled → CCP → CONIN 経路や
-          WBOOT 後の CONIN 再進入も含めてすべてのパスが 0x0300 に収束する。
-          test_mvi_a_ff は [06] 最終テストなので CONIN を復元しなくてよい。
+        HLT を使わずループにする理由:
+          run_from(0x0300) 呼び出し時に CPU が BIOS CONIN ループの JZ M2/M3 中だと
+          setPC 汚染により偽の JMP 先に飛び、NOP sled → CCP/WBOOT → CONIN ループ
+          (HLT なし) でタイムアウトする。type="instr" opc=0x76 は HLTA 状態では
+          M1 SYNC が発生しないため決して発火しない。
+          HLT を排除してループにすることで CPU が HLTA に陥らず、A=0xFF を
+          type="reg" トリガーが確実に捕捉できる。
+          偽 JMP 先 (0xFF3E, 0x76FF, 0xC3FF) にも同じループを配置する。
         """
         # 1. 前テストの残留トリガーを解除
         sim.clear_trigger()
 
-        # 2. コード配置: MVI A,$FF (3E FF) → HLT (76)
-        # 0xFF3E: setPC 汚染 tree0=0 → M2=0x3E@0x0300, M3=0xFF@0x0301 → JZ/CALL 0xFF3E
-        # 0x76FF: setPC 汚染 tree0=1 → M2=0xFF@0x0301, M3=0x76@0x0302 → JZ/CALL 0x76FF
-        # 0xF2DC: BIOS CONIN を JMP 0x0300 に差し替え（NOP sled / WBOOT 経路を完全閉塞）
-        sim.write_mem(0x0300, [0x3E, 0xFF, 0x76])
-        sim.write_mem(0xFF3E, [0x3E, 0xFF, 0x76])
-        sim.write_mem(0x76FF, [0x3E, 0xFF, 0x76])
-        sim.write_mem(0xF2DC, [0xC3, 0x00, 0x03])  # JMP 0x0300
+        # 2. コード配置: MVI A,$FF (3E FF) + JMP 0x0300 (C3 00 03) ループ
+        # 偽 JMP 先にも同じループを配置（setPC 汚染経路 tree0=0/1 どちらでも A=0xFF 到達）
+        loop = [0x3E, 0xFF, 0xC3, 0x00, 0x03]
+        sim.write_mem(0x0300, loop)
+        sim.write_mem(0xFF3E, loop)   # tree0=0: M2=0x3E@0x0300, M3=0xFF@0x0301 → 0xFF3E
+        sim.write_mem(0x76FF, loop)   # tree0=1 HLT版: M2=0xFF, M3=0x76 → 0x76FF (冗長)
+        sim.write_mem(0xC3FF, loop)   # tree0=1 JMP版: M2=0xFF@0x0301, M3=0xC3@0x0302 → 0xC3FF
 
-        # 3. HLT フェッチでトリガー設定（MVI A,$FF 実行完了後に発火）
-        sim.set_trigger(type="instr", opc=0x76)
+        # 3. A=0xFF トリガー設定（MVI A,$FF 実行直後のどのクロックでも発火）
+        sim.set_trigger(type="reg", regId=0, value=0xFF)
         sim.set_post_delay(10)
 
         # 4. 0x0300 から実行開始
         sim.run_from(0x0300)
 
-        # 5. HLT 到達を待ち（最大 10 秒）、停止して状態を安定させる
+        # 5. A=0xFF 到達を待ち（最大 10 秒）、停止して状態を安定させる
         sim.await_wait_trigger(10_000)
         sim.pause()
         time.sleep(0.15)
@@ -778,5 +776,5 @@ class TestSimAPI:
         pc_val = regs["pc"]
         sim.screenshot_canvas_to_file(
             _SS_DIR / "sim_api_mvi_a_ff.png",
-            title=f"test_mvi_a_ff — MVI A,$FF; HLT  A=0x{a_val:02X}  PC=0x{pc_val:04X} [16x]",
+            title=f"test_mvi_a_ff — MVI A,$FF loop  A=0x{a_val:02X}  PC=0x{pc_val:04X} [16x]",
         )
