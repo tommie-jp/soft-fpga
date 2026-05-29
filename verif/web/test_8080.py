@@ -383,6 +383,15 @@ class TestLogicAnalyzer:
             title="test_trigger_fires_on_pc — PC=0x0300 トリガー発火確認 [16x]",
         )
 
+        # 8. 後続テストのためにクリーンアップ: ループを CP/M ウォームブートへ誘導
+        # JMP 0x0300 (C3 00 03) の宛先を 0x0000 に変えて CP/M 実行状態を復元する。
+        # これにより test_mvi_a_ff が run_from(0x0300) を呼ぶ時点で CP/M が
+        # 正常実行中（setPC mid-instruction 問題が起きにくい状態）になる。
+        sim.write_mem(0x0302, [0xC3, 0x00, 0x00])  # JMP 0x0000（ウォームブート）
+        sim.clear_trigger()
+        sim.run()
+        time.sleep(0.5)  # CP/M ウォームブート完了待ち
+
 
 # ── CP/M DOCS ビューアテスト ──────────────────────────────────────────────────
 
@@ -704,7 +713,6 @@ class TestSimAPI:
         """MVI A,$FF; HLT を sim API で実行し、A レジスタが 0xFF になることを確認する。
 
         手順:
-          0. CP/M リセット（前テストの CPU 状態汚染をクリア）
           1. 前テストのトリガー残留をクリア
           2. 0x0300 に MVI A,$FF (3E FF) + HLT (76) を書き込む
           3. HLT 命令フェッチ (opc=0x76) でトリガーを設定（MVI 完了後に発火）
@@ -712,18 +720,7 @@ class TestSimAPI:
           5. トリガー発火（HLT 到達）を待ち、即座に一時停止
           6. A レジスタが 0xFF であることを確認
 
-        手順 0 の理由:
-          test_trigger_fires_on_pc は 0x0300 にループコード (MVI A,$FF → JMP 0x0300)
-          を書き込んで実行し、トリガー発火後に CPU を停止させる。このとき CPU は
-          MVI A の M2 フェッチ途中 (T2 of M1 at 0x0300) で止まっている。
-          この状態で run_from(0x0300) / setPC(0x0300) を呼ぶと M2 即値フェッチ先が
-          0x0301 → 0x0300 に化けて A = 0x3E になるため、reset() で CP/M
-          実行状態に戻してから実行する。
         """
-        # 0. CP/M リセット: 前テストが残した CPU 状態（ループ中断）を解消する
-        sim.reset()
-        time.sleep(1.5)  # CP/M ブート完了待ち（実際は < 1s）
-
         # 1. 前テストの残留トリガーを解除
         sim.clear_trigger()
 
