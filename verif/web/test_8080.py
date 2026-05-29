@@ -745,22 +745,28 @@ class TestSimAPI:
         loop = [0x3E, 0xFF, 0xC3, 0x00, 0x03]
         sim.write_mem(0x0300, loop)
         sim.write_mem(0xFF3E, loop)   # tree0=0: M2=0x3E@0x0300, M3=0xFF@0x0301 → 0xFF3E
-        sim.write_mem(0x76FF, loop)   # tree0=1 HLT版: M2=0xFF, M3=0x76 → 0x76FF (冗長)
-        sim.write_mem(0xC3FF, loop)   # tree0=1 JMP版: M2=0xFF@0x0301, M3=0xC3@0x0302 → 0xC3FF
+        sim.write_mem(0xC3FF, loop)   # tree0=1: M2=0xFF@0x0301, M3=0xC3@0x0302 → 0xC3FF
 
         # 3. A=0xFF トリガー設定（MVI A,$FF 実行直後のどのクロックでも発火）
+        # 注: set_trigger は reset_trigger_state() を呼ぶため先に設定する。
         sim.set_trigger(type="reg", regId=0, value=0xFF)
         sim.set_post_delay(10)
 
-        # 4. 0x0300 から実行開始
+        # 4. BIOS CONIN (0xF2DC) を JMP 0x0300 に差し替え
+        # CONIN を上書きすることで NOP sled → CCP → CONIN 経路も 0x0300 ループに収束する。
+        # type="reg" A=0xFF トリガーは HLT なし → HLTA 問題なし。
+        # set_trigger より後に書くことで CONIN 到達前に A=0xFF で即発火する競合を防ぐ。
+        sim.write_mem(0xF2DC, [0xC3, 0x00, 0x03])  # JMP 0x0300
+
+        # 5. 0x0300 から実行開始
         sim.run_from(0x0300)
 
-        # 5. A=0xFF 到達を待ち（最大 10 秒）、停止して状態を安定させる
+        # 6. A=0xFF 到達を待ち（最大 10 秒）、停止して状態を安定させる
         sim.await_wait_trigger(10_000)
         sim.pause()
         time.sleep(0.15)
 
-        # 6. レジスタ検証
+        # 7. レジスタ検証
         regs = sim.await_get_regs()
         assert regs["a"] == 0xFF, (
             f"MVI A,$FF 実行後の A レジスタが 0xFF でない: 0x{regs['a']:02X}"
