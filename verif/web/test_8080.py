@@ -337,7 +337,11 @@ class TestLogicAnalyzer:
         sim.run_from(0x0300)
 
         # 3. トリガー発火を待つ（内部で JS Promise を解決）
-        sim.await_wait_trigger(30_000)
+        # タイムアウトは 60s（waitTrigger の JS 既定値と一致）。トリガーは runFrom(0x0300)
+        # 直後の最初の M1 フェッチで発火するため通常 1〜2 秒だが、doTest.sh フルスイートでは
+        # 直前の重いビルドステップで CPU が逼迫し worker のスケジューリングが遅れることがある。
+        # 余裕を持たせて環境フレーキー（30s タイムアウト超過）を防ぐ。
+        sim.await_wait_trigger(60_000)
         time.sleep(0.4)   # RAF が la._lastHeapu32 を更新するまで待つ
 
         # 4. 全レジスタ表示・ズーム 16x・TRIG 中央に設定してスクリーンショット
