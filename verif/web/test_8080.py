@@ -633,8 +633,9 @@ class TestWasmFS:
         time.sleep(0.2)
 
         # 文末へ移動してテキスト入力
+        # insert_text を使う（type() は環境のキーレイアウト依存で '_' が '-' に化けるため）
         loaded_page.keyboard.press("Control+End")
-        loaded_page.keyboard.type(TYPED)
+        loaded_page.keyboard.insert_text(TYPED)
         time.sleep(0.3)  # Monaco がモデルへ反映するのを待つ
 
         # --- 入力後: TYPED が getValue() に含まれることを確認 ---
