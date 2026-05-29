@@ -1695,7 +1695,11 @@
       { label: 'WASM',   file: 'sim.wasm',        url: 'sim.wasm',                  desc: 'Verilog RTL → Verilator → Emscripten でビルドした WebAssembly バイナリ' },
       { label: 'worker', file: 'sim-worker.js',  url: 'sim-worker.js',             desc: 'WASM シミュレーションを実行する Web Worker スクリプト' },
       { label: 'LA',     file: 'rtlscope-la.js', url: '../../../js/rtlscope-la.js',desc: 'Logic Analyzer ライブラリ (RTLScopeLA)' },
-      { label: 'UI',     file: 'index.html',     url: '',                          desc: 'ブラウザ UI (HTML / CSS / JS)' },
+      { label: 'API',    file: 'sft-8080-sim-api.js',      url: '../../../js/sft-8080-sim-api.js',      desc: 'window.sim テスト用 API' },
+      { label: 'bridge', file: 'sft-8080-worker-bridge.js',url: '../../../js/sft-8080-worker-bridge.js',desc: 'Worker 通信・RAF 描画ループ' },
+      { label: 'FS',     file: 'sft-8080-fs.js',           url: '../../../js/sft-8080-fs.js',           desc: 'WASM FS・ドライブ・IndexedDB' },
+      { label: 'trig',   file: 'sft-8080-trigger-ui.js',   url: '../../../js/sft-8080-trigger-ui.js',   desc: 'トリガー UI・Logic Analyzer 制御' },
+      { label: 'UI',     file: 'index.html',     url: '',                          desc: 'ブラウザ UI (HTML / CSS / bootstrap)。UI ロジックは js/sft-8080-*.js に分離' },
     ];
 
     function fmtDate(httpDateStr) {

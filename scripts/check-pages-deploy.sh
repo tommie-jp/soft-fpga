@@ -42,6 +42,8 @@ SMOKE_URLS=(
     "${PAGES_BASE}/js/rtlscope-la.js"
     "${PAGES_BASE}/js/xterm-jp106.js"
     "${PAGES_BASE}/js/monaco-wasm-editor.js"
+    "${PAGES_BASE}/js/sft-8080-sim-api.js"
+    "${PAGES_BASE}/js/sft-8080-worker-bridge.js"
 )
 
 # ── 引数解析 ─────────────────────────────────────────────────────────────────
