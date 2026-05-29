@@ -340,7 +340,11 @@ class TestLogicAnalyzer:
 
         # 2. MVI A,$FF (3E FF) + JMP 0x0300 (C3 00 03) をループとして 0x0300 に書き込む
         # HLT の代わりに JMP 0x0300 を使い、PC=0x0300 が繰り返し現れるようにする
+        # 0xFF3E にも同じループを書く: BIOS CONIN の JZ 命令 M2/M3 フェッチ中に
+        # setPC(0x0300) が処理されると JZ 0xFF3E に飛ぶため、そこにもループを
+        # 置いておくことで PC=0x0300 が現れトリガーが発火する。
         sim.write_mem(0x0300, [0x3E, 0xFF, 0xC3, 0x00, 0x03])
+        sim.write_mem(0xFF3E, [0x3E, 0xFF, 0xC3, 0x00, 0x03])
 
         # 3. PC=0300 でトリガーを設定してから実行開始
         sim.set_trigger(type="reg", regId=9, value=0x0300)
