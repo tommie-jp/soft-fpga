@@ -340,11 +340,15 @@ class TestLogicAnalyzer:
 
         # 2. MVI A,$FF (3E FF) + JMP 0x0300 (C3 00 03) をループとして 0x0300 に書き込む
         # HLT の代わりに JMP 0x0300 を使い、PC=0x0300 が繰り返し現れるようにする
-        # 0xFF3E にも同じループを書く: BIOS CONIN の JZ 命令 M2/M3 フェッチ中に
-        # setPC(0x0300) が処理されると JZ 0xFF3E に飛ぶため、そこにもループを
-        # 置いておくことで PC=0x0300 が現れトリガーが発火する。
+        # 0xFF3E, 0x76FF にも同じループを書く:
+        # tree0=0: JZ/CALL M2=0x3E@0x0300, M3=0xFF@0x0301 → 0xFF3E
+        # tree0=1: JZ/CALL M2=0xFF@0x0301, M3=0x76@0x0302 → 0x76FF (Wait, JMP 0x0300 = C3 00 03 → 0x0302=C3)
+        # 実際: 0x0302=0xC3(JMP lo), 0x0303=0x00(JMP hi) のため
+        # tree0=1: M2=0xFF@0x0301, M3=0xC3@0x0302 → 0xC3FF
+        # 念のため両方に配置する
         sim.write_mem(0x0300, [0x3E, 0xFF, 0xC3, 0x00, 0x03])
         sim.write_mem(0xFF3E, [0x3E, 0xFF, 0xC3, 0x00, 0x03])
+        sim.write_mem(0xC3FF, [0x3E, 0xFF, 0xC3, 0x00, 0x03])
 
         # 3. PC=0300 でトリガーを設定してから実行開始
         sim.set_trigger(type="reg", regId=9, value=0x0300)
@@ -729,16 +733,20 @@ class TestSimAPI:
           (CA DC F2) の M2/M3 フェッチ中だと、setPC(0x0300) によって M2=0x3E(lo)・
           M3=0xFF(hi) が読まれ JZ 0xFF3E に飛ぶ。そのままだと NOP sled → WBOOT
           → CONIN ループに戻り HLT が一切実行されずタイムアウトする。
-          0xFF3E にも同じ MVI A,$FF + HLT を書いておくことで、この経路でも
+          0xFF3E, 0x76FF にも同じ MVI A,$FF + HLT を書いておくことで、
+          tree0=0 (M2=0x3E, M3=0xFF → 0xFF3E) および
+          tree0=1 (M2=0xFF, M3=0x76 → 0x76FF) の両経路でも
           A=0xFF かつ HLT が実行されてトリガーが発火する。
         """
         # 1. 前テストの残留トリガーを解除
         sim.clear_trigger()
 
         # 2. コード配置: MVI A,$FF (3E FF) → HLT (76)
-        # 0xFF3E は JZ 命令の setPC 汚染経路 (M2=0x3E, M3=0xFF → JZ 0xFF3E) の着地点
+        # 0xFF3E: setPC 汚染経路 tree0=0 (M2=0x3E@0x0300, M3=0xFF@0x0301 → JZ/CALL 0xFF3E)
+        # 0x76FF: setPC 汚染経路 tree0=1 (M2=0xFF@0x0301, M3=0x76@0x0302 → JZ/CALL 0x76FF)
         sim.write_mem(0x0300, [0x3E, 0xFF, 0x76])
         sim.write_mem(0xFF3E, [0x3E, 0xFF, 0x76])
+        sim.write_mem(0x76FF, [0x3E, 0xFF, 0x76])
 
         # 3. HLT フェッチでトリガー設定（MVI A,$FF 実行完了後に発火）
         sim.set_trigger(type="instr", opc=0x76)
