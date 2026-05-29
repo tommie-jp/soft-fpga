@@ -747,8 +747,11 @@ class TestSimAPI:
         sim.write_mem(0xFF3E, loop)   # tree0=0: M2=0x3E@0x0300, M3=0xFF@0x0301 → 0xFF3E
         sim.write_mem(0xC3FF, loop)   # tree0=1: M2=0xFF@0x0301, M3=0xC3@0x0302 → 0xC3FF
 
-        # 3. A=0xFF トリガー設定（MVI A,$FF 実行直後のどのクロックでも発火）
-        # 注: set_trigger は reset_trigger_state() を呼ぶため先に設定する。
+        # 3. A を 0 にリセットしてからトリガー設定
+        # 前テスト (test_trigger_fires_on_pc) が A=0xFF のまま停止しているため、
+        # set_trigger(A=0xFF) を先に処理すると即発火して getRegs 時点で A≠0xFF になる。
+        # A=0x00 にしておくことでトリガーは MVI A,$FF が実行されるまで発火しない。
+        sim.set_regs(a=0x00)
         sim.set_trigger(type="reg", regId=0, value=0xFF)
         sim.set_post_delay(10)
 
