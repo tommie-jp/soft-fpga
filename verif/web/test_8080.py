@@ -764,24 +764,30 @@ class TestSimAPI:
         # 5. 0x0300 から実行開始
         sim.run_from(0x0300)
 
-        # 6. A=0xFF 到達を待ち（最大 10 秒）、停止して状態を安定させる
+        # 6. A=0xFF 到達を待ち、リングバッファのトリガー発火時点から A を読む
         sim.await_wait_trigger(10_000)
-        sim.pause()
-        time.sleep(0.15)
+        time.sleep(0.4)   # RAF が la._lastHeapu32 を更新するまで待つ
 
-        # 7. レジスタ検証
-        regs = sim.await_get_regs()
-        assert regs["a"] == 0xFF, (
-            f"MVI A,$FF 実行後の A レジスタが 0xFF でない: 0x{regs['a']:02X}"
+        # 7. A の検証: getRegs() ではなくリングバッファを使う
+        # sim_run_n(100000) はトリガー発火後も 10 万ステップ走り続けるため
+        # getRegs() が返す値はトリガー発火時点とずれる。
+        # read_sample('acc', -1) は ring[trig_fire_head-1] の acc フィールドを返し、
+        # これはトリガーが発火した clock step の acc=0xFF と一致する。
+        a_at_trig = sim.read_sample('acc', -1)
+        assert a_at_trig == 0xFF, (
+            f"トリガー発火時点の A が 0xFF でない: 0x{a_at_trig:02X}"
         )
 
         # スクリーンショット保存（全レジスタ表示・16x ズーム・TRIG 中央）
+        sim.pause()
+        time.sleep(0.15)
         sim.show_signals(*_ALL_REGS)
         sim.set_zoom('16x')
         time.sleep(0.2)
         sim.goto_trigger()
         time.sleep(0.3)
-        a_val = regs["a"]
+        regs = sim.await_get_regs()
+        a_val = a_at_trig        # トリガー発火時点の値を使用（getRegs は 10万ステップ後の値）
         pc_val = regs["pc"]
         sim.screenshot_canvas_to_file(
             _SS_DIR / "sim_api_mvi_a_ff.png",
