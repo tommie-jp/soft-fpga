@@ -2,6 +2,9 @@
 
 [English](README.md) | [日本語](README.ja.md)
 
+[![CI](https://github.com/tommie-jp/soft-fpga/actions/workflows/ci.yml/badge.svg)](https://github.com/tommie-jp/soft-fpga/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Simulate Verilog-written retro CPUs and digital circuits via Verilator + Emscripten,
 and run them in the browser. The core value is not speed but **real-time visualization
 of internal signals** — T-states, microsequencers, bus waveforms — things no
