@@ -46,6 +46,10 @@ A library for declaratively observing RTL internal signals in the browser.
 
 ### Animated captures
 
+**02 — Traffic-light FSM** — a 3-phase signal with a pedestrian button. The State Diagram highlights the live state (`GREEN`→`YELLOW`→`RED`→`WALK`) while the logic analyzer shows the same transition on the output signals. [Open ▶](https://tommie-jp.github.io/soft-fpga/02-traffic-fsm/)
+
+![Traffic-light FSM — state diagram + logic analyzer](docs/img/ss/traffic-fsm-demo.gif)
+
 **03 — UART (loopback)** — transmitting `soft-FPGA` over the serial line: start / data / stop bits on `txd`/`rxd`, the TX and RX state machines, and the byte on the data bus, all sampled live. [Open ▶](https://tommie-jp.github.io/soft-fpga/03-uart/)
 
 ![UART loopback — logic analyzer view](docs/img/ss/uart-demo.gif)

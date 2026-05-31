@@ -45,6 +45,10 @@ RTL 内部信号をブラウザで宣言的に観測するライブラリ。
 
 ### 動作キャプチャ（アニメーション）
 
+**02 — 信号機 FSM** — 歩行者ボタン付きの3相信号機。State Diagram が現在状態（`GREEN`→`YELLOW`→`RED`→`WALK`）をライブにハイライトし、同じ遷移を出力信号のロジアナ波形でも確認できる。[開く ▶](https://tommie-jp.github.io/soft-fpga/02-traffic-fsm/)
+
+![信号機 FSM — State Diagram + ロジックアナライザ](docs/img/ss/traffic-fsm-demo.gif)
+
 **03 — UART（loopback）** — `soft-FPGA` をシリアル送信。`txd`/`rxd` のスタート/データ/ストップビット、TX・RX の状態機械、データバス上のバイトをすべてライブにサンプリング。[開く ▶](https://tommie-jp.github.io/soft-fpga/03-uart/)
 
 ![UART loopback — ロジックアナライザ表示](docs/img/ss/uart-demo.gif)
