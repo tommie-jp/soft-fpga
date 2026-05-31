@@ -7,6 +7,10 @@ and run them in the browser. The core value is not speed but **real-time visuali
 of internal signals** — T-states, microsequencers, bus waveforms — things no
 instruction-level emulator can show.
 
+![soft-FPGA — real-time RTL waveform visualization (01-counter)](docs/img/ss/01-counter-demo.gif)
+
+*Live waveforms from a Verilog binary counter: 8 register bits sampled every clock cycle and rendered at 60 Hz in the browser. [Try it live ▶](https://tommie-jp.github.io/soft-fpga/01-counter/)*
+
 ## Subject selection criteria
 
 - **Historically significant architecture** — CPUs and circuits that changed industry or culture in their era
