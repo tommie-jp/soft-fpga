@@ -5,14 +5,15 @@
 # 経由で使用する。
 #
 # 実行内容:
-#   1. cmake ビルド (examples/06-8080)
-#   2. RTL lint (Verilator)
-#   3. ハーネス スモークテスト    (--test)
-#   4. 全命令テストスイート        (--run-test)
-#   5. CP/M ブートテスト          (--boot-test)
-#   6. 8080EX1 機能テスト 20 グループ (--exec 8080EX1)
-#   6b. 8080PRE 前段テスト             (--exec 8080PRE)
-#   7. DDT Ctrl+C ウォームブートテスト (--ddt-ctrlc-test)
+#   cmake ビルド (examples/06-8080)
+#   1. RTL lint (Verilator)
+#   2. ハーネス スモークテスト         (--test)
+#   3. 全命令テストスイート             (--run-test)
+#   4. CP/M ブートテスト               (--boot-test)
+#   5. 8080EX1 機能テスト 20 グループ  (--exec 8080EX1)
+#   5b. 8080PRE 前段テスト             (--exec 8080PRE)
+#   6. DDT Ctrl+C ウォームブートテスト (--ddt-ctrlc-test)
+#   7. CP/M 標準コマンド + BDS C シナリオ群 (--cpm-script)
 #
 # 終了コード: 0 = 全 PASS、1 = 1 件以上 FAIL
 
