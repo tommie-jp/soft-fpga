@@ -115,7 +115,19 @@ h1 {
   margin-bottom: 16px;
   color: #333;
 }
+h1 a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+h1 a:hover { color: #0066cc; }
 h1 span { color: #888; font-weight: normal; font-size: 13px; }
+.note {
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 16px;
+  padding: 6px 10px;
+  background: #fffbe6;
+  border-left: 3px solid #f0c040;
+  border-radius: 2px;
+}
+.note a { color: #555; }
 details { margin-bottom: 20px; }
 details[open] summary { margin-bottom: 10px; }
 summary {
@@ -232,9 +244,13 @@ def generate_index(runs: list[tuple[str, str, list[str]]]) -> str:
 {_CSS}  </style>
 </head>
 <body>
-  <h1>Intel 8080 Timing Diagrams
+  <h1><a href="../../../examples/06-8080/web/">Intel 8080</a> Timing Diagrams
     <span>— {len(runs)} run(s) / {total} cases &nbsp;|&nbsp; generated {now}</span>
   </h1>
+  <p class="note">このタイミング図は Verilog ソース
+    <a href="https://github.com/1801BM1/vm80a" target="_blank" rel="noopener">vm80a</a>
+    に基づいており、実機 Intel 8080 のタイミングとは異なる可能性があります。
+  </p>
 
 {body}
 </body>
