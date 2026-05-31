@@ -107,7 +107,7 @@ echo "Copied root index.html + favicon.ico"
 # js/ ライブラリをルートの js/ にコピー（rtlscope-la.js など）
 if [ -d "$ROOT/js" ]; then
     mkdir -p "$WORKTREE/js"
-    cp "$ROOT/js"/*.js "$WORKTREE/js/" 2>/dev/null || true
+    cp "$ROOT/js"/*.js "$ROOT/js"/*.css "$WORKTREE/js/" 2>/dev/null || true
     echo "Copied js/ library files"
 fi
 
@@ -191,6 +191,25 @@ if [[ -f "$WORKTREE/examples/06-8080/web/index.html" ]]; then
 </html>
 REDIRECT
     echo "Created redirect: 06-8080/ → examples/06-8080/web/"
+fi
+
+# ── タイミング図ギャラリーをデプロイ ──────────────────────────────────────────
+# examples/06-8080/web/index.html が ../../../test/ss/8080/index.html を参照するため、
+# gh-pages 上でも同じ相対パス (test/ss/8080/) に配置する。
+SS_SRC="$ROOT/test/ss/8080"
+SS_DST="$WORKTREE/test/ss/8080"
+if [[ -f "${SS_SRC}/index.html" ]]; then
+    mkdir -p "${SS_DST}"
+    cp "${SS_SRC}/index.html"  "${SS_DST}/"
+    cp "${SS_SRC}/viewer.html" "${SS_DST}/"
+    # コミット済みの timing-* ディレクトリのみコピー（.gitignore 除外分は含まない）
+    for d in "${SS_SRC}"/timing-*/; do
+        [[ -d "$d" ]] || continue
+        dname="$(basename "$d")"
+        mkdir -p "${SS_DST}/${dname}"
+        cp "${d}"*.png "${SS_DST}/${dname}/" 2>/dev/null || true
+    done
+    echo "Copied test/ss/8080/ → gh-pages/test/ss/8080/"
 fi
 
 cd "$WORKTREE"

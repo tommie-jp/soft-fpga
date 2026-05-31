@@ -8,6 +8,7 @@
 #   フェーズ 1: GitHub Deployments API をポーリングしてデプロイ完了を待つ
 #   フェーズ 2: curl で主要 URL の HTTP 200 を確認（スモークテスト）
 #   フェーズ 3: Playwright で CP/M ターミナルの A> プロンプトを確認
+#   フェーズ 4: 内部リンク切れチェック（check-broken-links.py）
 #
 # 前提:
 #   - gh CLI がインストール済み（未インストールの場合はフェーズ1をスキップ）
@@ -195,6 +196,7 @@ done
 step "フェーズ3: CP/M ターミナル確認 (Playwright / A> プロンプト)"
 
 SMOKE_PY="${SCRIPT_DIR}/smoke_cpm_boot.py"
+LINKCHECK_PY="${SCRIPT_DIR}/check-broken-links.py"
 
 if [[ ! -x "${VENV}/bin/python3" ]]; then
     warn ".venv が見つかりません — フェーズ3をスキップします"
@@ -213,6 +215,26 @@ else
         2) warn "playwright 未インストール — フェーズ3をスキップします" ;;
         *) fail "A> プロンプトが表示されませんでした"; overall_ok=false ;;
     esac
+fi
+
+# ════════════════════════════════════════════════════════════════════════════
+# フェーズ 4: リンク切れチェック
+# ════════════════════════════════════════════════════════════════════════════
+step "フェーズ4: リンク切れチェック"
+
+if [[ ! -f "${LINKCHECK_PY}" ]]; then
+    warn "check-broken-links.py が見つかりません — フェーズ4をスキップします"
+elif [[ "$smoke_ok" == false ]]; then
+    warn "フェーズ2 でエラーがあるためフェーズ4をスキップします"
+else
+    set +e
+    python3 "${LINKCHECK_PY}" "${PAGES_BASE}" 2>&1 | sed 's/^/  /'
+    lc_exit=${PIPESTATUS[0]}
+    set -e
+
+    if [[ $lc_exit -ne 0 ]]; then
+        overall_ok=false
+    fi
 fi
 
 # ════════════════════════════════════════════════════════════════════════════
