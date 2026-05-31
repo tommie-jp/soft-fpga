@@ -18,6 +18,35 @@
 
 set -euo pipefail
 
+usage() {
+    cat <<'EOF'
+使い方: doCheckDeps.sh [-h]
+
+ビルド・テストに必要なツールが揃っているか確認する。
+
+確認対象:
+  verilator  RTL → C++ 変換
+  em++       Emscripten C++ → WASM コンパイル
+  z80asm     Z80 アセンブラ (BIOS・テストバイナリ生成)
+  cmake      ネイティブ Linux バイナリビルド
+  make       Makefile 実行
+  node       Node.js (Vitest 実行)
+  npm        パッケージ管理 (Vitest インストール)
+
+終了コード: 0 = 全ツール OK、1 = 不足あり
+
+オプション:
+  -h, --help  このヘルプを表示して終了
+EOF
+}
+
+for arg in "$@"; do
+    case "$arg" in
+        -h|--help) usage; exit 0 ;;
+        *) echo "不明なオプション: $arg" >&2; usage >&2; exit 1 ;;
+    esac
+done
+
 # ANSI カラー
 RED='\033[0;31m'
 GREEN='\033[0;32m'

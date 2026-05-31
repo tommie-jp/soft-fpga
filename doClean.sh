@@ -21,6 +21,39 @@
 
 set -euo pipefail
 
+usage() {
+    cat <<'EOF'
+使い方: doClean.sh [-h]
+
+ビルド成果物をすべて削除してクリーンな状態に戻す。
+
+削除対象:
+  examples/06-8080/build/              cmake ビルドディレクトリ
+  obj_dir_06_wasm/                     Verilator 生成 C++ (WASM ビルド用)
+  examples/06-8080/web/sim.js          WASM リンク成果物
+  examples/06-8080/web/sim.wasm
+  examples/06-8080/tests/sim-test.mjs  テスト用 WASM
+  examples/06-8080/tests/sim-test.wasm
+  examples/06-8080/sw/cpm/bios/signon.inc
+
+削除しないもの:
+  node_modules/  (npm install は時間がかかるため保持)
+  *.dsk          (ユーザーデータを含む可能性あり)
+
+再ビルドするには: bash doBuildAll.sh
+
+オプション:
+  -h, --help  このヘルプを表示して終了
+EOF
+}
+
+for arg in "$@"; do
+    case "$arg" in
+        -h|--help) usage; exit 0 ;;
+        *) echo "不明なオプション: $arg" >&2; usage >&2; exit 1 ;;
+    esac
+done
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CPM_DIR="${SCRIPT_DIR}/examples/06-8080"
 

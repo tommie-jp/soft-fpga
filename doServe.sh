@@ -2,8 +2,36 @@
 # 手動確認用 HTTP サーバー（Ctrl+C で停止）
 set -euo pipefail
 
+usage() {
+    cat <<'EOF'
+使い方: doServe.sh [-h] [ポート番号]
+
+Apple-I (04-6502) の WASM 版をブラウザで開くための HTTP サーバーを起動する。
+
+引数:
+  ポート番号  省略時は 8080
+
+例:
+  ./doServe.sh          # ポート 8080 で起動
+  ./doServe.sh 9090     # ポート 9090 で起動
+
+終了: Ctrl+C
+
+オプション:
+  -h, --help  このヘルプを表示して終了
+EOF
+}
+
+PORT=8080
+for arg in "$@"; do
+    case "$arg" in
+        -h|--help) usage; exit 0 ;;
+        [0-9]*) PORT="$arg" ;;
+        *) echo "不明なオプション: $arg" >&2; usage >&2; exit 1 ;;
+    esac
+done
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PORT=${1:-8080}
 TARGET="http://localhost:${PORT}/examples/04-6502/web/index.html"
 
 echo "HTTP サーバー起動中 (ポート ${PORT}) — Ctrl+C で停止"

@@ -23,6 +23,40 @@
 
 set -euo pipefail
 
+usage() {
+    cat <<'EOF'
+使い方: doDeployAll.sh [-h]
+
+examples/06-8080 をビルドして GitHub Pages にデプロイする。
+
+処理内容:
+  1. doBuildAll.sh                      全成果物をビルド
+  2. scripts/doDeployPages.sh --no-build 06  gh-pages ブランチへデプロイ
+  3. scripts/check-pages-deploy.sh      デプロイ完了・動作確認
+     フェーズ1: GitHub Deployments API でデプロイ成否を確認
+     フェーズ2: curl で主要 URL の HTTP 200 を確認
+     フェーズ3: Playwright で CP/M ターミナルの A> プロンプトを確認
+
+前提条件:
+  - git remote "origin" が設定済みで push 権限があること
+  - Verilator・Emscripten (emsdk)・z80asm・cmake が利用可能なこと
+  - gh CLI がインストール済み（なければフェーズ1をスキップ）
+  - .venv に playwright がインストール済み（なければフェーズ3をスキップ）
+
+終了コード: 0 = 成功、1 = 失敗
+
+オプション:
+  -h, --help  このヘルプを表示して終了
+EOF
+}
+
+for arg in "$@"; do
+    case "$arg" in
+        -h|--help) usage; exit 0 ;;
+        *) echo "不明なオプション: $arg" >&2; usage >&2; exit 1 ;;
+    esac
+done
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # ANSI カラー
@@ -34,6 +68,22 @@ RESET='\033[0m'
 echo "======================================================================"
 echo " デプロイ: examples/06-8080 → GitHub Pages"
 echo "======================================================================"
+echo ""
+
+# ---------------------------------------------------------------------------
+# 確認プロンプト
+# ---------------------------------------------------------------------------
+BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "不明")
+REMOTE=$(git remote get-url origin 2>/dev/null || echo "不明")
+printf "${RED}警告: GitHub Pages への公開デプロイを実行します。${RESET}\n"
+echo "  ブランチ : ${BRANCH}"
+echo "  リモート : ${REMOTE}"
+echo ""
+read -r -p "続行しますか？ [y/N] " REPLY
+if [[ ! "$REPLY" =~ ^[Yy]$ ]]; then
+    echo "キャンセルしました。"
+    exit 0
+fi
 echo ""
 
 # ---------------------------------------------------------------------------

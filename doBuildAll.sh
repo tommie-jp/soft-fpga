@@ -18,6 +18,35 @@
 
 set -euo pipefail
 
+usage() {
+    cat <<'EOF'
+使い方: doBuildAll.sh [-h]
+
+examples/06-8080 の全ビルドを順次実行する。
+
+ビルドステップ:
+  1. 命令テストバイナリ生成    (test/Makefile)
+  2. BIOS アセンブル Linux 版  (sw/cpm/Makefile linux)
+  3. ネイティブ Linux バイナリ (cmake -B build)
+  4. BIOS アセンブル WASM 版   (sw/cpm/Makefile wasm)
+  5. WebAssembly ビルド         (scripts/build-wasm-06.sh)
+  6. BIOS Linux 版に戻す        (sw/cpm/Makefile linux)
+  7. npm install                 (tests/ の Vitest 依存)
+
+終了コード: 0 = 全ステップ成功、1 = 1 件以上失敗
+
+オプション:
+  -h, --help  このヘルプを表示して終了
+EOF
+}
+
+for arg in "$@"; do
+    case "$arg" in
+        -h|--help) usage; exit 0 ;;
+        *) echo "不明なオプション: $arg" >&2; usage >&2; exit 1 ;;
+    esac
+done
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CPM_DIR="${SCRIPT_DIR}/examples/06-8080"
 
