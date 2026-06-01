@@ -30,8 +30,8 @@ declare -a EXAMPLES=(
     "01:build-wasm.sh:examples/01-counter/web:01-counter"
     "02:build-wasm-02.sh:examples/02-traffic-fsm/web:02-traffic-fsm"
     "03:build-wasm-03.sh:examples/03-uart/web:03-uart"
-    "04:build-wasm.sh:examples/04-6502/web:04-6502"
-    "05:build-wasm.sh:examples/05-dormann/web:05-dormann"
+    "04:build-wasm-04.sh:examples/04-6502/web:04-6502"
+    "05:build-wasm-05.sh:examples/05-dormann/web:05-dormann"
     "06:build-wasm-06.sh:examples/06-8080/web:examples/06-8080/web"
 )
 
