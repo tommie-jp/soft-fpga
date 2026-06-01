@@ -57,6 +57,10 @@ RTL 内部信号をブラウザで宣言的に観測するライブラリ。
 
 ![Apple-I / 6502 — レジスタ・マイクロシーケンサ状態・バスアナライザ](docs/img/ss/6502-demo.gif)
 
+**06 — Intel 8080 / CP/M 2.2** — vm80a（デキャップ起こし）8080 RTL 上で CP/M 2.2 + Microsoft BASIC のプリントループを実行。CPU レジスタ・TPA/BIOS 領域・**I/O バスアナライザ**（マシンサイクル・port・data・`io_req`/`io_wr`・T ステート）が、コンソールへの1文字出力ごとにライブ更新される。[開く ▶](https://tommie-jp.github.io/soft-fpga/06-8080/)
+
+![Intel 8080 / CP/M 2.2 — MBASIC ＋ レジスタ・I/O バスアナライザ](docs/img/ss/8080-cpm-demo.gif)
+
 ## 設計の難所（ハマりどころ）
 
 「RTL をブラウザで動かすだけ」の裏にある非自明な問題。詳細は [docs/01-soft-FPGA-WebAssembly-設計議論メモ.md](docs/01-soft-FPGA-WebAssembly-設計議論メモ.md)。

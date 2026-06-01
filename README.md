@@ -58,6 +58,10 @@ A library for declaratively observing RTL internal signals in the browser.
 
 ![Apple-I / 6502 — registers, microsequencer state, and bus analyzer](docs/img/ss/6502-demo.gif)
 
+**06 — Intel 8080 / CP/M 2.2** — Microsoft BASIC running a print loop under CP/M 2.2 on the vm80a (decapped-die) 8080 RTL. CPU registers, the TPA/BIOS region, and the **I/O Bus Analyzer** (machine cycles, port, data, `io_req`/`io_wr`, T-states) update live as each character is written to the console. [Open ▶](https://tommie-jp.github.io/soft-fpga/06-8080/)
+
+![Intel 8080 / CP/M 2.2 — MBASIC with live registers and I/O bus analyzer](docs/img/ss/8080-cpm-demo.gif)
+
 ## Design notes — what made this hard
 
 A few non-obvious problems behind the "just run RTL in the browser" pitch. Full write-up in [docs/01-soft-FPGA-WebAssembly-設計議論メモ.md](docs/01-soft-FPGA-WebAssembly-設計議論メモ.md).
