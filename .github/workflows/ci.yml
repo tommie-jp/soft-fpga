@@ -28,7 +28,8 @@ jobs:
             [ -e "$v" ] || continue
             dir=$(dirname "$v")
             # サブモジュール依存があるトップは単体 lint 不可のためスキップ
-            [[ "$v" == *"/04-6502/"* ]] && continue
+            #   04-6502: hoglet (verilog-6502) / 06-8080: vm80a
+            [[ "$v" == *"/04-6502/"* || "$v" == *"/06-8080/"* ]] && continue
             verilator --lint-only -Wall -Wno-DECLFILENAME -I"$dir" "$v"
           done
 

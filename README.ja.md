@@ -2,6 +2,9 @@
 
 [English](README.md) | [日本語](README.ja.md)
 
+[![CI](https://github.com/tommie-jp/soft-fpga/actions/workflows/ci.yml/badge.svg)](https://github.com/tommie-jp/soft-fpga/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Verilog で書いたレトロ CPU / デジタル回路を Verilator で C++ 化し、Emscripten で WebAssembly に変換して
 ブラウザ上で動かすプロジェクト。速度より**内部信号のリアルタイム可視化**（T-state・マイクロシーケンサ・
 バス波形など）が核心価値。命令エミュレータには存在しない内部信号をブラウザ上で観測できる。
