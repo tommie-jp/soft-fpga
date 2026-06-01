@@ -44,6 +44,31 @@ A library for declaratively observing RTL internal signals in the browser.
 | [![Binary counter — Logic Analyzer](docs/img/ss/01-counter.png)](docs/img/ss/01-counter.png) | [![Traffic light FSM — State Diagram](docs/img/ss/02-traffic-fsm.png)](docs/img/ss/02-traffic-fsm.png) | [![Apple-I — Woz Monitor + CPU Registers](docs/img/ss/04-6502-wozmon.png)](docs/img/ss/04-6502-wozmon.png) | [![Apple-I — Integer BASIC](docs/img/ss/04-6502-basic.png)](docs/img/ss/04-6502-basic.png) |
 | 8-bit counter waveforms in Logic Analyzer | FSM state highlighted in real time | 6502 CPU registers and bus signals live | Integer BASIC running on the simulated 6502 |
 
+### Animated captures
+
+**02 — Traffic-light FSM** — a 3-phase signal with a pedestrian button. The State Diagram highlights the live state (`GREEN`→`YELLOW`→`RED`→`WALK`) while the logic analyzer shows the same transition on the output signals. [Open ▶](https://tommie-jp.github.io/soft-fpga/02-traffic-fsm/)
+
+![Traffic-light FSM — state diagram + logic analyzer](docs/img/ss/traffic-fsm-demo.gif)
+
+**03 — UART (loopback)** — transmitting `soft-FPGA` over the serial line: start / data / stop bits on `txd`/`rxd`, the TX and RX state machines, and the byte on the data bus, all sampled live. [Open ▶](https://tommie-jp.github.io/soft-fpga/03-uart/)
+
+![UART loopback — logic analyzer view](docs/img/ss/uart-demo.gif)
+
+**04 — Apple-I / 6502** — Integer BASIC running a print loop on the 6502 RTL core. CPU registers, the **microsequencer state** (`JSR2`, `BRA0`, …) and the address / data / we / sync bus update every clock cycle — internal signals an instruction-level emulator does not have. [Open ▶](https://tommie-jp.github.io/soft-fpga/04-6502/)
+
+![Apple-I / 6502 — registers, microsequencer state, and bus analyzer](docs/img/ss/6502-demo.gif)
+
+## Design notes — what made this hard
+
+A few non-obvious problems behind the "just run RTL in the browser" pitch. Full write-up in [docs/01-soft-FPGA-WebAssembly-設計議論メモ.md](docs/01-soft-FPGA-WebAssembly-設計議論メモ.md).
+
+- **Never cross the Wasm↔JS boundary every cycle.** A per-cycle `EM_ASM`/`EM_JS` callback collapses under call overhead. rtlscope writes each sample into a ring buffer in Wasm memory; JS reads it zero-copy through a `TypedArray` view over `HEAP8.buffer` and renders at 60 Hz with `requestAnimationFrame`.
+- **`ALLOW_MEMORY_GROWTH=1` silently invalidates those views.** When the Wasm heap grows, the old `ArrayBuffer` is detached and the view goes blank mid-run, so the harness watches for growth and regenerates the views.
+- **Verilator hierarchical signal names are not stable.** `top->cpu__DOT__regs__DOT__pc` shifts with the Verilator version and `--public-flat-rw` is brittle. Observed signals are pulled out through a thin Verilog wrapper at the top level and bound in the C++ harness, so the JS side never depends on internal naming.
+- **VCD dump is a non-starter in Wasm** — the in-Wasm filesystem fills instantly, so all tracing goes through the custom ring buffer instead.
+- **The simulation has to run in a Web Worker.** On the main thread the UI freezes; the fast path needs `SharedArrayBuffer` + Atomics, which pulls in COOP/COEP headers.
+- **The core claim, precisely:** an instruction-level emulator has no T-states, microsequencer, or combinational-propagation signals to expose — not hidden, *absent*. soft-FPGA runs the circuit, so those signals exist and can be observed (see the 6502 capture above).
+
 ## Roadmap
 
 | Phase | Subject | Goal | Status |

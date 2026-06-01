@@ -43,6 +43,31 @@ RTL 内部信号をブラウザで宣言的に観測するライブラリ。
 | [![二進カウンタ — Logic Analyzer](docs/img/ss/01-counter.png)](docs/img/ss/01-counter.png) | [![信号機 FSM — State Diagram](docs/img/ss/02-traffic-fsm.png)](docs/img/ss/02-traffic-fsm.png) | [![Apple-I — Woz Monitor + CPU レジスタ](docs/img/ss/04-6502-wozmon.png)](docs/img/ss/04-6502-wozmon.png) | [![Apple-I — Integer BASIC](docs/img/ss/04-6502-basic.png)](docs/img/ss/04-6502-basic.png) |
 | 8bit カウンタの波形を Logic Analyzer で観測 | 現在の FSM 状態をリアルタイムにハイライト | 6502 CPU レジスタとバス信号をリアルタイム表示 | シミュレーション上の 6502 で Integer BASIC を実行 |
 
+### 動作キャプチャ（アニメーション）
+
+**02 — 信号機 FSM** — 歩行者ボタン付きの3相信号機。State Diagram が現在状態（`GREEN`→`YELLOW`→`RED`→`WALK`）をライブにハイライトし、同じ遷移を出力信号のロジアナ波形でも確認できる。[開く ▶](https://tommie-jp.github.io/soft-fpga/02-traffic-fsm/)
+
+![信号機 FSM — State Diagram + ロジックアナライザ](docs/img/ss/traffic-fsm-demo.gif)
+
+**03 — UART（loopback）** — `soft-FPGA` をシリアル送信。`txd`/`rxd` のスタート/データ/ストップビット、TX・RX の状態機械、データバス上のバイトをすべてライブにサンプリング。[開く ▶](https://tommie-jp.github.io/soft-fpga/03-uart/)
+
+![UART loopback — ロジックアナライザ表示](docs/img/ss/uart-demo.gif)
+
+**04 — Apple-I / 6502** — 6502 RTL コア上で Integer BASIC のプリントループを実行。CPU レジスタ・**マイクロシーケンサ状態**（`JSR2`・`BRA0` …）・アドレス/データ/we/sync バスが毎クロック更新される。命令エミュレータには存在しない内部信号。[開く ▶](https://tommie-jp.github.io/soft-fpga/04-6502/)
+
+![Apple-I / 6502 — レジスタ・マイクロシーケンサ状態・バスアナライザ](docs/img/ss/6502-demo.gif)
+
+## 設計の難所（ハマりどころ）
+
+「RTL をブラウザで動かすだけ」の裏にある非自明な問題。詳細は [docs/01-soft-FPGA-WebAssembly-設計議論メモ.md](docs/01-soft-FPGA-WebAssembly-設計議論メモ.md)。
+
+- **毎サイクル Wasm↔JS 境界を跨がない。** 毎サイクルの `EM_ASM`/`EM_JS` コールバックは呼出オーバーヘッドで破綻する。rtlscope は各サンプルを Wasm メモリ上のリングバッファに書き、JS は `HEAP8.buffer` 上の `TypedArray` ビュー越しに**ゼロコピー読取**し、`requestAnimationFrame` で 60Hz 描画する。
+- **`ALLOW_MEMORY_GROWTH=1` がそのビューを静かに無効化する。** Wasm ヒープが伸びると古い `ArrayBuffer` が detach され、実行中に表示が消える。ハーネス側で growth を監視しビューを再生成する。
+- **Verilator の階層信号名は安定しない。** `top->cpu__DOT__regs__DOT__pc` は Verilator バージョンで変わり、`--public-flat-rw` は脆い。観測対象はトップ直下の薄い Verilog ラッパーで引き出し、C++ ハーネスで bind する（JS 側は内部命名に依存しない）。
+- **VCD ダンプは Wasm では成立しない** — Wasm 内 FS が即詰まるため、トレースはすべてカスタムリングバッファに振る。
+- **シミュレーションは Web Worker で動かす必要がある。** メインスレッド実行では UI が固まる。高速版は `SharedArrayBuffer` + Atomics が要り、COOP/COEP ヘッダを伴う。
+- **核心の主張を正確に言うと:** 命令エミュレータには露出すべき T-state・マイクロシーケンサ・組合せ伝播の信号が**存在しない**（隠れているのではなく無い）。soft-FPGA は回路を動かしているので、それらの信号が実在し観測できる（上の 6502 キャプチャ参照）。
+
 ## ロードマップ
 
 | フェーズ | 題材 | 目的 | 状態 |
