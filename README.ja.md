@@ -85,6 +85,7 @@ RTL 内部信号をブラウザで宣言的に観測するライブラリ。
 | ゲーム | Pong / Breakout | ディスクリート論理回路の可視化ショーケース | 🔲 予定 |
 | CPU 第三弾 | 4004 / Busicom | 命令エミュに作れない可視化の決定的証明 | 🔲 予定 |
 | CPU 第四弾 | Z80 | Pico 2 側ロードマップと同期 | 🔲 予定 |
+| CPU 第五弾 | PDP-11 / Unix V6 | Brad Parker `cpus-pdp11` RTL で Unix V6 ブートを可視化 | 🔲 予定 |
 
 ## Getting started
 

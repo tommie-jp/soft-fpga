@@ -86,6 +86,7 @@ A few non-obvious problems behind the "just run RTL in the browser" pitch. Full 
 | Game | Pong / Breakout | Discrete-logic visualization showcase | 🔲 Planned |
 | CPU #3 | 4004 / Busicom | Definitive proof of visualization beyond instruction emulators | 🔲 Planned |
 | CPU #4 | Z80 | Sync with Pico 2 roadmap | 🔲 Planned |
+| CPU #5 | PDP-11 / Unix V6 | Unix V6 boot visualization on Brad Parker's cpus-pdp11 RTL | 🔲 Planned |
 
 ## Getting started
 
