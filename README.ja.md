@@ -53,13 +53,13 @@ RTL 内部信号をブラウザで宣言的に観測するライブラリ。
 
 ![UART loopback — ロジックアナライザ表示](docs/img/ss/uart-demo.gif)
 
-**04 — Apple-I / 6502** — 6502 RTL コア上で Integer BASIC のプリントループを実行。CPU レジスタ・**マイクロシーケンサ状態**（`JSR2`・`BRA0` …）・アドレス/データ/we/sync バスが毎クロック更新される。命令エミュレータには存在しない内部信号。[開く ▶](https://tommie-jp.github.io/soft-fpga/04-6502/)
+**04 — Apple-I / 6502** — 6502 RTL コア上で Integer BASIC を実行：`A=1`・`B=20` を代入し `A+B = 21` を計算して終了。CPU レジスタ・**マイクロシーケンサ状態**（`JSR2`・`BRA0` …）・アドレス/データ/we/sync バスが毎クロック更新される。命令エミュレータには存在しない内部信号。[開く ▶](https://tommie-jp.github.io/soft-fpga/04-6502/)
 
 ![Apple-I / 6502 — レジスタ・マイクロシーケンサ状態・バスアナライザ](docs/img/ss/6502-demo.gif)
 
-**06 — Intel 8080 / CP/M 2.2** — vm80a（デキャップ起こし）8080 RTL 上で CP/M 2.2 + Microsoft BASIC のプリントループを実行。CPU レジスタ・TPA/BIOS 領域・**I/O バスアナライザ**（マシンサイクル・port・data・`io_req`/`io_wr`・T ステート）が、コンソールへの1文字出力ごとにライブ更新される。[開く ▶](https://tommie-jp.github.io/soft-fpga/06-8080/)
+**06 — Intel 8080 / CP/M 2.2** — vm80a（デキャップ起こし）8080 RTL 上で CP/M 2.2 + BDS C コンパイル実行サイクル：`DIR` → `B:` → `TYPE HELLO.C` → `CC HELLO` → `CLINK HELLO` → `HELLO`。ソースファイルから「Hello, CP/M!」まで一連の操作を実演。CPU レジスタ・**I/O バスアナライザ**が処理中もライブ更新される。[開く ▶](https://tommie-jp.github.io/soft-fpga/06-8080/)
 
-![Intel 8080 / CP/M 2.2 — MBASIC ＋ レジスタ・I/O バスアナライザ](docs/img/ss/8080-cpm-demo.gif)
+![Intel 8080 / CP/M 2.2 — BDS C: DIR → CC HELLO → CLINK HELLO → Hello, CP/M!](docs/img/ss/8080-cpm-demo.gif)
 
 ## 設計の難所（ハマりどころ）
 

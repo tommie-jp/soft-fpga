@@ -54,13 +54,13 @@ A library for declaratively observing RTL internal signals in the browser.
 
 ![UART loopback — logic analyzer view](docs/img/ss/uart-demo.gif)
 
-**04 — Apple-I / 6502** — Integer BASIC running a print loop on the 6502 RTL core. CPU registers, the **microsequencer state** (`JSR2`, `BRA0`, …) and the address / data / we / sync bus update every clock cycle — internal signals an instruction-level emulator does not have. [Open ▶](https://tommie-jp.github.io/soft-fpga/04-6502/)
+**04 — Apple-I / 6502** — Integer BASIC running on the 6502 RTL core: assigns `A=1`, `B=20`, evaluates `A+B = 21`, and exits. CPU registers, the **microsequencer state** (`JSR2`, `BRA0`, …) and the address / data / we / sync bus update every clock cycle — internal signals an instruction-level emulator does not have. [Open ▶](https://tommie-jp.github.io/soft-fpga/04-6502/)
 
 ![Apple-I / 6502 — registers, microsequencer state, and bus analyzer](docs/img/ss/6502-demo.gif)
 
-**06 — Intel 8080 / CP/M 2.2** — Microsoft BASIC running a print loop under CP/M 2.2 on the vm80a (decapped-die) 8080 RTL. CPU registers, the TPA/BIOS region, and the **I/O Bus Analyzer** (machine cycles, port, data, `io_req`/`io_wr`, T-states) update live as each character is written to the console. [Open ▶](https://tommie-jp.github.io/soft-fpga/06-8080/)
+**06 — Intel 8080 / CP/M 2.2** — BDS C compile-run cycle on the vm80a (decapped-die) 8080 RTL under CP/M 2.2: `DIR` → `B:` → `TYPE HELLO.C` → `CC HELLO` → `CLINK HELLO` → `HELLO`. From source file to "Hello, CP/M!" in one session. CPU registers and the **I/O Bus Analyzer** update live throughout. [Open ▶](https://tommie-jp.github.io/soft-fpga/06-8080/)
 
-![Intel 8080 / CP/M 2.2 — MBASIC with live registers and I/O bus analyzer](docs/img/ss/8080-cpm-demo.gif)
+![Intel 8080 / CP/M 2.2 — BDS C: DIR → CC HELLO → CLINK HELLO → Hello, CP/M!](docs/img/ss/8080-cpm-demo.gif)
 
 ## Design notes — what made this hard
 
