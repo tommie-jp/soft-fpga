@@ -76,6 +76,7 @@
       <button id="btn-run">Pause</button>
       <button id="btn-reset">Reset</button>
       <button id="btn-step">Step Inst</button>
+      <button id="btn-demo">Demo</button>
       <label>速度: <input id="speed" type="range" min="100" max="50000" step="100" value="8000"></label>
       <span id="cycle-info" style="font-size:12px;color:#666;">0 cycles</span>
     </div>
@@ -411,6 +412,17 @@
         requestAnimationFrame(loop);
       }
 
+      // ── Auto-type helper ─────────────────────────────────────────
+      function autoTypeStr(str, charDelay, done) {
+        var i = 0;
+        function next() {
+          if (i >= str.length) { if (done) done(); return; }
+          Module._send_key(str.charCodeAt(i++));
+          setTimeout(next, charDelay);
+        }
+        setTimeout(next, 0);
+      }
+
       // ── Apple-I ボタン ───────────────────────────────────────────
       document.getElementById('btn-run').addEventListener('click', function () {
         apple1Running = !apple1Running;
@@ -423,6 +435,36 @@
         document.getElementById('btn-run').textContent = 'Run';
         term.reset();
         term.focus();
+      });
+
+      document.getElementById('btn-demo').addEventListener('click', function () {
+        Module._reset_sim();
+        apple1Running = true;
+        document.getElementById('btn-run').textContent = 'Pause';
+        term.reset();
+        term.focus();
+        // WozMon 起動待ち → E000R で BASIC へジャンプ
+        setTimeout(function () {
+          autoTypeStr('E000R\r', 80, function () {
+            // BASIC > プロンプト待ち → プログラム入力
+            setTimeout(function () {
+              var lines = [
+                '10 A=1\r',
+                '20 B=20\r',
+                '30 PRINT "A+B=",A+B\r',
+                '40 END\r',
+                'LIST\r',
+                'RUN\r'
+              ];
+              var li = 0;
+              function nextLine() {
+                if (li >= lines.length) return;
+                autoTypeStr(lines[li++], 80, function () { setTimeout(nextLine, 400); });
+              }
+              nextLine();
+            }, 2000);
+          });
+        }, 1200);
       });
 
       document.getElementById('btn-step').addEventListener('click', function () {
