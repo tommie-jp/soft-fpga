@@ -6,40 +6,78 @@
   <title>09-PDP-11 / Unix V6 — rtlscope</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
   <style>
-    body { background:#1a1a1a; color:#ddd; font-family:monospace; margin:0; padding:12px; box-sizing:border-box; }
-    h2   { margin:0 0 8px; font-size:16px; color:#eee; }
-    .toolbar { display:flex; gap:6px; align-items:center; margin-bottom:8px; flex-wrap:wrap; }
-    button { background:#333; color:#ddd; border:1px solid #555; padding:5px 14px; cursor:pointer; font-size:13px; }
-    button:hover  { background:#444; }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { background:#1a1a1a; color:#ccc; font-family:monospace; margin:0; padding:10px; }
+    h2   { margin:0 0 6px; font-size:15px; color:#eee; }
+
+    /* ── ツールバー ── */
+    .toolbar { display:flex; gap:5px; align-items:center; margin-bottom:6px; flex-wrap:wrap; }
+    button { background:#333; color:#ccc; border:1px solid #555; padding:4px 12px;
+             cursor:pointer; font-size:12px; font-family:monospace; }
+    button:hover   { background:#444; }
     button:disabled { opacity:0.4; cursor:not-allowed; }
-    .status { font-size:12px; color:#888; margin-left:8px; }
+    button.active  { background:#446; border-color:#88a; color:#ccf; }
+    .status { font-size:11px; color:#888; margin-left:6px; }
 
-    /* xterm */
+    /* ── レイアウト: 左=ターミナル 右=情報 ── */
+    .main { display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap; }
+    .col-left { flex:0 0 auto; }
+    .col-right { flex:1 1 300px; min-width:300px; }
+
+    /* ── ターミナル ── */
     #terminal { border:1px solid #444; display:inline-block; }
+    .ctrl-bar { display:flex; gap:4px; margin-top:4px; flex-wrap:wrap; }
+    .ctrl-btn { background:#2a2a2a; color:#aaa; border:1px solid #444;
+                padding:3px 9px; cursor:pointer; font-size:11px; }
+    .ctrl-btn:hover { background:#333; }
 
-    /* Layout: terminal left, info right */
-    .main { display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap; }
-    .right { min-width:240px; }
+    /* ── レジスタ ── */
+    .regs { background:#1e1e1e; border:1px solid #444; padding:6px 10px;
+            font-size:12px; margin-bottom:6px; }
+    .regs h3 { margin:0 0 4px; font-size:12px; color:#888; }
+    .reg-grid { display:grid; grid-template-columns:1fr 1fr; gap:2px 12px; }
+    .reg-row  { display:flex; justify-content:space-between; }
+    .reg-lbl  { color:#666; }
+    .reg-val  { color:#4fc; }
+    .reg-val.user   { color:#68f; }
+    .reg-val.trap   { color:#f84; }
+    .reg-val.active { color:#ff4; }
 
-    /* Registers */
-    .regs { background:#222; border:1px solid #444; padding:8px; font-size:12px; margin-bottom:8px; }
-    .regs h3 { margin:0 0 6px; font-size:13px; color:#aaa; }
-    .reg-row { display:flex; justify-content:space-between; margin-bottom:2px; }
-    .reg-lbl { color:#888; }
-    .reg-val { color:#4fc; font-family:monospace; }
+    /* ── PC トリガーパネル ── */
+    .trig-panel { background:#1a1e1a; border:1px solid #3a4a3a; padding:6px 10px;
+                  font-size:12px; margin-bottom:6px; }
+    .trig-panel h3 { margin:0 0 4px; font-size:12px; color:#6a8a6a; }
+    .trig-row { display:flex; gap:6px; align-items:center; margin-bottom:4px; }
+    .trig-row label { color:#888; font-size:11px; width:40px; }
+    .trig-row input[type=text] { background:#222; border:1px solid #444; color:#cf9;
+                                  padding:2px 6px; font-size:12px; font-family:monospace;
+                                  width:90px; }
+    .trig-row select { background:#222; border:1px solid #444; color:#aaa;
+                        font-size:11px; padding:2px 4px; flex:1; }
+    .trig-hit { color:#f84; font-size:11px; display:none; margin-top:2px; }
+    .trig-hit.show { display:block; }
 
-    /* Logic Analyzer */
-    .la-wrap { background:#111; border:1px solid #444; }
-    .la-wrap h3 { margin:0; padding:4px 8px; font-size:12px; color:#888; border-bottom:1px solid #333; }
-    #la-canvas { display:block; }
+    /* ── Logic Analyzer（rtlscope-la.js はライトテーマ描画） ── */
+    .la-section { background:#dde; border:1px solid #aab; }
+    .la-header { display:flex; align-items:center; gap:6px; padding:4px 8px;
+                 border-bottom:1px solid #bbc; flex-wrap:wrap; background:#d0d0e0; }
+    .la-header h3 { margin:0; font-size:12px; color:#446; flex:1; }
+    .la-zoom-btn { background:#c8c8d8; color:#446; border:1px solid #aab;
+                   padding:2px 8px; cursor:pointer; font-size:11px; }
+    .la-zoom-btn:hover { background:#b8b8c8; }
+    #la-zoom-label { font-size:11px; color:#558; min-width:28px; text-align:center; }
+    #la-toggles { padding:4px 8px; border-bottom:1px solid #bbc;
+                  display:flex; flex-wrap:wrap; gap:4px; background:#d8d8e8; }
+    canvas#la { display:block; width:100%; background:#f5f5f5; }
 
-    /* Loading overlay */
-    #overlay { position:fixed; inset:0; background:rgba(0,0,0,0.85);
-               display:flex; flex-direction:column; align-items:center; justify-content:center;
-               color:#eee; font-size:14px; z-index:100; }
+    /* ── ローディングオーバーレイ ── */
+    #overlay { position:fixed; inset:0; background:rgba(0,0,0,0.88);
+               display:flex; flex-direction:column; align-items:center;
+               justify-content:center; color:#ddd; font-size:14px; z-index:100; }
     #overlay.hidden { display:none; }
-    #overlay progress { margin-top:12px; width:260px; }
-    #overlay .hint { margin-top:16px; font-size:12px; color:#888; text-align:center; }
+    #overlay progress { margin-top:10px; width:240px; }
+    #overlay .hint { margin-top:14px; font-size:11px; color:#777; text-align:center;
+                     line-height:1.8; }
   </style>
 </head>
 <body>
@@ -49,310 +87,323 @@
   <progress id="overlay-progress" max="100" value="0"></progress>
   <div class="hint">
     disk/unix_v6_rk05.dsk を web/disk/ に配置してください。<br>
-    serve: <code>cd examples/09-pdp11/web &amp;&amp; python3 -m http.server 8080</code>
+    <code>cd examples/09-pdp11/web &amp;&amp; python3 -m http.server 8080</code>
   </div>
 </div>
 
 <h2>PDP-11 / Unix V6 — rtlscope soft-FPGA</h2>
 
 <div class="toolbar">
-  <button id="btn-boot" disabled>Boot Unix V6</button>
+  <button id="btn-boot"  disabled>Boot Unix V6</button>
   <button id="btn-reset" disabled>Reset</button>
   <button id="btn-pause" disabled>Pause</button>
   <span class="status" id="status">Loading...</span>
 </div>
 
 <div class="main">
-  <div id="terminal"></div>
+  <!-- 左: ターミナル -->
+  <div class="col-left">
+    <div id="terminal"></div>
+    <div class="ctrl-bar">
+      <button class="ctrl-btn" data-ch="3">Ctrl-C</button>
+      <button class="ctrl-btn" data-ch="4">Ctrl-D</button>
+      <button class="ctrl-btn" data-ch="27">ESC</button>
+      <button class="ctrl-btn" data-ch="8">BS</button>
+    </div>
+  </div>
 
-  <div class="right">
-    <div class="regs" id="regs">
+  <!-- 右: レジスタ + トリガー + LA -->
+  <div class="col-right">
+    <!-- レジスタパネル -->
+    <div class="regs">
       <h3>Registers</h3>
-      <div class="reg-row"><span class="reg-lbl">PC</span>  <span class="reg-val" id="r-pc">----</span></div>
-      <div class="reg-row"><span class="reg-lbl">PSW</span> <span class="reg-val" id="r-psw">----</span></div>
-      <div class="reg-row"><span class="reg-lbl">Mode</span><span class="reg-val" id="r-mode">----</span></div>
-      <div class="reg-row"><span class="reg-lbl">Addr</span><span class="reg-val" id="r-addr">------</span></div>
-      <div class="reg-row"><span class="reg-lbl">RK11</span><span class="reg-val" id="r-rk">----</span></div>
+      <div class="reg-grid">
+        <div class="reg-row"><span class="reg-lbl">PC</span>   <span class="reg-val" id="r-pc">------</span></div>
+        <div class="reg-row"><span class="reg-lbl">PSW</span>  <span class="reg-val" id="r-psw">--------</span></div>
+        <div class="reg-row"><span class="reg-lbl">Mode</span> <span class="reg-val" id="r-mode">------</span></div>
+        <div class="reg-row"><span class="reg-lbl">Addr</span> <span class="reg-val" id="r-addr">------</span></div>
+        <div class="reg-row"><span class="reg-lbl">Data</span> <span class="reg-val" id="r-data">----</span></div>
+        <div class="reg-row"><span class="reg-lbl">RK11</span> <span class="reg-val" id="r-rk">----</span></div>
+      </div>
     </div>
 
-    <div class="la-wrap">
-      <h3>Logic Analyzer — PC / PhysAddr / Mode</h3>
-      <canvas id="la-canvas" width="320" height="160"></canvas>
+    <!-- PC トリガーパネル -->
+    <div class="trig-panel">
+      <h3>PC Trigger</h3>
+      <div class="trig-row">
+        <label>PC(8)</label>
+        <input type="text" id="trig-pc" placeholder="例: 4014" maxlength="8">
+        <select id="trig-preset">
+          <option value="">— 既知アドレス —</option>
+        </select>
+      </div>
+      <div class="trig-row">
+        <button id="btn-trig-set">Set</button>
+        <button id="btn-trig-clear">Clear</button>
+        <button id="btn-trig-resume">Resume</button>
+      </div>
+      <div class="trig-hit" id="trig-hit">⏸ Triggered! PC hit.</div>
+    </div>
+
+    <!-- Logic Analyzer -->
+    <div class="la-section">
+      <div class="la-header">
+        <h3>Logic Analyzer</h3>
+        <button class="la-zoom-btn" id="la-zoom-out">−</button>
+        <span id="la-zoom-lbl">1×</span>
+        <button class="la-zoom-btn" id="la-zoom-in">+</button>
+      </div>
+      <div id="la-toggles"></div>
+      <canvas id="la"></canvas>
     </div>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+<script src="js/rtlscope-la.js"></script>
+<script src="js/sft-pdp11-la-defs.js"></script>
 <script>
 'use strict';
 
 // ── xterm.js ──────────────────────────────────────────────────────────────
 var term = new Terminal({
   cols: 80, rows: 24,
-  theme: { background:'#0d0d0d', foreground:'#c8c8c8', cursor:'#ffffff' },
+  theme: { background:'#0a0a0a', foreground:'#c8c8c8', cursor:'#ffffff' },
   cursorBlink: true, fontFamily: 'monospace', fontSize: 14
 });
 term.open(document.getElementById('terminal'));
 
-// ── Web Worker ────────────────────────────────────────────────────────────
+// ── Logic Analyzer 初期化 ─────────────────────────────────────────────────
+var la = new RTLScopeLA(Object.assign({}, PDP11_LA_CONFIG, {
+  canvasId:  'la',
+  togglesId: 'la-toggles',
+}));
+la.buildToggles();
+
+// ── デフォルトズーム設定（8x）─────────────────────────────────────────────
+// rtlscope-la.js が la-zoom-in/out/lbl を内部バインドするため
+// ここでは初期値のみ設定する
+la._zoom = 8;
+la._updateCanvas();
+(function() {
+  var lbl = document.getElementById('la-zoom-lbl');
+  if (lbl) lbl.textContent = la.zoomLabel;
+})();
+
+// ── トリガープリセットプルダウン ─────────────────────────────────────────
+(function() {
+  var sel = document.getElementById('trig-preset');
+  PDP11_KNOWN_PCS.forEach(function(k) {
+    var opt = document.createElement('option');
+    opt.value = k.pc.toString(8);
+    opt.textContent = k.label + ' (0o' + k.pc.toString(8) + ')';
+    opt.title = k.tip;
+    sel.appendChild(opt);
+  });
+  sel.addEventListener('change', function() {
+    if (sel.value) document.getElementById('trig-pc').value = sel.value;
+    sel.value = '';
+  });
+})();
+
+// ── Worker ────────────────────────────────────────────────────────────────
 var worker = new Worker('sim-worker.js');
 var simStarted = false;
 var simPaused  = false;
 var diskBuffer = null;
 
-worker.onmessage = function (e) {
+// ローカルリングバッファ（LA は循環バッファ全体を参照する）
+var localRing  = null;
+var _ringSize  = RING_WORDS_PDP11 > 0 ? 4096 : 4096;  // Worker から受け取る
+var _ringWords = RING_WORDS_PDP11;
+
+worker.onmessage = function(e) {
   var d = e.data;
   switch (d.type) {
     case 'ready':
-      if (diskBuffer) {
-        startSim();
-      }
+      _ringSize  = d.ringSize  || 4096;
+      _ringWords = d.ringWords || RING_WORDS_PDP11;
+      localRing  = new Uint32Array(_ringSize * _ringWords);
+      if (diskBuffer) startSim();
       break;
-
     case 'started':
       setStatus('Running');
       document.getElementById('btn-reset').disabled = false;
       document.getElementById('btn-pause').disabled = false;
-      simStarted = true;
-      simPaused  = false;
+      simStarted = true; simPaused = false;
       document.getElementById('btn-pause').textContent = 'Pause';
       break;
-
     case 'paused':
       setStatus('Paused');
       simPaused = true;
       document.getElementById('btn-pause').textContent = 'Resume';
       break;
-
     case 'resumed':
       setStatus('Running');
       simPaused = false;
       document.getElementById('btn-pause').textContent = 'Pause';
       break;
-
     case 'tty':
-      // LCASE モード: 文字を受け取ってそのまま xterm に書く
-      // bit7 は wasm_uart.v 側でマスク済み
       var s = '';
       for (var i = 0; i < d.chars.length; i++) {
         var c = d.chars[i];
         if (c === 13) s += '\r';
         else if (c === 10) s += '\n';
-        else if (c >= 32 && c <= 126) s += String.fromCharCode(c);
         else s += String.fromCharCode(c);
       }
       term.write(s);
       break;
-
     case 'ring':
-      updateLA(d.head, new Uint32Array(d.snap));
-      updateRegs(d.head, new Uint32Array(d.snap));
+      var snap  = new Uint32Array(d.snap);
+      var count = snap.length / _ringWords;
+      // スナップを localRing の正しい循環位置に書き込む
+      var prevHead = (d.head - count) >>> 0;
+      for (var i = 0; i < count; i++) {
+        var idx = ((prevHead + i) >>> 0) % _ringSize;
+        for (var w = 0; w < _ringWords; w++) {
+          localRing[idx * _ringWords + w] = snap[i * _ringWords + w];
+        }
+      }
+      // RTLScopeLA に渡す: update(head, heapu32_like)
+      la.update(d.head, localRing);
+      updateRegs(snap);
+      break;
+    case 'triggered':
+      onTriggered(d.pc);
       break;
   }
 };
 
-function setStatus(msg) {
-  document.getElementById('status').textContent = msg;
-}
+function setStatus(msg) { document.getElementById('status').textContent = msg; }
 
 function startSim() {
   setStatus('Initializing...');
-  // transferable を使って効率的に Worker に渡す
   worker.postMessage({ type: 'start', disk: diskBuffer }, [diskBuffer]);
   diskBuffer = null;
 }
 
 // ── ディスクイメージ読み込み ──────────────────────────────────────────────
 fetch('disk/unix_v6_rk05.dsk')
-  .then(function (r) {
-    if (!r.ok) throw new Error('HTTP ' + r.status);
+  .then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status + ': disk/unix_v6_rk05.dsk');
     var total = parseInt(r.headers.get('content-length') || '0', 10);
-    var chunks = [];
-    var received = 0;
+    var chunks = [], received = 0;
     var reader = r.body.getReader();
-    var progress = document.getElementById('overlay-progress');
-    document.getElementById('overlay-msg').textContent = 'Unix V6 ディスクイメージを読み込み中...';
+    var prog = document.getElementById('overlay-progress');
     function read() {
-      return reader.read().then(function (x) {
-        if (x.done) {
-          var blob = new Blob(chunks);
-          return blob.arrayBuffer();
-        }
+      return reader.read().then(function(x) {
+        if (x.done) return new Blob(chunks).arrayBuffer();
         chunks.push(x.value);
         received += x.value.length;
-        if (total > 0) progress.value = (received / total * 100) | 0;
+        if (total > 0) prog.value = (received / total * 100) | 0;
         return read();
       });
     }
     return read();
   })
-  .then(function (buf) {
+  .then(function(buf) {
     diskBuffer = buf;
     document.getElementById('overlay').classList.add('hidden');
     document.getElementById('btn-boot').disabled = false;
     setStatus('Ready — Boot ボタンを押してください');
-    // Worker が ready 状態なら即起動
-    // （Worker 側の onRuntimeInitialized が先に来た場合は ready メッセージ受信済み）
   })
-  .catch(function (err) {
-    document.getElementById('overlay-msg').textContent =
-      'ディスクイメージの読み込みに失敗しました: ' + err.message;
+  .catch(function(err) {
+    document.getElementById('overlay-msg').textContent = 'Error: ' + err.message;
   });
 
 // ── ボタン ────────────────────────────────────────────────────────────────
-document.getElementById('btn-boot').addEventListener('click', function () {
-  if (diskBuffer) {
-    startSim();
-  } else if (simStarted) {
-    worker.postMessage({ type: 'reset' });
-  }
-  this.disabled = true;
+document.getElementById('btn-boot').addEventListener('click', function() {
+  if (diskBuffer) { startSim(); this.disabled = true; }
+  else if (simStarted) worker.postMessage({ type: 'reset' });
 });
 
-document.getElementById('btn-reset').addEventListener('click', function () {
+document.getElementById('btn-reset').addEventListener('click', function() {
   worker.postMessage({ type: 'reset' });
   term.reset();
+  hideTrigHit();
 });
 
-document.getElementById('btn-pause').addEventListener('click', function () {
-  if (simPaused) {
-    worker.postMessage({ type: 'resume' });
-  } else {
-    worker.postMessage({ type: 'pause' });
-  }
+document.getElementById('btn-pause').addEventListener('click', function() {
+  worker.postMessage({ type: simPaused ? 'resume' : 'pause' });
+});
+
+// Ctrl キーボタン
+document.querySelectorAll('.ctrl-btn[data-ch]').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    if (simStarted) worker.postMessage({ type: 'key', ch: parseInt(btn.dataset.ch) });
+  });
 });
 
 // ── キーボード入力 ────────────────────────────────────────────────────────
-term.onData(function (data) {
+term.onData(function(data) {
   if (!simStarted) return;
   for (var i = 0; i < data.length; i++) {
-    var ch = data.charCodeAt(i);
-    worker.postMessage({ type: 'key', ch: ch });
+    worker.postMessage({ type: 'key', ch: data.charCodeAt(i) });
   }
 });
 
-// ── Logic Analyzer ────────────────────────────────────────────────────────
-var canvas  = document.getElementById('la-canvas');
-var ctx     = canvas.getContext('2d');
-var LA_W    = canvas.width;
-var LA_H    = canvas.height;
-
-// 描画バッファ: 最新 LA_W サンプルを保持
-var la_pc_buf    = new Uint16Array(LA_W);
-var la_addr_buf  = new Uint32Array(LA_W);
-var la_mode_buf  = new Uint8Array(LA_W);
-var la_wr_buf    = new Uint8Array(LA_W);
-var la_rk_buf    = new Uint8Array(LA_W);
-var la_head      = 0;
-var la_total     = 0;
-
-// ビットアサインに合わせて Word0/1/2 を分解
-function updateLA(ringHead, snap) {
-  var n = snap.length / 4;  // RING_WORDS = 4
-  for (var i = 0; i < n; i++) {
-    var w0 = snap[i * 4 + 0];
-    var w1 = snap[i * 4 + 1];
-    var w2 = snap[i * 4 + 2];
-    var idx = la_head % LA_W;
-    la_pc_buf[idx]   = (w2 & 0xFFFF);
-    la_addr_buf[idx] = (w0 & 0x3FFFF);
-    la_mode_buf[idx] = (w0 >> 20) & 3;
-    la_wr_buf[idx]   = (w0 >> 18) & 1;
-    la_rk_buf[idx]   = ((w2 >> 16) & 0x1F) !== 0 ? 1 : 0;
-    la_head++;
-  }
-  la_total += n;
-  drawLA();
+// ── トリガー ─────────────────────────────────────────────────────────────
+function hideTrigHit() {
+  document.getElementById('trig-hit').classList.remove('show');
+}
+function onTriggered(pc) {
+  simPaused = true;
+  document.getElementById('btn-pause').textContent = 'Resume';
+  setStatus('Triggered @ PC=' + pc.toString(8));
+  var el = document.getElementById('trig-hit');
+  el.textContent = '⏸ Triggered! PC=0o' + pc.toString(8);
+  el.classList.add('show');
 }
 
-function drawLA() {
-  ctx.fillStyle = '#0d0d0d';
-  ctx.fillRect(0, 0, LA_W, LA_H);
+document.getElementById('btn-trig-set').addEventListener('click', function() {
+  var val = document.getElementById('trig-pc').value.trim();
+  if (!val) return;
+  var pc = parseInt(val, 8);
+  if (isNaN(pc)) { alert('8 進数で入力してください（例: 4014）'); return; }
+  worker.postMessage({ type: 'set_trigger', pc: pc });
+  setStatus('Trigger set @ PC=0o' + pc.toString(8));
+  hideTrigHit();
+});
 
-  // 3 レーン: PC, PhysAddr, Mode
-  var laneH = (LA_H / 3) | 0;
+document.getElementById('btn-trig-clear').addEventListener('click', function() {
+  worker.postMessage({ type: 'clear_trigger' });
+  hideTrigHit();
+  setStatus(simPaused ? 'Paused' : 'Running');
+});
 
-  // ── PC (0-0xFFFF → y:0..laneH) ──
-  ctx.strokeStyle = '#4fc';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (var x = 0; x < LA_W; x++) {
-    var i   = (la_head - LA_W + x + LA_W * 2) % LA_W;
-    var pc  = la_pc_buf[i];
-    var y   = laneH - 2 - ((pc / 0xFFFF) * (laneH - 4) | 0);
-    if (x === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  }
-  ctx.stroke();
-  ctx.fillStyle = '#4fc';
-  ctx.font = '10px monospace';
-  ctx.fillText('PC', 2, 10);
-
-  // ── PhysAddr (0-0x3FFFF → y:laneH..2*laneH) ──
-  ctx.strokeStyle = '#fa4';
-  ctx.beginPath();
-  for (var x2 = 0; x2 < LA_W; x2++) {
-    var i2   = (la_head - LA_W + x2 + LA_W * 2) % LA_W;
-    var addr = la_addr_buf[i2];
-    var y2   = laneH + 2 + laneH - 2 - ((addr / 0x3FFFF) * (laneH - 4) | 0);
-    if (x2 === 0) ctx.moveTo(x2, y2);
-    else ctx.lineTo(x2, y2);
-  }
-  ctx.stroke();
-  ctx.fillStyle = '#fa4';
-  ctx.fillText('Addr', 2, laneH + 12);
-
-  // ── Mode: 0=kernel(緑), 3=user(青) ──
-  var modeY = laneH * 2;
-  for (var x3 = 0; x3 < LA_W; x3++) {
-    var i3   = (la_head - LA_W + x3 + LA_W * 2) % LA_W;
-    var mode = la_mode_buf[i3];
-    var wr   = la_wr_buf[i3];
-    var rk   = la_rk_buf[i3];
-    // mode: kernel=緑, user=青
-    ctx.fillStyle = mode === 0 ? '#2d2' : '#44f';
-    if (wr) ctx.fillStyle = '#f44';    // バス書き込み: 赤
-    if (rk) ctx.fillStyle = '#ff0';    // RK11 転送中: 黄
-    ctx.fillRect(x3, modeY + 2, 1, laneH - 4);
-  }
-  ctx.fillStyle = '#aaa';
-  ctx.fillText('Mode/RK', 2, modeY + 12);
-
-  // 境界線
-  ctx.strokeStyle = '#333';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(0, laneH); ctx.lineTo(LA_W, laneH);
-  ctx.moveTo(0, laneH * 2); ctx.lineTo(LA_W, laneH * 2);
-  ctx.stroke();
-}
+document.getElementById('btn-trig-resume').addEventListener('click', function() {
+  hideTrigHit();
+  worker.postMessage({ type: 'resume' });
+});
 
 // ── レジスタ表示 ──────────────────────────────────────────────────────────
 var MODE_NAMES = ['Kernel', 'Super', '??', 'User'];
 
-function updateRegs(ringHead, snap) {
-  if (snap.length < 4) return;
-  // 最新サンプルは末尾
-  var last = snap.length - 4;
-  var w0 = snap[last + 0];
-  var w1 = snap[last + 1];
-  var w2 = snap[last + 2];
+function updateRegs(snap) {
+  if (!snap || snap.length < RING_WORDS_PDP11) return;
+  var last = snap.length - RING_WORDS_PDP11;
+  var w0 = snap[last + 0], w1 = snap[last + 1], w2 = snap[last + 2];
 
   var pc   = w2 & 0xFFFF;
   var psw  = (w1 >>> 16) & 0xFFFF;
   var mode = (w0 >>> 20) & 3;
-  var addr = w0 & 0x3FFFF;
-  var rk   = (w2 >>> 16) & 0x1F;
+  var ap   = w0 & 0x3FFFF;
+  var data = w1 & 0xFFFF;
+  var rk   = (w0 >>> 26) & 0x1F;
+  var trap = (w0 >>> 23) & 1;
 
   document.getElementById('r-pc').textContent   = pc.toString(8).padStart(6, '0');
-  document.getElementById('r-psw').textContent  = psw.toString(8).padStart(6, '0');
-  document.getElementById('r-mode').textContent = MODE_NAMES[mode];
-  document.getElementById('r-addr').textContent = addr.toString(8).padStart(6, '0');
-  document.getElementById('r-rk').textContent   = rk === 0 ? 'Idle' : 'State=' + rk;
+  document.getElementById('r-psw').textContent  = fmtPSW11(psw);
+  var modeEl = document.getElementById('r-mode');
+  modeEl.textContent  = MODE_NAMES[mode];
+  modeEl.className    = 'reg-val' + (mode === 3 ? ' user' : '');
+  document.getElementById('r-addr').textContent = ap.toString(8).padStart(6, '0');
+  document.getElementById('r-data').textContent = data.toString(16).padStart(4, '0');
+  var rkEl = document.getElementById('r-rk');
+  rkEl.textContent  = rk === 0 ? 'Idle' : 'St=' + rk;
+  rkEl.className    = 'reg-val' + (rk !== 0 ? ' active' : '');
+  if (trap) modeEl.className = 'reg-val trap';
 }
-
-// 初期 LA 描画
-drawLA();
 </script>
 </body>
 </html>

@@ -247,16 +247,18 @@ module test_top_wasm;
       .ram2_ub_n(ram2_ub_n),
       .ram2_lb_n(ram2_lb_n));
 
-   // CPU halt → シミュレーション終了
+   // CPU halt 検出（WASM では $finish は不要; harness.cpp が OBS_HALTED で停止する）
+   reg halted_once;
+   initial halted_once = 0;
    always @(posedge sysclk)
-     if (led[0])
-       begin
-	  $display("cpu halted");
-	  $finish;
-       end
+     if (led[0] && !halted_once) begin
+        halted_once <= 1;
+        $display("cpu halted");
+     end
 
-   // ── WASM ハーネス用観測信号（ring buffer） ─────────────────────────────
+   // ── WASM ハーネス用観測信号（ring buffer / Phase 2+3） ──────────────────
    // harness.cpp が rootp 経由でアクセスする
+   // Phase 2: 基本バス信号
    wire [15:0] obs_pc       /* verilator public_flat */;
    wire [15:0] obs_psw      /* verilator public_flat */;
    wire [21:0] obs_addr_p   /* verilator public_flat */;
@@ -264,6 +266,15 @@ module test_top_wasm;
    wire        obs_wr       /* verilator public_flat */;
    wire [1:0]  obs_cpu_cm   /* verilator public_flat */;
    wire [4:0]  obs_rk_state /* verilator public_flat */;
+   // Phase 3: 追加信号
+   wire        obs_rd       /* verilator public_flat */;
+   wire        obs_byte_op  /* verilator public_flat */;
+   wire        obs_trapped  /* verilator public_flat */;
+   wire        obs_halted   /* verilator public_flat */;
+   wire        obs_bus_int  /* verilator public_flat */;
+   wire [7:0]  obs_int_vec  /* verilator public_flat */;
+   wire [7:0]  obs_int_ipl  /* verilator public_flat */;
+   wire [15:0] obs_addr_v   /* verilator public_flat */;
 
    assign obs_pc       = top.pc;
    assign obs_psw      = top.psw;
@@ -272,5 +283,14 @@ module test_top_wasm;
    assign obs_wr       = top.bus_wr;
    assign obs_cpu_cm   = top.bus_cpu_cm;
    assign obs_rk_state = top.rk_state;
+   // Phase 3
+   assign obs_rd       = top.bus_rd;
+   assign obs_byte_op  = top.bus_byte_op;
+   assign obs_trapped  = top.trapped;
+   assign obs_halted   = top.halted;
+   assign obs_bus_int  = top.bus_int;
+   assign obs_int_vec  = top.bus_int_vector;
+   assign obs_int_ipl  = top.bus_int_ipl;
+   assign obs_addr_v   = top.bus_addr_v;
 
 endmodule

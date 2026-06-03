@@ -79,7 +79,9 @@ em++ $COMMON_FLAGS \
     "$EXAMPLE/cxx/ram_v5.cpp" \
     -s EXPORTED_FUNCTIONS='["_sim_init","_step_n","_send_key","_get_display_char",
                             "_get_ring_ptr","_get_ring_head","_get_ring_size","_get_ring_words",
-                            "_get_pc","_sim_con_in_space","_malloc","_free"]' \
+                            "_get_pc","_sim_con_in_space",
+                            "_sim_set_pc_trigger","_sim_trigger_hit","_sim_clear_trigger",
+                            "_malloc","_free"]' \
     -s EXPORTED_RUNTIME_METHODS='["HEAPU32","HEAPU8","FS"]' \
     -s ALLOW_MEMORY_GROWTH=1 \
     -s INITIAL_MEMORY=67108864 \

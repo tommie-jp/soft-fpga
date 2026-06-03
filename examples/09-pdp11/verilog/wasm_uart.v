@@ -108,21 +108,30 @@ module fake_uart(clk, reset,
      end
 
    // RX バッファ: DPI ポーリングで文字を受け取る
+   //
+   // fake_uart.v と同様に、uld_rx_data 後すぐに次の文字をポーリングすると
+   // tt_regs の handshake が完了する前に rx_data が上書きされる競合が発生する。
+   // rx_guard_cnt による 64 クロックの待機で CPU が文字を読むまで rx_data を保護する。
    reg     rx_empty;
    reg [7:0] rx_data;
+   reg [11:0] rx_guard_cnt;  // 最大 4096 クロックガード（uld_rx_data 後のクールダウン）
    integer   _rx_char;
 
    always @(posedge clk or posedge reset)
      if (reset) begin
-        rx_empty <= 1;
-        rx_data  <= 8'h00;
-        _rx_char = -1;
+        rx_empty     <= 1;
+        rx_data      <= 8'h00;
+        rx_guard_cnt <= 12'd0;
+        _rx_char      = -1;
      end else begin
-        // CPU が文字を読んだ (uld_rx_data) → バッファを空に
-        if (uld_rx_data)
-          rx_empty <= 1;
-        else if (rx_empty) begin
-           // バッファが空のときのみポーリング
+        if (uld_rx_data) begin
+           // ハンドシェイク開始: rx_empty=1 にしてガードカウンタをセット
+           rx_empty     <= 1;
+           rx_guard_cnt <= 12'd3000;  // fake_uart.v の fake_char_delay と同じ
+        end else if (rx_guard_cnt > 0) begin
+           rx_guard_cnt <= rx_guard_cnt - 1;
+        end else if (rx_empty) begin
+           // ガード終了 & バッファ空: 次の文字をポーリング
            _rx_char = dpi_tty_getc();
            if (_rx_char >= 0) begin
               rx_data  <= _rx_char[7:0];
