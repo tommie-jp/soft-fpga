@@ -4,3 +4,6 @@
 [submodule "examples/06-8080/verilog/vm80a"]
 	path = examples/06-8080/verilog/vm80a
 	url = https://github.com/1801BM1/vm80a
+[submodule "vendor/cpus-pdp11"]
+	path = vendor/cpus-pdp11
+	url = https://github.com/lisper/cpus-pdp11

@@ -1,0 +1,12 @@
+# ディスクイメージ（TUHS ライセンス / 容量大）— 手動取得
+disk/
+web/disk/
+
+# Emscripten 生成物
+web/sim.js
+web/sim.wasm
+web/sim.js.map
+web/sim.wasm.map
+
+# ビルド成果物
+build/

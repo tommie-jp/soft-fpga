@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>09-PDP-11 / Unix V6 — rtlscope</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
+  <style>
+    body { background:#1a1a1a; color:#ddd; font-family:monospace; margin:0; padding:12px; box-sizing:border-box; }
+    h2   { margin:0 0 8px; font-size:16px; color:#eee; }
+    .toolbar { display:flex; gap:6px; align-items:center; margin-bottom:8px; flex-wrap:wrap; }
+    button { background:#333; color:#ddd; border:1px solid #555; padding:5px 14px; cursor:pointer; font-size:13px; }
+    button:hover  { background:#444; }
+    button:disabled { opacity:0.4; cursor:not-allowed; }
+    .status { font-size:12px; color:#888; margin-left:8px; }
+
+    /* xterm */
+    #terminal { border:1px solid #444; display:inline-block; }
+
+    /* Layout: terminal left, info right */
+    .main { display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap; }
+    .right { min-width:240px; }
+
+    /* Registers */
+    .regs { background:#222; border:1px solid #444; padding:8px; font-size:12px; margin-bottom:8px; }
+    .regs h3 { margin:0 0 6px; font-size:13px; color:#aaa; }
+    .reg-row { display:flex; justify-content:space-between; margin-bottom:2px; }
+    .reg-lbl { color:#888; }
+    .reg-val { color:#4fc; font-family:monospace; }
+
+    /* Logic Analyzer */
+    .la-wrap { background:#111; border:1px solid #444; }
+    .la-wrap h3 { margin:0; padding:4px 8px; font-size:12px; color:#888; border-bottom:1px solid #333; }
+    #la-canvas { display:block; }
+
+    /* Loading overlay */
+    #overlay { position:fixed; inset:0; background:rgba(0,0,0,0.85);
+               display:flex; flex-direction:column; align-items:center; justify-content:center;
+               color:#eee; font-size:14px; z-index:100; }
+    #overlay.hidden { display:none; }
+    #overlay progress { margin-top:12px; width:260px; }
+    #overlay .hint { margin-top:16px; font-size:12px; color:#888; text-align:center; }
+  </style>
+</head>
+<body>
+
+<div id="overlay">
+  <div id="overlay-msg">Unix V6 ディスクイメージを読み込み中...</div>
+  <progress id="overlay-progress" max="100" value="0"></progress>
+  <div class="hint">
+    disk/unix_v6_rk05.dsk を web/disk/ に配置してください。<br>
+    serve: <code>cd examples/09-pdp11/web &amp;&amp; python3 -m http.server 8080</code>
+  </div>
+</div>
+
+<h2>PDP-11 / Unix V6 — rtlscope soft-FPGA</h2>
+
+<div class="toolbar">
+  <button id="btn-boot" disabled>Boot Unix V6</button>
+  <button id="btn-reset" disabled>Reset</button>
+  <button id="btn-pause" disabled>Pause</button>
+  <span class="status" id="status">Loading...</span>
+</div>
+
+<div class="main">
+  <div id="terminal"></div>
+
+  <div class="right">
+    <div class="regs" id="regs">
+      <h3>Registers</h3>
+      <div class="reg-row"><span class="reg-lbl">PC</span>  <span class="reg-val" id="r-pc">----</span></div>
+      <div class="reg-row"><span class="reg-lbl">PSW</span> <span class="reg-val" id="r-psw">----</span></div>
+      <div class="reg-row"><span class="reg-lbl">Mode</span><span class="reg-val" id="r-mode">----</span></div>
+      <div class="reg-row"><span class="reg-lbl">Addr</span><span class="reg-val" id="r-addr">------</span></div>
+      <div class="reg-row"><span class="reg-lbl">RK11</span><span class="reg-val" id="r-rk">----</span></div>
+    </div>
+
+    <div class="la-wrap">
+      <h3>Logic Analyzer — PC / PhysAddr / Mode</h3>
+      <canvas id="la-canvas" width="320" height="160"></canvas>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+<script>
+'use strict';
+
+// ── xterm.js ──────────────────────────────────────────────────────────────
+var term = new Terminal({
+  cols: 80, rows: 24,
+  theme: { background:'#0d0d0d', foreground:'#c8c8c8', cursor:'#ffffff' },
+  cursorBlink: true, fontFamily: 'monospace', fontSize: 14
+});
+term.open(document.getElementById('terminal'));
+
+// ── Web Worker ────────────────────────────────────────────────────────────
+var worker = new Worker('sim-worker.js');
+var simStarted = false;
+var simPaused  = false;
+var diskBuffer = null;
+
+worker.onmessage = function (e) {
+  var d = e.data;
+  switch (d.type) {
+    case 'ready':
+      if (diskBuffer) {
+        startSim();
+      }
+      break;
+
+    case 'started':
+      setStatus('Running');
+      document.getElementById('btn-reset').disabled = false;
+      document.getElementById('btn-pause').disabled = false;
+      simStarted = true;
+      simPaused  = false;
+      document.getElementById('btn-pause').textContent = 'Pause';
+      break;
+
+    case 'paused':
+      setStatus('Paused');
+      simPaused = true;
+      document.getElementById('btn-pause').textContent = 'Resume';
+      break;
+
+    case 'resumed':
+      setStatus('Running');
+      simPaused = false;
+      document.getElementById('btn-pause').textContent = 'Pause';
+      break;
+
+    case 'tty':
+      // LCASE モード: 文字を受け取ってそのまま xterm に書く
+      // bit7 は wasm_uart.v 側でマスク済み
+      var s = '';
+      for (var i = 0; i < d.chars.length; i++) {
+        var c = d.chars[i];
+        if (c === 13) s += '\r';
+        else if (c === 10) s += '\n';
+        else if (c >= 32 && c <= 126) s += String.fromCharCode(c);
+        else s += String.fromCharCode(c);
+      }
+      term.write(s);
+      break;
+
+    case 'ring':
+      updateLA(d.head, new Uint32Array(d.snap));
+      updateRegs(d.head, new Uint32Array(d.snap));
+      break;
+  }
+};
+
+function setStatus(msg) {
+  document.getElementById('status').textContent = msg;
+}
+
+function startSim() {
+  setStatus('Initializing...');
+  // transferable を使って効率的に Worker に渡す
+  worker.postMessage({ type: 'start', disk: diskBuffer }, [diskBuffer]);
+  diskBuffer = null;
+}
+
+// ── ディスクイメージ読み込み ──────────────────────────────────────────────
+fetch('disk/unix_v6_rk05.dsk')
+  .then(function (r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    var total = parseInt(r.headers.get('content-length') || '0', 10);
+    var chunks = [];
+    var received = 0;
+    var reader = r.body.getReader();
+    var progress = document.getElementById('overlay-progress');
+    document.getElementById('overlay-msg').textContent = 'Unix V6 ディスクイメージを読み込み中...';
+    function read() {
+      return reader.read().then(function (x) {
+        if (x.done) {
+          var blob = new Blob(chunks);
+          return blob.arrayBuffer();
+        }
+        chunks.push(x.value);
+        received += x.value.length;
+        if (total > 0) progress.value = (received / total * 100) | 0;
+        return read();
+      });
+    }
+    return read();
+  })
+  .then(function (buf) {
+    diskBuffer = buf;
+    document.getElementById('overlay').classList.add('hidden');
+    document.getElementById('btn-boot').disabled = false;
+    setStatus('Ready — Boot ボタンを押してください');
+    // Worker が ready 状態なら即起動
+    // （Worker 側の onRuntimeInitialized が先に来た場合は ready メッセージ受信済み）
+  })
+  .catch(function (err) {
+    document.getElementById('overlay-msg').textContent =
+      'ディスクイメージの読み込みに失敗しました: ' + err.message;
+  });
+
+// ── ボタン ────────────────────────────────────────────────────────────────
+document.getElementById('btn-boot').addEventListener('click', function () {
+  if (diskBuffer) {
+    startSim();
+  } else if (simStarted) {
+    worker.postMessage({ type: 'reset' });
+  }
+  this.disabled = true;
+});
+
+document.getElementById('btn-reset').addEventListener('click', function () {
+  worker.postMessage({ type: 'reset' });
+  term.reset();
+});
+
+document.getElementById('btn-pause').addEventListener('click', function () {
+  if (simPaused) {
+    worker.postMessage({ type: 'resume' });
+  } else {
+    worker.postMessage({ type: 'pause' });
+  }
+});
+
+// ── キーボード入力 ────────────────────────────────────────────────────────
+term.onData(function (data) {
+  if (!simStarted) return;
+  for (var i = 0; i < data.length; i++) {
+    var ch = data.charCodeAt(i);
+    worker.postMessage({ type: 'key', ch: ch });
+  }
+});
+
+// ── Logic Analyzer ────────────────────────────────────────────────────────
+var canvas  = document.getElementById('la-canvas');
+var ctx     = canvas.getContext('2d');
+var LA_W    = canvas.width;
+var LA_H    = canvas.height;
+
+// 描画バッファ: 最新 LA_W サンプルを保持
+var la_pc_buf    = new Uint16Array(LA_W);
+var la_addr_buf  = new Uint32Array(LA_W);
+var la_mode_buf  = new Uint8Array(LA_W);
+var la_wr_buf    = new Uint8Array(LA_W);
+var la_rk_buf    = new Uint8Array(LA_W);
+var la_head      = 0;
+var la_total     = 0;
+
+// ビットアサインに合わせて Word0/1/2 を分解
+function updateLA(ringHead, snap) {
+  var n = snap.length / 4;  // RING_WORDS = 4
+  for (var i = 0; i < n; i++) {
+    var w0 = snap[i * 4 + 0];
+    var w1 = snap[i * 4 + 1];
+    var w2 = snap[i * 4 + 2];
+    var idx = la_head % LA_W;
+    la_pc_buf[idx]   = (w2 & 0xFFFF);
+    la_addr_buf[idx] = (w0 & 0x3FFFF);
+    la_mode_buf[idx] = (w0 >> 20) & 3;
+    la_wr_buf[idx]   = (w0 >> 18) & 1;
+    la_rk_buf[idx]   = ((w2 >> 16) & 0x1F) !== 0 ? 1 : 0;
+    la_head++;
+  }
+  la_total += n;
+  drawLA();
+}
+
+function drawLA() {
+  ctx.fillStyle = '#0d0d0d';
+  ctx.fillRect(0, 0, LA_W, LA_H);
+
+  // 3 レーン: PC, PhysAddr, Mode
+  var laneH = (LA_H / 3) | 0;
+
+  // ── PC (0-0xFFFF → y:0..laneH) ──
+  ctx.strokeStyle = '#4fc';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (var x = 0; x < LA_W; x++) {
+    var i   = (la_head - LA_W + x + LA_W * 2) % LA_W;
+    var pc  = la_pc_buf[i];
+    var y   = laneH - 2 - ((pc / 0xFFFF) * (laneH - 4) | 0);
+    if (x === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.fillStyle = '#4fc';
+  ctx.font = '10px monospace';
+  ctx.fillText('PC', 2, 10);
+
+  // ── PhysAddr (0-0x3FFFF → y:laneH..2*laneH) ──
+  ctx.strokeStyle = '#fa4';
+  ctx.beginPath();
+  for (var x2 = 0; x2 < LA_W; x2++) {
+    var i2   = (la_head - LA_W + x2 + LA_W * 2) % LA_W;
+    var addr = la_addr_buf[i2];
+    var y2   = laneH + 2 + laneH - 2 - ((addr / 0x3FFFF) * (laneH - 4) | 0);
+    if (x2 === 0) ctx.moveTo(x2, y2);
+    else ctx.lineTo(x2, y2);
+  }
+  ctx.stroke();
+  ctx.fillStyle = '#fa4';
+  ctx.fillText('Addr', 2, laneH + 12);
+
+  // ── Mode: 0=kernel(緑), 3=user(青) ──
+  var modeY = laneH * 2;
+  for (var x3 = 0; x3 < LA_W; x3++) {
+    var i3   = (la_head - LA_W + x3 + LA_W * 2) % LA_W;
+    var mode = la_mode_buf[i3];
+    var wr   = la_wr_buf[i3];
+    var rk   = la_rk_buf[i3];
+    // mode: kernel=緑, user=青
+    ctx.fillStyle = mode === 0 ? '#2d2' : '#44f';
+    if (wr) ctx.fillStyle = '#f44';    // バス書き込み: 赤
+    if (rk) ctx.fillStyle = '#ff0';    // RK11 転送中: 黄
+    ctx.fillRect(x3, modeY + 2, 1, laneH - 4);
+  }
+  ctx.fillStyle = '#aaa';
+  ctx.fillText('Mode/RK', 2, modeY + 12);
+
+  // 境界線
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, laneH); ctx.lineTo(LA_W, laneH);
+  ctx.moveTo(0, laneH * 2); ctx.lineTo(LA_W, laneH * 2);
+  ctx.stroke();
+}
+
+// ── レジスタ表示 ──────────────────────────────────────────────────────────
+var MODE_NAMES = ['Kernel', 'Super', '??', 'User'];
+
+function updateRegs(ringHead, snap) {
+  if (snap.length < 4) return;
+  // 最新サンプルは末尾
+  var last = snap.length - 4;
+  var w0 = snap[last + 0];
+  var w1 = snap[last + 1];
+  var w2 = snap[last + 2];
+
+  var pc   = w2 & 0xFFFF;
+  var psw  = (w1 >>> 16) & 0xFFFF;
+  var mode = (w0 >>> 20) & 3;
+  var addr = w0 & 0x3FFFF;
+  var rk   = (w2 >>> 16) & 0x1F;
+
+  document.getElementById('r-pc').textContent   = pc.toString(8).padStart(6, '0');
+  document.getElementById('r-psw').textContent  = psw.toString(8).padStart(6, '0');
+  document.getElementById('r-mode').textContent = MODE_NAMES[mode];
+  document.getElementById('r-addr').textContent = addr.toString(8).padStart(6, '0');
+  document.getElementById('r-rk').textContent   = rk === 0 ? 'Idle' : 'State=' + rk;
+}
+
+// 初期 LA 描画
+drawLA();
+</script>
+</body>
+</html>
