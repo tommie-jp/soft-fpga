@@ -4,6 +4,7 @@
 #include "svdpi.h"
 
 #include <stdio.h>
+#include <string.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,6 +44,41 @@ void dpi_ram(const svLogicVecVal* a, const svLogicVecVal* r,
         if (lv) ram_l[av] = iv;
         (void)assert_w;
     }
+}
+
+// ── テスト支援 ───────────────────────────────────────────────────────────────
+
+void ram_clear(void) {
+    memset(ram_h, 0, sizeof(ram_h));
+    memset(ram_l, 0, sizeof(ram_l));
+}
+
+// .mem ファイル（<8進バイトアドレス> <8進ワード値>）を RAM にロードする。
+// 戻り値: ロードしたワード数（エラー時 -1）
+int ram_load_mem(const char *filename) {
+    FILE *f = fopen(filename, "r");
+    if (!f) { perror(filename); return -1; }
+    char line[64];
+    int count = 0;
+    while (fgets(line, sizeof(line), f)) {
+        const char *p = line;
+        while (*p == ' ' || *p == '\t') p++;
+        if (*p == '\0' || *p == '\n' || *p == ';' || *p == '/') continue;
+        // <octal_byte_addr> <octal_word>
+        uint32_t addr = 0;
+        while (*p >= '0' && *p <= '7') addr = addr * 8u + (uint32_t)(*p++ - '0');
+        while (*p == ' ' || *p == '\t') p++;
+        if (*p == '\0' || *p == '\n') continue;
+        uint32_t word = 0;
+        while (*p >= '0' && *p <= '7') word = word * 8u + (uint32_t)(*p++ - '0');
+        // ワードアドレス（PDP-11 は 16bit ワード; 最大 256K ワード = 18bit addr）
+        uint32_t wa = (addr >> 1) & 0x1FFFFu;
+        ram_l[wa] = (unsigned char)(word & 0xFFu);
+        ram_h[wa] = (unsigned char)((word >> 8) & 0xFFu);
+        count++;
+    }
+    fclose(f);
+    return count;
 }
 
 #ifdef __cplusplus

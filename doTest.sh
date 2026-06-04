@@ -23,6 +23,8 @@ usage() {
   --web         [06] Web 統合テスト (Playwright / Apple-I & CP/M WASM)
   --sim-api     [07] sim API テスト (MVI A,$FF · Playwright / TestSimAPI)
   --timing-ss   [08] 8080 全命令タイミング図スクリーンショット (73 ケース)
+  --pdp11       [09] PDP-11 basic tests (test0–17, 18 件)
+                [10] PDP-11 MAINDEC 診断 (FKAAC0/FKABD0/FKACA0/FKTHB0/FKTGC0)
 
 複数グループの同時指定可:
   doTest.sh --8080 --web
@@ -39,6 +41,7 @@ RUN_8080=false
 RUN_WEB=false
 RUN_SIM_API=false
 RUN_TIMING_SS=false
+RUN_PDP11=false
 ANY_FLAG=false
 
 for arg in "$@"; do
@@ -57,6 +60,8 @@ for arg in "$@"; do
       RUN_SIM_API=true; ANY_FLAG=true ;;
     --timing-ss)
       RUN_TIMING_SS=true; ANY_FLAG=true ;;
+    --pdp11)
+      RUN_PDP11=true; ANY_FLAG=true ;;
     *)
       echo "不明なオプション: $arg" >&2
       usage >&2
@@ -72,6 +77,7 @@ if ! $ANY_FLAG; then
   RUN_WEB=true
   RUN_SIM_API=true
   RUN_TIMING_SS=true
+  RUN_PDP11=true
 fi
 
 # ---------------------------------------------------------------------------
@@ -152,6 +158,16 @@ if $WASM_06_REBUILD; then
   echo ""
 fi
 
+# PDP-11 ネイティブバイナリが存在しなければ自動ビルド
+PDP11_SIM="${SCRIPT_DIR}/examples/09-pdp11/build/pdp11_sim"
+if $RUN_PDP11 && [ ! -x "$PDP11_SIM" ]; then
+  echo -e "${YELLOW}⚠ pdp11_sim が存在しない。ビルドを実行します。${RESET}"
+  echo ""
+  run_step "B2" "09-pdp11 ネイティブビルド" \
+    bash scripts/build-host-09.sh
+  echo ""
+fi
+
 # ---------------------------------------------------------------------------
 # 各テストステップ
 # ---------------------------------------------------------------------------
@@ -193,6 +209,14 @@ fi
 if $RUN_TIMING_SS; then
   run_step "08" "8080 全命令タイミング図スクリーンショット (73 ケース)" \
     bash scripts/_test-8080-timing-ss.sh
+fi
+
+if $RUN_PDP11; then
+  run_step "09" "PDP-11 basic tests (test0–17)" \
+    bash scripts/test-pdp11-basic.sh
+
+  run_step "10" "PDP-11 MAINDEC 診断 (FKAAC0/FKABD0/FKACA0/FKTHB0/FKTGC0)" \
+    bash scripts/test-pdp11-diags.sh
 fi
 
 # ---------------------------------------------------------------------------
