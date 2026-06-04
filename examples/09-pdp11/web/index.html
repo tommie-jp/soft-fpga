@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>09-PDP-11 / Unix V6 — rtlscope</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { background:#1a1a1a; color:#ccc; font-family:monospace; margin:0; padding:10px; }
+    h2   { margin:0 0 6px; font-size:15px; color:#eee; }
+
+    /* ── ツールバー ── */
+    .toolbar { display:flex; gap:5px; align-items:center; margin-bottom:6px; flex-wrap:wrap; }
+    button { background:#333; color:#ccc; border:1px solid #555; padding:4px 12px;
+             cursor:pointer; font-size:12px; font-family:monospace; }
+    button:hover   { background:#444; }
+    button:disabled { opacity:0.4; cursor:not-allowed; }
+    button.active  { background:#446; border-color:#88a; color:#ccf; }
+    #btn-kbd.kbd-jis { background:#6a5a1a; border-color:#caa84a; color:#ffe79a; }
+    .status { font-size:11px; color:#888; margin-left:6px; }
+
+    /* ── ブート進行インジケータ ── */
+    .boot-progress { background:#161e16; border:1px solid #3a5a3a; padding:5px 10px;
+                     font-size:11px; margin-bottom:6px; display:none; }
+    .boot-progress.show { display:block; }
+    .boot-progress h3 { margin:0 0 4px; font-size:11px; color:#6a9a6a; }
+    .boot-steps { display:flex; gap:6px; flex-wrap:wrap; }
+    .boot-step  { padding:2px 8px; border:1px solid #3a4a3a; color:#555; font-size:10px; border-radius:2px; }
+    .boot-step.done    { color:#4f4; border-color:#4a7a4a; background:#1a2a1a; }
+    .boot-step.current { color:#ff4; border-color:#8a7a3a; background:#2a2010; }
+
+    /* ── レイアウト: 左=ターミナル 右=情報 ── */
+    .main { display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap; }
+    .col-left { flex:0 0 auto; }
+    .col-right { flex:1 1 300px; min-width:300px; }
+
+    /* ── ターミナル ── */
+    #terminal { border:1px solid #444; display:inline-block; }
+    .ctrl-bar { display:flex; gap:4px; margin-top:4px; flex-wrap:wrap; }
+    .ctrl-btn { background:#2a2a2a; color:#aaa; border:1px solid #444;
+                padding:3px 9px; cursor:pointer; font-size:11px; }
+    .ctrl-btn:hover { background:#333; }
+
+    /* ── レジスタ ── */
+    .regs { background:#1e1e1e; border:1px solid #444; padding:6px 10px;
+            font-size:12px; margin-bottom:6px; }
+    .regs h3 { margin:0 0 4px; font-size:12px; color:#888; }
+    .reg-grid { display:grid; grid-template-columns:1fr 1fr; gap:2px 12px; }
+    .reg-row  { display:flex; justify-content:space-between; }
+    .reg-lbl  { color:#666; }
+    .reg-val  { color:#4fc; font-variant-numeric:tabular-nums; }
+    .reg-val.user   { color:#68f; }
+    .reg-val.trap   { color:#f84; }
+    .reg-val.active { color:#ff4; }
+
+    /* ── MMU パネル ── */
+    .mmu-panel { background:#1e1a22; border:1px solid #443a55; padding:6px 10px;
+                 font-size:11px; margin-bottom:6px; display:none; }
+    .mmu-panel.show { display:block; }
+    .mmu-panel h3 { margin:0 0 4px; font-size:11px; color:#8a7aaa; }
+    .mmu-toggle-btn { font-size:10px; padding:1px 6px; margin-left:6px; }
+    .mmu-tables { display:flex; gap:10px; flex-wrap:wrap; }
+    .mmu-col { flex:1 1 160px; }
+    .mmu-col-hdr { color:#7a6a9a; font-size:10px; margin-bottom:2px; }
+    .mmu-row { display:flex; gap:4px; font-size:10px; line-height:1.6; }
+    .mmu-page { color:#555; width:20px; }
+    .mmu-par  { color:#9af; width:54px; font-variant-numeric:tabular-nums; }
+    .mmu-pdr  { color:#875; width:36px; font-variant-numeric:tabular-nums; }
+    .mmu-pa   { color:#666; font-size:9px; }
+
+    /* ── PC トリガーパネル ── */
+    .trig-panel { background:#1a1e1a; border:1px solid #3a4a3a; padding:6px 10px;
+                  font-size:12px; margin-bottom:6px; }
+    .trig-panel h3 { margin:0 0 4px; font-size:12px; color:#6a8a6a; }
+    .trig-row { display:flex; gap:6px; align-items:center; margin-bottom:4px; }
+    .trig-row label { color:#888; font-size:11px; width:40px; }
+    .trig-row input[type=text] { background:#222; border:1px solid #444; color:#cf9;
+                                  padding:2px 6px; font-size:12px; font-family:monospace;
+                                  width:90px; }
+    .trig-row select { background:#222; border:1px solid #444; color:#aaa;
+                        font-size:11px; padding:2px 4px; flex:1; }
+    .trig-hit { color:#f84; font-size:11px; display:none; margin-top:2px; }
+    .trig-hit.show { display:block; }
+
+    /* ── Logic Analyzer（rtlscope-la.js はライトテーマ描画） ── */
+    .la-section { background:#dde; border:1px solid #aab; }
+    .la-header { display:flex; align-items:center; gap:6px; padding:4px 8px;
+                 border-bottom:1px solid #bbc; flex-wrap:wrap; background:#d0d0e0; }
+    .la-header h3 { margin:0; font-size:12px; color:#446; flex:1; }
+    .la-zoom-btn { background:#c8c8d8; color:#446; border:1px solid #aab;
+                   padding:2px 8px; cursor:pointer; font-size:11px; }
+    .la-zoom-btn:hover { background:#b8b8c8; }
+    #la-zoom-label { font-size:11px; color:#558; min-width:28px; text-align:center; }
+    #la-toggles { padding:4px 8px; border-bottom:1px solid #bbc;
+                  display:flex; flex-wrap:wrap; gap:4px; background:#d8d8e8; }
+    canvas#la { display:block; width:100%; background:#f5f5f5; }
+
+    /* ── ローディングオーバーレイ ── */
+    #overlay { position:fixed; inset:0; background:rgba(0,0,0,0.88);
+               display:flex; flex-direction:column; align-items:center;
+               justify-content:center; color:#ddd; font-size:14px; z-index:100; }
+    #overlay.hidden { display:none; }
+    #overlay progress { margin-top:10px; width:240px; }
+    #overlay .hint { margin-top:14px; font-size:11px; color:#777; text-align:center;
+                     line-height:1.8; }
+    /* ── docs パネル ── */
+    #docs-panel {
+      display:block; overflow-y:auto; max-height:120px;
+      border:1px solid #3a3a3a; border-radius:3px;
+      background:#1e1e1e; margin-bottom:6px;
+    }
+    #docs-panel .docs-hdr {
+      display:block; font-size:11px; color:#888; font-weight:bold;
+      letter-spacing:.04em; padding:3px 7px; border-bottom:1px solid #333;
+      position:sticky; top:0; background:#252525;
+    }
+    #docs-panel a {
+      display:block; color:#7ab; text-decoration:none;
+      font-size:12px; padding:2px 8px;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+      border-bottom:1px solid #252525;
+    }
+    #docs-panel a:last-child { border-bottom:none; }
+    #docs-panel a:hover { background:#2a3040; color:#9cf; }
+
+    /* ── doc モーダル ── */
+    #doc-modal {
+      position:fixed; top:0; left:0; right:0; bottom:0; z-index:1100;
+      display:flex; align-items:flex-start; justify-content:center;
+    }
+    #doc-overlay {
+      position:fixed; top:0; left:0; right:0; bottom:0;
+      background:rgba(0,0,0,.65);
+    }
+    #doc-pane {
+      position:relative; width:92%; max-width:820px;
+      height:88dvh; max-height:88dvh; margin-top:3dvh;
+      background:#fff; display:flex; flex-direction:column;
+      box-shadow:0 4px 32px rgba(0,0,0,.6); border:1px solid #999;
+    }
+    #doc-toolbar {
+      display:flex; align-items:center; gap:4px; padding:5px 8px;
+      border-bottom:1px solid #ccc; background:#f0f0f0; flex-shrink:0;
+    }
+    #doc-toolbar button {
+      background:#e0e0e0; color:#111; border:1px solid #aaa;
+      padding:2px 8px; cursor:pointer; font-size:12px; white-space:nowrap;
+    }
+    #doc-toolbar button:hover:not(:disabled) { background:#c8c8c8; }
+    #doc-toolbar button:disabled { color:#aaa; cursor:default; }
+    #doc-prev, #doc-next {
+      max-width:140px; overflow:hidden; text-overflow:ellipsis; flex-shrink:1;
+    }
+    #doc-next { text-align:right; }
+    #doc-select {
+      flex:1; min-width:0; font-size:12px; border:1px solid #aaa;
+      background:#fff; color:#111; padding:2px 4px; cursor:pointer;
+    }
+    #doc-content {
+      flex:1; overflow-y:auto; padding:14px 20px;
+      font-family:-apple-system,BlinkMacSystemFont,sans-serif;
+      line-height:1.7; font-size:13px; color:#111;
+    }
+    #doc-content h1 { font-size:17px; border-bottom:2px solid #ddd; padding-bottom:5px; margin-top:0; }
+    #doc-content h2 { font-size:14px; border-bottom:1px solid #eee; padding-bottom:3px; margin-top:18px; }
+    #doc-content h3 { font-size:13px; color:#333; margin-top:12px; }
+    #doc-content .table-wrap { overflow-x:auto; }
+    #doc-content table { border-collapse:collapse; min-width:100%; margin:6px 0; }
+    #doc-content th { background:#f0f0f0; }
+    #doc-content th, #doc-content td { border:1px solid #ccc; padding:3px 8px; font-size:12px; }
+    #doc-content code { background:#f0f0f0; padding:1px 4px; font-size:12px; border-radius:2px; }
+    #doc-content pre  { background:#f5f5f5; padding:8px 12px; overflow-x:auto; border:1px solid #ddd; border-radius:3px; }
+    #doc-content pre code { background:none; padding:0; white-space:pre; }
+    #doc-content blockquote { border-left:3px solid #ccc; margin:0; padding-left:10px; color:#666; }
+
+    /* ── ペーストダイアログ / テキストエディタ モーダル ── */
+    .modal-ov { position:fixed; inset:0; z-index:9000; background:rgba(0,0,0,.65);
+                display:flex; align-items:center; justify-content:center; }
+    .modal-box { background:#1c1c1c; border:1px solid #555; border-radius:4px;
+                 padding:14px 16px; min-width:320px; max-width:min(640px,94vw);
+                 color:#ccc; box-shadow:0 4px 24px rgba(0,0,0,.6); }
+    .modal-box h3 { margin:0 0 8px; font-size:13px; color:#eee; }
+    .modal-box p  { margin:0 0 6px; font-size:11px; color:#888; }
+    .modal-box textarea { display:block; width:100%; height:180px; box-sizing:border-box;
+                          resize:vertical; background:#111; color:#ddd; border:1px solid #444;
+                          outline:none; font-family:monospace; font-size:12px;
+                          padding:6px; margin-bottom:8px; }
+    .modal-fname { display:block; width:100%; box-sizing:border-box; margin-bottom:6px;
+                   background:#111; color:#ddd; border:1px solid #444; outline:none;
+                   font-family:monospace; font-size:12px; padding:4px 8px; }
+    .modal-btns  { display:flex; gap:6px; justify-content:flex-end; }
+    .modal-btns button { padding:3px 14px; }
+    button.flash { background:#664 !important; }
+  </style>
+</head>
+<body>
+
+<div id="overlay">
+  <div id="overlay-msg">Unix V6 ディスクイメージを読み込み中...</div>
+  <progress id="overlay-progress" max="100" value="0"></progress>
+  <div class="hint">
+    disk/unix_v6_rk05.dsk を web/disk/ に配置してください。<br>
+    <code>cd examples/09-pdp11/web &amp;&amp; python3 -m http.server 8080</code>
+  </div>
+</div>
+
+<h2>PDP-11 / Unix V6 — rtlscope soft-FPGA</h2>
+
+<div class="toolbar">
+  <button id="btn-boot"  disabled>Boot Unix V6</button>
+  <button id="btn-reset" disabled>Reset</button>
+  <button id="btn-pause" disabled>Pause</button>
+  <button id="btn-kbd" title="キーボード配列を切り替え（US ↔ JIS/106）">US</button>
+  <button id="btn-paste"  title="クリップボードからターミナルへ貼り付け（文字化けしない）" style="font-size:11px;">PASTE</button>
+  <button id="btn-editor" title="テキストエディタ：cat &gt; ファイル でソースをターミナルへ送信" style="font-size:11px;">EDITOR</button>
+  <span class="status" id="status">Loading...</span>
+</div>
+
+<!-- ブート進行インジケータ -->
+<div class="boot-progress" id="boot-progress">
+  <h3>Boot Progress</h3>
+  <div class="boot-steps">
+    <span class="boot-step" id="bp-bootrom">bootrom</span>
+    <span class="boot-step" id="bp-kernel">kernel init</span>
+    <span class="boot-step" id="bp-mem">mem=</span>
+    <span class="boot-step" id="bp-user">user space</span>
+    <span class="boot-step" id="bp-login">login:</span>
+  </div>
+</div>
+
+<!-- docs パネル -->
+<div id="docs-panel">
+  <span class="docs-hdr">Unix V6 DOCS</span>
+  <a href="#" onclick="openDoc('07-unix-v6-歴史的価値.md');return false;">07 Unix V6 / PDP-11 の歴史</a>
+  <a href="#" onclick="openDoc('06-unix-v6-demo-commands.md');return false;">06 デモコマンド集</a>
+  <a href="#" onclick="openDoc('09-unix-v6-ファイルシステム.md');return false;">09 ファイルシステム構成</a>
+  <a href="#" onclick="openDoc('11-thompson-シェル.md');return false;">11 Thompson シェル使い方</a>
+  <a href="#" onclick="openDoc('08-ed-使い方.md');return false;">08 ed エディタ使い方</a>
+  <a href="#" onclick="openDoc('10-unix-v6-コマンドリファレンス.md');return false;">10 Unix V6 コマンドリファレンス</a>
+  <a href="#" onclick="openDoc('13-c-コンパイル入門.md');return false;">13 C コンパイル入門</a>
+  <a href="#" onclick="openDoc('14-adb-デバッガー-使い方.md');return false;">14 デバッグ手法（od / printf）</a>
+  <a href="#" onclick="openDoc('20-デバッグパネル-使い方.md');return false;">20 デバッグパネル・Logic Analyzer</a>
+  <a href="#" onclick="openDoc('21-バスサイクル実例.md');return false;">21 LA バスサイクル実例集</a>
+  <a href="#" onclick="openDoc('52-メモリマップ.md');return false;">52 メモリマップ</a>
+  <a href="#" onclick="openDoc('53-参考資料.md');return false;">53 参考資料</a>
+  <a href="#" onclick="openDoc('54-simh-使い方.md');return false;">54 SIMH 使い方（cc 対応）</a>
+</div>
+
+<div class="main">
+  <!-- 左: ターミナル -->
+  <div class="col-left">
+    <div id="terminal"></div>
+    <div class="ctrl-bar">
+      <button class="ctrl-btn" data-ch="3">Ctrl-C</button>
+      <button class="ctrl-btn" data-ch="4">Ctrl-D</button>
+      <button class="ctrl-btn" data-ch="27">ESC</button>
+      <button class="ctrl-btn" data-ch="8">BS</button>
+    </div>
+  </div>
+
+  <!-- 右: レジスタ + MMU + トリガー + LA -->
+  <div class="col-right">
+    <!-- レジスタパネル -->
+    <div class="regs">
+      <h3>Registers</h3>
+      <div class="reg-grid">
+        <div class="reg-row"><span class="reg-lbl">PC</span>   <span class="reg-val" id="r-pc">------</span></div>
+        <div class="reg-row"><span class="reg-lbl">SP</span>   <span class="reg-val" id="r-sp">------</span></div>
+        <div class="reg-row"><span class="reg-lbl">PSW</span>  <span class="reg-val" id="r-psw">--------</span></div>
+        <div class="reg-row"><span class="reg-lbl">Mode</span> <span class="reg-val" id="r-mode">------</span></div>
+        <div class="reg-row"><span class="reg-lbl">R0</span>   <span class="reg-val" id="r-r0">------</span></div>
+        <div class="reg-row"><span class="reg-lbl">R1</span>   <span class="reg-val" id="r-r1">------</span></div>
+        <div class="reg-row"><span class="reg-lbl">R2</span>   <span class="reg-val" id="r-r2">------</span></div>
+        <div class="reg-row"><span class="reg-lbl">R3</span>   <span class="reg-val" id="r-r3">------</span></div>
+        <div class="reg-row"><span class="reg-lbl">R4</span>   <span class="reg-val" id="r-r4">------</span></div>
+        <div class="reg-row"><span class="reg-lbl">R5</span>   <span class="reg-val" id="r-r5">------</span></div>
+        <div class="reg-row"><span class="reg-lbl">Addr</span> <span class="reg-val" id="r-addr">------</span></div>
+        <div class="reg-row"><span class="reg-lbl">Data</span> <span class="reg-val" id="r-data">----</span></div>
+        <div class="reg-row"><span class="reg-lbl">RK11</span> <span class="reg-val" id="r-rk">----</span></div>
+      </div>
+    </div>
+
+    <!-- MMU パネル -->
+    <div class="mmu-panel" id="mmu-panel">
+      <h3>MMU — Page Address Registers
+        <button class="mmu-toggle-btn" id="btn-mmu-toggle">Hide</button>
+      </h3>
+      <div class="mmu-tables" id="mmu-tables">
+        <div class="mmu-col" id="mmu-kernel">
+          <div class="mmu-col-hdr">Kernel I-space</div>
+        </div>
+        <div class="mmu-col" id="mmu-user">
+          <div class="mmu-col-hdr">User I-space</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PC トリガーパネル -->
+    <div class="trig-panel">
+      <h3>PC Trigger</h3>
+      <div class="trig-row">
+        <label>PC(8)</label>
+        <input type="text" id="trig-pc" placeholder="例: 4014" maxlength="8">
+        <select id="trig-preset">
+          <option value="">— 既知アドレス —</option>
+        </select>
+      </div>
+      <div class="trig-row">
+        <button id="btn-trig-set">Set</button>
+        <button id="btn-trig-clear">Clear</button>
+        <button id="btn-trig-resume">Resume</button>
+      </div>
+      <div class="trig-hit" id="trig-hit">⏸ Triggered! PC hit.</div>
+    </div>
+
+    <!-- Logic Analyzer -->
+    <div class="la-section">
+      <div class="la-header">
+        <h3>Logic Analyzer</h3>
+        <button class="la-zoom-btn" id="la-zoom-out">−</button>
+        <span id="la-zoom-lbl">1×</span>
+        <button class="la-zoom-btn" id="la-zoom-in">+</button>
+      </div>
+      <div id="la-toggles"></div>
+      <canvas id="la"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ペーストダイアログ -->
+<div id="paste-modal" class="modal-ov" style="display:none;">
+  <div class="modal-box">
+    <h3>Paste — Unix V6 ターミナルへ送信</h3>
+    <p>貼り付け後に <strong>Send</strong> → 1 文字ずつペーシング送信（文字化けしません）<br>
+       <code>\n</code> は自動的に <code>\r</code> (Enter) へ変換されます。</p>
+    <textarea id="paste-ta" placeholder="ここに Ctrl+V で貼り付け"></textarea>
+    <div class="modal-btns">
+      <button id="paste-send">Send</button>
+      <button id="paste-cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- テキストエディタ -->
+<div id="editor-modal" class="modal-ov" style="display:none;">
+  <div class="modal-box">
+    <h3>Editor — <code>cat &gt; filename</code> でソースをターミナルへ送信</h3>
+    <input id="editor-fname" class="modal-fname" type="text" value="hello.c" placeholder="ファイル名（例: hello.c）">
+    <textarea id="editor-ta" placeholder="C ソースをここに入力&#10;例: main()&#10;{&#10;    printf(&quot;Hello\n&quot;);&#10;}"></textarea>
+    <div class="modal-btns">
+      <button id="editor-send">cat &gt; ファイル</button>
+      <button id="editor-cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- doc モーダル -->
+<div id="doc-modal" style="display:none;">
+  <div id="doc-overlay" onclick="document.getElementById('doc-modal').style.display='none'"></div>
+  <div id="doc-pane">
+    <div id="doc-toolbar">
+      <button id="doc-prev" disabled>‹</button>
+      <select id="doc-select"></select>
+      <button id="doc-next" disabled>›</button>
+      <button id="doc-close" style="margin-left:4px;">✕ Close</button>
+    </div>
+    <div id="doc-content"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+<script src="js/rtlscope-la.js"></script>
+<script src="js/sft-pdp11-la-defs.js"></script>
+<script src="js/sft-pdp11-docs.js"></script>
+<script src="../../../js/xterm-jp106.js"></script>
+<script>
+'use strict';
+
+// ── xterm.js ──────────────────────────────────────────────────────────────
+var term = new Terminal({
+  cols: 80, rows: 24,
+  theme: { background:'#0a0a0a', foreground:'#c8c8c8', cursor:'#ffffff' },
+  cursorBlink: true, fontFamily: 'monospace', fontSize: 14
+});
+term.open(document.getElementById('terminal'));
+window.term = term;  // Playwright テスト用に公開
+
+// ── JIS(106) キーボード対応 ── js/xterm-jp106.js が担当 ───────────────────
+// US 配列のときは素通し（onData が処理）。JIS のときは @ : ^ \ _ 等の
+// 記号位置を補正して V6 へ送る。Ctrl+[A-Z] は captureCtrl(既定)で横取りし
+// onSendKey 経由で送るため、Ctrl-C(=SIGINT)/Ctrl-D(=EOF) もそのまま V6 に届く。
+var _jp106 = new XtermJP106({
+  term:       term,
+  storageKey: 'pdp11_kbd_layout',
+  autoDetect: true,   // localStorage 未設定時に getLayoutMap() で自動検知
+  onSendKey:  function (ch)  { if (simStarted) worker.postMessage({ type: 'key', ch: ch }); },
+  onSendSeq:  function (seq) {
+    if (!simStarted) return;
+    for (var i = 0; i < seq.length; i++) worker.postMessage({ type: 'key', ch: seq.charCodeAt(i) });
+  }
+});
+window._jp106 = _jp106;
+
+// ── KBD トグルボタン (US ↔ JIS) ───────────────────────────────────────────
+(function () {
+  var btn = document.getElementById('btn-kbd');
+  if (!btn) return;
+  function syncKbd() {
+    var isJis = _jp106.getLayout() === 'jp106';
+    btn.textContent = isJis ? 'JIS' : 'US';
+    btn.classList.toggle('kbd-jis', isJis);
+    btn.title = 'キーボード配列: ' + (isJis ? 'JIS/106（クリックで US）' : 'US（クリックで JIS/106）');
+  }
+  btn.addEventListener('click', function () {
+    _jp106.setLayout(_jp106.getLayout() === 'jp106' ? 'us' : 'jp106');
+    syncKbd();
+  });
+  syncKbd();
+})();
+
+// ── Logic Analyzer 初期化 ─────────────────────────────────────────────────
+var la = new RTLScopeLA(Object.assign({}, PDP11_LA_CONFIG, {
+  canvasId:  'la',
+  togglesId: 'la-toggles',
+}));
+la.buildToggles();
+
+la._zoom = 8;
+la._updateCanvas();
+(function() {
+  var lbl = document.getElementById('la-zoom-lbl');
+  if (lbl) lbl.textContent = la.zoomLabel;
+})();
+
+// ── トリガープリセットプルダウン ─────────────────────────────────────────
+(function() {
+  var sel = document.getElementById('trig-preset');
+  PDP11_KNOWN_PCS.forEach(function(k) {
+    var opt = document.createElement('option');
+    opt.value = k.pc.toString(8);
+    opt.textContent = k.label + ' (0o' + k.pc.toString(8) + ')';
+    opt.title = k.tip;
+    sel.appendChild(opt);
+  });
+  sel.addEventListener('change', function() {
+    if (sel.value) document.getElementById('trig-pc').value = sel.value;
+    sel.value = '';
+  });
+})();
+
+// ── ブート進行追跡（TTY + PC 値ベース）──────────────────────────────────
+// TTY に出るのは "@rkunix" と "login:" のみ。中間ステップは ring buffer の PC で検出する。
+//   bootrom  : TTY の "@" か PC >= 0o173000 (ブートロム領域)
+//   kernel   : PC が 0 付近に落ちる (0o0–0o20000)
+//   mem=     : PC が 0o4000–0o10000 付近 (カーネル init 後半)
+//   user     : Mode ビット = User (PSW[15:14] = 11)
+//   login:   : TTY に "login" が出現
+
+var bootBuf = '';
+var bootDone = { bootrom:false, kernel:false, mem:false, user:false, login:false };
+
+function checkBootTTY(s) {
+  bootBuf += s;
+  if (bootBuf.length > 512) bootBuf = bootBuf.slice(-512);
+  if (!bootDone.bootrom && bootBuf.indexOf('@') >= 0) markBoot('bootrom');
+  if (!bootDone.login   && bootBuf.indexOf('login') >= 0) markBoot('login');
+}
+
+function checkBootPC(pc, mode) {
+  // bootrom 領域 (0o160000–0o177777 = 0xE000–0xFFFF)
+  if (!bootDone.bootrom && pc >= 0xE000) markBoot('bootrom');
+  // kernel 本体 (0 付近に制御が移った)
+  if (!bootDone.kernel && bootDone.bootrom && pc < 0x2000) markBoot('kernel');
+  // kernel init 後半 (0o4000 ≈ 0x800 を超えた辺り)
+  if (!bootDone.mem && bootDone.kernel && pc >= 0x400 && pc < 0x3000) markBoot('mem');
+  // user プロセス起動 (Mode = User = 3)
+  if (!bootDone.user && bootDone.kernel && mode === 3) markBoot('user');
+}
+
+function markBoot(key) {
+  if (bootDone[key]) return;
+  bootDone[key] = true;
+  var el = document.getElementById('bp-' + key);
+  if (el) el.className = 'boot-step done';
+  // 次のステップを current にする
+  var order = ['bootrom','kernel','mem','user','login'];
+  var next  = order[order.indexOf(key) + 1];
+  if (next && !bootDone[next]) {
+    var nel = document.getElementById('bp-' + next);
+    if (nel && !nel.classList.contains('done')) nel.className = 'boot-step current';
+  }
+}
+
+function resetBootProgress() {
+  bootBuf = '';
+  var order = ['bootrom','kernel','mem','user','login'];
+  order.forEach(function(k) {
+    bootDone[k] = false;
+    var el = document.getElementById('bp-' + k);
+    if (el) el.className = 'boot-step';
+  });
+  var first = document.getElementById('bp-bootrom');
+  if (first) first.className = 'boot-step current';
+}
+
+// ── MMU パネル描画 ────────────────────────────────────────────────────────
+var mmuVisible = false;
+
+function updateMMUPanel(snap32) {
+  // snap32: Uint32Array[16] — upper16=PAR, lower16=PDR
+  // 0-7: Kernel I-space,  8-15: User I-space
+  var kEl = document.getElementById('mmu-kernel');
+  var uEl = document.getElementById('mmu-user');
+  if (!kEl || !uEl) return;
+
+  // ヘッダ行を保持しつつ行を再生成
+  function renderCol(el, entries, startIdx) {
+    var hdr = el.firstElementChild;
+    while (el.childNodes.length > 1) el.removeChild(el.lastChild);
+    for (var i = 0; i < 8; i++) {
+      var v   = entries[i];
+      var par = (v >>> 16) & 0x0FFF;  // 12-bit PAR
+      var pdr = v & 0xFFFF;
+      var pa  = par * 64;              // 物理アドレス（ブロック→アドレス、64 byte/block × 32 = 2048 → × 32 for 18-bit)
+      // PDP-11/34 の PAR は 64-word (128 byte) ブロック単位: PA = PAR × 0o200
+      var phys = par * 0x80;           // 18-bit physical byte address
+
+      var row   = document.createElement('div');
+      row.className = 'mmu-row';
+
+      var pEl   = document.createElement('span'); pEl.className = 'mmu-page'; pEl.textContent = i;
+      var parEl = document.createElement('span'); parEl.className = 'mmu-par';
+      parEl.textContent = par.toString(8).padStart(4,'0');
+      var pdrEl = document.createElement('span'); pdrEl.className = 'mmu-pdr';
+      pdrEl.textContent = pdr.toString(8).padStart(6,'0');
+      var paEl  = document.createElement('span'); paEl.className = 'mmu-pa';
+      paEl.textContent = '→' + phys.toString(8).padStart(6,'0');
+
+      row.appendChild(pEl);
+      row.appendChild(parEl);
+      row.appendChild(pdrEl);
+      row.appendChild(paEl);
+      el.appendChild(row);
+    }
+  }
+
+  renderCol(kEl, snap32.slice(0,  8), 0);
+  renderCol(uEl, snap32.slice(8, 16), 8);
+}
+
+document.getElementById('btn-mmu-toggle').addEventListener('click', function() {
+  var tables = document.getElementById('mmu-tables');
+  var visible = tables.style.display !== 'none';
+  tables.style.display = visible ? 'none' : '';
+  this.textContent = visible ? 'Show' : 'Hide';
+});
+
+// ── Worker ────────────────────────────────────────────────────────────────
+var worker = new Worker('sim-worker.js');
+var simStarted = false;
+var simPaused  = false;
+var diskBuffer = null;
+
+var localRing  = null;
+var _ringSize  = 4096;
+var _ringWords = RING_WORDS_PDP11;
+
+worker.onmessage = function(e) {
+  var d = e.data;
+  switch (d.type) {
+    case 'ready':
+      _ringSize  = d.ringSize  || 4096;
+      _ringWords = d.ringWords || RING_WORDS_PDP11;
+      localRing  = new Uint32Array(_ringSize * _ringWords);
+      if (diskBuffer) startSim();
+      break;
+
+    case 'started':
+      setStatus('Running');
+      document.getElementById('btn-reset').disabled = false;
+      document.getElementById('btn-pause').disabled = false;
+      simStarted = true; simPaused = false;
+      document.getElementById('btn-pause').textContent = 'Pause';
+      document.getElementById('boot-progress').classList.add('show');
+      document.getElementById('mmu-panel').classList.add('show');
+      resetBootProgress();
+      break;
+
+    case 'paused':
+      setStatus('Paused');
+      simPaused = true;
+      document.getElementById('btn-pause').textContent = 'Resume';
+      break;
+
+    case 'resumed':
+      setStatus('Running');
+      simPaused = false;
+      document.getElementById('btn-pause').textContent = 'Pause';
+      break;
+
+    case 'tty':
+      var s = '';
+      for (var i = 0; i < d.chars.length; i++) {
+        var c = d.chars[i];
+        if (c === 13) s += '\r';
+        else if (c === 10) s += '\n';
+        else s += String.fromCharCode(c);
+      }
+      term.write(s);
+      checkBootTTY(s);
+      break;
+
+    case 'ring':
+      var snap  = new Uint32Array(d.snap);
+      var count = snap.length / _ringWords;
+      var prevHead = (d.head - count) >>> 0;
+      for (var i = 0; i < count; i++) {
+        var idx = ((prevHead + i) >>> 0) % _ringSize;
+        for (var w = 0; w < _ringWords; w++) {
+          localRing[idx * _ringWords + w] = snap[i * _ringWords + w];
+        }
+      }
+      la.update(d.head, localRing);
+      updateRegs(snap, d.gpr);
+      break;
+
+    case 'gpr':
+      updateGPRDisplay(d.gpr);
+      break;
+
+    case 'mmu':
+      updateMMUPanel(new Uint32Array(d.snap));
+      break;
+
+    case 'triggered':
+      onTriggered(d.pc);
+      break;
+  }
+};
+
+function setStatus(msg) { document.getElementById('status').textContent = msg; }
+
+function startSim() {
+  setStatus('Initializing...');
+  worker.postMessage({ type: 'start', disk: diskBuffer }, [diskBuffer]);
+  diskBuffer = null;
+}
+
+// ── ディスクイメージ読み込み ──────────────────────────────────────────────
+fetch('disk/unix_v6_rk05.dsk')
+  .then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status + ': disk/unix_v6_rk05.dsk');
+    var total = parseInt(r.headers.get('content-length') || '0', 10);
+    var chunks = [], received = 0;
+    var reader = r.body.getReader();
+    var prog = document.getElementById('overlay-progress');
+    function read() {
+      return reader.read().then(function(x) {
+        if (x.done) return new Blob(chunks).arrayBuffer();
+        chunks.push(x.value);
+        received += x.value.length;
+        if (total > 0) prog.value = (received / total * 100) | 0;
+        return read();
+      });
+    }
+    return read();
+  })
+  .then(function(buf) {
+    diskBuffer = buf;
+    document.getElementById('overlay').classList.add('hidden');
+    document.getElementById('btn-boot').disabled = false;
+    setStatus('Ready — Boot ボタンを押してください');
+  })
+  .catch(function(err) {
+    document.getElementById('overlay-msg').textContent = 'Error: ' + err.message;
+  });
+
+// ── ボタン ────────────────────────────────────────────────────────────────
+document.getElementById('btn-boot').addEventListener('click', function() {
+  if (diskBuffer) { startSim(); this.disabled = true; }
+  else if (simStarted) worker.postMessage({ type: 'reset' });
+});
+
+document.getElementById('btn-reset').addEventListener('click', function() {
+  worker.postMessage({ type: 'reset' });
+  term.reset();
+  hideTrigHit();
+});
+
+document.getElementById('btn-pause').addEventListener('click', function() {
+  worker.postMessage({ type: simPaused ? 'resume' : 'pause' });
+});
+
+// Ctrl キーボタン（キューを通して送出）
+document.querySelectorAll('.ctrl-btn[data-ch]').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    if (simStarted) worker.postMessage({ type: 'key', ch: parseInt(btn.dataset.ch) });
+  });
+});
+
+// ── ホストコマンド（! プレフィックス）────────────────────────────────────
+var _inputBuf = '';
+
+function _flashBtn(id) {
+  var b = document.getElementById(id);
+  if (!b) return;
+  b.classList.add('flash');
+  setTimeout(function() { b.classList.remove('flash'); }, 200);
+}
+
+function _doPaste(text) {
+  if (!text || !simStarted) return;
+  for (var i = 0; i < text.length; i++) {
+    var code = text.charCodeAt(i);
+    // \r\n → \r（CR+LF を CR に正規化）
+    if (code === 0x0A && i > 0 && text.charCodeAt(i - 1) === 0x0D) continue;
+    // \n → \r
+    if (code === 0x0A) code = 0x0D;
+    worker.postMessage({ type: 'key', ch: code });
+  }
+}
+
+function _executeHostCmd(cmd) {
+  var parts = cmd.trim().split(/\s+/);
+  var verb  = parts[0].toLowerCase();
+  if (verb === 'help') {
+    term.write('\r\n!help      このヘルプを表示\r\n' +
+               '!paste     PASTE ダイアログを開く\r\n' +
+               '!editor    テキストエディタを開く\r\n' +
+               '!sleep N   N ミリ秒待機してから CR を送出\r\n' +
+               '\r\n');
+  } else if (verb === 'paste') {
+    setTimeout(openPasteModal, 10);
+  } else if (verb === 'editor') {
+    setTimeout(openEditorModal, 10);
+  } else if (verb === 'sleep' && parts[1]) {
+    var ms = parseInt(parts[1], 10) || 0;
+    setTimeout(function() { worker.postMessage({ type: 'key', ch: 0x0D }); }, ms);
+  } else {
+    term.write('\r\n?' + verb + '  (try !help)\r\n');
+  }
+}
+
+// ── キーボード入力（! コマンド対応）────────────────────────────────────────
+term.onData(function(data) {
+  if (!simStarted) return;
+  for (var i = 0; i < data.length; i++) {
+    var ch   = data[i];
+    var code = ch.charCodeAt(0);
+    if (ch === '\r') {
+      if (_inputBuf.startsWith('!')) {
+        // ホストコマンド: 入力文字をバックスペースで消去して Unix V6 には CR だけ送る
+        for (var bk = 0; bk < _inputBuf.length; bk++)
+          worker.postMessage({ type: 'key', ch: 0x08 });
+        var hostCmd = _inputBuf.slice(1);
+        _inputBuf = '';
+        worker.postMessage({ type: 'key', ch: 0x0D });  // 空行として Unix V6 へ
+        _executeHostCmd(hostCmd);
+        continue;
+      }
+      _inputBuf = '';
+    } else if (code === 0x7F || code === 0x08) {
+      if (_inputBuf.length > 0) _inputBuf = _inputBuf.slice(0, -1);
+    } else if (code >= 0x20 && code < 0x80) {
+      _inputBuf += ch;
+    } else {
+      _inputBuf = '';  // Ctrl 文字などでリセット
+    }
+    worker.postMessage({ type: 'key', ch: code });
+  }
+});
+
+// ── PASTE ボタン ─────────────────────────────────────────────────────────
+function openPasteModal() {
+  document.getElementById('paste-modal').style.display = 'flex';
+  document.getElementById('paste-ta').focus();
+}
+
+document.getElementById('btn-paste').addEventListener('click', function() {
+  if (!simStarted) return;
+  if (navigator.clipboard && navigator.clipboard.readText) {
+    navigator.clipboard.readText().then(function(text) {
+      _doPaste(text);
+      _flashBtn('btn-paste');
+    }).catch(function() {
+      openPasteModal();
+    });
+  } else {
+    openPasteModal();
+  }
+});
+
+document.getElementById('paste-send').addEventListener('click', function() {
+  var text = document.getElementById('paste-ta').value;
+  document.getElementById('paste-modal').style.display = 'none';
+  document.getElementById('paste-ta').value = '';
+  _doPaste(text);
+  _flashBtn('btn-paste');
+  term.focus();
+});
+
+document.getElementById('paste-cancel').addEventListener('click', function() {
+  document.getElementById('paste-modal').style.display = 'none';
+  document.getElementById('paste-ta').value = '';
+  term.focus();
+});
+
+// ── EDITOR ボタン ─────────────────────────────────────────────────────────
+function openEditorModal() {
+  document.getElementById('editor-modal').style.display = 'flex';
+  document.getElementById('editor-ta').focus();
+}
+
+document.getElementById('btn-editor').addEventListener('click', function() {
+  if (!simStarted) return;
+  openEditorModal();
+});
+
+document.getElementById('editor-send').addEventListener('click', function() {
+  var fname   = (document.getElementById('editor-fname').value.trim() || 'out.c');
+  var content = document.getElementById('editor-ta').value;
+  document.getElementById('editor-modal').style.display = 'none';
+  term.focus();
+
+  // cat > filename\r
+  worker.postMessage({ type: 'send_str', str: 'cat > ' + fname + '\r' });
+  // ソース本文（\n → \r 変換、行ごとに送出）
+  var lines = content.split('\n');
+  for (var li = 0; li < lines.length; li++) {
+    var line = lines[li];
+    if (li < lines.length - 1 || line.length > 0) {
+      worker.postMessage({ type: 'send_str', str: line + '\r' });
+    }
+  }
+  // Ctrl-D で cat を終了
+  worker.postMessage({ type: 'key', ch: 0x04 });
+  _flashBtn('btn-editor');
+});
+
+document.getElementById('editor-cancel').addEventListener('click', function() {
+  document.getElementById('editor-modal').style.display = 'none';
+  term.focus();
+});
+
+// Escape キーでモーダルを閉じる
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    document.getElementById('paste-modal').style.display  = 'none';
+    document.getElementById('editor-modal').style.display = 'none';
+  }
+});
+
+// ── トリガー ─────────────────────────────────────────────────────────────
+function hideTrigHit() {
+  document.getElementById('trig-hit').classList.remove('show');
+}
+function onTriggered(pc) {
+  simPaused = true;
+  document.getElementById('btn-pause').textContent = 'Resume';
+  setStatus('Triggered @ PC=' + pc.toString(8));
+  var el = document.getElementById('trig-hit');
+  el.textContent = '⏸ Triggered! PC=0o' + pc.toString(8);
+  el.classList.add('show');
+}
+
+document.getElementById('btn-trig-set').addEventListener('click', function() {
+  var val = document.getElementById('trig-pc').value.trim();
+  if (!val) return;
+  var pc = parseInt(val, 8);
+  if (isNaN(pc)) { alert('8 進数で入力してください（例: 4014）'); return; }
+  worker.postMessage({ type: 'set_trigger', pc: pc });
+  setStatus('Trigger set @ PC=0o' + pc.toString(8));
+  hideTrigHit();
+});
+
+document.getElementById('btn-trig-clear').addEventListener('click', function() {
+  worker.postMessage({ type: 'clear_trigger' });
+  hideTrigHit();
+  setStatus(simPaused ? 'Paused' : 'Running');
+});
+
+document.getElementById('btn-trig-resume').addEventListener('click', function() {
+  hideTrigHit();
+  worker.postMessage({ type: 'resume' });
+});
+
+// ── レジスタ表示 ──────────────────────────────────────────────────────────
+var MODE_NAMES = ['Kernel', 'Super', '??', 'User'];
+
+function oct6(v) { return (v >>> 0).toString(8).padStart(6, '0'); }
+function oct4(v) { return (v >>> 0).toString(8).padStart(4, '0'); }
+function hex4(v) { return (v >>> 0).toString(16).padStart(4, '0'); }
+
+function updateGPRDisplay(gpr) {
+  if (!gpr || gpr.length < 7) return;
+  document.getElementById('r-r0').textContent = oct6(gpr[0]);
+  document.getElementById('r-r1').textContent = oct6(gpr[1]);
+  document.getElementById('r-r2').textContent = oct6(gpr[2]);
+  document.getElementById('r-r3').textContent = oct6(gpr[3]);
+  document.getElementById('r-r4').textContent = oct6(gpr[4]);
+  document.getElementById('r-r5').textContent = oct6(gpr[5]);
+  document.getElementById('r-sp').textContent  = oct6(gpr[6]);
+}
+
+function updateRegs(snap, gpr) {
+  if (!snap || snap.length < _ringWords) return;
+  var last = snap.length - _ringWords;
+  var w0 = snap[last + 0], w1 = snap[last + 1], w2 = snap[last + 2];
+
+  var pc   = w2 & 0xFFFF;
+  var psw  = (w1 >>> 16) & 0xFFFF;
+  var mode = (w0 >>> 20) & 3;
+  var ap   = w0 & 0x3FFFF;
+  var data = w1 & 0xFFFF;
+  var rk   = (w0 >>> 26) & 0x1F;
+  var trap = (w0 >>> 23) & 1;
+
+  checkBootPC(pc, mode);
+
+  document.getElementById('r-pc').textContent   = oct6(pc);
+  document.getElementById('r-psw').textContent  = fmtPSW11(psw);
+  var modeEl = document.getElementById('r-mode');
+  modeEl.textContent = MODE_NAMES[mode];
+  modeEl.className   = 'reg-val' + (mode === 3 ? ' user' : '');
+  if (trap) modeEl.className = 'reg-val trap';
+  document.getElementById('r-addr').textContent = oct6(ap);
+  document.getElementById('r-data').textContent = hex4(data);
+  var rkEl = document.getElementById('r-rk');
+  rkEl.textContent = rk === 0 ? 'Idle' : 'St=' + rk;
+  rkEl.className   = 'reg-val' + (rk !== 0 ? ' active' : '');
+
+  if (gpr) updateGPRDisplay(gpr);
+}
+
+// ── docs モーダル ─────────────────────────────────────────────────────────
+(function() {
+  // doc-select にリスト展開
+  var sel = document.getElementById('doc-select');
+  PDP11_DOC_LIST.forEach(function(d) {
+    var opt = document.createElement('option');
+    opt.value = d.file; opt.textContent = d.label;
+    sel.appendChild(opt);
+  });
+  sel.addEventListener('change', function() {
+    if (sel.value) openDoc(sel.value);
+  });
+  document.getElementById('doc-prev').addEventListener('click', function() {
+    if (_pdp11DocIdx > 0) openDoc(PDP11_DOC_LIST[_pdp11DocIdx - 1].file);
+  });
+  document.getElementById('doc-next').addEventListener('click', function() {
+    if (_pdp11DocIdx >= 0 && _pdp11DocIdx < PDP11_DOC_LIST.length - 1)
+      openDoc(PDP11_DOC_LIST[_pdp11DocIdx + 1].file);
+  });
+  document.getElementById('doc-close').addEventListener('click', function() {
+    document.getElementById('doc-modal').style.display = 'none';
+  });
+})();
+</script>
+</body>
+</html>
