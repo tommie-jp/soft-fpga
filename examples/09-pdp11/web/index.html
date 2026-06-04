@@ -17,6 +17,7 @@
     button:hover   { background:#444; }
     button:disabled { opacity:0.4; cursor:not-allowed; }
     button.active  { background:#446; border-color:#88a; color:#ccf; }
+    #btn-kbd.kbd-jis { background:#6a5a1a; border-color:#caa84a; color:#ffe79a; }
     .status { font-size:11px; color:#888; margin-left:6px; }
 
     /* ── ブート進行インジケータ ── */
@@ -191,6 +192,7 @@
   <button id="btn-boot"  disabled>Boot Unix V6</button>
   <button id="btn-reset" disabled>Reset</button>
   <button id="btn-pause" disabled>Pause</button>
+  <button id="btn-kbd" title="キーボード配列を切り替え（US ↔ JIS/106）">US</button>
   <span class="status" id="status">Loading...</span>
 </div>
 
@@ -323,6 +325,7 @@
 <script src="js/rtlscope-la.js"></script>
 <script src="js/sft-pdp11-la-defs.js"></script>
 <script src="js/sft-pdp11-docs.js"></script>
+<script src="../../../js/xterm-jp106.js"></script>
 <script>
 'use strict';
 
@@ -333,6 +336,40 @@ var term = new Terminal({
   cursorBlink: true, fontFamily: 'monospace', fontSize: 14
 });
 term.open(document.getElementById('terminal'));
+window.term = term;  // Playwright テスト用に公開
+
+// ── JIS(106) キーボード対応 ── js/xterm-jp106.js が担当 ───────────────────
+// US 配列のときは素通し（onData が処理）。JIS のときは @ : ^ \ _ 等の
+// 記号位置を補正して V6 へ送る。Ctrl+[A-Z] は captureCtrl(既定)で横取りし
+// onSendKey 経由で送るため、Ctrl-C(=SIGINT)/Ctrl-D(=EOF) もそのまま V6 に届く。
+var _jp106 = new XtermJP106({
+  term:       term,
+  storageKey: 'pdp11_kbd_layout',
+  autoDetect: true,   // localStorage 未設定時に getLayoutMap() で自動検知
+  onSendKey:  function (ch)  { if (simStarted) worker.postMessage({ type: 'key', ch: ch }); },
+  onSendSeq:  function (seq) {
+    if (!simStarted) return;
+    for (var i = 0; i < seq.length; i++) worker.postMessage({ type: 'key', ch: seq.charCodeAt(i) });
+  }
+});
+window._jp106 = _jp106;
+
+// ── KBD トグルボタン (US ↔ JIS) ───────────────────────────────────────────
+(function () {
+  var btn = document.getElementById('btn-kbd');
+  if (!btn) return;
+  function syncKbd() {
+    var isJis = _jp106.getLayout() === 'jp106';
+    btn.textContent = isJis ? 'JIS' : 'US';
+    btn.classList.toggle('kbd-jis', isJis);
+    btn.title = 'キーボード配列: ' + (isJis ? 'JIS/106（クリックで US）' : 'US（クリックで JIS/106）');
+  }
+  btn.addEventListener('click', function () {
+    _jp106.setLayout(_jp106.getLayout() === 'jp106' ? 'us' : 'jp106');
+    syncKbd();
+  });
+  syncKbd();
+})();
 
 // ── Logic Analyzer 初期化 ─────────────────────────────────────────────────
 var la = new RTLScopeLA(Object.assign({}, PDP11_LA_CONFIG, {
