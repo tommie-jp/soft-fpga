@@ -3,7 +3,7 @@
 // test_top_wasm.v + wasm_uart.v（DPI）を使用する。
 // dpi_tty_putc → stdout 直接書き込み
 // dpi_tty_getc → 8M クロック後に "rkunix\r" 自動送信、その後 stdin ポーリング
-// Ctrl-C で終了（SIGINT）。
+// 終了: 行頭で ~. (ssh/tip/cu 方式)、または Ctrl-C (SIGINT)
 //
 #include "Vtest_top_wasm.h"
 #include "Vtest_top_wasm___024root.h"
@@ -54,6 +54,15 @@ static uint64_t    boot_delay    = 8000000;
 static int         boot_idx      = 0;
 static uint64_t    boot_char_next = 0;
 
+// ── ~. エスケープ状態機械（ssh/tip/cu 方式） ─────────────────────────────
+// 行頭（改行直後）で ~ → . と入力するとシミュレーターを終了する。
+// ~~ → ~ を 1 文字送信（エスケープ doubling）。
+// ~X（その他）→ ~ + X をそのまま送信。
+
+enum TtyState { ST_NORMAL, ST_AFTER_NL, ST_AFTER_TILDE };
+static TtyState tty_st      = ST_AFTER_NL;  // 起動直後は行頭扱い
+static int      tty_pending = -1;           // 保留文字（~ の後を送るため）
+
 // ── DPI 実装 ─────────────────────────────────────────────────────────────
 
 // wasm_uart.v TX から呼ばれる: 文字を TTY 専用 fd へ出力
@@ -74,10 +83,37 @@ extern "C" int dpi_tty_getc() {
         return (unsigned char)BOOT_CMD[boot_idx++];
     }
 
-    // インタラクティブ入力（ノンブロッキング）
+    // 保留文字を先に返す（~ の後の文字を 1 クロック遅れで送る）
+    if (tty_pending >= 0) {
+        int c = tty_pending;
+        tty_pending = -1;
+        return c;
+    }
+
+    // stdin ノンブロッキング読み取り
     char c;
-    int n = read(STDIN_FILENO, &c, 1);
-    return (n > 0) ? (unsigned char)c : -1;
+    if (read(STDIN_FILENO, &c, 1) <= 0) return -1;
+    unsigned char uc = (unsigned char)c;
+
+    // ~. エスケープ状態機械
+    switch (tty_st) {
+    case ST_AFTER_NL:
+        if (uc == '~') { tty_st = ST_AFTER_TILDE; return -1; }  // ~ を保留
+        tty_st = (uc == '\r' || uc == '\n') ? ST_AFTER_NL : ST_NORMAL;
+        return uc;
+
+    case ST_AFTER_TILDE:
+        if (uc == '.') { g_stop = 1; return -1; }              // ~. → 終了
+        if (uc == '~') { tty_st = ST_AFTER_NL; return '~'; }  // ~~ → ~ を送る
+        // ~X → ~ を送り、X を次クロックで返す
+        tty_pending = uc;
+        tty_st = (uc == '\r' || uc == '\n') ? ST_AFTER_NL : ST_NORMAL;
+        return '~';
+
+    default:  // ST_NORMAL
+        if (uc == '\r' || uc == '\n') tty_st = ST_AFTER_NL;
+        return uc;
+    }
 }
 
 // ── クロック / リセット ───────────────────────────────────────────────────
