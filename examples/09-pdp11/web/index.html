@@ -174,6 +174,41 @@
     #doc-content pre code { background:none; padding:0; white-space:pre; }
     #doc-content blockquote { border-left:3px solid #ccc; margin:0; padding-left:10px; color:#666; }
 
+    /* ── FS パネル ── */
+    #fs-panel { background:#1a1a14; border:1px solid #3a3a28; padding:5px 8px;
+                font-size:11px; margin-top:5px; max-height:220px; overflow-y:auto; }
+    #fs-hdr { display:flex; align-items:center; gap:5px; font-size:11px;
+              color:#8a8a5a; margin-bottom:4px; flex-wrap:wrap; }
+    #fs-hdr button { padding:1px 6px; font-size:10px; }
+    #fs-path { font-size:10px; color:#666; margin-bottom:3px; }
+    #fs-list table { width:100%; border-collapse:collapse; }
+    #fs-list tr { cursor:pointer; }
+    #fs-list tr:hover td { background:#22221a; }
+    #fs-list td { padding:1px 4px; font-size:10px; color:#aaa; border-bottom:1px solid #2a2a1a; }
+    #fs-list td.fs-name { color:#cc9; }
+    #fs-list td.fs-dir  { color:#6ae; }
+    #fs-list td.fs-size { color:#666; text-align:right; width:50px; }
+
+    /* ── Speed / Font / Theme セレクタ ── */
+    .toolbar select { background:#333; color:#ccc; border:1px solid #555;
+                      padding:3px 6px; font-size:12px; font-family:monospace; cursor:pointer; }
+    .toolbar select:hover { background:#444; }
+
+    /* ── マクロ（!script）ステータス表示 ── */
+    #macro-status { font-size:10px; color:#888; }
+    #btn-macro-stop { padding:3px 8px; font-size:11px; }
+
+    /* ── LA ナビゲーション ── */
+    .la-nav { display:flex; gap:3px; align-items:center; padding:3px 6px;
+              background:#d8d8e8; border-top:1px solid #bbc; }
+    .la-nav button { background:#c8c8d8; color:#446; border:1px solid #aab;
+                     padding:1px 7px; cursor:pointer; font-size:11px; }
+    .la-nav button:hover { background:#b8b8c8; }
+    #la-pos-lbl { font-size:10px; color:#558; margin-left:4px; }
+
+    /* ── LA Freeze バッジ ── */
+    #frozen-badge { font-size:10px; color:#f84; }
+
     /* ── ペーストダイアログ / テキストエディタ モーダル ── */
     .modal-ov { position:fixed; inset:0; z-index:9000; background:rgba(0,0,0,.65);
                 display:flex; align-items:center; justify-content:center; }
@@ -212,8 +247,26 @@
   <button id="btn-reset" disabled>Reset</button>
   <button id="btn-pause" disabled>Pause</button>
   <button id="btn-kbd" title="キーボード配列を切り替え（US ↔ JIS/106）">US</button>
-  <button id="btn-paste"  title="クリップボードからターミナルへ貼り付け（文字化けしない）" style="font-size:11px;">PASTE</button>
-  <button id="btn-editor" title="テキストエディタ：cat &gt; ファイル でソースをターミナルへ送信" style="font-size:11px;">EDITOR</button>
+  <button id="btn-paste"  title="クリップボードからターミナルへ貼り付け" style="font-size:11px;">PASTE</button>
+  <button id="btn-editor" title="テキストエディタ：cat > ファイル でソースをターミナルへ送信" style="font-size:11px;">EDITOR</button>
+  <button id="btn-copy"   title="選択テキストをコピー" style="font-size:11px;">COPY</button>
+  <select id="speed-sel" title="シミュレーション速度">
+    <option value="50000">Slow</option>
+    <option value="200000" selected>Normal</option>
+    <option value="600000">Fast</option>
+    <option value="2000000">Max</option>
+  </select>
+  <select id="font-sel" title="フォントサイズ">
+    <option value="10">10px</option>
+    <option value="12">12px</option>
+    <option value="14" selected>14px</option>
+    <option value="16">16px</option>
+  </select>
+  <select id="theme-sel" title="テーマ">
+    <option value="green" selected>Green</option>
+    <option value="amber">Amber</option>
+    <option value="white">White</option>
+  </select>
   <span class="status" id="status">Loading...</span>
 </div>
 
@@ -238,8 +291,7 @@
   <a href="#" onclick="openDoc('11-thompson-シェル.md');return false;">11 Thompson シェル使い方</a>
   <a href="#" onclick="openDoc('08-ed-使い方.md');return false;">08 ed エディタ使い方</a>
   <a href="#" onclick="openDoc('10-unix-v6-コマンドリファレンス.md');return false;">10 Unix V6 コマンドリファレンス</a>
-  <a href="#" onclick="openDoc('13-c-コンパイル入門.md');return false;">13 C コンパイル入門</a>
-  <a href="#" onclick="openDoc('14-adb-デバッガー-使い方.md');return false;">14 デバッグ手法（od / printf）</a>
+  <a href="#" onclick="openDoc('13-c-コンパイル入門.md');return false;">13 C コンパイル入門 ※WASM非対応</a>
   <a href="#" onclick="openDoc('20-デバッグパネル-使い方.md');return false;">20 デバッグパネル・Logic Analyzer</a>
   <a href="#" onclick="openDoc('21-バスサイクル実例.md');return false;">21 LA バスサイクル実例集</a>
   <a href="#" onclick="openDoc('52-メモリマップ.md');return false;">52 メモリマップ</a>
@@ -256,6 +308,20 @@
       <button class="ctrl-btn" data-ch="4">Ctrl-D</button>
       <button class="ctrl-btn" data-ch="27">ESC</button>
       <button class="ctrl-btn" data-ch="8">BS</button>
+      <span id="macro-status"></span>
+      <button id="btn-macro-stop" class="ctrl-btn" style="display:none;color:#f66;">&#x25A0;STOP</button>
+    </div>
+
+    <!-- Unix V6 FS パネル -->
+    <div id="fs-panel">
+      <div id="fs-hdr">
+        V6 Filesystem
+        <button id="btn-fs-refresh">&#x21BA;</button>
+        <input id="fs-upload-input" type="file" style="display:none">
+        <button id="btn-fs-upload">UPLOAD</button>
+      </div>
+      <div id="fs-path">/</div>
+      <div id="fs-list"></div>
     </div>
   </div>
 
@@ -321,9 +387,18 @@
         <button class="la-zoom-btn" id="la-zoom-out">−</button>
         <span id="la-zoom-lbl">1×</span>
         <button class="la-zoom-btn" id="la-zoom-in">+</button>
+        <button class="la-zoom-btn" id="btn-la-freeze">Freeze</button>
+        <span id="frozen-badge" style="display:none;">FROZEN</span>
       </div>
       <div id="la-toggles"></div>
       <canvas id="la"></canvas>
+      <div class="la-nav">
+        <button id="la-nav-start">&#171;</button>
+        <button id="la-nav-prev">&#8249;</button>
+        <button id="la-nav-next">&#8250;</button>
+        <button id="la-nav-end">&#187;</button>
+        <span id="la-pos-lbl"></span>
+      </div>
     </div>
   </div>
 </div>
@@ -371,9 +446,9 @@
 
 <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
-<script src="../../../js/rtlscope-la.js"></script>
-<script src="../../../js/sft-pdp11-la-defs.js"></script>
-<script src="../../../js/sft-pdp11-docs.js"></script>
+<script src="js/rtlscope-la.js"></script>
+<script src="js/sft-pdp11-la-defs.js"></script>
+<script src="js/sft-pdp11-docs.js"></script>
 <script src="../../../js/xterm-jp106.js"></script>
 <script>
 'use strict';
@@ -432,6 +507,23 @@ la._updateCanvas();
 (function() {
   var lbl = document.getElementById('la-zoom-lbl');
   if (lbl) lbl.textContent = la.zoomLabel;
+
+  // ズームボタン
+  var btnOut = document.getElementById('la-zoom-out');
+  var btnIn  = document.getElementById('la-zoom-in');
+  function updateZoomLbl() {
+    if (lbl) lbl.textContent = la.zoomLabel || (la._zoom + 'x');
+  }
+  if (btnOut) btnOut.addEventListener('click', function() {
+    if (la.zoomOut) la.zoomOut();
+    else if (la._zoom > 1) { la._zoom = Math.max(1, la._zoom >>> 1); la._updateCanvas(); }
+    updateZoomLbl();
+  });
+  if (btnIn) btnIn.addEventListener('click', function() {
+    if (la.zoomIn) la.zoomIn();
+    else { la._zoom = Math.min(64, la._zoom << 1); la._updateCanvas(); }
+    updateZoomLbl();
+  });
 })();
 
 // ── トリガープリセットプルダウン ─────────────────────────────────────────
@@ -586,6 +678,8 @@ worker.onmessage = function(e) {
       document.getElementById('boot-progress').classList.add('show');
       document.getElementById('mmu-panel').classList.add('show');
       resetBootProgress();
+      // FS パネルの初回取得（ディスクロード後）
+      setTimeout(_requestFSList, 500);
       break;
 
     case 'paused':
@@ -636,6 +730,86 @@ worker.onmessage = function(e) {
 
     case 'triggered':
       onTriggered(d.pc);
+      break;
+
+    // ── Freeze ─────────────────────────────────────────────────────────
+    case 'frozen':
+      laFrozen = true;
+      document.getElementById('btn-la-freeze').textContent = 'Unfreeze';
+      document.getElementById('frozen-badge').style.display = '';
+      setStatus('Frozen');
+      break;
+
+    case 'unfrozen':
+      laFrozen = false;
+      document.getElementById('btn-la-freeze').textContent = 'Freeze';
+      document.getElementById('frozen-badge').style.display = 'none';
+      setStatus('Running');
+      break;
+
+    // ── スクリプト（マクロ）状態 ────────────────────────────────────────
+    case 'scriptStarted': {
+      var sStat = document.getElementById('macro-status');
+      var sStop = document.getElementById('btn-macro-stop');
+      if (sStat) sStat.textContent = 'Script: ' + d.name;
+      if (sStop) sStop.style.display = '';
+      break;
+    }
+
+    case 'scriptEnded': {
+      var eStat = document.getElementById('macro-status');
+      var eStop = document.getElementById('btn-macro-stop');
+      if (eStat) eStat.textContent = '';
+      if (eStop) eStop.style.display = 'none';
+      break;
+    }
+
+    case 'scriptWarn': {
+      var wStat = document.getElementById('macro-status');
+      if (wStat) wStat.textContent = 'Warn: ' + (d.msg || '');
+      break;
+    }
+
+    case 'fsError':
+      term.write('\r\n[FS Error] ' + (d.msg || '') + '\r\n');
+      break;
+
+    // ── FS エントリ（listFS 応答）──────────────────────────────────────
+    case 'fsEntries':
+      if (d.requestId === 'panel') {
+        _renderFSPanel(d.entries);
+      } else if (d.requestId === 'tty') {
+        // !ls コマンド → ターミナルに表示
+        var lines2 = (d.entries || []).map(function(e) {
+          return (e.isDir ? 'd' : '-') + ' ' + e.path;
+        });
+        term.write('\r\n' + lines2.join('\r\n') + '\r\n');
+      }
+      break;
+
+    // ── FS ファイル読み取り（readFS 応答）──────────────────────────────
+    case 'fsFile':
+      if (d.requestId === 'tty') {
+        // !type → ターミナルに表示
+        var bytes2 = new Uint8Array(d.data);
+        var text2  = new TextDecoder('utf-8', { fatal: false }).decode(bytes2);
+        term.write('\r\n' + text2.replace(/\n/g, '\r\n') + '\r\n');
+      } else if (d.requestId === 'download') {
+        // !get → ブラウザダウンロード
+        var blob  = new Blob([d.data]);
+        var url   = URL.createObjectURL(blob);
+        var a     = document.createElement('a');
+        var fname = (d.path || 'file').replace(/.*\//, '');
+        a.href = url; a.download = fname;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+      break;
+
+    // ── writeFS 完了 ────────────────────────────────────────────────────
+    case 'fsWritten':
+      // アップロード完了: FS パネルを更新
+      if (simStarted) _requestFSList();
       break;
   }
 };
@@ -693,16 +867,65 @@ document.getElementById('btn-pause').addEventListener('click', function() {
   worker.postMessage({ type: simPaused ? 'resume' : 'pause' });
 });
 
-// Ctrl キーボタン（キューを通して送出）
+// Ctrl キーボタン
 document.querySelectorAll('.ctrl-btn[data-ch]').forEach(function(btn) {
   btn.addEventListener('click', function() {
     if (simStarted) worker.postMessage({ type: 'key', ch: parseInt(btn.dataset.ch) });
   });
 });
 
-// ── ホストコマンド（! プレフィックス）────────────────────────────────────
-var _inputBuf = '';
+// ── COPY ボタン ──────────────────────────────────────────────────────────
+document.getElementById('btn-copy').addEventListener('click', function() {
+  var sel = term.getSelection ? term.getSelection() : '';
+  if (sel && navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(sel);
+    _flashBtn('btn-copy');
+  }
+});
 
+// ── Speed セレクタ ────────────────────────────────────────────────────────
+document.getElementById('speed-sel').addEventListener('change', function() {
+  var steps = parseInt(this.value, 10);
+  if (steps > 0) worker.postMessage({ type: 'setSpeed', steps: steps });
+});
+
+// ── Font セレクタ ─────────────────────────────────────────────────────────
+document.getElementById('font-sel').addEventListener('change', function() {
+  var sz = parseInt(this.value, 10);
+  if (term.options) term.options.fontSize = sz;
+  if (term.refresh) term.refresh(0, term.rows - 1);
+});
+
+// ── Theme セレクタ ────────────────────────────────────────────────────────
+var THEMES = {
+  green: { background:'#0a0a0a', foreground:'#c8ffc8', cursor:'#4f4' },
+  amber: { background:'#100800', foreground:'#ffb000', cursor:'#fc0' },
+  white: { background:'#ffffff', foreground:'#111111', cursor:'#333' }
+};
+document.getElementById('theme-sel').addEventListener('change', function() {
+  var t = THEMES[this.value];
+  if (t && term.options) {
+    term.options.theme = t;
+    if (term.refresh) term.refresh(0, term.rows - 1);
+  }
+});
+
+// ── コマンド履歴 ─────────────────────────────────────────────────────────
+var inputHistory = [];
+var histIdx      = -1;
+
+// ── ペースト送出 ──────────────────────────────────────────────────────────
+function _doPaste(text) {
+  if (!text || !simStarted) return;
+  for (var i = 0; i < text.length; i++) {
+    var code = text.charCodeAt(i);
+    if (code === 0x0A && i > 0 && text.charCodeAt(i - 1) === 0x0D) continue;
+    if (code === 0x0A) code = 0x0D;
+    worker.postMessage({ type: 'key', ch: code });
+  }
+}
+
+// ── フラッシュエフェクト ──────────────────────────────────────────────────
 function _flashBtn(id) {
   var b = document.getElementById(id);
   if (!b) return;
@@ -710,26 +933,66 @@ function _flashBtn(id) {
   setTimeout(function() { b.classList.remove('flash'); }, 200);
 }
 
-function _doPaste(text) {
-  if (!text || !simStarted) return;
-  for (var i = 0; i < text.length; i++) {
-    var code = text.charCodeAt(i);
-    // \r\n → \r（CR+LF を CR に正規化）
-    if (code === 0x0A && i > 0 && text.charCodeAt(i - 1) === 0x0D) continue;
-    // \n → \r
-    if (code === 0x0A) code = 0x0D;
-    worker.postMessage({ type: 'key', ch: code });
-  }
+// ── FS 操作補助 ───────────────────────────────────────────────────────────
+var _fsEntries = [];  // 最後に取得した FS エントリ一覧
+
+function _requestFSList() {
+  worker.postMessage({ type: 'listFS', requestId: 'panel' });
 }
+
+function _renderFSPanel(entries) {
+  _fsEntries = entries;
+  var el = document.getElementById('fs-list');
+  if (!el) return;
+  if (!entries || entries.length === 0) {
+    el.innerHTML = '<span style="color:#555;font-size:10px;">（エントリなし）</span>';
+    return;
+  }
+  var rows = '';
+  for (var i = 0; i < entries.length; i++) {
+    var e    = entries[i];
+    var cls  = e.isDir ? 'fs-dir' : 'fs-name';
+    var sz   = e.isDir ? '' : e.size + 'B';
+    var path = e.path;
+    rows += '<tr data-path="' + path.replace(/"/g,'&quot;') + '" data-dir="' + (e.isDir?'1':'0') + '">' +
+            '<td class="' + cls + '">' + e.path + '</td>' +
+            '<td class="fs-size">' + sz + '</td></tr>';
+  }
+  el.innerHTML = '<table>' + rows + '</table>';
+  // クリックで type / script
+  el.querySelectorAll('tr').forEach(function(tr) {
+    tr.addEventListener('click', function() {
+      var p   = tr.dataset.path;
+      var isD = tr.dataset.dir === '1';
+      if (isD) return;
+      // .sh / .script / .scr → !script で実行
+      if (/\.(sh|script|scr)$/i.test(p)) {
+        var fname = p.replace(/.*\//, '');
+        _executeHostCmd('script ' + fname);
+      } else {
+        _executeHostCmd('type ' + p);
+      }
+    });
+  });
+}
+
+// ── ホストコマンド（! プレフィックス）────────────────────────────────────
+var _inputBuf = '';
 
 function _executeHostCmd(cmd) {
   var parts = cmd.trim().split(/\s+/);
   var verb  = parts[0].toLowerCase();
   if (verb === 'help') {
-    term.write('\r\n!help      このヘルプを表示\r\n' +
-               '!paste     PASTE ダイアログを開く\r\n' +
-               '!editor    テキストエディタを開く\r\n' +
-               '!sleep N   N ミリ秒待機してから CR を送出\r\n' +
+    term.write('\r\n!help                このヘルプ\r\n' +
+               '!paste               PASTE ダイアログ\r\n' +
+               '!editor              テキストエディタ\r\n' +
+               '!sleep N             N ミリ秒待機\r\n' +
+               '!script <file>       スクリプト再生\r\n' +
+               '!stop                スクリプト停止\r\n' +
+               '!ls [path]           V6 FS 一覧\r\n' +
+               '!type <path>         V6 FS ファイル表示\r\n' +
+               '!get  <path>         V6 FS ファイルダウンロード\r\n' +
+               '!upload              ファイルアップロード\r\n' +
                '\r\n');
   } else if (verb === 'paste') {
     setTimeout(openPasteModal, 10);
@@ -738,25 +1001,69 @@ function _executeHostCmd(cmd) {
   } else if (verb === 'sleep' && parts[1]) {
     var ms = parseInt(parts[1], 10) || 0;
     setTimeout(function() { worker.postMessage({ type: 'key', ch: 0x0D }); }, ms);
+  } else if (verb === 'script' && parts[1]) {
+    // !script <filename> — Worker に scriptRun を送る
+    worker.postMessage({ type: 'scriptRun', name: parts[1], path: '/' + parts[1] });
+  } else if (verb === 'stop') {
+    worker.postMessage({ type: 'scriptStop' });
+  } else if (verb === 'ls') {
+    var lsPath = parts[1] || '/';
+    worker.postMessage({ type: 'listFS', requestId: 'tty', path: lsPath });
+  } else if (verb === 'type' && parts[1]) {
+    worker.postMessage({ type: 'readFS', requestId: 'tty', path: parts[1] });
+  } else if (verb === 'get' && parts[1]) {
+    worker.postMessage({ type: 'readFS', requestId: 'download', path: parts[1] });
+  } else if (verb === 'upload') {
+    document.getElementById('fs-upload-input').click();
   } else {
     term.write('\r\n?' + verb + '  (try !help)\r\n');
   }
 }
 
-// ── キーボード入力（! コマンド対応）────────────────────────────────────────
+// ── キーボード入力（! コマンド + 履歴 対応）──────────────────────────────
 term.onData(function(data) {
   if (!simStarted) return;
   for (var i = 0; i < data.length; i++) {
     var ch   = data[i];
     var code = ch.charCodeAt(0);
+
+    // ESC シーケンス（矢印キー）の検出: ESC [ A (上), ESC [ B (下)
+    if (ch === '\x1b' && i + 2 < data.length && data[i+1] === '[') {
+      var dir = data[i+2];
+      if (dir === 'A' || dir === 'B') {
+        // コマンド履歴ナビゲーション
+        if (inputHistory.length > 0) {
+          if (dir === 'A') histIdx = Math.min(histIdx + 1, inputHistory.length - 1);
+          else             histIdx = Math.max(histIdx - 1, -1);
+          var hist = histIdx >= 0 ? inputHistory[histIdx] : '';
+          // 現在の入力行をクリアして履歴文字列を送出
+          for (var bk = 0; bk < _inputBuf.length; bk++) {
+            worker.postMessage({ type: 'key', ch: 0x08 });
+          }
+          _inputBuf = hist;
+          for (var hc = 0; hc < hist.length; hc++) {
+            worker.postMessage({ type: 'key', ch: hist.charCodeAt(hc) });
+          }
+        }
+        i += 2;
+        continue;
+      }
+    }
+
     if (ch === '\r') {
+      if (_inputBuf.length > 0) {
+        // 履歴に追加（空行・重複を除く）
+        if (inputHistory[0] !== _inputBuf) inputHistory.unshift(_inputBuf);
+        if (inputHistory.length > 50) inputHistory.pop();
+        histIdx = -1;
+      }
       if (_inputBuf.startsWith('!')) {
-        // ホストコマンド: 入力文字をバックスペースで消去して Unix V6 には CR だけ送る
-        for (var bk = 0; bk < _inputBuf.length; bk++)
+        // ホストコマンド: 入力をバックスペースで消去して Unix V6 には CR のみ
+        for (var bk2 = 0; bk2 < _inputBuf.length; bk2++)
           worker.postMessage({ type: 'key', ch: 0x08 });
         var hostCmd = _inputBuf.slice(1);
         _inputBuf = '';
-        worker.postMessage({ type: 'key', ch: 0x0D });  // 空行として Unix V6 へ
+        worker.postMessage({ type: 'key', ch: 0x0D });
         _executeHostCmd(hostCmd);
         continue;
       }
@@ -766,7 +1073,7 @@ term.onData(function(data) {
     } else if (code >= 0x20 && code < 0x80) {
       _inputBuf += ch;
     } else {
-      _inputBuf = '';  // Ctrl 文字などでリセット
+      _inputBuf = '';
     }
     worker.postMessage({ type: 'key', ch: code });
   }
@@ -823,10 +1130,7 @@ document.getElementById('editor-send').addEventListener('click', function() {
   var content = document.getElementById('editor-ta').value;
   document.getElementById('editor-modal').style.display = 'none';
   term.focus();
-
-  // cat > filename\r
   worker.postMessage({ type: 'send_str', str: 'cat > ' + fname + '\r' });
-  // ソース本文（\n → \r 変換、行ごとに送出）
   var lines = content.split('\n');
   for (var li = 0; li < lines.length; li++) {
     var line = lines[li];
@@ -834,7 +1138,6 @@ document.getElementById('editor-send').addEventListener('click', function() {
       worker.postMessage({ type: 'send_str', str: line + '\r' });
     }
   }
-  // Ctrl-D で cat を終了
   worker.postMessage({ type: 'key', ch: 0x04 });
   _flashBtn('btn-editor');
 });
@@ -850,6 +1153,85 @@ document.addEventListener('keydown', function(e) {
     document.getElementById('paste-modal').style.display  = 'none';
     document.getElementById('editor-modal').style.display = 'none';
   }
+});
+
+// ── マクロ停止ボタン ──────────────────────────────────────────────────────
+document.getElementById('btn-macro-stop').addEventListener('click', function() {
+  worker.postMessage({ type: 'scriptStop' });
+});
+
+// ── LA Freeze ────────────────────────────────────────────────────────────
+var laFrozen = false;
+document.getElementById('btn-la-freeze').addEventListener('click', function() {
+  if (!laFrozen) {
+    worker.postMessage({ type: 'freeze' });
+  } else {
+    worker.postMessage({ type: 'unfreeze' });
+  }
+});
+
+// ── LA ページナビゲーション ───────────────────────────────────────────────
+// la.scrollTo(offset) が存在すればそれを利用し、なければ _viewStart を直接操作する
+function _laScrollTo(offset) {
+  if (la.scrollTo) {
+    la.scrollTo(offset);
+  } else if (la._viewStart !== undefined) {
+    la._viewStart = offset;
+    la._updateCanvas();
+  }
+  _updateLANav();
+}
+
+function _laGetViewStart() {
+  return la._viewStart !== undefined ? la._viewStart : 0;
+}
+
+function _laGetPageSize() {
+  // 1 ページ分のサンプル数: 表示幅 / (サンプル幅 × ズーム)
+  // 概算: ring buffer サイズの 1/8 程度
+  return la._pageSize || Math.floor(_ringSize / 8) || 128;
+}
+
+function _updateLANav() {
+  var lbl = document.getElementById('la-pos-lbl');
+  if (lbl) lbl.textContent = 'pos:' + _laGetViewStart();
+}
+
+document.getElementById('la-nav-start').addEventListener('click', function() {
+  _laScrollTo(0);
+});
+document.getElementById('la-nav-prev').addEventListener('click', function() {
+  _laScrollTo(Math.max(0, _laGetViewStart() - _laGetPageSize()));
+});
+document.getElementById('la-nav-next').addEventListener('click', function() {
+  _laScrollTo(_laGetViewStart() + _laGetPageSize());
+});
+document.getElementById('la-nav-end').addEventListener('click', function() {
+  // ring buffer の末尾付近へ
+  _laScrollTo(Math.max(0, _ringSize - _laGetPageSize()));
+});
+
+// ── FS パネルのリフレッシュ・アップロード ────────────────────────────────
+document.getElementById('btn-fs-refresh').addEventListener('click', function() {
+  if (simStarted) _requestFSList();
+});
+
+document.getElementById('btn-fs-upload').addEventListener('click', function() {
+  document.getElementById('fs-upload-input').click();
+});
+
+document.getElementById('fs-upload-input').addEventListener('change', function() {
+  var files = this.files;
+  if (!files || files.length === 0) return;
+  var file = files[0];
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    worker.postMessage({ type: 'writeFS', name: file.name, data: ev.target.result },
+                       [ev.target.result]);
+    _flashBtn('btn-fs-upload');
+  };
+  reader.readAsArrayBuffer(file);
+  this.value = '';  // 同じファイルを再選択できるようにリセット
 });
 
 // ── トリガー ─────────────────────────────────────────────────────────────
