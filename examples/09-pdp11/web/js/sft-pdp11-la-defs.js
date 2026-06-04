@@ -1,14 +1,18 @@
 'use strict';
 // sft-pdp11-la-defs.js — PDP-11 / Unix V6 Logic Analyzer 信号定義
 //
-// ring buffer ビットレイアウト (RING_WORDS = 5):
+// ring buffer ビットレイアウト (RING_WORDS = 9):
 //  Word0: [17:0]=addr_p [18]=wr [19]=rd [21:20]=cm [22]=byte [23]=trap [24]=halt [25]=int [30:26]=rk
 //  Word1: [15:0]=data [31:16]=psw
 //  Word2: [15:0]=pc [31:16]=addr_v
-//  Word3: [7:0]=int_vec [15:8]=int_ipl
-//  Word4: 予備
+//  Word3: [7:0]=int_vec [15:8]=int_ipl [17]=bus_error [18]=waited [19]=nxm [20]=iopage [21]=trap_bus [22]=trap_abort [23]=trap_odd
+//  Word4: [4:0]=istate [20:5]=isn
+//  Word5: [15:0]=R0 [31:16]=R1
+//  Word6: [15:0]=R2 [31:16]=R3
+//  Word7: [15:0]=R4 [31:16]=R5
+//  Word8: [15:0]=SP
 
-var RING_WORDS_PDP11 = 5;
+var RING_WORDS_PDP11 = 9;
 
 // ── PSW フォーマッター ────────────────────────────────────────────────────
 // 表示例: "KK P6 T.NZVC"
@@ -111,6 +115,65 @@ var LA_SIGNALS_PDP11 = [
   {
     id:'rk_state', label:'RK', word:0, bit:26, type:'hex', width:5, color:'#f0f', on:true,
     tip:'RK11 ステート（0=Idle、非 0 でディスク転送中）'
+  },
+  // === CPU マイクロステート / 命令 ===
+  {
+    id:'istate', label:'istate', word:4, bit:0, type:'dec', width:5, color:'#e9a', on:false,
+    tip:'CPU マイクロステート（fetch/decode/execute の内部段階）'
+  },
+  {
+    id:'isn', label:'ISN', word:4, bit:5, type:'hex', width:16, color:'#ca8', on:false,
+    fmt:'oct', tip:'現在命令オペコード（8 進表示）'
+  },
+  // === バスエラー / NXM / トラップ詳細 ===
+  {
+    id:'bus_error',  label:'BUSERR',  word:3, bit:17, type:'bit', width:1, color:'#f44', on:false,
+    tip:'バスエラー（アクセスタイムアウト・NXM）'
+  },
+  {
+    id:'nxm_access', label:'NXM',     word:3, bit:19, type:'bit', width:1, color:'#f88', on:false,
+    tip:'存在しないメモリアクセス（Non-eXistent Memory）'
+  },
+  {
+    id:'trap_bus',   label:'TBUS',    word:3, bit:21, type:'bit', width:1, color:'#fa4', on:false,
+    tip:'バストラップ（bus abort / bus error trap）'
+  },
+  {
+    id:'trap_abort', label:'TABORT',  word:3, bit:22, type:'bit', width:1, color:'#fa4', on:false,
+    tip:'アボートトラップ（スタックオーバーフロー等）'
+  },
+  {
+    id:'trap_odd',   label:'TODD',    word:3, bit:23, type:'bit', width:1, color:'#fa4', on:false,
+    tip:'奇数アドレスアクセストラップ'
+  },
+  // === 汎用レジスタ (GPR) ===
+  {
+    id:'r0', label:'R0', word:5, bit:0,  type:'hex', width:16, color:'#aaf', on:false,
+    fmt:'oct', tip:'R0 汎用レジスタ（8 進表示）'
+  },
+  {
+    id:'r1', label:'R1', word:5, bit:16, type:'hex', width:16, color:'#aaf', on:false,
+    fmt:'oct', tip:'R1 汎用レジスタ（8 進表示）'
+  },
+  {
+    id:'r2', label:'R2', word:6, bit:0,  type:'hex', width:16, color:'#aaf', on:false,
+    fmt:'oct', tip:'R2 汎用レジスタ（8 進表示）'
+  },
+  {
+    id:'r3', label:'R3', word:6, bit:16, type:'hex', width:16, color:'#aaf', on:false,
+    fmt:'oct', tip:'R3 汎用レジスタ（8 進表示）'
+  },
+  {
+    id:'r4', label:'R4', word:7, bit:0,  type:'hex', width:16, color:'#aaf', on:false,
+    fmt:'oct', tip:'R4 汎用レジスタ（8 進表示）'
+  },
+  {
+    id:'r5', label:'R5', word:7, bit:16, type:'hex', width:16, color:'#aaf', on:false,
+    fmt:'oct', tip:'R5 汎用レジスタ / フレームポインタ（8 進表示）'
+  },
+  {
+    id:'sp', label:'SP',  word:8, bit:0,  type:'hex', width:16, color:'#adf', on:false,
+    fmt:'oct', tip:'SP = r6[current_mode] スタックポインタ（8 進表示）'
   },
 ];
 

@@ -1239,14 +1239,35 @@ document.getElementById('fs-upload-input').addEventListener('change', function()
 function hideTrigHit() {
   document.getElementById('trig-hit').classList.remove('show');
 }
+// Playwright テスト用: PC trigger 発火 PC（null = 未発火）
+window._pdp11TriggeredPC = null;
+
 function onTriggered(pc) {
   simPaused = true;
+  window._pdp11TriggeredPC = pc;  // Playwright 検出用
   document.getElementById('btn-pause').textContent = 'Resume';
   setStatus('Triggered @ PC=' + pc.toString(8));
   var el = document.getElementById('trig-hit');
   el.textContent = '⏸ Triggered! PC=0o' + pc.toString(8);
   el.classList.add('show');
 }
+
+// Playwright テスト用: LA 表示信号をプログラムから設定する
+window.pdp11SetSignals = function(ids) {
+  if (!window.la) return;
+  la._signals.forEach(function(s) { la._sigVisible[s.id] = false; });
+  ids.forEach(function(id) { la._sigVisible[id] = true; });
+  la._updateCanvas();
+};
+
+// Playwright テスト用: LA ズームを設定する（1=最大ズームイン, 大=ズームアウト）
+window.pdp11SetZoom = function(z) {
+  if (!window.la) return;
+  la._zoom = z;
+  la._updateCanvas();
+  var lbl = document.getElementById('la-zoom-lbl');
+  if (lbl) lbl.textContent = la.zoomLabel || (z + 'x');
+};
 
 document.getElementById('btn-trig-set').addEventListener('click', function() {
   var val = document.getElementById('trig-pc').value.trim();
