@@ -10,9 +10,10 @@ VERILATOR_ROOT="${VERILATOR_ROOT:-$(verilator --getenv VERILATOR_ROOT)}"
 
 echo "=== Verilator 5.x ==="
 rm -rf "$OBJ_DIR"
+# test_top_wasm.v を使用: wasm_uart.v（DPI ベース）で TTY I/O を行う
 verilator --cc \
     --no-timing \
-    --top-module test_top \
+    --top-module test_top_wasm \
     -Wno-DECLFILENAME \
     -Wno-MULTITOP \
     -Wno-UNUSEDSIGNAL \
@@ -23,7 +24,8 @@ verilator --cc \
     -Wno-TIMESCALEMOD \
     -Wno-CASEX \
     -Wno-CASEINCOMPLETE \
-    "$VENDOR/verif/test_top.v" \
+    "$EXAMPLE/verilog/test_top_wasm.v" \
+    +incdir+"$EXAMPLE/verilog" \
     +incdir+"$VENDOR/rtl" \
     --Mdir "$OBJ_DIR"
 
@@ -35,8 +37,12 @@ CXX_FLAGS="-O2 -std=c++17 \
   -I$VERILATOR_ROOT/include/vltstd \
   -I$OBJ_DIR"
 
+# __Dpi.cpp は DPI export 専用のため除外（DPI import のみ使用）
+V_SRCS=$(ls "$OBJ_DIR"/Vtest_top_wasm*.cpp | grep -v '__Dpi\.cpp')
+
+# shellcheck disable=SC2086
 g++ $CXX_FLAGS \
-    "$OBJ_DIR"/Vtest_top*.cpp \
+    $V_SRCS \
     "$VERILATOR_ROOT/include/verilated.cpp" \
     "$VERILATOR_ROOT/include/verilated_threads.cpp" \
     "$EXAMPLE/cxx/ide_v5.cpp" \
@@ -48,5 +54,5 @@ echo "=== Done ==="
 echo "  $EXAMPLE/build/pdp11_sim"
 echo ""
 echo "Usage:"
-echo "  IDEIMAGE=examples/09-pdp11/disk/unixv6.rk $EXAMPLE/build/pdp11_sim"
-echo "  IDEIMAGE=examples/09-pdp11/disk/rt11.dsk  $EXAMPLE/build/pdp11_sim"
+echo "  IDEIMAGE=examples/09-pdp11/disk/unix_v6_rk05.dsk $EXAMPLE/build/pdp11_sim"
+echo "  ./doPDP11-unix-v6.sh"
