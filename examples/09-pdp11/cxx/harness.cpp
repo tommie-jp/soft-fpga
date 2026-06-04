@@ -1,7 +1,8 @@
-// harness.cpp — PDP-11 / Unix V6 WASM ハーネス（Phase 3）
+// harness.cpp — PDP-11 / Unix V6 WASM ハーネス（Phase 4）
 //
 // DPI 実装（dpi_tty_putc / dpi_tty_getc）、step_n、send_key、
-// get_display_char、ring buffer（RING_WORDS=5）、PC トリガー、sim_init を提供する。
+// get_display_char、ring buffer（RING_WORDS=5）、PC トリガー、sim_init、
+// GPR snapshot（R0-R5/SP）、MMU PAR/PDR 読み取りを提供する。
 
 #include "Vtest_top_wasm.h"
 #include "Vtest_top_wasm___024root.h"
@@ -110,6 +111,18 @@ static uint8_t con_in_buf[CON_IN_SIZE];
 static int     con_in_head = 0;
 static int     con_in_tail = 0;
 
+// ── GPR スナップショット（R0-R5, SP = 7 × uint16_t）──────────────────────
+// CPU は pdp11 モジュール (top.cpu.r0..r5, top.cpu.sp) に直接アクセスする。
+
+static uint16_t gpr_snap[7];
+
+// ── MMU スナップショット（Kernel I-space 8 pages + User I-space 8 pages）──
+// 各エントリ: upper16=PAR[11:0], lower16=PDR[15:0]
+// indices 0-7: kernel I-space (pxr_index 0-7)
+// indices 8-15: user I-space  (pxr_index 48-55)
+
+static uint32_t mmu_snap[16];
+
 // ── PC トリガー ────────────────────────────────────────────────────────────
 
 static uint32_t g_trigger_pc   = 0;
@@ -132,6 +145,18 @@ extern "C" int dpi_tty_getc() {
     int ch = con_in_buf[con_in_head];
     con_in_head = (con_in_head + 1) % CON_IN_SIZE;
     return ch;
+}
+
+// ── GPR / MMU 更新ヘルパー ────────────────────────────────────────────────
+
+static inline void update_gpr() {
+    gpr_snap[0] = top->rootp->test_top_wasm__DOT__top__DOT__cpu__DOT__r0;
+    gpr_snap[1] = top->rootp->test_top_wasm__DOT__top__DOT__cpu__DOT__r1;
+    gpr_snap[2] = top->rootp->test_top_wasm__DOT__top__DOT__cpu__DOT__r2;
+    gpr_snap[3] = top->rootp->test_top_wasm__DOT__top__DOT__cpu__DOT__r3;
+    gpr_snap[4] = top->rootp->test_top_wasm__DOT__top__DOT__cpu__DOT__r4;
+    gpr_snap[5] = top->rootp->test_top_wasm__DOT__top__DOT__cpu__DOT__r5;
+    gpr_snap[6] = top->rootp->test_top_wasm__DOT__top__DOT__cpu__DOT__sp;
 }
 
 // ── クロック 1 サイクル ───────────────────────────────────────────────────
@@ -166,9 +191,11 @@ EMSCRIPTEN_KEEPALIVE void sim_init() {
     VerilatedContext* ctx = new VerilatedContext;
     top = new Vtest_top_wasm(ctx);
 
-    memset(ring, 0, sizeof(ring));
+    memset(ring,     0, sizeof(ring));
     memset(con_out_buf, 0, sizeof(con_out_buf));
     memset(con_in_buf,  0, sizeof(con_in_buf));
+    memset(gpr_snap, 0, sizeof(gpr_snap));
+    memset(mmu_snap, 0, sizeof(mmu_snap));
     con_out_head = con_out_tail = 0;
     con_in_head  = con_in_tail  = 0;
     ring_head    = 0;
@@ -192,6 +219,8 @@ EMSCRIPTEN_KEEPALIVE void step_n(int n) {
             }
         }
     }
+    // GPR は呼び出し末尾に 1 回更新（step_n ごとに最新値）
+    if (top) update_gpr();
 }
 
 EMSCRIPTEN_KEEPALIVE void send_key(int ch) {
@@ -238,5 +267,34 @@ EMSCRIPTEN_KEEPALIVE void sim_clear_trigger() {
     g_triggered  = 0;
     g_trigger_pc = 0;
 }
+
+// ── GPR アクセス ──────────────────────────────────────────────────────────
+// 戻り値は uint16_t[7] = R0,R1,R2,R3,R4,R5,SP のバイトポインタ
+EMSCRIPTEN_KEEPALIVE uint16_t* get_gpr_ptr()  { return gpr_snap; }
+
+// ── MMU PAR/PDR アクセス ──────────────────────────────────────────────────
+// mmu_snap[0-7]:  Kernel I-space APR 0-7 (pxr_index 0-7)
+// mmu_snap[8-15]: User   I-space APR 0-7 (pxr_index 48-55)
+// 各エントリ: upper16 = PAR[11:0] (12-bit page address register)
+//             lower16 = PDR[15:0] (page descriptor register)
+EMSCRIPTEN_KEEPALIVE void sim_update_mmu() {
+    if (!top) return;
+    auto& par_h = top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__par_h;
+    auto& par_l = top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__par_l;
+    auto& pdr_h = top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__pdr_h;
+    auto& pdr_l = top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__pdr_l;
+    for (int i = 0; i < 8; i++) {
+        uint16_t par = ((uint16_t)par_h[i]      << 8) | par_l[i];
+        uint16_t pdr = ((uint16_t)pdr_h[i]      << 8) | pdr_l[i];
+        mmu_snap[i] = ((uint32_t)par << 16) | pdr;
+    }
+    for (int i = 0; i < 8; i++) {
+        uint16_t par = ((uint16_t)par_h[48 + i] << 8) | par_l[48 + i];
+        uint16_t pdr = ((uint16_t)pdr_h[48 + i] << 8) | pdr_l[48 + i];
+        mmu_snap[8 + i] = ((uint32_t)par << 16) | pdr;
+    }
+}
+EMSCRIPTEN_KEEPALIVE uint32_t* get_mmu_ptr()  { return mmu_snap; }
+EMSCRIPTEN_KEEPALIVE uint32_t  get_mmu_size() { return 16; }
 
 } // extern "C"

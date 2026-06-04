@@ -19,6 +19,16 @@
     button.active  { background:#446; border-color:#88a; color:#ccf; }
     .status { font-size:11px; color:#888; margin-left:6px; }
 
+    /* ── ブート進行インジケータ ── */
+    .boot-progress { background:#161e16; border:1px solid #3a5a3a; padding:5px 10px;
+                     font-size:11px; margin-bottom:6px; display:none; }
+    .boot-progress.show { display:block; }
+    .boot-progress h3 { margin:0 0 4px; font-size:11px; color:#6a9a6a; }
+    .boot-steps { display:flex; gap:6px; flex-wrap:wrap; }
+    .boot-step  { padding:2px 8px; border:1px solid #3a4a3a; color:#555; font-size:10px; border-radius:2px; }
+    .boot-step.done    { color:#4f4; border-color:#4a7a4a; background:#1a2a1a; }
+    .boot-step.current { color:#ff4; border-color:#8a7a3a; background:#2a2010; }
+
     /* ── レイアウト: 左=ターミナル 右=情報 ── */
     .main { display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap; }
     .col-left { flex:0 0 auto; }
@@ -38,10 +48,25 @@
     .reg-grid { display:grid; grid-template-columns:1fr 1fr; gap:2px 12px; }
     .reg-row  { display:flex; justify-content:space-between; }
     .reg-lbl  { color:#666; }
-    .reg-val  { color:#4fc; }
+    .reg-val  { color:#4fc; font-variant-numeric:tabular-nums; }
     .reg-val.user   { color:#68f; }
     .reg-val.trap   { color:#f84; }
     .reg-val.active { color:#ff4; }
+
+    /* ── MMU パネル ── */
+    .mmu-panel { background:#1e1a22; border:1px solid #443a55; padding:6px 10px;
+                 font-size:11px; margin-bottom:6px; display:none; }
+    .mmu-panel.show { display:block; }
+    .mmu-panel h3 { margin:0 0 4px; font-size:11px; color:#8a7aaa; }
+    .mmu-toggle-btn { font-size:10px; padding:1px 6px; margin-left:6px; }
+    .mmu-tables { display:flex; gap:10px; flex-wrap:wrap; }
+    .mmu-col { flex:1 1 160px; }
+    .mmu-col-hdr { color:#7a6a9a; font-size:10px; margin-bottom:2px; }
+    .mmu-row { display:flex; gap:4px; font-size:10px; line-height:1.6; }
+    .mmu-page { color:#555; width:20px; }
+    .mmu-par  { color:#9af; width:54px; font-variant-numeric:tabular-nums; }
+    .mmu-pdr  { color:#875; width:36px; font-variant-numeric:tabular-nums; }
+    .mmu-pa   { color:#666; font-size:9px; }
 
     /* ── PC トリガーパネル ── */
     .trig-panel { background:#1a1e1a; border:1px solid #3a4a3a; padding:6px 10px;
@@ -100,6 +125,18 @@
   <span class="status" id="status">Loading...</span>
 </div>
 
+<!-- ブート進行インジケータ -->
+<div class="boot-progress" id="boot-progress">
+  <h3>Boot Progress</h3>
+  <div class="boot-steps">
+    <span class="boot-step" id="bp-bootrom">bootrom</span>
+    <span class="boot-step" id="bp-kernel">kernel init</span>
+    <span class="boot-step" id="bp-mem">mem=</span>
+    <span class="boot-step" id="bp-user">user space</span>
+    <span class="boot-step" id="bp-login">login:</span>
+  </div>
+</div>
+
 <div class="main">
   <!-- 左: ターミナル -->
   <div class="col-left">
@@ -112,18 +149,40 @@
     </div>
   </div>
 
-  <!-- 右: レジスタ + トリガー + LA -->
+  <!-- 右: レジスタ + MMU + トリガー + LA -->
   <div class="col-right">
     <!-- レジスタパネル -->
     <div class="regs">
       <h3>Registers</h3>
       <div class="reg-grid">
         <div class="reg-row"><span class="reg-lbl">PC</span>   <span class="reg-val" id="r-pc">------</span></div>
+        <div class="reg-row"><span class="reg-lbl">SP</span>   <span class="reg-val" id="r-sp">------</span></div>
         <div class="reg-row"><span class="reg-lbl">PSW</span>  <span class="reg-val" id="r-psw">--------</span></div>
         <div class="reg-row"><span class="reg-lbl">Mode</span> <span class="reg-val" id="r-mode">------</span></div>
+        <div class="reg-row"><span class="reg-lbl">R0</span>   <span class="reg-val" id="r-r0">------</span></div>
+        <div class="reg-row"><span class="reg-lbl">R1</span>   <span class="reg-val" id="r-r1">------</span></div>
+        <div class="reg-row"><span class="reg-lbl">R2</span>   <span class="reg-val" id="r-r2">------</span></div>
+        <div class="reg-row"><span class="reg-lbl">R3</span>   <span class="reg-val" id="r-r3">------</span></div>
+        <div class="reg-row"><span class="reg-lbl">R4</span>   <span class="reg-val" id="r-r4">------</span></div>
+        <div class="reg-row"><span class="reg-lbl">R5</span>   <span class="reg-val" id="r-r5">------</span></div>
         <div class="reg-row"><span class="reg-lbl">Addr</span> <span class="reg-val" id="r-addr">------</span></div>
         <div class="reg-row"><span class="reg-lbl">Data</span> <span class="reg-val" id="r-data">----</span></div>
         <div class="reg-row"><span class="reg-lbl">RK11</span> <span class="reg-val" id="r-rk">----</span></div>
+      </div>
+    </div>
+
+    <!-- MMU パネル -->
+    <div class="mmu-panel" id="mmu-panel">
+      <h3>MMU — Page Address Registers
+        <button class="mmu-toggle-btn" id="btn-mmu-toggle">Hide</button>
+      </h3>
+      <div class="mmu-tables" id="mmu-tables">
+        <div class="mmu-col" id="mmu-kernel">
+          <div class="mmu-col-hdr">Kernel I-space</div>
+        </div>
+        <div class="mmu-col" id="mmu-user">
+          <div class="mmu-col-hdr">User I-space</div>
+        </div>
       </div>
     </div>
 
@@ -180,9 +239,6 @@ var la = new RTLScopeLA(Object.assign({}, PDP11_LA_CONFIG, {
 }));
 la.buildToggles();
 
-// ── デフォルトズーム設定（8x）─────────────────────────────────────────────
-// rtlscope-la.js が la-zoom-in/out/lbl を内部バインドするため
-// ここでは初期値のみ設定する
 la._zoom = 8;
 la._updateCanvas();
 (function() {
@@ -206,15 +262,121 @@ la._updateCanvas();
   });
 })();
 
+// ── ブート進行追跡（TTY + PC 値ベース）──────────────────────────────────
+// TTY に出るのは "@rkunix" と "login:" のみ。中間ステップは ring buffer の PC で検出する。
+//   bootrom  : TTY の "@" か PC >= 0o173000 (ブートロム領域)
+//   kernel   : PC が 0 付近に落ちる (0o0–0o20000)
+//   mem=     : PC が 0o4000–0o10000 付近 (カーネル init 後半)
+//   user     : Mode ビット = User (PSW[15:14] = 11)
+//   login:   : TTY に "login" が出現
+
+var bootBuf = '';
+var bootDone = { bootrom:false, kernel:false, mem:false, user:false, login:false };
+
+function checkBootTTY(s) {
+  bootBuf += s;
+  if (bootBuf.length > 512) bootBuf = bootBuf.slice(-512);
+  if (!bootDone.bootrom && bootBuf.indexOf('@') >= 0) markBoot('bootrom');
+  if (!bootDone.login   && bootBuf.indexOf('login') >= 0) markBoot('login');
+}
+
+function checkBootPC(pc, mode) {
+  // bootrom 領域 (0o160000–0o177777 = 0xE000–0xFFFF)
+  if (!bootDone.bootrom && pc >= 0xE000) markBoot('bootrom');
+  // kernel 本体 (0 付近に制御が移った)
+  if (!bootDone.kernel && bootDone.bootrom && pc < 0x2000) markBoot('kernel');
+  // kernel init 後半 (0o4000 ≈ 0x800 を超えた辺り)
+  if (!bootDone.mem && bootDone.kernel && pc >= 0x400 && pc < 0x3000) markBoot('mem');
+  // user プロセス起動 (Mode = User = 3)
+  if (!bootDone.user && bootDone.kernel && mode === 3) markBoot('user');
+}
+
+function markBoot(key) {
+  if (bootDone[key]) return;
+  bootDone[key] = true;
+  var el = document.getElementById('bp-' + key);
+  if (el) el.className = 'boot-step done';
+  // 次のステップを current にする
+  var order = ['bootrom','kernel','mem','user','login'];
+  var next  = order[order.indexOf(key) + 1];
+  if (next && !bootDone[next]) {
+    var nel = document.getElementById('bp-' + next);
+    if (nel && !nel.classList.contains('done')) nel.className = 'boot-step current';
+  }
+}
+
+function resetBootProgress() {
+  bootBuf = '';
+  var order = ['bootrom','kernel','mem','user','login'];
+  order.forEach(function(k) {
+    bootDone[k] = false;
+    var el = document.getElementById('bp-' + k);
+    if (el) el.className = 'boot-step';
+  });
+  var first = document.getElementById('bp-bootrom');
+  if (first) first.className = 'boot-step current';
+}
+
+// ── MMU パネル描画 ────────────────────────────────────────────────────────
+var mmuVisible = false;
+
+function updateMMUPanel(snap32) {
+  // snap32: Uint32Array[16] — upper16=PAR, lower16=PDR
+  // 0-7: Kernel I-space,  8-15: User I-space
+  var kEl = document.getElementById('mmu-kernel');
+  var uEl = document.getElementById('mmu-user');
+  if (!kEl || !uEl) return;
+
+  // ヘッダ行を保持しつつ行を再生成
+  function renderCol(el, entries, startIdx) {
+    var hdr = el.firstElementChild;
+    while (el.childNodes.length > 1) el.removeChild(el.lastChild);
+    for (var i = 0; i < 8; i++) {
+      var v   = entries[i];
+      var par = (v >>> 16) & 0x0FFF;  // 12-bit PAR
+      var pdr = v & 0xFFFF;
+      var pa  = par * 64;              // 物理アドレス（ブロック→アドレス、64 byte/block × 32 = 2048 → × 32 for 18-bit)
+      // PDP-11/34 の PAR は 64-word (128 byte) ブロック単位: PA = PAR × 0o200
+      var phys = par * 0x80;           // 18-bit physical byte address
+
+      var row   = document.createElement('div');
+      row.className = 'mmu-row';
+
+      var pEl   = document.createElement('span'); pEl.className = 'mmu-page'; pEl.textContent = i;
+      var parEl = document.createElement('span'); parEl.className = 'mmu-par';
+      parEl.textContent = par.toString(8).padStart(4,'0');
+      var pdrEl = document.createElement('span'); pdrEl.className = 'mmu-pdr';
+      pdrEl.textContent = pdr.toString(8).padStart(6,'0');
+      var paEl  = document.createElement('span'); paEl.className = 'mmu-pa';
+      paEl.textContent = '→' + phys.toString(8).padStart(6,'0');
+
+      row.appendChild(pEl);
+      row.appendChild(parEl);
+      row.appendChild(pdrEl);
+      row.appendChild(paEl);
+      el.appendChild(row);
+    }
+  }
+
+  renderCol(kEl, snap32.slice(0,  8), 0);
+  renderCol(uEl, snap32.slice(8, 16), 8);
+}
+
+document.getElementById('btn-mmu-toggle').addEventListener('click', function() {
+  var tables = document.getElementById('mmu-tables');
+  var visible = tables.style.display !== 'none';
+  tables.style.display = visible ? 'none' : '';
+  this.textContent = visible ? 'Show' : 'Hide';
+});
+
 // ── Worker ────────────────────────────────────────────────────────────────
 var worker = new Worker('sim-worker.js');
 var simStarted = false;
 var simPaused  = false;
 var diskBuffer = null;
 
-// ローカルリングバッファ（LA は循環バッファ全体を参照する）
 var localRing  = null;
-var _ringSize  = RING_WORDS_PDP11 > 0 ? 4096 : 4096;  // Worker から受け取る
+var _ringSize  = 4096;
 var _ringWords = RING_WORDS_PDP11;
 
 worker.onmessage = function(e) {
@@ -226,23 +388,30 @@ worker.onmessage = function(e) {
       localRing  = new Uint32Array(_ringSize * _ringWords);
       if (diskBuffer) startSim();
       break;
+
     case 'started':
       setStatus('Running');
       document.getElementById('btn-reset').disabled = false;
       document.getElementById('btn-pause').disabled = false;
       simStarted = true; simPaused = false;
       document.getElementById('btn-pause').textContent = 'Pause';
+      document.getElementById('boot-progress').classList.add('show');
+      document.getElementById('mmu-panel').classList.add('show');
+      resetBootProgress();
       break;
+
     case 'paused':
       setStatus('Paused');
       simPaused = true;
       document.getElementById('btn-pause').textContent = 'Resume';
       break;
+
     case 'resumed':
       setStatus('Running');
       simPaused = false;
       document.getElementById('btn-pause').textContent = 'Pause';
       break;
+
     case 'tty':
       var s = '';
       for (var i = 0; i < d.chars.length; i++) {
@@ -252,11 +421,12 @@ worker.onmessage = function(e) {
         else s += String.fromCharCode(c);
       }
       term.write(s);
+      checkBootTTY(s);
       break;
+
     case 'ring':
       var snap  = new Uint32Array(d.snap);
       var count = snap.length / _ringWords;
-      // スナップを localRing の正しい循環位置に書き込む
       var prevHead = (d.head - count) >>> 0;
       for (var i = 0; i < count; i++) {
         var idx = ((prevHead + i) >>> 0) % _ringSize;
@@ -264,10 +434,18 @@ worker.onmessage = function(e) {
           localRing[idx * _ringWords + w] = snap[i * _ringWords + w];
         }
       }
-      // RTLScopeLA に渡す: update(head, heapu32_like)
       la.update(d.head, localRing);
-      updateRegs(snap);
+      updateRegs(snap, d.gpr);
       break;
+
+    case 'gpr':
+      updateGPRDisplay(d.gpr);
+      break;
+
+    case 'mmu':
+      updateMMUPanel(new Uint32Array(d.snap));
+      break;
+
     case 'triggered':
       onTriggered(d.pc);
       break;
@@ -379,9 +557,24 @@ document.getElementById('btn-trig-resume').addEventListener('click', function() 
 // ── レジスタ表示 ──────────────────────────────────────────────────────────
 var MODE_NAMES = ['Kernel', 'Super', '??', 'User'];
 
-function updateRegs(snap) {
-  if (!snap || snap.length < RING_WORDS_PDP11) return;
-  var last = snap.length - RING_WORDS_PDP11;
+function oct6(v) { return (v >>> 0).toString(8).padStart(6, '0'); }
+function oct4(v) { return (v >>> 0).toString(8).padStart(4, '0'); }
+function hex4(v) { return (v >>> 0).toString(16).padStart(4, '0'); }
+
+function updateGPRDisplay(gpr) {
+  if (!gpr || gpr.length < 7) return;
+  document.getElementById('r-r0').textContent = oct6(gpr[0]);
+  document.getElementById('r-r1').textContent = oct6(gpr[1]);
+  document.getElementById('r-r2').textContent = oct6(gpr[2]);
+  document.getElementById('r-r3').textContent = oct6(gpr[3]);
+  document.getElementById('r-r4').textContent = oct6(gpr[4]);
+  document.getElementById('r-r5').textContent = oct6(gpr[5]);
+  document.getElementById('r-sp').textContent  = oct6(gpr[6]);
+}
+
+function updateRegs(snap, gpr) {
+  if (!snap || snap.length < _ringWords) return;
+  var last = snap.length - _ringWords;
   var w0 = snap[last + 0], w1 = snap[last + 1], w2 = snap[last + 2];
 
   var pc   = w2 & 0xFFFF;
@@ -392,17 +585,21 @@ function updateRegs(snap) {
   var rk   = (w0 >>> 26) & 0x1F;
   var trap = (w0 >>> 23) & 1;
 
-  document.getElementById('r-pc').textContent   = pc.toString(8).padStart(6, '0');
+  checkBootPC(pc, mode);
+
+  document.getElementById('r-pc').textContent   = oct6(pc);
   document.getElementById('r-psw').textContent  = fmtPSW11(psw);
   var modeEl = document.getElementById('r-mode');
-  modeEl.textContent  = MODE_NAMES[mode];
-  modeEl.className    = 'reg-val' + (mode === 3 ? ' user' : '');
-  document.getElementById('r-addr').textContent = ap.toString(8).padStart(6, '0');
-  document.getElementById('r-data').textContent = data.toString(16).padStart(4, '0');
-  var rkEl = document.getElementById('r-rk');
-  rkEl.textContent  = rk === 0 ? 'Idle' : 'St=' + rk;
-  rkEl.className    = 'reg-val' + (rk !== 0 ? ' active' : '');
+  modeEl.textContent = MODE_NAMES[mode];
+  modeEl.className   = 'reg-val' + (mode === 3 ? ' user' : '');
   if (trap) modeEl.className = 'reg-val trap';
+  document.getElementById('r-addr').textContent = oct6(ap);
+  document.getElementById('r-data').textContent = hex4(data);
+  var rkEl = document.getElementById('r-rk');
+  rkEl.textContent = rk === 0 ? 'Idle' : 'St=' + rk;
+  rkEl.className   = 'reg-val' + (rk !== 0 ? ' active' : '');
+
+  if (gpr) updateGPRDisplay(gpr);
 }
 </script>
 </body>

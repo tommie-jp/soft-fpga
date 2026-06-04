@@ -49,7 +49,7 @@ verilator --cc \
     +incdir+"$VENDOR/rtl" \
     --Mdir "$OBJ_DIR"
 
-COMMON_FLAGS="-O2 -std=c++17 -DVL_IGNORE_UNKNOWN_ARCH \
+COMMON_FLAGS="-O3 -std=c++17 -DVL_IGNORE_UNKNOWN_ARCH \
   -I$VERILATOR_ROOT/include \
   -I$VERILATOR_ROOT/include/vltstd \
   -I$OBJ_DIR"
@@ -81,8 +81,10 @@ em++ $COMMON_FLAGS \
                             "_get_ring_ptr","_get_ring_head","_get_ring_size","_get_ring_words",
                             "_get_pc","_sim_con_in_space",
                             "_sim_set_pc_trigger","_sim_trigger_hit","_sim_clear_trigger",
+                            "_get_gpr_ptr",
+                            "_sim_update_mmu","_get_mmu_ptr","_get_mmu_size",
                             "_malloc","_free"]' \
-    -s EXPORTED_RUNTIME_METHODS='["HEAPU32","HEAPU8","FS"]' \
+    -s EXPORTED_RUNTIME_METHODS='["HEAPU32","HEAPU16","HEAPU8","FS"]' \
     -s ALLOW_MEMORY_GROWTH=1 \
     -s INITIAL_MEMORY=67108864 \
     -s EXIT_RUNTIME=0 \
