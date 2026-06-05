@@ -1269,6 +1269,15 @@ window.pdp11SetZoom = function(z) {
   if (lbl) lbl.textContent = la.zoomLabel || (z + 'x');
 };
 
+// Playwright / sim_api.py 互換: Logic Analyzer キャンバスを PNG DataURL で返す
+window.sim = window.sim || {};
+window.sim.screenshotCanvas = function(selector) {
+  var canvas = document.querySelector(selector || '#la');
+  if (!canvas || canvas.tagName !== 'CANVAS')
+    throw new Error('[sim.screenshotCanvas] canvas not found: ' + (selector || '#la'));
+  return canvas.toDataURL('image/png');
+};
+
 document.getElementById('btn-trig-set').addEventListener('click', function() {
   var val = document.getElementById('trig-pc').value.trim();
   if (!val) return;
