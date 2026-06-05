@@ -1099,6 +1099,17 @@
       var _lbl = self._numberedLabels
         ? (String(t + 1 + (cbDec ? 1 : 0)).padStart(2, '0') + ' ' + _sig.label) : _sig.label;
       ctx.fillText(_lbl, 3, _yb + tH * 0.65);
+      // 表示形式を右寄せで表示
+      var _fmtStr = '';
+      if (_sig.type === 'bit') _fmtStr = 'Bin';
+      else if (_sig.fmt === 'oct') _fmtStr = 'Oct';
+      else if (_sig.fmt === 'dec' || _sig.type === 'dec') _fmtStr = 'Dec';
+      else if (_sig.type === 'hex') _fmtStr = 'Hex';
+      if (_fmtStr) {
+        ctx.font = '9px monospace'; ctx.textAlign = 'right';
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.fillText(_fmtStr, LABEL_W - 2, _yb + tH * 0.88);
+      }
     }
 
     // MARKER_LANE 区切り線 + 「Marker」固定テキスト（クリップなし）
