@@ -244,12 +244,13 @@ var PDP11_LA_CONFIG = {
         if (bw < 0.5) return;
         ctx.fillStyle = segD.color;
         ctx.fillRect(bx, p.decY + 1, bw - 1, p.decH - 2);
-        if (bw > 26) {
+        if (bw > 6) {
           ctx.save();
           ctx.fillStyle = '#fff';
-          ctx.font = 'bold 10px monospace';
           ctx.textAlign = 'center';
-          ctx.fillText(segD.label, bx + bw / 2, p.decY + p.decH * 0.75);
+          var lbl = bw > 26 ? segD.label : segD.label.charAt(0);
+          ctx.font = bw > 26 ? 'bold 10px monospace' : 'bold 9px monospace';
+          ctx.fillText(lbl, bx + bw / 2, p.decY + p.decH * 0.75);
           ctx.restore();
         }
       };
