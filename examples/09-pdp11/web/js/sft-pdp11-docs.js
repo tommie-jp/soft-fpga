@@ -16,6 +16,7 @@ var PDP11_DOC_LIST = [
   { file: '14-adb-デバッガー-使い方.md',        label: '14 デバッグ手法（od / printf / SIMH）' },
   { file: '20-デバッグパネル-使い方.md',        label: '20 デバッグパネル・Logic Analyzer' },
   { file: '21-バスサイクル実例.md',             label: '21 LA バスサイクル実例集' },
+  { file: '22-全命令タイミング図.md',           label: '22 全命令タイミング図（55 ケース）' },
   { file: '52-メモリマップ.md',                 label: '52 メモリマップ' },
   { file: '53-参考資料.md',                    label: '53 参考資料' },
   { file: '54-simh-使い方.md',                 label: '54 SIMH 使い方（cc 対応）' },

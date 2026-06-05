@@ -1495,8 +1495,8 @@
         }
       }
 
-      var NICE = [2, 4, 10, 20, 40, 100, 200, 400, 1000, 2000, 4000, 8000];
-      var rawSamp  = (laZoom >= 16) ? 2 : (80 / laZoom);
+      var NICE = [1, 2, 4, 10, 20, 40, 100, 200, 400, 1000, 2000, 4000, 8000];
+      var rawSamp  = (laZoom >= 16) ? 1 : (80 / laZoom);
       var tickSamp = NICE[NICE.length - 1];
       for (var ni = 0; ni < NICE.length; ni++) {
         if (NICE[ni] >= rawSamp) { tickSamp = NICE[ni]; break; }

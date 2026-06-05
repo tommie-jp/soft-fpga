@@ -123,6 +123,17 @@
     }
     #docs-panel a:last-child { border-bottom:none; }
     #docs-panel a:hover { background:#2a3040; color:#9cf; }
+    #docs-panel .docs-sep {
+      display:block; height:0; border-bottom:1px solid #444; margin:2px 0;
+    }
+    #docs-panel a.ss-link { color:#888; font-size:12px; }
+    #la-ss-link {
+      font-size:12px; padding:1px 6px; line-height:1.4;
+      font-family:monospace; background:#2a2a3a; border:1px solid #556;
+      cursor:pointer; color:#9cf; text-decoration:none;
+      white-space:nowrap; border-radius:2px; margin-left:6px;
+    }
+    #la-ss-link:hover { background:#3a3a5a; color:#bdf; }
 
     /* ── doc モーダル ── */
     #doc-modal {
@@ -295,9 +306,13 @@
   <a href="#" onclick="openDoc('14-adb-デバッガー-使い方.md');return false;">14 デバッグ手法（od / printf）</a>
   <a href="#" onclick="openDoc('20-デバッグパネル-使い方.md');return false;">20 デバッグパネル・Logic Analyzer</a>
   <a href="#" onclick="openDoc('21-バスサイクル実例.md');return false;">21 LA バスサイクル実例集</a>
+  <a href="#" onclick="openDoc('22-全命令タイミング図.md');return false;">22 全命令タイミング図（55 ケース）</a>
   <a href="#" onclick="openDoc('52-メモリマップ.md');return false;">52 メモリマップ</a>
   <a href="#" onclick="openDoc('53-参考資料.md');return false;">53 参考資料</a>
   <a href="#" onclick="openDoc('54-simh-使い方.md');return false;">54 SIMH 使い方（cc 対応）</a>
+  <span class="docs-sep"></span>
+  <a class="ss-link" href="../../../test/ss/pdp11/index.html" target="_blank"
+     rel="noopener" title="PDP-11 全命令タイミング図ギャラリー">&#x1F4F7; PDP-11 全命令タイミング図</a>
 </div>
 
 <div class="main">
@@ -399,6 +414,8 @@
         <button id="la-nav-next">&#8250;</button>
         <button id="la-nav-end">&#187;</button>
         <span id="la-pos-lbl"></span>
+        <a id="la-ss-link" href="../../../test/ss/pdp11/index.html" target="_blank"
+           rel="noopener" title="PDP-11 全命令タイミング図">&#x1F4F7; SS</a>
       </div>
     </div>
   </div>
@@ -659,6 +676,7 @@ var diskBuffer = null;
 var localRing  = null;
 var _ringSize  = 4096;
 var _ringWords = RING_WORDS_PDP11;
+var _pendingTrigHead = false;
 
 worker.onmessage = function(e) {
   var d = e.data;
@@ -717,7 +735,9 @@ worker.onmessage = function(e) {
           localRing[idx * _ringWords + w] = snap[i * _ringWords + w];
         }
       }
-      la.update(d.head, localRing);
+      var _trigForUpdate = _pendingTrigHead ? d.head : undefined;
+      _pendingTrigHead = false;
+      la.update(d.head, localRing, undefined, _trigForUpdate);
       updateRegs(snap, d.gpr);
       break;
 
@@ -731,6 +751,7 @@ worker.onmessage = function(e) {
 
     case 'triggered':
       onTriggered(d.pc);
+      _pendingTrigHead = true;
       break;
 
     case 'bare_ready':
@@ -1270,11 +1291,18 @@ window.pdp11SetSignals = function(ids) {
   la._updateCanvas();
 };
 
-// Playwright テスト用: LA ズームを設定する（1=最大ズームイン, 大=ズームアウト）
+// Playwright テスト用: LA ズームを設定する（ズーム倍率の値を直接受け取る）
+// LA_ZOOM_LEVELS = [0.25, 0.5, 1, 2, 4, 8, 16, 32, 64]
 window.pdp11SetZoom = function(z) {
   if (!window.la) return;
-  la._zoom = z;
-  la._updateCanvas();
+  var LEVELS = [0.25, 0.5, 1, 2, 4, 8, 16, 32, 64];
+  var idx = LEVELS.indexOf(z);
+  if (idx >= 0) {
+    la.setZoom(idx);
+  } else {
+    la._zoom = z;
+    la._updateCanvas();
+  }
   var lbl = document.getElementById('la-zoom-lbl');
   if (lbl) lbl.textContent = la.zoomLabel || (z + 'x');
 };
