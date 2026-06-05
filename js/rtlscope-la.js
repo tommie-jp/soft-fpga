@@ -851,7 +851,7 @@
       // TRIG: ON かつ発火済みのとき（TRIG バッジは幅 34px なので snap を拡大）
       function tryTrig() {
         if (!self._trigOn || self._trigHead < 0) return false;
-        var trigSamp = (self._trigHead >>> 0) - 1;
+        var trigSamp = (self._trigHead >>> 0);
         var _fxC4 = self._markerFixedXCache || [];
         var trigFx = _fxC4[3] !== null && _fxC4[3] !== undefined
                    ? _fxC4[3] : _markerFixedX(3);
@@ -1531,7 +1531,7 @@
 
       // T=0 の基準: トリガー発火時は TRIG マーカー位置、未発火時はヘッド
       var tBase = (self._trigOn && self._trigHead >= 0)
-                  ? (self._trigHead >>> 0) - 1   // TRIG マーカーを T=0
+                  ? (self._trigHead >>> 0)       // TRIG マーカーを T=0
                   : (head >>> 0);                // ヘッドを T=0（デフォルト）
 
       for (var tick = firstTick; ; tick += tickSamp) {
@@ -1561,7 +1561,7 @@
     (function() {
       var GAP = 2;
       var hasTrig  = self._trigHead >= 0 && self._trigOn;
-      var trigSamp = hasTrig ? (self._trigHead >>> 0) - 1 : null;
+      var trigSamp = hasTrig ? (self._trigHead >>> 0) : null;
 
       // 各マーカー定義（halfW: バッジ半幅）
       var _mkrs = [
