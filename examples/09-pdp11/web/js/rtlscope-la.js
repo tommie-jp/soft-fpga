@@ -265,12 +265,21 @@
     this._trigHead = (head !== undefined && head !== null && head !== -1) ? (head >>> 0) : -1;
   };
 
-  /** トリガー位置をビューの中央へ移動する */
-  RTLScopeLA.prototype.gotoTrig = function() {
+  /**
+   * トリガー位置をビュー内の指定位置へ移動する。
+   * fracX は LA 全幅に対するトリガーマーカー x 位置の割合（省略時 0.5 = 中央）。
+   * トリガーマーカー x = LABEL_W + off*zoom なので、x = LA_W*fracX となる off を逆算する。
+   */
+  RTLScopeLA.prototype.gotoTrig = function(fracX) {
     if (this._trigHead < 0) return;
     var samplesInView = Math.ceil(this._VIEW_W / this._zoom);
     var trigOffset    = ((this._lastHead >>> 0) - (this._trigHead >>> 0)) >>> 0;
-    this._pan = Math.max(0, trigOffset - Math.floor(samplesInView / 2));
+    if (fracX === undefined || fracX === null) {
+      this._pan = Math.max(0, trigOffset - Math.floor(samplesInView / 2));
+      return;
+    }
+    var trigViewSamp = Math.round((fracX * this._LA_W - this._LABEL_W) / this._zoom);
+    this._pan = Math.max(0, trigOffset - (samplesInView - 1 - trigViewSamp));
   };
 
   // ---- getter ----
