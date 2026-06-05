@@ -436,6 +436,11 @@ self.onmessage = function (e) {
       if (Module._sim_write_word) Module._sim_write_word(d.addr >>> 0, d.word >>> 0);
       break;
 
+    // メモリプローブアドレス設定（LA の M1 信号用: 0xFFFFFFFF でプローブ無効）
+    case 'set_mem_probe':
+      if (Module._sim_set_mem_probe) Module._sim_set_mem_probe(d.addr >>> 0);
+      break;
+
     // ベアメタル: トリガーなしで n_ticks だけ進める（ポストトリガー用）
     case 'step_bare': {
       var n = (d.n | 0);

@@ -108,8 +108,10 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # ── 定数 ─────────────────────────────────────────────────────────────────────
 PAGES_BASE="https://tommie-jp.github.io/soft-fpga"
-GALLERY_HTML="${SCRIPT_DIR}/test/ss/8080/index.html"
-GALLERY_PAGE_URL="${PAGES_BASE}/test/ss/8080/index.html"
+GALLERY_8080_HTML="${SCRIPT_DIR}/test/ss/8080/index.html"
+GALLERY_8080_URL="${PAGES_BASE}/test/ss/8080/index.html"
+GALLERY_PDP11_HTML="${SCRIPT_DIR}/test/ss/pdp11/index.html"
+GALLERY_PDP11_URL="${PAGES_BASE}/test/ss/pdp11/index.html"
 
 # ── ANSI カラー ───────────────────────────────────────────────────────────────
 GREEN='\033[0;32m'
@@ -163,6 +165,16 @@ if [[ "$SKIP_TIMING_SS" == false ]]; then
         printf "  ${YELLOW}⚠${RESET}  .venv が見つからないためスキップ\n"
     else
         bash "${SCRIPT_DIR}/scripts/_doTimingSSPDP11.sh"
+
+        # 最新 timing-*/ を docs/09-PDP11/img/timing/ にコピー
+        _latest=$(ls -dt "${SCRIPT_DIR}/test/ss/pdp11/timing-"*/ 2>/dev/null | head -1 || true)
+        if [[ -n "$_latest" ]]; then
+            _img_dir="${SCRIPT_DIR}/docs/09-PDP11/img/timing"
+            mkdir -p "$_img_dir"
+            cp "${_latest}"*.png "$_img_dir/"
+            printf "  ${GREEN}✓${RESET}  docs/09-PDP11/img/timing/ 更新 ← %s (%d 枚)\n" \
+                "$(basename "$_latest")" "$(ls "$_img_dir"/*.png 2>/dev/null | wc -l)"
+        fi
     fi
     echo ""
 fi
@@ -216,22 +228,30 @@ fi
 # ---------------------------------------------------------------------------
 step_header 6 "ギャラリーリンクチェック (scripts/check-gallery-links.py)" "$SKIP_GALLERY_CHECK"
 if [[ "$SKIP_GALLERY_CHECK" == false ]]; then
-    if [[ ! -f "${GALLERY_HTML}" ]]; then
-        printf "  ${YELLOW}⚠${RESET}  ${GALLERY_HTML} が存在しないためスキップ\n"
-    else
-        set +e
-        python3 "${SCRIPT_DIR}/scripts/check-gallery-links.py" \
-            "${GALLERY_HTML}" "${GALLERY_PAGE_URL}" 2>&1 | sed 's/^/  /'
-        gc_exit=${PIPESTATUS[0]}
-        set -e
-
-        echo ""
-        if [[ $gc_exit -ne 0 ]]; then
-            printf "${RED}✗ ギャラリーリンクに問題があります。${RESET}\n"
-            exit 1
+    gc_total_exit=0
+    for gallery_pair in \
+        "${GALLERY_8080_HTML}|${GALLERY_8080_URL}" \
+        "${GALLERY_PDP11_HTML}|${GALLERY_PDP11_URL}"; do
+        gallery_html="${gallery_pair%%|*}"
+        gallery_url="${gallery_pair##*|}"
+        if [[ ! -f "${gallery_html}" ]]; then
+            printf "  ${YELLOW}⚠${RESET}  ${gallery_html} が存在しないためスキップ\n"
         else
-            printf "${GREEN}✓ ギャラリーリンクチェック 完了${RESET}\n"
+            set +e
+            python3 "${SCRIPT_DIR}/scripts/check-gallery-links.py" \
+                "${gallery_html}" "${gallery_url}" 2>&1 | sed 's/^/  /'
+            gc_exit=${PIPESTATUS[0]}
+            set -e
+            [[ $gc_exit -ne 0 ]] && gc_total_exit=1
         fi
+    done
+
+    echo ""
+    if [[ $gc_total_exit -ne 0 ]]; then
+        printf "${RED}✗ ギャラリーリンクに問題があります。${RESET}\n"
+        exit 1
+    else
+        printf "${GREEN}✓ ギャラリーリンクチェック 完了${RESET}\n"
     fi
     echo ""
 fi

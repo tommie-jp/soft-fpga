@@ -12,6 +12,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$SCRIPT_DIR/.."
 WORKTREE="/tmp/soft-fpga-gh-pages"
 BRANCH="gh-pages"
+VERSION="1.0.0"
 
 # ---------- option parsing ----------
 NO_BUILD=false
@@ -24,16 +25,17 @@ for arg in "$@"; do
 done
 
 # ---------- example registry ----------
-# format: "id:build_script:web_dir:deploy_subdir"
+# format: "id:build_script:web_dir:deploy_subdir:docs_dir"
 # deploy_subdir="" means deploy to root of gh-pages
+# docs_dir=""     means auto-detect from deploy_subdir components
 declare -a EXAMPLES=(
-    "01:build-wasm.sh:examples/01-counter/web:01-counter"
-    "02:build-wasm-02.sh:examples/02-traffic-fsm/web:02-traffic-fsm"
-    "03:build-wasm-03.sh:examples/03-uart/web:03-uart"
-    "04:build-wasm-04.sh:examples/04-6502/web:04-6502"
-    "05:build-wasm-05.sh:examples/05-dormann/web:05-dormann"
-    "06:build-wasm-06.sh:examples/06-8080/web:examples/06-8080/web"
-    "09:build-wasm-09.sh:examples/09-pdp11/web:examples/09-pdp11/web"
+    "01:build-wasm.sh:examples/01-counter/web:01-counter:"
+    "02:build-wasm-02.sh:examples/02-traffic-fsm/web:02-traffic-fsm:"
+    "03:build-wasm-03.sh:examples/03-uart/web:03-uart:"
+    "04:build-wasm-04.sh:examples/04-6502/web:04-6502:"
+    "05:build-wasm-05.sh:examples/05-dormann/web:05-dormann:"
+    "06:build-wasm-06.sh:examples/06-8080/web:examples/06-8080/web:06-8080"
+    "09:build-wasm-09.sh:examples/09-pdp11/web:examples/09-pdp11/web:09-PDP11"
 )
 
 # ---------- filter by targets ----------
@@ -113,7 +115,7 @@ if [ -d "$ROOT/js" ]; then
 fi
 
 for ex in "${EXAMPLES[@]}"; do
-    IFS=: read -r id build_script web_dir deploy_subdir <<< "$ex"
+    IFS=: read -r id build_script web_dir deploy_subdir docs_dir <<< "$ex"
     src="$ROOT/$web_dir"
     if [ -n "$deploy_subdir" ]; then
         dst="$WORKTREE/$deploy_subdir"
@@ -130,8 +132,8 @@ for ex in "${EXAMPLES[@]}"; do
     mkdir -p "$dst"
     # index.html 内の <!-- DEPLOY_DATETIME --> をデプロイ日時で置換する。
     # プレースホルダーがなければ通常コピーと同等。
-    DEPLOY_DT=$(date '+%Y-%m-%d %H:%M')
-    sed "s|<!-- DEPLOY_DATETIME -->| \&nbsp;updated on ${DEPLOY_DT}|g" \
+    DEPLOY_DT=$(date '+%Y/%m/%d %H:%M')
+    sed "s|<!-- DEPLOY_DATETIME -->| Ver.${VERSION} ${DEPLOY_DT}|g" \
         "$src/index.html" > "$dst/index.html"
     [ -f "$src/sim.js"        ] && cp "$src/sim.js"        "$dst/"
     [ -f "$src/sim.wasm"      ] && cp "$src/sim.wasm"      "$dst/"
@@ -154,12 +156,13 @@ for ex in "${EXAMPLES[@]}"; do
             echo "  Copied disk/ → /${deploy_subdir}/disk/" || true
     fi
 
-    # docs/ ディレクトリ（Markdown ドキュメント）
-    # deploy_subdir が深い場合（例: examples/06-8080/web）は
-    # スラッシュ区切りの各コンポーネントを候補として順に試す
+    # docs/ ディレクトリ（Markdown ドキュメント + img/）
+    # 5 番目フィールド docs_dir が明示されていればそれを使い、
+    # なければ deploy_subdir の各コンポーネントから自動検索する
     docs_src=""
-    # 完全一致を最初に試し、次にパスの各コンポーネントを順に試す
-    if [ -d "$ROOT/docs/$deploy_subdir" ]; then
+    if [[ -n "$docs_dir" && -d "$ROOT/docs/$docs_dir" ]]; then
+        docs_src="$ROOT/docs/$docs_dir"
+    elif [ -d "$ROOT/docs/$deploy_subdir" ]; then
         docs_src="$ROOT/docs/$deploy_subdir"
     else
         IFS='/' read -ra _parts <<< "$deploy_subdir"
@@ -173,6 +176,10 @@ for ex in "${EXAMPLES[@]}"; do
     if [[ -n "$docs_src" ]]; then
         mkdir -p "$dst/docs"
         cp "$docs_src"/*.md "$dst/docs/" 2>/dev/null || true
+        if [[ -d "$docs_src/img" ]]; then
+            cp -r "$docs_src/img" "$dst/docs/"
+            echo "  Copied docs/img/ → /${deploy_subdir}/docs/img/"
+        fi
         echo "  Copied docs → /${deploy_subdir}/docs/"
     fi
 done
@@ -207,23 +214,28 @@ REDIRECT
 fi
 
 # ── タイミング図ギャラリーをデプロイ ──────────────────────────────────────────
-# examples/06-8080/web/index.html が ../../../test/ss/8080/index.html を参照するため、
-# gh-pages 上でも同じ相対パス (test/ss/8080/) に配置する。
-SS_SRC="$ROOT/test/ss/8080"
-SS_DST="$WORKTREE/test/ss/8080"
-if [[ -f "${SS_SRC}/index.html" ]]; then
-    mkdir -p "${SS_DST}"
-    cp "${SS_SRC}/index.html"  "${SS_DST}/"
-    cp "${SS_SRC}/viewer.html" "${SS_DST}/"
-    # コミット済みの timing-* ディレクトリのみコピー（.gitignore 除外分は含まない）
-    for d in "${SS_SRC}"/timing-*/; do
+# index.html が ../../../test/ss/{8080,pdp11}/index.html を参照するため、
+# gh-pages 上でも同じ相対パスに配置する。
+
+_deploy_ss_dir() {
+    local name="$1"
+    local src="$ROOT/test/ss/${name}"
+    local dst="$WORKTREE/test/ss/${name}"
+    [[ -f "${src}/index.html" ]] || return 0
+    mkdir -p "${dst}"
+    cp "${src}/index.html"  "${dst}/"
+    cp "${src}/viewer.html" "${dst}/"
+    for d in "${src}"/timing-*/; do
         [[ -d "$d" ]] || continue
-        dname="$(basename "$d")"
-        mkdir -p "${SS_DST}/${dname}"
-        cp "${d}"*.png "${SS_DST}/${dname}/" 2>/dev/null || true
+        local dname; dname="$(basename "$d")"
+        mkdir -p "${dst}/${dname}"
+        cp "${d}"*.png "${dst}/${dname}/" 2>/dev/null || true
     done
-    echo "Copied test/ss/8080/ → gh-pages/test/ss/8080/"
-fi
+    echo "Copied test/ss/${name}/ → gh-pages/test/ss/${name}/"
+}
+
+_deploy_ss_dir 8080
+_deploy_ss_dir pdp11
 
 cd "$WORKTREE"
 git add -A

@@ -60,6 +60,12 @@ void ram_write_word(uint32_t byte_addr, uint16_t word) {
     ram_h[wa] = (unsigned char)((word >> 8) & 0xFFu);
 }
 
+// ベアメタルテスト用: バイトアドレス byte_addr から 16bit ワードを読む
+uint16_t ram_read_word(uint32_t byte_addr) {
+    uint32_t wa = (byte_addr >> 1) & 0x1FFFFu;
+    return (uint16_t)ram_l[wa] | ((uint16_t)ram_h[wa] << 8);
+}
+
 // .mem ファイル（<8進バイトアドレス> <8進ワード値>）を RAM にロードする。
 // 戻り値: ロードしたワード数（エラー時 -1）
 int ram_load_mem(const char *filename) {

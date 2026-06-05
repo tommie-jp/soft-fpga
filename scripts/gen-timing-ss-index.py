@@ -293,7 +293,7 @@ _CPU_CONFIGS: list[dict] = [
         "h1_html":    '<a href="../../../examples/09-pdp11/web/">PDP-11 / Unix V6</a> Timing Diagrams',
         "note_html": (
             "このタイミング図は Verilog ソース"
-            ' <a href="https://github.com/1801BM1/cpus-pdp11" target="_blank" rel="noopener">cpus-pdp11</a>'
+            ' <a href="https://github.com/lisper/cpus-pdp11" target="_blank" rel="noopener">cpus-pdp11</a>'
             " に基づき、Unix V6 上の as(1) でアセンブルしたプログラムを実行して生成されます。"
         ),
         "empty_msg": (

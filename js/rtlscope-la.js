@@ -265,12 +265,21 @@
     this._trigHead = (head !== undefined && head !== null && head !== -1) ? (head >>> 0) : -1;
   };
 
-  /** トリガー位置をビューの中央へ移動する */
-  RTLScopeLA.prototype.gotoTrig = function() {
+  /**
+   * トリガー位置をビュー内の指定位置へ移動する。
+   * fracX は LA 全幅に対するトリガーマーカー x 位置の割合（省略時 0.5 = 中央）。
+   * トリガーマーカー x = LABEL_W + off*zoom なので、x = LA_W*fracX となる off を逆算する。
+   */
+  RTLScopeLA.prototype.gotoTrig = function(fracX) {
     if (this._trigHead < 0) return;
     var samplesInView = Math.ceil(this._VIEW_W / this._zoom);
     var trigOffset    = ((this._lastHead >>> 0) - (this._trigHead >>> 0)) >>> 0;
-    this._pan = Math.max(0, trigOffset - Math.floor(samplesInView / 2));
+    if (fracX === undefined || fracX === null) {
+      this._pan = Math.max(0, trigOffset - Math.floor(samplesInView / 2));
+      return;
+    }
+    var trigViewSamp = Math.round((fracX * this._LA_W - this._LABEL_W) / this._zoom);
+    this._pan = Math.max(0, trigOffset - (samplesInView - 1 - trigViewSamp));
   };
 
   // ---- getter ----
@@ -842,7 +851,7 @@
       // TRIG: ON かつ発火済みのとき（TRIG バッジは幅 34px なので snap を拡大）
       function tryTrig() {
         if (!self._trigOn || self._trigHead < 0) return false;
-        var trigSamp = (self._trigHead >>> 0) - 1;
+        var trigSamp = (self._trigHead >>> 0);
         var _fxC4 = self._markerFixedXCache || [];
         var trigFx = _fxC4[3] !== null && _fxC4[3] !== undefined
                    ? _fxC4[3] : _markerFixedX(3);
@@ -1099,6 +1108,17 @@
       var _lbl = self._numberedLabels
         ? (String(t + 1 + (cbDec ? 1 : 0)).padStart(2, '0') + ' ' + _sig.label) : _sig.label;
       ctx.fillText(_lbl, 3, _yb + tH * 0.65);
+      // 表示形式を右寄せで表示
+      var _fmtStr = '';
+      if (_sig.type === 'bit') _fmtStr = 'Bin';
+      else if (_sig.fmt === 'oct') _fmtStr = 'Oct';
+      else if (_sig.fmt === 'dec' || _sig.type === 'dec') _fmtStr = 'Dec';
+      else if (_sig.type === 'hex') _fmtStr = 'Hex';
+      if (_fmtStr) {
+        ctx.font = '9px monospace'; ctx.textAlign = 'right';
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.fillText(_fmtStr, LABEL_W - 2, _yb + tH * 0.88);
+      }
     }
 
     // MARKER_LANE 区切り線 + 「Marker」固定テキスト（クリップなし）
@@ -1252,13 +1272,13 @@
 
           // hex セグメント描画
           var gw0h = heapu32[(startSamp & (ringSize - 1)) * RW + sw];
-          var pv   = (gw0h >> sig.bit) & MASK, ss = SIG_X, segs = [];
+          var pv   = (gw0h >> sig.bit) & MASK, ss = SIG_X, ps = 0, segs = [];
           for (var i = 1; i < samples; i++) {
             var gw = heapu32[((startSamp + i) & (ringSize - 1)) * RW + sw];
             var v  = (gw >> sig.bit) & MASK, xn = SIG_X + i * laZoom;
-            if (v !== pv) { segs.push({ x: ss, w: xn - ss, val: pv }); ss = xn; pv = v; }
+            if (v !== pv) { segs.push({ x: ss, w: xn - ss, val: pv, s0: ps, s1: i }); ss = xn; ps = i; pv = v; }
           }
-          segs.push({ x: ss, w: SIG_X + samples * laZoom - ss, val: pv });
+          segs.push({ x: ss, w: SIG_X + samples * laZoom - ss, val: pv, s0: ps, s1: samples });
 
           // ── 左端縦棒抑制: view 外にデータがあり値が連続している場合は縦棒なし ──
           var v0h = (gw0h >> sig.bit) & MASK;
@@ -1340,7 +1360,10 @@
             } else if ((laZoom >= 4 && s.w > 4) || s.w > 24) {
               if (sig.fmt && cbFmt[sig.fmt]) {
                 _fnt = '10px monospace';
-                _str = cbFmt[sig.fmt](s.val);
+                _str = cbFmt[sig.fmt](s.val, sig, {
+                  heapu32: heapu32, ringWords: RW, ringSize: ringSize,
+                  startSamp: startSamp, s0: s.s0, s1: s.s1
+                });
               } else {
                 var _fullLbl  = s.val.toString(16).toUpperCase().padStart(hexPad, '0');
                 var _shortLbl = s.val.toString(16).toUpperCase();
@@ -1495,8 +1518,8 @@
         }
       }
 
-      var NICE = [2, 4, 10, 20, 40, 100, 200, 400, 1000, 2000, 4000, 8000];
-      var rawSamp  = (laZoom >= 16) ? 2 : (80 / laZoom);
+      var NICE = [1, 2, 4, 10, 20, 40, 100, 200, 400, 1000, 2000, 4000, 8000];
+      var rawSamp  = (laZoom >= 16) ? 1 : (80 / laZoom);
       var tickSamp = NICE[NICE.length - 1];
       for (var ni = 0; ni < NICE.length; ni++) {
         if (NICE[ni] >= rawSamp) { tickSamp = NICE[ni]; break; }
@@ -1509,13 +1532,17 @@
 
       ctx.font = '10px monospace'; ctx.textAlign = 'center';
 
+      // T=0 の基準: トリガー発火時は TRIG マーカー位置、未発火時はヘッド
+      var tBase = (self._trigOn && self._trigHead >= 0)
+                  ? (self._trigHead >>> 0)       // TRIG マーカーを T=0
+                  : (head >>> 0);                // ヘッドを T=0（デフォルト）
+
       for (var tick = firstTick; ; tick += tickSamp) {
         var toff = tick - startSamp;
         var tx2  = SIG_X + toff * laZoom;
         if (tx2 >= LA_W - 1) break;  // キャンバス右端を超えたら終了
         // LABEL_W 左側はクリップで自動非表示（tx2 < LABEL_W の continue 不要）
-        // tNum = tick - head（整数）: ヘッドを 0 とした過去方向負の T オフセット
-        var tNum = toff - samples - panInt;
+        var tNum = tick - tBase;
         var lbl2 = (tNum === 0 ? '0' : (tNum > 0 ? '+' + tNum : '' + tNum));
 
         ctx.strokeStyle = '#888'; ctx.lineWidth = 0.5;
@@ -1537,7 +1564,7 @@
     (function() {
       var GAP = 2;
       var hasTrig  = self._trigHead >= 0 && self._trigOn;
-      var trigSamp = hasTrig ? (self._trigHead >>> 0) - 1 : null;
+      var trigSamp = hasTrig ? (self._trigHead >>> 0) : null;
 
       // 各マーカー定義（halfW: バッジ半幅）
       var _mkrs = [

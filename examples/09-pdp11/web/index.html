@@ -251,7 +251,7 @@
   </div>
 </div>
 
-<h2>PDP-11 / Unix V6 — rtlscope soft-FPGA</h2>
+<h2>PDP-11 / Unix V6 — rtlscope soft-FPGA<!-- DEPLOY_DATETIME --></h2>
 
 <div class="toolbar">
   <button id="btn-boot"  disabled>Boot Unix V6</button>
@@ -735,7 +735,10 @@ worker.onmessage = function(e) {
           localRing[idx * _ringWords + w] = snap[i * _ringWords + w];
         }
       }
-      var _trigForUpdate = _pendingTrigHead ? d.head : undefined;
+      // トリガー T=0 は istate=f1 の立ち上がり（フェッチ開始）に吸着させる。
+      var _trigForUpdate = _pendingTrigHead
+        ? pdp11TrigAnchorF1(localRing, d.head, _ringSize, _ringWords)
+        : undefined;
       _pendingTrigHead = false;
       la.update(d.head, localRing, undefined, _trigForUpdate);
       updateRegs(snap, d.gpr);

@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PDP-11 / Unix V6 Timing SS Gallery</title>
+  <style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: monospace;
+  font-size: 13px;
+  background: #f5f5f5;
+  color: #111;
+  padding: 16px 20px 40px;
+}
+h1 {
+  font-size: 16px;
+  margin-bottom: 16px;
+  color: #333;
+}
+h1 a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+h1 a:hover { color: #0066cc; }
+h1 span { color: #888; font-weight: normal; font-size: 13px; }
+.note {
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 16px;
+  padding: 6px 10px;
+  background: #fffbe6;
+  border-left: 3px solid #f0c040;
+  border-radius: 2px;
+}
+.note a { color: #555; }
+details { margin-bottom: 20px; }
+details[open] summary { margin-bottom: 10px; }
+summary {
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  padding: 4px 6px;
+  background: #e0e0e0;
+  border-radius: 4px;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+}
+summary::-webkit-details-marker { display: none; }
+summary .arrow { font-size: 10px; color: #666; }
+summary .count { font-weight: normal; font-size: 12px; color: #666; }
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 8px;
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow .15s;
+}
+.card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+.card img {
+  width: 100%;
+  height: 80px;
+  object-fit: cover;
+  object-position: left center;
+  display: block;
+  background: #222;
+}
+.card .lbl {
+  font-size: 11px;
+  padding: 3px 6px;
+  color: #444;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.empty { color: #aaa; font-style: italic; padding: 12px; }
+  </style>
+</head>
+<body>
+  <h1><a href="../../../examples/09-pdp11/web/">PDP-11 / Unix V6</a> Timing Diagrams
+    <span>— 3 run(s) / 165 cases &nbsp;|&nbsp; generated 2026-06-06 04:31</span>
+  </h1>
+  <p class="note">このタイミング図は Verilog ソース <a href="https://github.com/lisper/cpus-pdp11" target="_blank" rel="noopener">cpus-pdp11</a> に基づき、Unix V6 上の as(1) でアセンブルしたプログラムを実行して生成されます。
+  </p>
+
+  <details open>
+    <summary><span class="arrow">▶</span> 2026-06-06 04:31 <span class="count">(55 cases)</span></summary>
+    <div class="grid">
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=0" title="00 NOP">
+        <img src="timing-2026-06-06-0431/00-nop.png" loading="lazy" alt="00 NOP">
+        <span class="lbl">00 NOP</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=1" title="01 CLR R">
+        <img src="timing-2026-06-06-0431/01-clr-r.png" loading="lazy" alt="01 CLR R">
+        <span class="lbl">01 CLR R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=2" title="02 COM R">
+        <img src="timing-2026-06-06-0431/02-com-r.png" loading="lazy" alt="02 COM R">
+        <span class="lbl">02 COM R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=3" title="03 INC R">
+        <img src="timing-2026-06-06-0431/03-inc-r.png" loading="lazy" alt="03 INC R">
+        <span class="lbl">03 INC R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=4" title="04 DEC R">
+        <img src="timing-2026-06-06-0431/04-dec-r.png" loading="lazy" alt="04 DEC R">
+        <span class="lbl">04 DEC R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=5" title="05 NEG R">
+        <img src="timing-2026-06-06-0431/05-neg-r.png" loading="lazy" alt="05 NEG R">
+        <span class="lbl">05 NEG R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=6" title="06 ADC R">
+        <img src="timing-2026-06-06-0431/06-adc-r.png" loading="lazy" alt="06 ADC R">
+        <span class="lbl">06 ADC R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=7" title="07 SBC R">
+        <img src="timing-2026-06-06-0431/07-sbc-r.png" loading="lazy" alt="07 SBC R">
+        <span class="lbl">07 SBC R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=8" title="08 TST R">
+        <img src="timing-2026-06-06-0431/08-tst-r.png" loading="lazy" alt="08 TST R">
+        <span class="lbl">08 TST R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=9" title="09 SXT R">
+        <img src="timing-2026-06-06-0431/09-sxt-r.png" loading="lazy" alt="09 SXT R">
+        <span class="lbl">09 SXT R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=10" title="10 ROR R">
+        <img src="timing-2026-06-06-0431/10-ror-r.png" loading="lazy" alt="10 ROR R">
+        <span class="lbl">10 ROR R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=11" title="11 ROL R">
+        <img src="timing-2026-06-06-0431/11-rol-r.png" loading="lazy" alt="11 ROL R">
+        <span class="lbl">11 ROL R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=12" title="12 ASR R">
+        <img src="timing-2026-06-06-0431/12-asr-r.png" loading="lazy" alt="12 ASR R">
+        <span class="lbl">12 ASR R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=13" title="13 ASL R">
+        <img src="timing-2026-06-06-0431/13-asl-r.png" loading="lazy" alt="13 ASL R">
+        <span class="lbl">13 ASL R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=14" title="14 SWAB R">
+        <img src="timing-2026-06-06-0431/14-swab-r.png" loading="lazy" alt="14 SWAB R">
+        <span class="lbl">14 SWAB R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=15" title="15 SXT R N0">
+        <img src="timing-2026-06-06-0431/15-sxt-r-n0.png" loading="lazy" alt="15 SXT R N0">
+        <span class="lbl">15 SXT R N0</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=16" title="16 MOV R R">
+        <img src="timing-2026-06-06-0431/16-mov-r-r.png" loading="lazy" alt="16 MOV R R">
+        <span class="lbl">16 MOV R R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=17" title="17 CMP R R">
+        <img src="timing-2026-06-06-0431/17-cmp-r-r.png" loading="lazy" alt="17 CMP R R">
+        <span class="lbl">17 CMP R R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=18" title="18 BIT R R">
+        <img src="timing-2026-06-06-0431/18-bit-r-r.png" loading="lazy" alt="18 BIT R R">
+        <span class="lbl">18 BIT R R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=19" title="19 BIC R R">
+        <img src="timing-2026-06-06-0431/19-bic-r-r.png" loading="lazy" alt="19 BIC R R">
+        <span class="lbl">19 BIC R R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=20" title="20 BIS R R">
+        <img src="timing-2026-06-06-0431/20-bis-r-r.png" loading="lazy" alt="20 BIS R R">
+        <span class="lbl">20 BIS R R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=21" title="21 ADD R R">
+        <img src="timing-2026-06-06-0431/21-add-r-r.png" loading="lazy" alt="21 ADD R R">
+        <span class="lbl">21 ADD R R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=22" title="22 SUB R R">
+        <img src="timing-2026-06-06-0431/22-sub-r-r.png" loading="lazy" alt="22 SUB R R">
+        <span class="lbl">22 SUB R R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=23" title="23 MOV IMM R">
+        <img src="timing-2026-06-06-0431/23-mov-imm-r.png" loading="lazy" alt="23 MOV IMM R">
+        <span class="lbl">23 MOV IMM R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=24" title="24 ADD IMM R">
+        <img src="timing-2026-06-06-0431/24-add-imm-r.png" loading="lazy" alt="24 ADD IMM R">
+        <span class="lbl">24 ADD IMM R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=25" title="25 CMP IMM R">
+        <img src="timing-2026-06-06-0431/25-cmp-imm-r.png" loading="lazy" alt="25 CMP IMM R">
+        <span class="lbl">25 CMP IMM R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=26" title="26 BIS IMM R">
+        <img src="timing-2026-06-06-0431/26-bis-imm-r.png" loading="lazy" alt="26 BIS IMM R">
+        <span class="lbl">26 BIS IMM R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=27" title="27 MOV IND R">
+        <img src="timing-2026-06-06-0431/27-mov-ind-r.png" loading="lazy" alt="27 MOV IND R">
+        <span class="lbl">27 MOV IND R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=28" title="28 MOV R IND">
+        <img src="timing-2026-06-06-0431/28-mov-r-ind.png" loading="lazy" alt="28 MOV R IND">
+        <span class="lbl">28 MOV R IND</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=29" title="29 MOV AUTOINC R">
+        <img src="timing-2026-06-06-0431/29-mov-autoinc-r.png" loading="lazy" alt="29 MOV AUTOINC R">
+        <span class="lbl">29 MOV AUTOINC R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=30" title="30 MOV AUTODEC R">
+        <img src="timing-2026-06-06-0431/30-mov-autodec-r.png" loading="lazy" alt="30 MOV AUTODEC R">
+        <span class="lbl">30 MOV AUTODEC R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=31" title="31 MOV IDX R">
+        <img src="timing-2026-06-06-0431/31-mov-idx-r.png" loading="lazy" alt="31 MOV IDX R">
+        <span class="lbl">31 MOV IDX R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=32" title="32 MOVB IND R">
+        <img src="timing-2026-06-06-0431/32-movb-ind-r.png" loading="lazy" alt="32 MOVB IND R">
+        <span class="lbl">32 MOVB IND R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=33" title="33 BR TAKEN">
+        <img src="timing-2026-06-06-0431/33-br-taken.png" loading="lazy" alt="33 BR TAKEN">
+        <span class="lbl">33 BR TAKEN</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=34" title="34 BNE TAKEN">
+        <img src="timing-2026-06-06-0431/34-bne-taken.png" loading="lazy" alt="34 BNE TAKEN">
+        <span class="lbl">34 BNE TAKEN</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=35" title="35 BNE NT">
+        <img src="timing-2026-06-06-0431/35-bne-nt.png" loading="lazy" alt="35 BNE NT">
+        <span class="lbl">35 BNE NT</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=36" title="36 BEQ TAKEN">
+        <img src="timing-2026-06-06-0431/36-beq-taken.png" loading="lazy" alt="36 BEQ TAKEN">
+        <span class="lbl">36 BEQ TAKEN</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=37" title="37 BGE TAKEN">
+        <img src="timing-2026-06-06-0431/37-bge-taken.png" loading="lazy" alt="37 BGE TAKEN">
+        <span class="lbl">37 BGE TAKEN</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=38" title="38 BLT TAKEN">
+        <img src="timing-2026-06-06-0431/38-blt-taken.png" loading="lazy" alt="38 BLT TAKEN">
+        <span class="lbl">38 BLT TAKEN</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=39" title="39 BCC TAKEN">
+        <img src="timing-2026-06-06-0431/39-bcc-taken.png" loading="lazy" alt="39 BCC TAKEN">
+        <span class="lbl">39 BCC TAKEN</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=40" title="40 BCS TAKEN">
+        <img src="timing-2026-06-06-0431/40-bcs-taken.png" loading="lazy" alt="40 BCS TAKEN">
+        <span class="lbl">40 BCS TAKEN</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=41" title="41 JSR R5">
+        <img src="timing-2026-06-06-0431/41-jsr-r5.png" loading="lazy" alt="41 JSR R5">
+        <span class="lbl">41 JSR R5</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=42" title="42 RTS R5">
+        <img src="timing-2026-06-06-0431/42-rts-r5.png" loading="lazy" alt="42 RTS R5">
+        <span class="lbl">42 RTS R5</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=43" title="43 JMP IND">
+        <img src="timing-2026-06-06-0431/43-jmp-ind.png" loading="lazy" alt="43 JMP IND">
+        <span class="lbl">43 JMP IND</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=44" title="44 SOB TAKEN">
+        <img src="timing-2026-06-06-0431/44-sob-taken.png" loading="lazy" alt="44 SOB TAKEN">
+        <span class="lbl">44 SOB TAKEN</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=45" title="45 SOB NT">
+        <img src="timing-2026-06-06-0431/45-sob-nt.png" loading="lazy" alt="45 SOB NT">
+        <span class="lbl">45 SOB NT</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=46" title="46 MOVB R R">
+        <img src="timing-2026-06-06-0431/46-movb-r-r.png" loading="lazy" alt="46 MOVB R R">
+        <span class="lbl">46 MOVB R R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=47" title="47 CLRB R">
+        <img src="timing-2026-06-06-0431/47-clrb-r.png" loading="lazy" alt="47 CLRB R">
+        <span class="lbl">47 CLRB R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=48" title="48 INCB R">
+        <img src="timing-2026-06-06-0431/48-incb-r.png" loading="lazy" alt="48 INCB R">
+        <span class="lbl">48 INCB R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=49" title="49 CMPB R R">
+        <img src="timing-2026-06-06-0431/49-cmpb-r-r.png" loading="lazy" alt="49 CMPB R R">
+        <span class="lbl">49 CMPB R R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=50" title="50 MODE0 REG">
+        <img src="timing-2026-06-06-0431/50-mode0-reg.png" loading="lazy" alt="50 MODE0 REG">
+        <span class="lbl">50 MODE0 REG</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=51" title="51 MODE1 IND">
+        <img src="timing-2026-06-06-0431/51-mode1-ind.png" loading="lazy" alt="51 MODE1 IND">
+        <span class="lbl">51 MODE1 IND</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=52" title="52 MODE2 AUTOINC">
+        <img src="timing-2026-06-06-0431/52-mode2-autoinc.png" loading="lazy" alt="52 MODE2 AUTOINC">
+        <span class="lbl">52 MODE2 AUTOINC</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=53" title="53 MODE4 AUTODEC">
+        <img src="timing-2026-06-06-0431/53-mode4-autodec.png" loading="lazy" alt="53 MODE4 AUTODEC">
+        <span class="lbl">53 MODE4 AUTODEC</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0431&i=54" title="54 MODE6 IDX">
+        <img src="timing-2026-06-06-0431/54-mode6-idx.png" loading="lazy" alt="54 MODE6 IDX">
+        <span class="lbl">54 MODE6 IDX</span>
+      </a>
+    </div>
+  </details>
+
+  <details>
+    <summary><span class="arrow">▶</span> 2026-06-06 02:30 <span class="count">(55 cases)</span></summary>
+    <div class="grid">
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=0" title="00 NOP">
+        <img src="timing-2026-06-06-0230/00-nop.png" loading="lazy" alt="00 NOP">
+        <span class="lbl">00 NOP</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=1" title="01 CLR R">
+        <img src="timing-2026-06-06-0230/01-clr-r.png" loading="lazy" alt="01 CLR R">
+        <span class="lbl">01 CLR R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=2" title="02 COM R">
+        <img src="timing-2026-06-06-0230/02-com-r.png" loading="lazy" alt="02 COM R">
+        <span class="lbl">02 COM R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=3" title="03 INC R">
+        <img src="timing-2026-06-06-0230/03-inc-r.png" loading="lazy" alt="03 INC R">
+        <span class="lbl">03 INC R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=4" title="04 DEC R">
+        <img src="timing-2026-06-06-0230/04-dec-r.png" loading="lazy" alt="04 DEC R">
+        <span class="lbl">04 DEC R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=5" title="05 NEG R">
+        <img src="timing-2026-06-06-0230/05-neg-r.png" loading="lazy" alt="05 NEG R">
+        <span class="lbl">05 NEG R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=6" title="06 ADC R">
+        <img src="timing-2026-06-06-0230/06-adc-r.png" loading="lazy" alt="06 ADC R">
+        <span class="lbl">06 ADC R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=7" title="07 SBC R">
+        <img src="timing-2026-06-06-0230/07-sbc-r.png" loading="lazy" alt="07 SBC R">
+        <span class="lbl">07 SBC R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=8" title="08 TST R">
+        <img src="timing-2026-06-06-0230/08-tst-r.png" loading="lazy" alt="08 TST R">
+        <span class="lbl">08 TST R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=9" title="09 SXT R">
+        <img src="timing-2026-06-06-0230/09-sxt-r.png" loading="lazy" alt="09 SXT R">
+        <span class="lbl">09 SXT R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=10" title="10 ROR R">
+        <img src="timing-2026-06-06-0230/10-ror-r.png" loading="lazy" alt="10 ROR R">
+        <span class="lbl">10 ROR R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=11" title="11 ROL R">
+        <img src="timing-2026-06-06-0230/11-rol-r.png" loading="lazy" alt="11 ROL R">
+        <span class="lbl">11 ROL R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=12" title="12 ASR R">
+        <img src="timing-2026-06-06-0230/12-asr-r.png" loading="lazy" alt="12 ASR R">
+        <span class="lbl">12 ASR R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=13" title="13 ASL R">
+        <img src="timing-2026-06-06-0230/13-asl-r.png" loading="lazy" alt="13 ASL R">
+        <span class="lbl">13 ASL R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=14" title="14 SWAB R">
+        <img src="timing-2026-06-06-0230/14-swab-r.png" loading="lazy" alt="14 SWAB R">
+        <span class="lbl">14 SWAB R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=15" title="15 SXT R N0">
+        <img src="timing-2026-06-06-0230/15-sxt-r-n0.png" loading="lazy" alt="15 SXT R N0">
+        <span class="lbl">15 SXT R N0</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=16" title="16 MOV R R">
+        <img src="timing-2026-06-06-0230/16-mov-r-r.png" loading="lazy" alt="16 MOV R R">
+        <span class="lbl">16 MOV R R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=17" title="17 CMP R R">
+        <img src="timing-2026-06-06-0230/17-cmp-r-r.png" loading="lazy" alt="17 CMP R R">
+        <span class="lbl">17 CMP R R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=18" title="18 BIT R R">
+        <img src="timing-2026-06-06-0230/18-bit-r-r.png" loading="lazy" alt="18 BIT R R">
+        <span class="lbl">18 BIT R R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=19" title="19 BIC R R">
+        <img src="timing-2026-06-06-0230/19-bic-r-r.png" loading="lazy" alt="19 BIC R R">
+        <span class="lbl">19 BIC R R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=20" title="20 BIS R R">
+        <img src="timing-2026-06-06-0230/20-bis-r-r.png" loading="lazy" alt="20 BIS R R">
+        <span class="lbl">20 BIS R R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=21" title="21 ADD R R">
+        <img src="timing-2026-06-06-0230/21-add-r-r.png" loading="lazy" alt="21 ADD R R">
+        <span class="lbl">21 ADD R R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=22" title="22 SUB R R">
+        <img src="timing-2026-06-06-0230/22-sub-r-r.png" loading="lazy" alt="22 SUB R R">
+        <span class="lbl">22 SUB R R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=23" title="23 MOV IMM R">
+        <img src="timing-2026-06-06-0230/23-mov-imm-r.png" loading="lazy" alt="23 MOV IMM R">
+        <span class="lbl">23 MOV IMM R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=24" title="24 ADD IMM R">
+        <img src="timing-2026-06-06-0230/24-add-imm-r.png" loading="lazy" alt="24 ADD IMM R">
+        <span class="lbl">24 ADD IMM R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=25" title="25 CMP IMM R">
+        <img src="timing-2026-06-06-0230/25-cmp-imm-r.png" loading="lazy" alt="25 CMP IMM R">
+        <span class="lbl">25 CMP IMM R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=26" title="26 BIS IMM R">
+        <img src="timing-2026-06-06-0230/26-bis-imm-r.png" loading="lazy" alt="26 BIS IMM R">
+        <span class="lbl">26 BIS IMM R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=27" title="27 MOV IND R">
+        <img src="timing-2026-06-06-0230/27-mov-ind-r.png" loading="lazy" alt="27 MOV IND R">
+        <span class="lbl">27 MOV IND R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=28" title="28 MOV R IND">
+        <img src="timing-2026-06-06-0230/28-mov-r-ind.png" loading="lazy" alt="28 MOV R IND">
+        <span class="lbl">28 MOV R IND</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=29" title="29 MOV AUTOINC R">
+        <img src="timing-2026-06-06-0230/29-mov-autoinc-r.png" loading="lazy" alt="29 MOV AUTOINC R">
+        <span class="lbl">29 MOV AUTOINC R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=30" title="30 MOV AUTODEC R">
+        <img src="timing-2026-06-06-0230/30-mov-autodec-r.png" loading="lazy" alt="30 MOV AUTODEC R">
+        <span class="lbl">30 MOV AUTODEC R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=31" title="31 MOV IDX R">
+        <img src="timing-2026-06-06-0230/31-mov-idx-r.png" loading="lazy" alt="31 MOV IDX R">
+        <span class="lbl">31 MOV IDX R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=32" title="32 MOVB IND R">
+        <img src="timing-2026-06-06-0230/32-movb-ind-r.png" loading="lazy" alt="32 MOVB IND R">
+        <span class="lbl">32 MOVB IND R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=33" title="33 BR TAKEN">
+        <img src="timing-2026-06-06-0230/33-br-taken.png" loading="lazy" alt="33 BR TAKEN">
+        <span class="lbl">33 BR TAKEN</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=34" title="34 BNE TAKEN">
+        <img src="timing-2026-06-06-0230/34-bne-taken.png" loading="lazy" alt="34 BNE TAKEN">
+        <span class="lbl">34 BNE TAKEN</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=35" title="35 BNE NT">
+        <img src="timing-2026-06-06-0230/35-bne-nt.png" loading="lazy" alt="35 BNE NT">
+        <span class="lbl">35 BNE NT</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=36" title="36 BEQ TAKEN">
+        <img src="timing-2026-06-06-0230/36-beq-taken.png" loading="lazy" alt="36 BEQ TAKEN">
+        <span class="lbl">36 BEQ TAKEN</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=37" title="37 BGE TAKEN">
+        <img src="timing-2026-06-06-0230/37-bge-taken.png" loading="lazy" alt="37 BGE TAKEN">
+        <span class="lbl">37 BGE TAKEN</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=38" title="38 BLT TAKEN">
+        <img src="timing-2026-06-06-0230/38-blt-taken.png" loading="lazy" alt="38 BLT TAKEN">
+        <span class="lbl">38 BLT TAKEN</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=39" title="39 BCC TAKEN">
+        <img src="timing-2026-06-06-0230/39-bcc-taken.png" loading="lazy" alt="39 BCC TAKEN">
+        <span class="lbl">39 BCC TAKEN</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=40" title="40 BCS TAKEN">
+        <img src="timing-2026-06-06-0230/40-bcs-taken.png" loading="lazy" alt="40 BCS TAKEN">
+        <span class="lbl">40 BCS TAKEN</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=41" title="41 JSR R5">
+        <img src="timing-2026-06-06-0230/41-jsr-r5.png" loading="lazy" alt="41 JSR R5">
+        <span class="lbl">41 JSR R5</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=42" title="42 RTS R5">
+        <img src="timing-2026-06-06-0230/42-rts-r5.png" loading="lazy" alt="42 RTS R5">
+        <span class="lbl">42 RTS R5</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=43" title="43 JMP IND">
+        <img src="timing-2026-06-06-0230/43-jmp-ind.png" loading="lazy" alt="43 JMP IND">
+        <span class="lbl">43 JMP IND</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=44" title="44 SOB TAKEN">
+        <img src="timing-2026-06-06-0230/44-sob-taken.png" loading="lazy" alt="44 SOB TAKEN">
+        <span class="lbl">44 SOB TAKEN</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=45" title="45 SOB NT">
+        <img src="timing-2026-06-06-0230/45-sob-nt.png" loading="lazy" alt="45 SOB NT">
+        <span class="lbl">45 SOB NT</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=46" title="46 MOVB R R">
+        <img src="timing-2026-06-06-0230/46-movb-r-r.png" loading="lazy" alt="46 MOVB R R">
+        <span class="lbl">46 MOVB R R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=47" title="47 CLRB R">
+        <img src="timing-2026-06-06-0230/47-clrb-r.png" loading="lazy" alt="47 CLRB R">
+        <span class="lbl">47 CLRB R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=48" title="48 INCB R">
+        <img src="timing-2026-06-06-0230/48-incb-r.png" loading="lazy" alt="48 INCB R">
+        <span class="lbl">48 INCB R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=49" title="49 CMPB R R">
+        <img src="timing-2026-06-06-0230/49-cmpb-r-r.png" loading="lazy" alt="49 CMPB R R">
+        <span class="lbl">49 CMPB R R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=50" title="50 MODE0 REG">
+        <img src="timing-2026-06-06-0230/50-mode0-reg.png" loading="lazy" alt="50 MODE0 REG">
+        <span class="lbl">50 MODE0 REG</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=51" title="51 MODE1 IND">
+        <img src="timing-2026-06-06-0230/51-mode1-ind.png" loading="lazy" alt="51 MODE1 IND">
+        <span class="lbl">51 MODE1 IND</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=52" title="52 MODE2 AUTOINC">
+        <img src="timing-2026-06-06-0230/52-mode2-autoinc.png" loading="lazy" alt="52 MODE2 AUTOINC">
+        <span class="lbl">52 MODE2 AUTOINC</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=53" title="53 MODE4 AUTODEC">
+        <img src="timing-2026-06-06-0230/53-mode4-autodec.png" loading="lazy" alt="53 MODE4 AUTODEC">
+        <span class="lbl">53 MODE4 AUTODEC</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0230&i=54" title="54 MODE6 IDX">
+        <img src="timing-2026-06-06-0230/54-mode6-idx.png" loading="lazy" alt="54 MODE6 IDX">
+        <span class="lbl">54 MODE6 IDX</span>
+      </a>
+    </div>
+  </details>
+
+  <details>
+    <summary><span class="arrow">▶</span> 2026-06-06 02:24 <span class="count">(55 cases)</span></summary>
+    <div class="grid">
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=0" title="00 NOP">
+        <img src="timing-2026-06-06-0224/00-nop.png" loading="lazy" alt="00 NOP">
+        <span class="lbl">00 NOP</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=1" title="01 CLR R">
+        <img src="timing-2026-06-06-0224/01-clr-r.png" loading="lazy" alt="01 CLR R">
+        <span class="lbl">01 CLR R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=2" title="02 COM R">
+        <img src="timing-2026-06-06-0224/02-com-r.png" loading="lazy" alt="02 COM R">
+        <span class="lbl">02 COM R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=3" title="03 INC R">
+        <img src="timing-2026-06-06-0224/03-inc-r.png" loading="lazy" alt="03 INC R">
+        <span class="lbl">03 INC R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=4" title="04 DEC R">
+        <img src="timing-2026-06-06-0224/04-dec-r.png" loading="lazy" alt="04 DEC R">
+        <span class="lbl">04 DEC R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=5" title="05 NEG R">
+        <img src="timing-2026-06-06-0224/05-neg-r.png" loading="lazy" alt="05 NEG R">
+        <span class="lbl">05 NEG R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=6" title="06 ADC R">
+        <img src="timing-2026-06-06-0224/06-adc-r.png" loading="lazy" alt="06 ADC R">
+        <span class="lbl">06 ADC R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=7" title="07 SBC R">
+        <img src="timing-2026-06-06-0224/07-sbc-r.png" loading="lazy" alt="07 SBC R">
+        <span class="lbl">07 SBC R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=8" title="08 TST R">
+        <img src="timing-2026-06-06-0224/08-tst-r.png" loading="lazy" alt="08 TST R">
+        <span class="lbl">08 TST R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=9" title="09 SXT R">
+        <img src="timing-2026-06-06-0224/09-sxt-r.png" loading="lazy" alt="09 SXT R">
+        <span class="lbl">09 SXT R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=10" title="10 ROR R">
+        <img src="timing-2026-06-06-0224/10-ror-r.png" loading="lazy" alt="10 ROR R">
+        <span class="lbl">10 ROR R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=11" title="11 ROL R">
+        <img src="timing-2026-06-06-0224/11-rol-r.png" loading="lazy" alt="11 ROL R">
+        <span class="lbl">11 ROL R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=12" title="12 ASR R">
+        <img src="timing-2026-06-06-0224/12-asr-r.png" loading="lazy" alt="12 ASR R">
+        <span class="lbl">12 ASR R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=13" title="13 ASL R">
+        <img src="timing-2026-06-06-0224/13-asl-r.png" loading="lazy" alt="13 ASL R">
+        <span class="lbl">13 ASL R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=14" title="14 SWAB R">
+        <img src="timing-2026-06-06-0224/14-swab-r.png" loading="lazy" alt="14 SWAB R">
+        <span class="lbl">14 SWAB R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=15" title="15 SXT R N0">
+        <img src="timing-2026-06-06-0224/15-sxt-r-n0.png" loading="lazy" alt="15 SXT R N0">
+        <span class="lbl">15 SXT R N0</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=16" title="16 MOV R R">
+        <img src="timing-2026-06-06-0224/16-mov-r-r.png" loading="lazy" alt="16 MOV R R">
+        <span class="lbl">16 MOV R R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=17" title="17 CMP R R">
+        <img src="timing-2026-06-06-0224/17-cmp-r-r.png" loading="lazy" alt="17 CMP R R">
+        <span class="lbl">17 CMP R R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=18" title="18 BIT R R">
+        <img src="timing-2026-06-06-0224/18-bit-r-r.png" loading="lazy" alt="18 BIT R R">
+        <span class="lbl">18 BIT R R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=19" title="19 BIC R R">
+        <img src="timing-2026-06-06-0224/19-bic-r-r.png" loading="lazy" alt="19 BIC R R">
+        <span class="lbl">19 BIC R R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=20" title="20 BIS R R">
+        <img src="timing-2026-06-06-0224/20-bis-r-r.png" loading="lazy" alt="20 BIS R R">
+        <span class="lbl">20 BIS R R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=21" title="21 ADD R R">
+        <img src="timing-2026-06-06-0224/21-add-r-r.png" loading="lazy" alt="21 ADD R R">
+        <span class="lbl">21 ADD R R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=22" title="22 SUB R R">
+        <img src="timing-2026-06-06-0224/22-sub-r-r.png" loading="lazy" alt="22 SUB R R">
+        <span class="lbl">22 SUB R R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=23" title="23 MOV IMM R">
+        <img src="timing-2026-06-06-0224/23-mov-imm-r.png" loading="lazy" alt="23 MOV IMM R">
+        <span class="lbl">23 MOV IMM R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=24" title="24 ADD IMM R">
+        <img src="timing-2026-06-06-0224/24-add-imm-r.png" loading="lazy" alt="24 ADD IMM R">
+        <span class="lbl">24 ADD IMM R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=25" title="25 CMP IMM R">
+        <img src="timing-2026-06-06-0224/25-cmp-imm-r.png" loading="lazy" alt="25 CMP IMM R">
+        <span class="lbl">25 CMP IMM R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=26" title="26 BIS IMM R">
+        <img src="timing-2026-06-06-0224/26-bis-imm-r.png" loading="lazy" alt="26 BIS IMM R">
+        <span class="lbl">26 BIS IMM R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=27" title="27 MOV IND R">
+        <img src="timing-2026-06-06-0224/27-mov-ind-r.png" loading="lazy" alt="27 MOV IND R">
+        <span class="lbl">27 MOV IND R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=28" title="28 MOV R IND">
+        <img src="timing-2026-06-06-0224/28-mov-r-ind.png" loading="lazy" alt="28 MOV R IND">
+        <span class="lbl">28 MOV R IND</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=29" title="29 MOV AUTOINC R">
+        <img src="timing-2026-06-06-0224/29-mov-autoinc-r.png" loading="lazy" alt="29 MOV AUTOINC R">
+        <span class="lbl">29 MOV AUTOINC R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=30" title="30 MOV AUTODEC R">
+        <img src="timing-2026-06-06-0224/30-mov-autodec-r.png" loading="lazy" alt="30 MOV AUTODEC R">
+        <span class="lbl">30 MOV AUTODEC R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=31" title="31 MOV IDX R">
+        <img src="timing-2026-06-06-0224/31-mov-idx-r.png" loading="lazy" alt="31 MOV IDX R">
+        <span class="lbl">31 MOV IDX R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=32" title="32 MOVB IND R">
+        <img src="timing-2026-06-06-0224/32-movb-ind-r.png" loading="lazy" alt="32 MOVB IND R">
+        <span class="lbl">32 MOVB IND R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=33" title="33 BR TAKEN">
+        <img src="timing-2026-06-06-0224/33-br-taken.png" loading="lazy" alt="33 BR TAKEN">
+        <span class="lbl">33 BR TAKEN</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=34" title="34 BNE TAKEN">
+        <img src="timing-2026-06-06-0224/34-bne-taken.png" loading="lazy" alt="34 BNE TAKEN">
+        <span class="lbl">34 BNE TAKEN</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=35" title="35 BNE NT">
+        <img src="timing-2026-06-06-0224/35-bne-nt.png" loading="lazy" alt="35 BNE NT">
+        <span class="lbl">35 BNE NT</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=36" title="36 BEQ TAKEN">
+        <img src="timing-2026-06-06-0224/36-beq-taken.png" loading="lazy" alt="36 BEQ TAKEN">
+        <span class="lbl">36 BEQ TAKEN</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=37" title="37 BGE TAKEN">
+        <img src="timing-2026-06-06-0224/37-bge-taken.png" loading="lazy" alt="37 BGE TAKEN">
+        <span class="lbl">37 BGE TAKEN</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=38" title="38 BLT TAKEN">
+        <img src="timing-2026-06-06-0224/38-blt-taken.png" loading="lazy" alt="38 BLT TAKEN">
+        <span class="lbl">38 BLT TAKEN</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=39" title="39 BCC TAKEN">
+        <img src="timing-2026-06-06-0224/39-bcc-taken.png" loading="lazy" alt="39 BCC TAKEN">
+        <span class="lbl">39 BCC TAKEN</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=40" title="40 BCS TAKEN">
+        <img src="timing-2026-06-06-0224/40-bcs-taken.png" loading="lazy" alt="40 BCS TAKEN">
+        <span class="lbl">40 BCS TAKEN</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=41" title="41 JSR R5">
+        <img src="timing-2026-06-06-0224/41-jsr-r5.png" loading="lazy" alt="41 JSR R5">
+        <span class="lbl">41 JSR R5</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=42" title="42 RTS R5">
+        <img src="timing-2026-06-06-0224/42-rts-r5.png" loading="lazy" alt="42 RTS R5">
+        <span class="lbl">42 RTS R5</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=43" title="43 JMP IND">
+        <img src="timing-2026-06-06-0224/43-jmp-ind.png" loading="lazy" alt="43 JMP IND">
+        <span class="lbl">43 JMP IND</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=44" title="44 SOB TAKEN">
+        <img src="timing-2026-06-06-0224/44-sob-taken.png" loading="lazy" alt="44 SOB TAKEN">
+        <span class="lbl">44 SOB TAKEN</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=45" title="45 SOB NT">
+        <img src="timing-2026-06-06-0224/45-sob-nt.png" loading="lazy" alt="45 SOB NT">
+        <span class="lbl">45 SOB NT</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=46" title="46 MOVB R R">
+        <img src="timing-2026-06-06-0224/46-movb-r-r.png" loading="lazy" alt="46 MOVB R R">
+        <span class="lbl">46 MOVB R R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=47" title="47 CLRB R">
+        <img src="timing-2026-06-06-0224/47-clrb-r.png" loading="lazy" alt="47 CLRB R">
+        <span class="lbl">47 CLRB R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=48" title="48 INCB R">
+        <img src="timing-2026-06-06-0224/48-incb-r.png" loading="lazy" alt="48 INCB R">
+        <span class="lbl">48 INCB R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=49" title="49 CMPB R R">
+        <img src="timing-2026-06-06-0224/49-cmpb-r-r.png" loading="lazy" alt="49 CMPB R R">
+        <span class="lbl">49 CMPB R R</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=50" title="50 MODE0 REG">
+        <img src="timing-2026-06-06-0224/50-mode0-reg.png" loading="lazy" alt="50 MODE0 REG">
+        <span class="lbl">50 MODE0 REG</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=51" title="51 MODE1 IND">
+        <img src="timing-2026-06-06-0224/51-mode1-ind.png" loading="lazy" alt="51 MODE1 IND">
+        <span class="lbl">51 MODE1 IND</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=52" title="52 MODE2 AUTOINC">
+        <img src="timing-2026-06-06-0224/52-mode2-autoinc.png" loading="lazy" alt="52 MODE2 AUTOINC">
+        <span class="lbl">52 MODE2 AUTOINC</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=53" title="53 MODE4 AUTODEC">
+        <img src="timing-2026-06-06-0224/53-mode4-autodec.png" loading="lazy" alt="53 MODE4 AUTODEC">
+        <span class="lbl">53 MODE4 AUTODEC</span>
+      </a>
+      <a class="card" href="viewer.html?run=timing-2026-06-06-0224&i=54" title="54 MODE6 IDX">
+        <img src="timing-2026-06-06-0224/54-mode6-idx.png" loading="lazy" alt="54 MODE6 IDX">
+        <span class="lbl">54 MODE6 IDX</span>
+      </a>
+    </div>
+  </details>
+</body>
+</html>

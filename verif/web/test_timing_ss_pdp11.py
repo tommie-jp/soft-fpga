@@ -77,9 +77,11 @@ class TimingCasePDP11:
     asm: str            # . = 01000 から `1: br 1b` までの完全なアセンブリソース
     trigger_pc: int     # 観測する命令のPC（8進整数。例: 0o1006）
     signals: list[str]  # LA に表示する信号 ID のリスト
-    zoom: int           # LA ズーム値（8=標準, 4=詳細, 16=広域）
+    zoom: int           # LA ズーム値（8=標準, 4=詳細, 32=広域）
     post_delay: int     # trigger 後に追加で進めるサンプル数
     desc: str = ''      # 説明文
+    mem_probe: int | None = None  # LA M1 プローブアドレス（バイトアドレス 8 進整数）
+    pre_ticks: int = 40  # プリトリガーランニング tick 数（ring buffer 充填用）
 
     @property
     def filename(self) -> str:
@@ -119,8 +121,8 @@ nop
 """,
         trigger_pc=0o1000,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='No Operation',
     ),
 ]
@@ -131,13 +133,14 @@ _B: list[TimingCasePDP11] = [
     TimingCasePDP11(
         1, 'clr-r',
         asm=""". = 01000
+mov $177777, r1
 clr r1
 1: br 1b
 """,
-        trigger_pc=0o1000,
+        trigger_pc=0o1004,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Clear Register R1',
     ),
 
@@ -151,8 +154,8 @@ com r1
 """,
         trigger_pc=0o1004,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Complement R1',
     ),
 
@@ -160,14 +163,14 @@ com r1
     TimingCasePDP11(
         3, 'inc-r',
         asm=""". = 01000
-clr r1
+mov $177776, r1
 inc r1
 1: br 1b
 """,
-        trigger_pc=0o1002,
+        trigger_pc=0o1004,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Increment R1',
     ),
 
@@ -181,8 +184,8 @@ dec r1
 """,
         trigger_pc=0o1004,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Decrement R1',
     ),
 
@@ -196,8 +199,8 @@ neg r1
 """,
         trigger_pc=0o1004,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Negate R1 (twos complement)',
     ),
 
@@ -205,14 +208,14 @@ neg r1
     TimingCasePDP11(
         6, 'adc-r',
         asm=""". = 01000
-clr r1
+mov $777, r1
 adc r1
 1: br 1b
 """,
-        trigger_pc=0o1002,
+        trigger_pc=0o1004,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Add Carry to R1 (C=0)',
     ),
 
@@ -220,14 +223,14 @@ adc r1
     TimingCasePDP11(
         7, 'sbc-r',
         asm=""". = 01000
-clr r1
+mov $777, r1
 sbc r1
 1: br 1b
 """,
-        trigger_pc=0o1002,
+        trigger_pc=0o1004,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Subtract Carry from R1 (C=0)',
     ),
 
@@ -241,8 +244,8 @@ tst r1
 """,
         trigger_pc=0o1004,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Test R1 (set N/Z flags)',
     ),
 
@@ -257,8 +260,8 @@ sxt r1
 """,
         trigger_pc=0o1004,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Sign Extend (N=1 → R1=177600)',
     ),
 ]
@@ -275,8 +278,8 @@ ror r1
 """,
         trigger_pc=0o1004,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Rotate Right through Carry (C=0)',
     ),
 
@@ -290,8 +293,8 @@ rol r1
 """,
         trigger_pc=0o1004,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Rotate Left through Carry (C=0)',
     ),
 
@@ -306,8 +309,8 @@ asr r1
 """,
         trigger_pc=0o1004,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Arithmetic Shift Right R1',
     ),
 
@@ -321,8 +324,8 @@ asl r1
 """,
         trigger_pc=0o1004,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Arithmetic Shift Left R1',
     ),
 
@@ -337,8 +340,8 @@ swab r1
 """,
         trigger_pc=0o1004,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Swap Bytes of R1',
     ),
 
@@ -346,14 +349,15 @@ swab r1
     TimingCasePDP11(
         15, 'sxt-r-n0',
         asm=""". = 01000
-clr r1
+mov $177777, r1
+clr r2
 sxt r1
 1: br 1b
 """,
-        trigger_pc=0o1002,
+        trigger_pc=0o1006,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Sign Extend (N=0 → R1=0)',
     ),
 ]
@@ -365,13 +369,14 @@ _D: list[TimingCasePDP11] = [
         16, 'mov-r-r',
         asm=""". = 01000
 clr r0
+mov $177777, r1
 mov r0, r1
 1: br 1b
 """,
-        trigger_pc=0o1002,
+        trigger_pc=0o1006,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Move R0 to R1',
     ),
 
@@ -387,8 +392,8 @@ cmp r0, r1
 """,
         trigger_pc=0o1010,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Compare R0 and R1 (equal, Z=1)',
     ),
 
@@ -403,8 +408,8 @@ bit r0, r1
 """,
         trigger_pc=0o1010,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Bit Test R0 AND R1',
     ),
 
@@ -419,8 +424,8 @@ bic r0, r1
 """,
         trigger_pc=0o1010,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Bit Clear: R1 &= ~R0',
     ),
 
@@ -428,15 +433,15 @@ bic r0, r1
     TimingCasePDP11(
         20, 'bis-r-r',
         asm=""". = 01000
-clr r1
+mov $177774, r1
 mov $3, r0
 bis r0, r1
 1: br 1b
 """,
-        trigger_pc=0o1006,
+        trigger_pc=0o1010,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Bit Set: R1 |= R0',
     ),
 
@@ -451,8 +456,8 @@ add r0, r1
 """,
         trigger_pc=0o1010,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Add R0 to R1',
     ),
 
@@ -467,8 +472,8 @@ sub r0, r1
 """,
         trigger_pc=0o1010,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Subtract R0 from R1',
     ),
 ]
@@ -479,13 +484,14 @@ _E: list[TimingCasePDP11] = [
     TimingCasePDP11(
         23, 'mov-imm-r',
         asm=""". = 01000
+mov $177777, r1
 mov $5, r1
 1: br 1b
 """,
-        trigger_pc=0o1000,
+        trigger_pc=0o1004,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=40,
+        zoom=32,
+        post_delay=80,
         desc='Move Immediate 5 to R1',
     ),
 
@@ -499,8 +505,8 @@ add $3, r1
 """,
         trigger_pc=0o1004,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=40,
+        zoom=32,
+        post_delay=80,
         desc='Add Immediate 3 to R1',
     ),
 
@@ -514,8 +520,8 @@ cmp $5, r1
 """,
         trigger_pc=0o1004,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=40,
+        zoom=32,
+        post_delay=80,
         desc='Compare Immediate 5 with R1 (equal, Z=1)',
     ),
 
@@ -523,14 +529,14 @@ cmp $5, r1
     TimingCasePDP11(
         26, 'bis-imm-r',
         asm=""". = 01000
-clr r1
+mov $177760, r1
 bis $17, r1
 1: br 1b
 """,
-        trigger_pc=0o1002,
+        trigger_pc=0o1004,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=40,
+        zoom=32,
+        post_delay=80,
         desc='Bit Set: R1 |= 017',
     ),
 ]
@@ -554,9 +560,10 @@ mov (r1), r2
 """,
         trigger_pc=0o1006,
         signals=SIG_MEM,
-        zoom=8,
-        post_delay=50,
+        zoom=32,
+        post_delay=100,
         desc='Load R2 from memory (R1)',
+        mem_probe=0o1200,
     ),
 
     # MOV R2,(R1) (store):
@@ -571,13 +578,14 @@ mov $042, r2
 mov r2, (r1)
 1: br 1b
 . = 01200
-0
+0177777
 """,
         trigger_pc=0o1010,
         signals=SIG_MEM,
-        zoom=8,
-        post_delay=50,
+        zoom=32,
+        post_delay=100,
         desc='Store R2 to memory (R1)',
+        mem_probe=0o1200,
     ),
 
     # MOV (R1)+,R2 (auto-increment):
@@ -596,9 +604,10 @@ mov (r1)+, r2
 """,
         trigger_pc=0o1006,
         signals=SIG_MEM,
-        zoom=8,
-        post_delay=50,
+        zoom=32,
+        post_delay=100,
         desc='Load R2 auto-increment (R1)+',
+        mem_probe=0o1200,
     ),
 
     # MOV -(R1),R2 (auto-decrement):
@@ -617,9 +626,10 @@ mov -(r1), r2
 """,
         trigger_pc=0o1006,
         signals=SIG_MEM,
-        zoom=8,
-        post_delay=50,
+        zoom=32,
+        post_delay=100,
         desc='Load R2 auto-decrement -(R1)',
+        mem_probe=0o1200,
     ),
 
     # MOV 2(R1),R2 (indexed):
@@ -639,9 +649,10 @@ mov 2(r1), r2
 """,
         trigger_pc=0o1006,
         signals=SIG_MEM,
-        zoom=8,
-        post_delay=60,
+        zoom=32,
+        post_delay=120,
         desc='Load R2 indexed 2(R1)',
+        mem_probe=0o1202,
     ),
 
     # MOVB (R1),R2 (byte load, sign-extend):
@@ -660,9 +671,10 @@ movb (r1), r2
 """,
         trigger_pc=0o1006,
         signals=SIG_MEM,
-        zoom=8,
-        post_delay=50,
+        zoom=32,
+        post_delay=100,
         desc='Byte Load R2 from (R1), sign-extend',
+        mem_probe=0o1200,
     ),
 ]
 
@@ -678,8 +690,8 @@ done: 1: br 1b
 """,
         trigger_pc=0o1000,
         signals=SIG_BRANCH,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Branch (always taken)',
     ),
 
@@ -698,8 +710,8 @@ done: 1: br 1b
 """,
         trigger_pc=0o1004,
         signals=SIG_BRANCH,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Branch if Not Equal (Z=0, taken)',
     ),
 
@@ -716,8 +728,8 @@ done: 1: br 1b
 """,
         trigger_pc=0o1002,
         signals=SIG_BRANCH,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Branch if Not Equal (Z=1, not taken)',
     ),
 
@@ -734,8 +746,8 @@ done: 1: br 1b
 """,
         trigger_pc=0o1002,
         signals=SIG_BRANCH,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Branch if Equal (Z=1, taken)',
     ),
 
@@ -752,8 +764,8 @@ done: 1: br 1b
 """,
         trigger_pc=0o1002,
         signals=SIG_BRANCH,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Branch if >= 0 (N=V=0, taken)',
     ),
 
@@ -772,8 +784,8 @@ done: 1: br 1b
 """,
         trigger_pc=0o1006,
         signals=SIG_BRANCH,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Branch if < 0 (N=1, V=0, taken)',
     ),
 
@@ -792,8 +804,8 @@ done: 1: br 1b
 """,
         trigger_pc=0o1006,
         signals=SIG_BRANCH,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Branch if Carry Clear (C=0, taken)',
     ),
 
@@ -812,8 +824,8 @@ done: 1: br 1b
 """,
         trigger_pc=0o1010,
         signals=SIG_BRANCH,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Branch if Carry Set (C=1, taken)',
     ),
 ]
@@ -830,12 +842,15 @@ mov $01400, sp
 jsr r5, sub
 1: br 1b
 sub: rts r5
+. = 01376
+0177777
 """,
         trigger_pc=0o1004,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=60,
+        zoom=32,
+        post_delay=120,
         desc='Jump to Subroutine via R5',
+        mem_probe=0o1376,
     ),
 
     # RTS R5: jsr の後, サブルーチン内 rts r5 を観測
@@ -853,8 +868,8 @@ sub: rts r5
 """,
         trigger_pc=0o1012,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=60,
+        zoom=32,
+        post_delay=120,
         desc='Return from Subroutine via R5',
     ),
 ]
@@ -876,8 +891,8 @@ done: 1: br 1b
 """,
         trigger_pc=0o1004,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=40,
+        zoom=32,
+        post_delay=80,
         desc='Jump indirect via R1',
     ),
 
@@ -893,8 +908,8 @@ loop: sob r1, loop
 """,
         trigger_pc=0o1004,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=40,
+        zoom=32,
+        post_delay=80,
         desc='Subtract One and Branch (R1=2→1, taken)',
     ),
 
@@ -910,8 +925,8 @@ loop: sob r1, loop
 """,
         trigger_pc=0o1004,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=40,
+        zoom=32,
+        post_delay=80,
         desc='Subtract One and Branch (R1=1→0, not taken)',
     ),
 ]
@@ -930,8 +945,8 @@ movb r0, r1
 """,
         trigger_pc=0o1004,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Move Byte R0 to R1 (sign-extend)',
     ),
 
@@ -947,8 +962,8 @@ clrb r1
 """,
         trigger_pc=0o1004,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Clear Byte lower R1 (upper unchanged)',
     ),
 
@@ -964,8 +979,8 @@ incb r1
 """,
         trigger_pc=0o1002,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Increment Byte R1',
     ),
 
@@ -983,8 +998,8 @@ cmpb r0, r1
 """,
         trigger_pc=0o1010,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Compare Bytes R0 and R1 (equal, Z=1)',
     ),
 ]
@@ -1004,8 +1019,8 @@ mov r0, r1
 """,
         trigger_pc=0o1004,
         signals=SIG_STD,
-        zoom=8,
-        post_delay=30,
+        zoom=32,
+        post_delay=60,
         desc='Mode 0: Register direct MOV R0,R1',
     ),
 
@@ -1025,9 +1040,10 @@ mov (r0), r1
 """,
         trigger_pc=0o1006,
         signals=SIG_MEM,
-        zoom=8,
-        post_delay=50,
+        zoom=32,
+        post_delay=100,
         desc='Mode 1: Register indirect MOV (R0),R1',
+        mem_probe=0o1200,
     ),
 
     # Mode 2: MOV (R0)+, R1 (auto-increment) — 1ワード
@@ -1046,9 +1062,10 @@ mov (r0)+, r1
 """,
         trigger_pc=0o1006,
         signals=SIG_MEM,
-        zoom=8,
-        post_delay=50,
+        zoom=32,
+        post_delay=100,
         desc='Mode 2: Auto-increment MOV (R0)+,R1',
+        mem_probe=0o1200,
     ),
 
     # Mode 4: MOV -(R0), R1 (auto-decrement) — 1ワード
@@ -1067,9 +1084,10 @@ mov -(r0), r1
 """,
         trigger_pc=0o1006,
         signals=SIG_MEM,
-        zoom=8,
-        post_delay=50,
+        zoom=32,
+        post_delay=100,
         desc='Mode 4: Auto-decrement MOV -(R0),R1',
+        mem_probe=0o1200,
     ),
 
     # Mode 6: MOV 2(R0), R1 (indexed) — 2ワード
@@ -1089,9 +1107,10 @@ mov 2(r0), r1
 """,
         trigger_pc=0o1006,
         signals=SIG_MEM,
-        zoom=8,
-        post_delay=60,
+        zoom=32,
+        post_delay=120,
         desc='Mode 6: Indexed MOV 2(R0),R1',
+        mem_probe=0o1202,
     ),
 ]
 
@@ -1206,30 +1225,78 @@ def screenshot_la(page: Page, output_path: pathlib.Path, title: str = "") -> Non
 
 # ── テスト実行関数（ベアメタルモード）─────────────────────────────────────────
 
+def _make_loopable(asm: str) -> str:
+    """末尾の '1: br 1b' 自己ループを先頭ループに変換する。
+
+    変換前:  . = 01000
+             <setup>
+             <instruction>
+             1: br 1b        ← 自己ループ
+
+    変換後:  . = 01000
+             1:              ← ループ先頭
+             <setup>
+             <instruction>
+             br 1b           ← 先頭へ戻る
+
+    これにより pre_ticks 分のプリランで setup + instruction が繰り返され、
+    ring buffer にプリトリガーデータが充填される。
+    """
+    if '1: br 1b' not in asm:
+        return asm
+    asm = asm.replace('1: br 1b', 'br 1b')
+    lines = asm.split('\n')
+    result: list[str] = []
+    inserted = False
+    for line in lines:
+        result.append(line)
+        if not inserted and line.strip().startswith('. ='):
+            result.append('1:')
+            inserted = True
+    return '\n'.join(result)
+
+
 def run_timing_case(page: Page, case: TimingCasePDP11, ss_dir: pathlib.Path) -> None:
     """ベアメタルモードで 1 ケースを実行してスクリーンショットを保存する。
 
     1. Python アセンブラで asm 文字列を機械語ワード列に変換
     2. init_bare で WASM をリセット（Unix V6 ブートなし）
     3. 機械語を RAM に書き込む
-    4. LA 信号・ズームを設定
-    5. PC トリガーを設定して実行
-    6. trigger 発火後に post_delay 分だけ追加で進める
-    7. スクリーンショット保存
+    4. pre_ticks 分プリラン（ring buffer にプリトリガーデータを充填）
+    5. LA 信号・ズームを設定
+    6. PC トリガーを設定して実行
+    7. trigger 発火後に post_delay 分だけ追加で進める
+    8. スクリーンショット保存
     """
-    # アセンブル
-    prog = assemble(case.asm)
+    # アセンブル（'1: br 1b' 末尾ループ → '1:' 先頭ループに変換）
+    prog = assemble(_make_loopable(case.asm))
     all_words = prog.words   # {byte_addr: word}
 
     # ベアメタル初期化
     bare_init(page, prog.start)
 
+    # メモリプローブアドレス設定（M1 信号用: 0xFFFFFFFF でプローブ無効）
+    probe_addr = case.mem_probe if case.mem_probe is not None else 0xFFFFFFFF
+    page.evaluate(f"() => window.worker.postMessage({{type:'set_mem_probe', addr:{probe_addr}}})")
+
+    # M1 ラベルにプローブアドレスを表示: "M1(1200)" 形式（アドレスは 8 進）
+    m1_label = f'M1({case.mem_probe:o})' if case.mem_probe is not None else 'M1'
+    page.evaluate(f"""() => {{
+        var s = (window.la._signals || []).find(function(x) {{ return x.id === 'mem_m1'; }});
+        if (s) s.label = '{m1_label}';
+    }}""")
+
     # 機械語を RAM に書き込む
     bare_write_words(page, all_words)
 
     # LA 信号・ズーム設定
-    page.evaluate("(ids) => window.pdp11SetSignals(ids)", case.signals)
+    page.evaluate("() => window.pdp11SetSignals(window.la._signals.map(s => s.id))")
     page.evaluate(f"() => window.pdp11SetZoom({case.zoom})")
+
+    # プリトリガーランニング: ring buffer に setup + instruction を充填する。
+    # ループ化した asm を pre_ticks 分走らせることで、トリガー前に実データが入る。
+    if case.pre_ticks > 0:
+        bare_step(page, case.pre_ticks)
 
     # PC トリガー設定と実行開始をアトミックに送る。
     # resume + set_trigger を別々に送ると setTimeout(simLoop,0) が
@@ -1249,9 +1316,48 @@ def run_timing_case(page: Page, case: TimingCasePDP11, ss_dir: pathlib.Path) -> 
     # post_delay サンプル × 4 ticks/sample
     bare_step(page, case.post_delay * 4)
 
+    # 表示パン: T=-20 が左端に来るよう _pan を計算してから再描画する。
+    # gotoTrig(fracX) の代わりに直接 _pan を設定することで
+    # 「トリガーより20T前が左端」となる位置を正確に指定できる。
+    #   _pan = trigOffset - (samplesInView - SHOW_PRE - 1)
+    # ここで trigOffset = lastHead - trigHead (ポストトリガー分)
+    show_pre = min(case.pre_ticks, 20) if case.pre_ticks > 0 else 4
+    page.evaluate(f"""() => {{
+        var la = window.la;
+        if (!la || la._trigHead < 0) {{ la.gotoTrig(0.2); return; }}
+        var trigOffset   = ((la._lastHead >>> 0) - (la._trigHead >>> 0)) >>> 0;
+        var samplesInView = Math.ceil(la._VIEW_W / la._zoom);
+        var SHOW_PRE     = {show_pre};
+        la._pan = Math.max(0, trigOffset - (samplesInView - SHOW_PRE - 1));
+        if (la._lastHeapu32) la._draw(la._lastHeapu32, la._lastHead);
+    }}""")
+
+    # 命令オペコードをリングバッファから読む（word4 bits[20:5] = ISN）
+    # トリガー発火サンプル直前（pre_ticks > 0 なら istate=FETCH のサンプルを探す）
+    # から最初の非ゼロ ISN を取得する
+    isn: int = page.evaluate("""() => {
+        var la = window.la;
+        if (!la || la._trigHead < 0 || !la._lastHeapu32) return 0;
+        var RW = 9, RS = 4096;
+        for (var i = 0; i <= 12; i++) {
+            var base = ((la._trigHead + i) & (RS - 1)) * RW;
+            var isn = (la._lastHeapu32[base + 4] >>> 5) & 0xFFFF;
+            if (isn) return isn;
+        }
+        return 0;
+    }""") or 0
+
+    # タイトル構築（opc=0o{octal} を PC= の左に追加）
+    desc_part = f' — {case.desc}' if case.desc else ''
+    title = (
+        f"{case.seq:02d} {case.mnemonic.upper().replace('-', ' ')}{desc_part}"
+        f"  opc=0o{isn:06o}  PC=0o{case.trigger_pc:06o}"
+        f"  [{case.zoom}x]  {_RUN_TS}"
+    )
+
     # スクリーンショット保存
     out = ss_dir / case.filename
-    screenshot_la(page, out, title=case.title)
+    screenshot_la(page, out, title=title)
 
 
 # ── フィクスチャ ────────────────────────────────────────────────────────────────
@@ -1262,7 +1368,8 @@ def bare_page(browser, base_url: str) -> Page:
 
     各テストケースで init_bare を呼ぶためセッション共有でよい。
     """
-    ctx = browser.new_context()
+    # 幅を広げてLA が 1100px 以上確保できるようにする
+    ctx = browser.new_context(viewport={'width': 1800, 'height': 900})
     page = ctx.new_page()
     page.goto(base_url)
 

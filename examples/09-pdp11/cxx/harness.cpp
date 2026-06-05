@@ -3,6 +3,8 @@
 // DPI 実装（dpi_tty_putc / dpi_tty_getc）、step_n、send_key、
 // get_display_char、ring buffer（RING_WORDS=9）、PC トリガー、sim_init、
 // GPR snapshot（R0-R5/SP）、MMU PAR/PDR 読み取りを提供する。
+// mem_probe: sim_set_mem_probe(addr) で指定したアドレスの RAM 値を
+//            Word8[31:16] に毎サンプル記録する（LA の M1 信号）。
 
 #include "Vtest_top_wasm.h"
 #include "Vtest_top_wasm___024root.h"
@@ -84,12 +86,23 @@ static uint64_t        sim_time = 0;
 //   [ 4: 0] istate        — CPU マイクロシーケンサ状態
 //   [20: 5] isn           — 現在の命令ワード
 //   [31:21] reserved
+// Word8 [31:0]:
+//   [15: 0] SP            — スタックポインタ
+//   [31:16] M1            — メモリプローブ値（sim_set_mem_probe で指定アドレスの RAM 読み値）
 
 #define RING_SIZE  4096
 #define RING_WORDS 9
 
 static uint32_t ring[RING_SIZE * RING_WORDS];
 static uint32_t ring_head = 0;
+// ring_tick_mask: サンプリング間隔マスク
+//   0u → 毎 tick (bare metal タイミング図用)
+//   3u → 4tick に 1 回 (Unix V6 ブート用、既定)
+static uint32_t ring_tick_mask = 3u;
+
+// メモリプローブ: 0xFFFFFFFF = 無効（プローブなし）
+extern "C" uint16_t ram_read_word(uint32_t byte_addr);
+static uint32_t mem_probe_addr = 0xFFFFFFFFu;
 
 static inline void sample_ring() {
     uint32_t* p = &ring[(ring_head % RING_SIZE) * RING_WORDS];
@@ -110,14 +123,17 @@ static inline void sample_ring() {
          | ((uint32_t)(OBS_INT_IPL  & 0xFFu) << 8)
          | ((uint32_t)(OBS_EXTRA1   & 0xFFFFu) << 16);
     p[4] = (uint32_t)OBS_WORD4;
-    // Word5-8: GPR スナップショット（R0-R5, SP）
+    // Word5-8: GPR スナップショット（R0-R5, SP）+ M1 メモリプローブ
     p[5] = ((uint32_t)(top->rootp->test_top_wasm__DOT__top__DOT__cpu__DOT__r0) & 0xFFFFu)
          | ((uint32_t)(top->rootp->test_top_wasm__DOT__top__DOT__cpu__DOT__r1) << 16);
     p[6] = ((uint32_t)(top->rootp->test_top_wasm__DOT__top__DOT__cpu__DOT__r2) & 0xFFFFu)
          | ((uint32_t)(top->rootp->test_top_wasm__DOT__top__DOT__cpu__DOT__r3) << 16);
     p[7] = ((uint32_t)(top->rootp->test_top_wasm__DOT__top__DOT__cpu__DOT__r4) & 0xFFFFu)
          | ((uint32_t)(top->rootp->test_top_wasm__DOT__top__DOT__cpu__DOT__r5) << 16);
-    p[8] = ((uint32_t)(top->rootp->test_top_wasm__DOT__top__DOT__cpu__DOT__sp) & 0xFFFFu);
+    p[8] = ((uint32_t)(top->rootp->test_top_wasm__DOT__top__DOT__cpu__DOT__sp) & 0xFFFFu)
+         | (mem_probe_addr != 0xFFFFFFFFu
+            ? ((uint32_t)ram_read_word(mem_probe_addr) << 16)
+            : 0u);
     ring_head++;
 }
 
@@ -229,10 +245,11 @@ EMSCRIPTEN_KEEPALIVE void sim_init() {
     memset(mmu_snap, 0, sizeof(mmu_snap));
     con_out_head = con_out_tail = 0;
     con_in_head  = con_in_tail  = 0;
-    ring_head    = 0;
-    sim_time     = 0;
-    g_trigger_pc = 0;
-    g_triggered  = 0;
+    ring_head      = 0;
+    sim_time       = 0;
+    g_trigger_pc   = 0;
+    g_triggered    = 0;
+    ring_tick_mask = 3u;   // Unix V6 ブート: 4tick/sample
 
     do_reset();
 }
@@ -253,10 +270,11 @@ EMSCRIPTEN_KEEPALIVE void sim_init_bare(uint32_t start_pc) {
     memset(mmu_snap, 0, sizeof(mmu_snap));
     con_out_head = con_out_tail = 0;
     con_in_head  = con_in_tail  = 0;
-    ring_head    = 0;
-    sim_time     = 0;
-    g_trigger_pc = 0;
-    g_triggered  = 0;
+    ring_head      = 0;
+    sim_time       = 0;
+    g_trigger_pc   = 0;
+    g_triggered    = 0;
+    ring_tick_mask = 0u;   // ベアメタル タイミング図: 1tick/sample
 
     ram_clear();
 
@@ -285,11 +303,16 @@ EMSCRIPTEN_KEEPALIVE void sim_write_word(uint32_t byte_addr, uint32_t word) {
     ram_write_word(byte_addr, (uint16_t)(word & 0xFFFFu));
 }
 
+// メモリプローブアドレスを設定する（0xFFFFFFFF でプローブ無効）
+EMSCRIPTEN_KEEPALIVE void sim_set_mem_probe(uint32_t byte_addr) {
+    mem_probe_addr = byte_addr;
+}
+
 // ベアメタル: トリガー・HALT 判定なしで n_ticks だけ進める（ポストトリガー用）
 EMSCRIPTEN_KEEPALIVE void sim_step_bare(int n_ticks) {
     for (int i = 0; i < n_ticks; i++) {
         tick();
-        if ((sim_time & 3u) == 0) sample_ring();
+        if ((sim_time & ring_tick_mask) == 0) sample_ring();
     }
     if (top) update_gpr();
 }
@@ -298,7 +321,7 @@ EMSCRIPTEN_KEEPALIVE void step_n(int n) {
     for (int i = 0; i < n && !g_triggered; i++) {
         if (OBS_HALTED) break;   // CPU halt: stop simulation
         tick();
-        if ((sim_time & 3u) == 0) sample_ring();
+        if ((sim_time & ring_tick_mask) == 0) sample_ring();
         // PC トリガー判定:
         // obs_pc はフェッチ中に +2 済みのため、バス仮想アドレス(obs_addr_v)と
         // バス読み出しストローブ(obs_rd)の組み合わせで命令フェッチを検出する。
