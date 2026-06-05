@@ -54,6 +54,117 @@ function fmtOct(val, width) {
   return (val >>> 0).toString(8).padStart(digits > 1 ? 6 : 2, '0');
 }
 
+// ── PDP-11 命令逆アセンブラ（ISN 表示用） ─────────────────────────────────
+// ring buffer に記録された 16 bit オペコード語を簡易ニモニックに変換する。
+// 後続ワード（即値・インデックス・分岐先）は ISN 単一語からは読めないため、
+// #imm / X(Rn) / adr / .±n などのプレースホルダで示す。
+
+function _reg11(r) {
+  return r === 7 ? 'PC' : (r === 6 ? 'SP' : 'R' + r);
+}
+
+// 6 bit オペランドフィールド (mode[5:3] reg[2:0]) を文字列化
+function _opnd11(field) {
+  var mode = (field >>> 3) & 7;
+  var reg  = field & 7;
+  var rn = _reg11(reg);
+  switch (mode) {
+    case 0: return rn;
+    case 1: return '(' + rn + ')';
+    case 2: return reg === 7 ? '#imm'  : '(' + rn + ')+';
+    case 3: return reg === 7 ? '@#adr' : '@(' + rn + ')+';
+    case 4: return '-(' + rn + ')';
+    case 5: return '@-(' + rn + ')';
+    case 6: return reg === 7 ? 'adr'   : 'X(' + rn + ')';
+    case 7: return reg === 7 ? '@adr'  : '@X(' + rn + ')';
+  }
+  return '?';
+}
+
+// 分岐オフセット（符号付き 8 bit、ワード単位）を ".±n" で表す
+function _soff11(v) {
+  var off = v & 0xFF;
+  if (off > 127) off -= 256;
+  return '.' + (off >= 0 ? '+' : '') + off;
+}
+
+// 2 オペランド命令: op4 = bits[15:12]（1-6=ワード, 9-14=バイト/SUB）
+var _DOP11  = { 1:'MOV',  2:'CMP',  3:'BIT',  4:'BIC',  5:'BIS',  6:'ADD' };
+var _DOPB11 = { 1:'MOVB', 2:'CMPB', 3:'BITB', 4:'BICB', 5:'BISB', 6:'SUB' };
+
+// 分岐 / EMT / TRAP: op8 = bits[15:8]
+var _BR11 = {};
+_BR11[0o001] = 'BR';  _BR11[0o002] = 'BNE'; _BR11[0o003] = 'BEQ'; _BR11[0o004] = 'BGE';
+_BR11[0o005] = 'BLT'; _BR11[0o006] = 'BGT'; _BR11[0o007] = 'BLE';
+_BR11[0o200] = 'BPL'; _BR11[0o201] = 'BMI'; _BR11[0o202] = 'BHI'; _BR11[0o203] = 'BLOS';
+_BR11[0o204] = 'BVC'; _BR11[0o205] = 'BVS'; _BR11[0o206] = 'BCC'; _BR11[0o207] = 'BCS';
+
+// EIS（拡張命令）: op7 = bits[15:9]
+var _EIS11 = {};
+_EIS11[0o070] = 'MUL'; _EIS11[0o071] = 'DIV'; _EIS11[0o072] = 'ASH';
+_EIS11[0o073] = 'ASHC'; _EIS11[0o074] = 'XOR';
+
+// 単一オペランド命令: op10 = bits[15:6]
+var _SOP11 = {};
+_SOP11[0o0001] = 'JMP';  _SOP11[0o0003] = 'SWAB';
+_SOP11[0o0050] = 'CLR';  _SOP11[0o0051] = 'COM';  _SOP11[0o0052] = 'INC';  _SOP11[0o0053] = 'DEC';
+_SOP11[0o0054] = 'NEG';  _SOP11[0o0055] = 'ADC';  _SOP11[0o0056] = 'SBC';  _SOP11[0o0057] = 'TST';
+_SOP11[0o0060] = 'ROR';  _SOP11[0o0061] = 'ROL';  _SOP11[0o0062] = 'ASR';  _SOP11[0o0063] = 'ASL';
+_SOP11[0o0065] = 'MFPI'; _SOP11[0o0066] = 'MTPI'; _SOP11[0o0067] = 'SXT';
+_SOP11[0o1050] = 'CLRB'; _SOP11[0o1051] = 'COMB'; _SOP11[0o1052] = 'INCB'; _SOP11[0o1053] = 'DECB';
+_SOP11[0o1054] = 'NEGB'; _SOP11[0o1055] = 'ADCB'; _SOP11[0o1056] = 'SBCB'; _SOP11[0o1057] = 'TSTB';
+_SOP11[0o1060] = 'RORB'; _SOP11[0o1061] = 'ROLB'; _SOP11[0o1062] = 'ASRB'; _SOP11[0o1063] = 'ASLB';
+
+// 引数なし命令
+var _NOP11 = {};
+_NOP11[0o000001] = 'WAIT'; _NOP11[0o000002] = 'RTI'; _NOP11[0o000003] = 'BPT';
+_NOP11[0o000004] = 'IOT';  _NOP11[0o000005] = 'RESET'; _NOP11[0o000006] = 'RTT';
+
+// コンディションコード操作 (0o000240-0o000277)
+function _ccc11(v) {
+  if (v === 0o000240) return 'NOP';
+  var set = (v & 0o20) !== 0;
+  if ((v & 0o17) === 0o17) return set ? 'SCC' : 'CCC';
+  return (set ? 'SE' : 'CL')
+       + ((v & 0o10) ? 'N' : '') + ((v & 0o04) ? 'Z' : '')
+       + ((v & 0o02) ? 'V' : '') + ((v & 0o01) ? 'C' : '');
+}
+
+function fmtIsn11(v) {
+  v = v & 0xFFFF;
+  if (v === 0) return '';  // ring buffer 上は「命令未確定」を 0 で表す（HALT は表示しない）
+
+  var op4 = (v >>> 12) & 0xF;
+  var src = (v >>> 6) & 0o77;
+  var dst = v & 0o77;
+  if (op4 >= 1 && op4 <= 6)  return _DOP11[op4]    + ' ' + _opnd11(src) + ',' + _opnd11(dst);
+  if (op4 >= 9 && op4 <= 14) return _DOPB11[op4 - 8] + ' ' + _opnd11(src) + ',' + _opnd11(dst);
+
+  var op8 = (v >>> 8) & 0xFF;
+  if (_BR11[op8])     return _BR11[op8] + ' ' + _soff11(v);
+  if (op8 === 0o210)  return 'EMT ' + (v & 0xFF).toString(8);
+  if (op8 === 0o211)  return 'TRAP ' + (v & 0xFF).toString(8);
+
+  var op7 = (v >>> 9) & 0x7F;
+  var reg = (v >>> 6) & 7;
+  if (op7 === 0o004)  return 'JSR ' + _reg11(reg) + ',' + _opnd11(dst);
+  if (op7 === 0o077)  return 'SOB ' + _reg11(reg) + ',off';
+  if (_EIS11[op7]) {
+    return op7 === 0o074
+      ? 'XOR ' + _reg11(reg) + ',' + _opnd11(dst)
+      : _EIS11[op7] + ' ' + _opnd11(dst) + ',' + _reg11(reg);
+  }
+
+  var op10 = (v >>> 6) & 0x3FF;
+  if (_SOP11[op10])   return _SOP11[op10] + ' ' + _opnd11(dst);
+
+  if ((v & 0o177770) === 0o000200)  return 'RTS ' + _reg11(v & 7);
+  if (_NOP11[v])                    return _NOP11[v];
+  if ((v & 0o177740) === 0o000240)  return _ccc11(v);
+
+  return fmtOct(v, 16);  // 未対応（FP11 等）は 8 進フォールバック
+}
+
 // ── 信号定義 ─────────────────────────────────────────────────────────────
 
 var LA_SIGNALS_PDP11 = [
@@ -135,7 +246,7 @@ var LA_SIGNALS_PDP11 = [
   },
   {
     id:'isn', label:'ISN', word:4, bit:5, type:'hex', width:16, color:'#704828', on:false,
-    fmt:'oct', tip:'現在命令オペコード（8 進表示）'
+    fmt:'isn11', tip:'現在命令（オペコードを逆アセンブルしたニモニック表示。例: MOV R2,(R1)）'
   },
   // === バスエラー / NXM / トラップ詳細 ===
   {
@@ -236,6 +347,7 @@ var PDP11_LA_CONFIG = {
     psw11:   function(v) { return fmtPSW11(v); },
     mode11:  function(v) { return fmtMode11(v); },
     istate11:function(v) { return fmtIstate11(v); },
+    isn11:   function(v) { return fmtIsn11(v); },
     oct:     function(v, w) { return fmtOct(v, w); },
     dec:     function(v)    { return String(v >>> 0); }
   },

@@ -246,7 +246,7 @@ var LA_SIGNALS_PDP11 = [
   },
   {
     id:'isn', label:'ISN', word:4, bit:5, type:'hex', width:16, color:'#704828', on:false,
-    fmt:'oct', tip:'現在命令オペコード（8 進表示）'
+    fmt:'isn11', tip:'現在命令（オペコードを逆アセンブルしたニモニック表示。例: MOV R2,(R1)）'
   },
   // === バスエラー / NXM / トラップ詳細 ===
   {
@@ -347,6 +347,7 @@ var PDP11_LA_CONFIG = {
     psw11:   function(v) { return fmtPSW11(v); },
     mode11:  function(v) { return fmtMode11(v); },
     istate11:function(v) { return fmtIstate11(v); },
+    isn11:   function(v) { return fmtIsn11(v); },
     oct:     function(v, w) { return fmtOct(v, w); },
     dec:     function(v)    { return String(v >>> 0); }
   },
