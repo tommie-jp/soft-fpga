@@ -87,7 +87,7 @@ var LA_SIGNALS_PDP11 = [
   },
   {
     id:'pri', label:'Pri', word:1, bit:21, type:'dec', width:3, color:'#fb6', on:false,
-    tip:'割り込み優先レベル（PSW[7:5]）。KW11=6, RK11=5'
+    fmt:'dec', tip:'割り込み優先レベル（PSW[7:5]）。KW11=6, RK11=5'
   },
   // === トラップ / ホルト ===
   {
@@ -109,7 +109,7 @@ var LA_SIGNALS_PDP11 = [
   },
   {
     id:'int_ipl', label:'IPL', word:3, bit:8, type:'dec', width:8, color:'#ff8', on:false,
-    tip:'割り込み優先レベル'
+    fmt:'dec', tip:'割り込み優先レベル'
   },
   // === RK11 ディスク ===
   {
@@ -119,7 +119,7 @@ var LA_SIGNALS_PDP11 = [
   // === CPU マイクロステート / 命令 ===
   {
     id:'istate', label:'istate', word:4, bit:0, type:'dec', width:5, color:'#e9a', on:false,
-    tip:'CPU マイクロステート（fetch/decode/execute の内部段階）'
+    fmt:'dec', tip:'CPU マイクロステート（fetch/decode/execute の内部段階）'
   },
   {
     id:'isn', label:'ISN', word:4, bit:5, type:'hex', width:16, color:'#ca8', on:false,
