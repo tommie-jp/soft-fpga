@@ -103,6 +103,13 @@ cp "$ROOT/js/sft-pdp11-la-defs.js"   "$EXAMPLE/web/js/"
 cp "$ROOT/js/sft-pdp11-docs.js"      "$EXAMPLE/web/js/"
 echo "  web/js/: rtlscope-la.js sft-pdp11-la-defs.js sft-pdp11-docs.js"
 
+# ── web/docs/ へ Markdown ドキュメントをコピー ──────────────────────────────
+# docs/09-PDP11/*.md がソース（git 管理）。web/docs/ は gitignore 除外のため
+# ビルド時に同期する。
+mkdir -p "$EXAMPLE/web/docs"
+cp "$ROOT/docs/09-PDP11/"*.md "$EXAMPLE/web/docs/"
+echo "  web/docs/: $(ls "$ROOT/docs/09-PDP11/"*.md | wc -l) .md files"
+
 # ── テストビルド: Node.js ES Module（Vitest 用、ディスク埋め込み） ──────────
 # MODULARIZE=1 + EXPORT_ES6=1 + ENVIRONMENT=node で sim-test.mjs を生成する。
 # Unix V6 ディスクを /disk0.rk として埋め込むので Vitest 側は単体で起動できる。
