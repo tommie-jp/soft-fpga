@@ -48,16 +48,16 @@ var LA_SIGNALS_PDP11 = [
   // === バスアドレス ===
   {
     id:'addr_p', label:'PhysAddr', word:0, bit:0, type:'hex', width:18, color:'#fa8', on:true,
-    tip:'Unibus 物理アドレス（MMU 変換後 18 ビット）。I/O ページ = 0o760000–0o777777'
+    fmt:'oct', tip:'Unibus 物理アドレス（MMU 変換後 18 ビット）。I/O ページ = 0o760000–0o777777'
   },
   {
     id:'addr_v', label:'VA', word:2, bit:16, type:'hex', width:16, color:'#fc6', on:false,
-    tip:'仮想アドレス（MMU 変換前 CPU 側アドレス）'
+    fmt:'oct', tip:'仮想アドレス（MMU 変換前 CPU 側アドレス）'
   },
   // === バスデータ ===
   {
     id:'data', label:'Data', word:1, bit:0, type:'hex', width:16, color:'#0c8', on:true,
-    tip:'バスデータ（RD なら読み値、WR なら書き値）'
+    fmt:'oct', tip:'バスデータ（RD なら読み値、WR なら書き値）'
   },
   // === バス制御 ===
   {
