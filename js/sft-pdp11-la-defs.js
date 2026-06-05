@@ -36,6 +36,18 @@ function fmtMode11(val) {
   return ['Kernel', 'Super', '??', 'User'][val & 3];
 }
 
+// CPU マイクロステート（istate）を記号で表示: f1/c1/s1../d1../e1/w1/t0../i1
+// 値の定義は vendor/cpus-pdp11/rtl/pdp11.v の parameter ブロック（5 ビット）。
+var ISTATE_NAMES_PDP11 = [
+  'h1', 'f1', 'c1', 's1', 's2', 's3', 's4', 'd1',  //  0-7
+  'd2', 'd3', 'd4', 'e1', 'w1', 'o1', 'o2', 'o3',  //  8-15
+  '?',  'p1', 't0', 't1', 't2', 't3', 't4', 'i1'   // 16-23 (16 は未使用)
+];
+function fmtIstate11(val) {
+  var i = val & 0x1f;
+  return ISTATE_NAMES_PDP11[i] !== undefined ? ISTATE_NAMES_PDP11[i] : ('?' + i);
+}
+
 // 8 進表示（先頭ゼロ埋め）
 function fmtOct(val, width) {
   var digits = Math.ceil(width * Math.LOG2E * Math.LOG10E) + 1;
@@ -118,8 +130,8 @@ var LA_SIGNALS_PDP11 = [
   },
   // === CPU マイクロステート / 命令 ===
   {
-    id:'istate', label:'istate', word:4, bit:0, type:'dec', width:5, color:'#e9a', on:false,
-    fmt:'dec', tip:'CPU マイクロステート（fetch/decode/execute の内部段階）'
+    id:'istate', label:'istate', word:4, bit:0, type:'hex', width:5, color:'#e9a', on:false,
+    fmt:'istate11', tip:'CPU マイクロステート（記号表示: f1=fetch c1=decode s*/d*=オペランド e1=execute w1=writeback o*=pop p1=push t*=trap i1=wait h1=halt）'
   },
   {
     id:'isn', label:'ISN', word:4, bit:5, type:'hex', width:16, color:'#ca8', on:false,
@@ -221,10 +233,11 @@ var PDP11_LA_CONFIG = {
   storagePrefix: 'pdp11_la_',
 
   formatters: {
-    psw11:  function(v) { return fmtPSW11(v); },
-    mode11: function(v) { return fmtMode11(v); },
-    oct:    function(v, w) { return fmtOct(v, w); },
-    dec:    function(v)    { return String(v >>> 0); }
+    psw11:   function(v) { return fmtPSW11(v); },
+    mode11:  function(v) { return fmtMode11(v); },
+    istate11:function(v) { return fmtIstate11(v); },
+    oct:     function(v, w) { return fmtOct(v, w); },
+    dec:     function(v)    { return String(v >>> 0); }
   },
 
   decodeLane: {
