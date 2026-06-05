@@ -225,16 +225,36 @@ var PDP11_LA_CONFIG = {
   decodeLane: {
     label: 'Cycle',
     render: function(ctx, p) {
-      // p: { x, y, w, h, w0, w1, w2, w3 }
-      var d = _decodeBusCycle(p.w0, p.w1, p.w2);
-      if (!d) return;
-      ctx.fillStyle = d.color;
-      ctx.fillRect(p.x, p.y, p.w, p.h);
-      if (p.w > 38) {
-        ctx.fillStyle = '#fff';
-        ctx.font = '9px monospace';
-        ctx.fillText(d.label, p.x + 2, p.y + p.h - 3);
+      // p: { heapu32, ringSize, ringWords, startSamp, samples, laZoom, sigX, decY, decH }
+      var RW = p.ringWords;
+      var getD = function(si) {
+        var b = ((si >>> 0) & (p.ringSize - 1)) * RW;
+        return _decodeBusCycle(p.heapu32[b], p.heapu32[b + 1], p.heapu32[b + 2]);
+      };
+      var segStart = 0, segD = getD(p.startSamp);
+      var flush = function(di) {
+        if (!segD) return;
+        var bx = p.sigX + segStart * p.laZoom;
+        var bw = (di - segStart) * p.laZoom;
+        if (bw < 0.5) return;
+        ctx.fillStyle = segD.color;
+        ctx.fillRect(bx, p.decY + 1, bw - 1, p.decH - 2);
+        if (bw > 26) {
+          ctx.save();
+          ctx.fillStyle = '#fff';
+          ctx.font = 'bold 10px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText(segD.label, bx + bw / 2, p.decY + p.decH * 0.75);
+          ctx.restore();
+        }
+      };
+      for (var di = 1; di < p.samples; di++) {
+        var nd = getD(p.startSamp + di);
+        var diff = (!nd && segD) || (nd && !segD) ||
+                   (nd && segD && nd.label !== segD.label);
+        if (diff) { flush(di); segStart = di; segD = nd; }
       }
+      flush(p.samples);
     }
   },
 
