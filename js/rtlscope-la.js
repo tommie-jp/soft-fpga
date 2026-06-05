@@ -1520,13 +1520,17 @@
 
       ctx.font = '10px monospace'; ctx.textAlign = 'center';
 
+      // T=0 の基準: トリガー発火時は TRIG マーカー位置、未発火時はヘッド
+      var tBase = (self._trigOn && self._trigHead >= 0)
+                  ? (self._trigHead >>> 0) - 1   // TRIG マーカーを T=0
+                  : (head >>> 0);                // ヘッドを T=0（デフォルト）
+
       for (var tick = firstTick; ; tick += tickSamp) {
         var toff = tick - startSamp;
         var tx2  = SIG_X + toff * laZoom;
         if (tx2 >= LA_W - 1) break;  // キャンバス右端を超えたら終了
         // LABEL_W 左側はクリップで自動非表示（tx2 < LABEL_W の continue 不要）
-        // tNum = tick - head（整数）: ヘッドを 0 とした過去方向負の T オフセット
-        var tNum = toff - samples - panInt;
+        var tNum = tick - tBase;
         var lbl2 = (tNum === 0 ? '0' : (tNum > 0 ? '+' + tNum : '' + tNum));
 
         ctx.strokeStyle = '#888'; ctx.lineWidth = 0.5;
