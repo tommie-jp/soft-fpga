@@ -32,20 +32,6 @@ done
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-echo "=== build-wasm: 01-counter ==="
-"$SCRIPT_DIR/scripts/build-wasm.sh"
-
-echo "=== build-wasm: 02-traffic-fsm ==="
-"$SCRIPT_DIR/scripts/build-wasm-02.sh"
-
-echo "=== build-wasm: 03-uart ==="
-"$SCRIPT_DIR/scripts/build-wasm-03.sh"
-
-echo "=== build-wasm: 04-6502 Apple-I ==="
-"$SCRIPT_DIR/scripts/build-wasm-04.sh"
-
-echo "=== build-wasm: 09-pdp11 Unix V6 ==="
-"$SCRIPT_DIR/scripts/build-wasm-09.sh"
-
-echo ""
-echo "All WASM builds done."
+# ビルド層は Makefile に委譲する（差分ビルド: 変更があった example だけ再ビルド）。
+# make wasm = 01-counter / 02-traffic-fsm / 03-uart / 04-6502 / 09-pdp11
+exec make -C "$SCRIPT_DIR" wasm

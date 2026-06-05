@@ -138,39 +138,30 @@ run_step() {
 }
 
 # ---------------------------------------------------------------------------
-# WASM ビルド要否チェック＆自動ビルド
+# ビルド要否は Makefile の依存解決に委譲する（手書き mtime 判定を廃止）。
+#   make -q で stale 判定だけ行い（ターゲットは再ビルドしない）、
+#   必要なときだけ run_step として実ビルドする。
+#   - 06-8080 WASM: docker ビルド（再現性のため）
+#   - 09-pdp11 sim: ネイティブビルド
 # ---------------------------------------------------------------------------
-# 判定: harness.cpp または build-wasm-06.sh が sim.wasm より新しければ再ビルド
-WASM_06="${SCRIPT_DIR}/examples/06-8080/web/sim.wasm"
-WASM_06_REBUILD=false
-
-if [ ! -f "$WASM_06" ]; then
-  echo -e "${YELLOW}⚠ sim.wasm が存在しない。ビルドを実行します。${RESET}"
-  WASM_06_REBUILD=true
-elif [ "${SCRIPT_DIR}/examples/06-8080/cxx/harness.cpp" -nt "$WASM_06" ]; then
-  echo -e "${YELLOW}⚠ harness.cpp が sim.wasm より新しい。ビルドを実行します。${RESET}"
-  WASM_06_REBUILD=true
-elif [ "${SCRIPT_DIR}/scripts/build-wasm-06.sh" -nt "$WASM_06" ]; then
-  echo -e "${YELLOW}⚠ build-wasm-06.sh が sim.wasm より新しい。ビルドを実行します。${RESET}"
-  WASM_06_REBUILD=true
-fi
-
-if $WASM_06_REBUILD; then
+WASM_06_TARGET="examples/06-8080/web/sim.wasm"
+if ! make -q -C "${SCRIPT_DIR}" "$WASM_06_TARGET" 2>/dev/null; then
+  echo -e "${YELLOW}⚠ 06-8080 WASM が stale（make 判定）。再ビルドします。${RESET}"
   echo ""
-  run_step "B1" "06-8080 WASM ビルド (harness.cpp 変更検出)" \
-    bash -c 'USER_UID="$(id -u)" USER_GID="$(id -g)" \
-      docker compose -f docker/compose.yml run --rm build-wasm'
+  run_step "B1" "06-8080 WASM ビルド (make: docker)" \
+    make -C "${SCRIPT_DIR}" "$WASM_06_TARGET"
   echo ""
 fi
 
-# PDP-11 ネイティブバイナリが存在しなければ自動ビルド
-PDP11_SIM="${SCRIPT_DIR}/examples/09-pdp11/build/pdp11_sim"
-if $RUN_PDP11 && [ ! -x "$PDP11_SIM" ]; then
-  echo -e "${YELLOW}⚠ pdp11_sim が存在しない。ビルドを実行します。${RESET}"
-  echo ""
-  run_step "B2" "09-pdp11 ネイティブビルド" \
-    bash scripts/build-host-09.sh
-  echo ""
+if $RUN_PDP11; then
+  PDP11_SIM_TARGET="examples/09-pdp11/build/pdp11_sim"
+  if ! make -q -C "${SCRIPT_DIR}" "$PDP11_SIM_TARGET" 2>/dev/null; then
+    echo -e "${YELLOW}⚠ pdp11_sim が不在/stale（make 判定）。ビルドします。${RESET}"
+    echo ""
+    run_step "B2" "09-pdp11 ネイティブビルド (make)" \
+      make -C "${SCRIPT_DIR}" "$PDP11_SIM_TARGET"
+    echo ""
+  fi
 fi
 
 # ---------------------------------------------------------------------------

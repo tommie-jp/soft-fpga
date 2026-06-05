@@ -1,6 +1,7 @@
 # Build
 build/
 obj_dir*/
+.build/
 
 # Verilator ランタイム（インストール済み Verilator からビルド時にコピー）
 cxx/verilated.cpp

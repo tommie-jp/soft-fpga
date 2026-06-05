@@ -2,17 +2,17 @@
 # doDeployAll.sh — examples/06-8080 と 09-pdp11 をビルドして GitHub Pages にデプロイする
 #
 # 処理内容:
-#   1. doBuildAll.sh — 06-8080 全成果物をビルド
-#   1b. scripts/build-wasm-09.sh — 09-pdp11 WASM をビルド（ディスクイメージも自動ステージ）
-#   2. gen-timing-ss-index.py — タイミング図ギャラリー再生成
-#   3. scripts/doDeployPages.sh --no-build 06 09 — gh-pages ブランチへデプロイ
-#   4. scripts/check-pages-deploy.sh — デプロイ完了・動作確認
+#   1. doBuildAll.sh + build-wasm-09.sh — 全成果物をビルド
+#   2. scripts/_doTimingSSPDP11.sh — PDP-11 全命令タイミング図 PNG 再生成
+#   3. gen-timing-ss-index.py — タイミング図ギャラリー index 再生成
+#   4. scripts/doDeployPages.sh --no-build 06 09 — gh-pages ブランチへデプロイ
+#   5. scripts/check-pages-deploy.sh — デプロイ完了・動作確認
 #      フェーズ1: GitHub Deployments API でデプロイ成否を確認
 #      フェーズ2: curl で主要 URL の HTTP 200 を確認
 #      フェーズ3: Playwright で CP/M ターミナルの A> プロンプトを確認
 #      フェーズ4: 内部リンク切れチェック
-#   5. scripts/check-gallery-links.py — ギャラリー参照 URL リンクチェック
-#      test/ss/8080/index.html が参照する PNG・viewer.html を GitHub Pages で確認
+#   6. scripts/check-gallery-links.py — ギャラリー参照 URL リンクチェック
+#      test/ss/8080・pdp11/index.html が参照する PNG を GitHub Pages で確認
 #
 # 前提条件:
 #   - git remote "origin" が設定済みで push 権限があること
@@ -30,22 +30,23 @@ set -euo pipefail
 
 usage() {
     cat <<'EOF'
-使い方: doDeployAll.sh [-y] [--no-build] [--no-gallery] [--no-deploy] [--no-check] [--no-gallery-check]
+使い方: doDeployAll.sh [-y] [--no-build] [--no-timing-ss] [--no-gallery] [--no-deploy] [--no-check] [--no-gallery-check]
 
 examples/06-8080 と 09-pdp11 をビルドして GitHub Pages にデプロイする。
 
 処理内容:
   1. doBuildAll.sh + build-wasm-09.sh        全成果物をビルド
-  2. gen-timing-ss-index.py                  タイミング図ギャラリー再生成
-  3. scripts/doDeployPages.sh --no-build 06 09  gh-pages ブランチへデプロイ
-  4. scripts/check-pages-deploy.sh           デプロイ完了・動作確認
+  2. scripts/_doTimingSSPDP11.sh             PDP-11 全命令タイミング図 PNG 再生成
+  3. gen-timing-ss-index.py                  タイミング図ギャラリー index 再生成
+  4. scripts/doDeployPages.sh --no-build 06 09  gh-pages ブランチへデプロイ
+  5. scripts/check-pages-deploy.sh           デプロイ完了・動作確認
      フェーズ1: GitHub Deployments API でデプロイ成否を確認
      フェーズ2: curl で主要 URL の HTTP 200 を確認
      フェーズ3: Playwright で CP/M ターミナルの A> プロンプトを確認
      フェーズ4: 内部リンク切れチェック
-  5. scripts/check-gallery-links.py          ギャラリーリンクチェック
-     test/ss/8080/index.html が参照する PNG・viewer.html を GitHub Pages で確認
-  6. scripts/check-pdp11-links.py            PDP-11 ローカルリンクチェック（デプロイ前）
+  6. scripts/check-gallery-links.py          ギャラリーリンクチェック
+     test/ss/8080・pdp11/index.html が参照する PNG を GitHub Pages で確認
+  7. scripts/check-pdp11-links.py            PDP-11 ローカルリンクチェック（デプロイ前）
      index.html・sim-worker.js・sft-pdp11-docs.js の参照ファイル存在確認と一貫性検証
 
 前提条件:
@@ -57,41 +58,43 @@ examples/06-8080 と 09-pdp11 をビルドして GitHub Pages にデプロイす
 終了コード: 0 = 成功、1 = 失敗
 
 オプション:
-  -y, --yes              確認プロンプトをスキップ（CI 等での自動実行用）
+  -y, --yes              no-op（確認プロンプトは廃止。後方互換のため受理のみ）
   --no-build             ステップ1 ビルドをスキップ
-  --no-gallery           ステップ2 ギャラリー再生成をスキップ
-  --no-deploy            ステップ3 GitHub Pages デプロイをスキップ
-  --no-check             ステップ4 デプロイ確認をスキップ
-  --no-gallery-check     ステップ5 ギャラリーリンクチェックをスキップ
-  --no-pdp11-links       ステップ6 PDP-11 ローカルリンクチェックをスキップ
+  --no-timing-ss         ステップ2 PDP-11 タイミングSS PNG 生成をスキップ
+  --no-gallery           ステップ3 ギャラリー index 再生成をスキップ
+  --no-deploy            ステップ4 GitHub Pages デプロイをスキップ
+  --no-check             ステップ5 デプロイ確認をスキップ
+  --no-gallery-check     ステップ6 ギャラリーリンクチェックをスキップ
+  --no-pdp11-links       ステップ7 PDP-11 ローカルリンクチェックをスキップ
   -h, --help             このヘルプを表示して終了
 
 使用例:
-  # チェックのみ再実行（ビルド・ギャラリー・デプロイをスキップ）
-  doDeployAll.sh --no-build --no-gallery --no-deploy
+  # チェックのみ再実行（ビルド・SS生成・ギャラリー・デプロイをスキップ）
+  doDeployAll.sh --no-build --no-timing-ss --no-gallery --no-deploy
 
-  # ビルドとギャラリーを済ませてからデプロイと確認だけ
-  doDeployAll.sh --no-build --no-gallery
+  # ビルドとSS生成を済ませてからデプロイと確認だけ
+  doDeployAll.sh --no-build --no-timing-ss --no-gallery
 
-  # CI 向けに確認プロンプトなしで全ステップ実行
-  doDeployAll.sh -y
+  # 全ステップ実行（確認プロンプトなしでそのまま走る）
+  doDeployAll.sh
 EOF
 }
 
 # ── 引数解析 ──────────────────────────────────────────────────────────────────
 SKIP_BUILD=false
+SKIP_TIMING_SS=false
 SKIP_GALLERY=false
 SKIP_DEPLOY=false
 SKIP_CHECK=false
 SKIP_GALLERY_CHECK=false
 SKIP_PDP11_LINKS=false
-YES=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -h|--help)           usage; exit 0 ;;
-        -y|--yes)            YES=true;                shift ;;
+        -y|--yes)            shift ;;  # 後方互換: 確認プロンプト廃止により no-op
         --no-build)          SKIP_BUILD=true;         shift ;;
+        --no-timing-ss)      SKIP_TIMING_SS=true;     shift ;;
         --no-gallery)        SKIP_GALLERY=true;       shift ;;
         --no-deploy)         SKIP_DEPLOY=true;        shift ;;
         --no-check)          SKIP_CHECK=true;         shift ;;
@@ -120,7 +123,7 @@ echo " デプロイ: examples/06-8080 → GitHub Pages"
 echo "======================================================================"
 echo ""
 
-# ── 確認プロンプト（デプロイを含む場合のみ）────────────────────────────────
+# ── デプロイ対象の表示（確認プロンプトは廃止: 常に続行）──────────────────────
 if [[ "$SKIP_DEPLOY" == false ]]; then
     BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "不明")
     REMOTE=$(git remote get-url origin 2>/dev/null || echo "不明")
@@ -128,44 +131,46 @@ if [[ "$SKIP_DEPLOY" == false ]]; then
     echo "  ブランチ : ${BRANCH}"
     echo "  リモート : ${REMOTE}"
     echo ""
-    if [[ "$YES" == false ]]; then
-        read -r -p "続行しますか？ [y/N] " REPLY
-        if [[ ! "$REPLY" =~ ^[Yy]$ ]]; then
-            echo "キャンセルしました。"
-            exit 0
-        fi
-    else
-        echo "  (-y 指定のため自動承認)"
-    fi
-    echo ""
 fi
 
 # ── ステップ表示ヘルパー ──────────────────────────────────────────────────────
 step_header() {
     local num="$1" label="$2" skipped="$3"
     if [[ "$skipped" == true ]]; then
-        printf "${CYAN}[%s/6]${RESET} %s → ${YELLOW}スキップ${RESET}\n\n" "$num" "$label"
+        printf "${CYAN}[%s/7]${RESET} %s → ${YELLOW}スキップ${RESET}\n\n" "$num" "$label"
     else
-        printf "${CYAN}[%s/6]${RESET} %s\n\n" "$num" "$label"
+        printf "${CYAN}[%s/7]${RESET} %s\n\n" "$num" "$label"
     fi
 }
 
 # ---------------------------------------------------------------------------
 # ステップ 1: 全ビルド
 # ---------------------------------------------------------------------------
-step_header 1 "ビルド (doBuildAll.sh + build-wasm-09.sh)" "$SKIP_BUILD"
+step_header 1 "ビルド (make deploy-build = cpm-06 + wasm-09)" "$SKIP_BUILD"
 if [[ "$SKIP_BUILD" == false ]]; then
-    bash "${SCRIPT_DIR}/doBuildAll.sh"
-    echo ""
-    echo "--- 09-pdp11 WASM ビルド ---"
-    bash "${SCRIPT_DIR}/scripts/build-wasm-09.sh"
+    # ビルド層は Makefile に委譲。09 WASM はソース未変更ならスキップされ（差分ビルド）、
+    # 06 はステートフルなため doBuildAll.sh をそのまま実行する。
+    make -C "${SCRIPT_DIR}" deploy-build
     echo ""
 fi
 
 # ---------------------------------------------------------------------------
-# ステップ 2: タイミング図ギャラリー再生成
+# ステップ 2: PDP-11 タイミング図 PNG 再生成
 # ---------------------------------------------------------------------------
-step_header 2 "タイミング図ギャラリー再生成 (gen-timing-ss-index.py)" "$SKIP_GALLERY"
+step_header 2 "PDP-11 タイミング図 PNG 生成 (scripts/_doTimingSSPDP11.sh)" "$SKIP_TIMING_SS"
+if [[ "$SKIP_TIMING_SS" == false ]]; then
+    if [[ ! -x "${SCRIPT_DIR}/.venv/bin/pytest" ]]; then
+        printf "  ${YELLOW}⚠${RESET}  .venv が見つからないためスキップ\n"
+    else
+        bash "${SCRIPT_DIR}/scripts/_doTimingSSPDP11.sh"
+    fi
+    echo ""
+fi
+
+# ---------------------------------------------------------------------------
+# ステップ 3: タイミング図ギャラリー index 再生成
+# ---------------------------------------------------------------------------
+step_header 3 "ギャラリー index 再生成 (gen-timing-ss-index.py)" "$SKIP_GALLERY"
 if [[ "$SKIP_GALLERY" == false ]]; then
     if [[ -d "${SCRIPT_DIR}/test/ss/8080" ]]; then
         python3 "${SCRIPT_DIR}/scripts/gen-timing-ss-index.py"
@@ -176,9 +181,9 @@ if [[ "$SKIP_GALLERY" == false ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# ステップ 3: GitHub Pages へデプロイ
+# ステップ 4: GitHub Pages へデプロイ
 # ---------------------------------------------------------------------------
-step_header 3 "GitHub Pages デプロイ (scripts/doDeployPages.sh --no-build 06 09)" "$SKIP_DEPLOY"
+step_header 4 "GitHub Pages デプロイ (scripts/doDeployPages.sh --no-build 06 09)" "$SKIP_DEPLOY"
 if [[ "$SKIP_DEPLOY" == false ]]; then
     bash "${SCRIPT_DIR}/scripts/doDeployPages.sh" --no-build 06 09
     echo ""
@@ -188,9 +193,9 @@ fi
 GH_SHA=$(git ls-remote origin gh-pages 2>/dev/null | cut -c1-7 || true)
 
 # ---------------------------------------------------------------------------
-# ステップ 4: デプロイ確認
+# ステップ 5: デプロイ確認
 # ---------------------------------------------------------------------------
-step_header 4 "デプロイ確認 (scripts/check-pages-deploy.sh)" "$SKIP_CHECK"
+step_header 5 "デプロイ確認 (scripts/check-pages-deploy.sh)" "$SKIP_CHECK"
 if [[ "$SKIP_CHECK" == false ]]; then
     CHECK_ARGS=("--timeout" "180")
     [[ -n "$GH_SHA" ]] && CHECK_ARGS+=("--sha" "$GH_SHA")
@@ -207,9 +212,9 @@ if [[ "$SKIP_CHECK" == false ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# ステップ 5: ギャラリーリンクチェック
+# ステップ 6: ギャラリーリンクチェック
 # ---------------------------------------------------------------------------
-step_header 5 "ギャラリーリンクチェック (scripts/check-gallery-links.py)" "$SKIP_GALLERY_CHECK"
+step_header 6 "ギャラリーリンクチェック (scripts/check-gallery-links.py)" "$SKIP_GALLERY_CHECK"
 if [[ "$SKIP_GALLERY_CHECK" == false ]]; then
     if [[ ! -f "${GALLERY_HTML}" ]]; then
         printf "  ${YELLOW}⚠${RESET}  ${GALLERY_HTML} が存在しないためスキップ\n"
@@ -232,9 +237,9 @@ if [[ "$SKIP_GALLERY_CHECK" == false ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# ステップ 6: PDP-11 ローカルリンクチェック
+# ステップ 7: PDP-11 ローカルリンクチェック
 # ---------------------------------------------------------------------------
-step_header 6 "PDP-11 ローカルリンクチェック (scripts/check-pdp11-links.py)" "$SKIP_PDP11_LINKS"
+step_header 7 "PDP-11 ローカルリンクチェック (scripts/check-pdp11-links.py)" "$SKIP_PDP11_LINKS"
 if [[ "$SKIP_PDP11_LINKS" == false ]]; then
     set +e
     python3 "${SCRIPT_DIR}/scripts/check-pdp11-links.py" \
