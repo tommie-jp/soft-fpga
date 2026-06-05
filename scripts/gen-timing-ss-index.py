@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
-"""gen-timing-ss-index.py — test/ss/8080/index.html と viewer.html を生成する。
+"""gen-timing-ss-index.py — タイミング図ギャラリー index.html / viewer.html を生成する。
 
-test/ss/8080/timing-*/ ディレクトリを走査してタイミング図ギャラリーを作成する。
-_test-8080-timing-ss.sh から自動呼び出しされるが、単独実行も可。
+対応 CPU:
+  - test/ss/8080/  — Intel 8080
+  - test/ss/pdp11/ — PDP-11 / Unix V6
+
+各 CPU の timing-*/ ディレクトリを走査してギャラリーを作成する。
+_test-8080-timing-ss.sh / _doTimingSSPDP11.sh から自動呼び出しされるが、
+単独実行も可。
 
 使い方:
     python3 scripts/gen-timing-ss-index.py
@@ -19,8 +24,7 @@ from datetime import datetime
 # ── パス定義 ─────────────────────────────────────────────────────────────────
 PROJECT_ROOT = pathlib.Path(__file__).parent.parent
 SS_8080_DIR  = PROJECT_ROOT / "test" / "ss" / "8080"
-OUTPUT_HTML  = SS_8080_DIR / "index.html"
-VIEWER_HTML  = SS_8080_DIR / "viewer.html"
+SS_PDP11_DIR = PROJECT_ROOT / "test" / "ss" / "pdp11"
 
 # timing-YYYY-MM-DD-HHMM という名前のディレクトリを走査
 _RUN_PAT = re.compile(r"^timing-(\d{4}-\d{2}-\d{2}-\d{4})$")
@@ -44,13 +48,13 @@ def _label(filename: str) -> str:
     return f"{seq} {mnem}"
 
 
-def collect_runs() -> list[tuple[str, str, list[str]]]:
-    """(ts_raw, ts_label, [png_filename, ...]) のリスト（新しい順）を返す。"""
+def collect_runs(ss_dir: pathlib.Path) -> list[tuple[str, str, list[str]]]:
+    """ss_dir 配下の timing-*/ を走査し (ts_raw, ts_label, [png, ...]) リストを返す（新しい順）。"""
     runs: list[tuple[str, str, list[str]]] = []
-    if not SS_8080_DIR.is_dir():
+    if not ss_dir.is_dir():
         return runs
 
-    for d in sorted(SS_8080_DIR.iterdir(), reverse=True):
+    for d in sorted(ss_dir.iterdir(), reverse=True):
         m = _RUN_PAT.match(d.name)
         if not m or not d.is_dir():
             continue
@@ -70,7 +74,7 @@ _LIB_CSS = "../../../js/image-viewer.css"
 _LIB_JS  = "../../../js/image-viewer.js"
 
 
-def generate_viewer(runs: list[tuple[str, str, list[str]]]) -> str:
+def generate_viewer(runs: list[tuple[str, str, list[str]]], title: str = "Timing SS Viewer") -> str:
     """viewer.html（薄いラッパー）を生成する。DATA JSON のみ埋め込む。"""
     runs_dict: dict[str, list[str]] = {
         f"timing-{ts_raw}": pngs
@@ -84,7 +88,7 @@ def generate_viewer(runs: list[tuple[str, str, list[str]]]) -> str:
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>8080 Timing SS Viewer</title>
+  <title>{title}</title>
   <link rel="stylesheet" href="{_LIB_CSS}">
 </head>
 <body>
@@ -217,7 +221,22 @@ def _run_section(
     )
 
 
-def generate_index(runs: list[tuple[str, str, list[str]]]) -> str:
+def generate_index(
+    runs: list[tuple[str, str, list[str]]],
+    page_title: str,
+    h1_html: str,
+    note_html: str,
+    empty_msg: str,
+) -> str:
+    """index.html を生成する。
+
+    引数:
+        runs:       collect_runs() の返り値
+        page_title: <title> テキスト
+        h1_html:    <h1> 内の CPU リンク部分 HTML（タグ込み）
+        note_html:  注釈 <p class="note"> の中身 HTML
+        empty_msg:  スクリーンショットが無い場合に表示するメッセージ
+    """
     total = sum(len(pngs) for _, _, pngs in runs)
     now   = datetime.now().strftime("%Y-%m-%d %H:%M")
 
@@ -228,10 +247,7 @@ def generate_index(runs: list[tuple[str, str, list[str]]]) -> str:
         )
         body = sections
     else:
-        body = (
-            '  <p class="empty">スクリーンショットがありません。<br>'
-            'doTest.sh --timing-ss を実行してください。</p>'
-        )
+        body = f'  <p class="empty">{empty_msg}</p>'
 
     return f"""\
 <!DOCTYPE html>
@@ -239,17 +255,15 @@ def generate_index(runs: list[tuple[str, str, list[str]]]) -> str:
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Intel 8080 Timing SS Gallery</title>
+  <title>{page_title}</title>
   <style>
 {_CSS}  </style>
 </head>
 <body>
-  <h1><a href="../../../examples/06-8080/web/">Intel 8080</a> Timing Diagrams
+  <h1>{h1_html}
     <span>— {len(runs)} run(s) / {total} cases &nbsp;|&nbsp; generated {now}</span>
   </h1>
-  <p class="note">このタイミング図は Verilog ソース
-    <a href="https://github.com/1801BM1/vm80a" target="_blank" rel="noopener">vm80a</a>
-    に基づいており、実機 Intel 8080 のタイミングとは異なる可能性があります。
+  <p class="note">{note_html}
   </p>
 
 {body}
@@ -258,16 +272,67 @@ def generate_index(runs: list[tuple[str, str, list[str]]]) -> str:
 """
 
 
+# ── CPU ごとの生成設定 ────────────────────────────────────────────────────────
+
+_CPU_CONFIGS: list[dict] = [
+    {
+        "ss_dir":     SS_8080_DIR,
+        "page_title": "Intel 8080 Timing SS Gallery",
+        "h1_html":    '<a href="../../../examples/06-8080/web/">Intel 8080</a> Timing Diagrams',
+        "note_html": (
+            "このタイミング図は Verilog ソース"
+            ' <a href="https://github.com/1801BM1/vm80a" target="_blank" rel="noopener">vm80a</a>'
+            " に基づいており、実機 Intel 8080 のタイミングとは異なる可能性があります。"
+        ),
+        "empty_msg":  "スクリーンショットがありません。<br>doTest.sh --timing-ss を実行してください。",
+        "viewer_title": "8080 Timing SS Viewer",
+    },
+    {
+        "ss_dir":     SS_PDP11_DIR,
+        "page_title": "PDP-11 / Unix V6 Timing SS Gallery",
+        "h1_html":    '<a href="../../../examples/09-pdp11/web/">PDP-11 / Unix V6</a> Timing Diagrams',
+        "note_html": (
+            "このタイミング図は Verilog ソース"
+            ' <a href="https://github.com/1801BM1/cpus-pdp11" target="_blank" rel="noopener">cpus-pdp11</a>'
+            " に基づき、Unix V6 上の as(1) でアセンブルしたプログラムを実行して生成されます。"
+        ),
+        "empty_msg": (
+            "スクリーンショットがありません。<br>"
+            "scripts/_doTimingSSPDP11.sh を実行してください。"
+        ),
+        "viewer_title": "PDP-11 Timing SS Viewer",
+    },
+]
+
+
 def main() -> None:
-    runs = collect_runs()
+    for cfg in _CPU_CONFIGS:
+        ss_dir: pathlib.Path = cfg["ss_dir"]
+        output_html = ss_dir / "index.html"
+        viewer_html = ss_dir / "viewer.html"
 
-    OUTPUT_HTML.write_text(generate_index(runs), encoding="utf-8")
-    print(f"index.html 生成: {OUTPUT_HTML}")
+        runs = collect_runs(ss_dir)
 
-    VIEWER_HTML.write_text(generate_viewer(runs), encoding="utf-8")
-    print(f"viewer.html 生成: {VIEWER_HTML}")
+        output_html.parent.mkdir(parents=True, exist_ok=True)
+        output_html.write_text(
+            generate_index(
+                runs,
+                page_title=cfg["page_title"],
+                h1_html=cfg["h1_html"],
+                note_html=cfg["note_html"],
+                empty_msg=cfg["empty_msg"],
+            ),
+            encoding="utf-8",
+        )
+        print(f"index.html 生成: {output_html}")
 
-    print(f"  {len(runs)} run(s) / {sum(len(p) for _, _, p in runs)} cases")
+        viewer_html.write_text(
+            generate_viewer(runs, title=cfg["viewer_title"]),
+            encoding="utf-8",
+        )
+        print(f"viewer.html 生成: {viewer_html}")
+
+        print(f"  {len(runs)} run(s) / {sum(len(p) for _, _, p in runs)} cases")
 
 
 if __name__ == "__main__":

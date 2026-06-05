@@ -54,3 +54,5 @@ test/ss/
 examples/06-8080/tests/node_modules/
 examples/06-8080/node_modules/
 logs/
+examples/09-pdp11/tests/node_modules/
+examples/09-pdp11/node_modules/

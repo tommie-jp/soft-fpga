@@ -22,8 +22,10 @@ usage() {
                 [05] 8080 CP/M シミュレータ テスト (cmake ビルド＋全テスト)
   --web         [06] Web 統合テスト (Playwright / Apple-I & CP/M WASM)
   --sim-api     [07] sim API テスト (MVI A,$FF · Playwright / TestSimAPI)
-  --timing-ss   [08] 8080 全命令タイミング図スクリーンショット (73 ケース)
-  --pdp11       [09] PDP-11 basic tests (test0–17, 18 件)
+  --timing-ss      [08] 8080 全命令タイミング図スクリーンショット (73 ケース)
+  --pdp11          [09] PDP-11 basic tests (test0–17 + sdiag ROM test, 19 件)
+                   [10] PDP-11 MAINDEC 診断
+  --timing-ss-pdp11 [11] PDP-11 全命令タイミング図スクリーンショット (55 ケース)
                 [10] PDP-11 MAINDEC 診断 (FKAAC0/FKABD0/FKACA0/FKTHB0/FKTGC0)
 
 複数グループの同時指定可:
@@ -42,6 +44,7 @@ RUN_WEB=false
 RUN_SIM_API=false
 RUN_TIMING_SS=false
 RUN_PDP11=false
+RUN_TIMING_SS_PDP11=false
 ANY_FLAG=false
 
 for arg in "$@"; do
@@ -62,6 +65,8 @@ for arg in "$@"; do
       RUN_TIMING_SS=true; ANY_FLAG=true ;;
     --pdp11)
       RUN_PDP11=true; ANY_FLAG=true ;;
+    --timing-ss-pdp11)
+      RUN_TIMING_SS_PDP11=true; ANY_FLAG=true ;;
     *)
       echo "不明なオプション: $arg" >&2
       usage >&2
@@ -211,8 +216,13 @@ if $RUN_TIMING_SS; then
     bash scripts/_test-8080-timing-ss.sh
 fi
 
+if $RUN_TIMING_SS_PDP11; then
+  run_step "11" "PDP-11 全命令タイミング図スクリーンショット (55 ケース)" \
+    bash scripts/_doTimingSSPDP11.sh
+fi
+
 if $RUN_PDP11; then
-  run_step "09" "PDP-11 basic tests (test0–17)" \
+  run_step "09" "PDP-11 basic tests (test0–17 + sdiag ROM test)" \
     bash scripts/test-pdp11-basic.sh
 
   run_step "10" "PDP-11 MAINDEC 診断 (FKAAC0/FKABD0/FKACA0/FKTHB0/FKTGC0)" \

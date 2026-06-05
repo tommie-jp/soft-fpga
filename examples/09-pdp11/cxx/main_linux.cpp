@@ -8,6 +8,7 @@
 // テストモード:
 //   --run-test <file.mem>   .mem をロードして HALT まで実行（基本命令テスト）
 //   --diag <name>           MAINDEC 診断プログラムを実行
+//   --v6-script <file>      Unix V6 を起動しスクリプト（wait/send/expect）を流す
 //
 #include "Vtest_top_wasm.h"
 #include "Vtest_top_wasm___024root.h"
@@ -21,6 +22,9 @@
 #include <termios.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <vector>
+#include <string>
+#include <cctype>
 
 // ── シグナルアクセスマクロ ─────────────────────────────────────────────────
 #define SIM_SYSCLK      (top->rootp->test_top_wasm__DOT__sysclk)
@@ -87,14 +91,83 @@ static bool  g_capture_mode = false;
 static char  g_capture_buf[65536];
 static int   g_capture_len = 0;
 
+// ── --v6-script 用の状態 ──────────────────────────────────────────────────
+// wait/expect でマッチ対象とするキャプチャバッファ内オフセット。
+static int   g_sc_mark = 0;
+
 static void capture_putc(char c) {
-    if (g_capture_len < (int)sizeof(g_capture_buf) - 1)
-        g_capture_buf[g_capture_len++] = c;
+    // バッファが満杯に近づいたら後半を残してコンパクト化（長いブート/コンパイル出力対策）。
+    if (g_capture_len >= (int)sizeof(g_capture_buf) - 2) {
+        int keep  = (int)sizeof(g_capture_buf) / 2;
+        int shift = g_capture_len - keep;
+        memmove(g_capture_buf, g_capture_buf + shift, keep);
+        g_capture_len = keep;
+        g_sc_mark = (g_sc_mark > shift) ? (g_sc_mark - shift) : 0;
+    }
+    g_capture_buf[g_capture_len++] = c;
 }
 
-// ── DPI 実装 ─────────────────────────────────────────────────────────────
+// ── --v6-script: スクリプト駆動の V6 自動テスト ──────────────────────────
+// 1 行 1 ディレクティブ:
+//   wait <文字列>     その文字列が出力に現れるまで待つ（タイムアウトで FAIL せず進む）
+//   expect <文字列>   その文字列が現れるまで待つ。タイムアウトしたら FAIL
+//   send <文字列>     文字列をコンソールへ送る（\r \n \t \\ \e \NNN(8進) \xHH 対応）
+//   timeout <cycles>  以降の wait/expect のタイムアウト（クロック数）を変更
+//   # ...             コメント / 空行は無視
+enum ScType { SC_WAIT, SC_EXPECT, SC_SEND, SC_TIMEOUT };
+struct ScCmd { ScType type; std::string arg; };
+
+static std::vector<ScCmd> g_script;
+static bool     g_v6_script   = false;
+static size_t   g_sc_idx      = 0;        // 現在のコマンド
+static size_t   g_sc_send_pos = 0;        // SEND の送信位置
+static uint64_t g_sc_char_next= 0;        // SEND のペーシング
+static uint64_t g_sc_deadline = 0;        // wait/expect のタイムアウト時刻
+static uint64_t g_sc_settle   = 0;        // マッチ後に送信を始めるまでの待ち時刻
+static uint64_t g_sc_timeout  = 80000000; // wait/expect 既定タイムアウト（クロック）
+static int      g_sc_failed   = 0;
+static const uint64_t SC_CHAR_GAP = 9000;    // 送信 1 文字あたりの間隔（UART RX 余裕）
+static const uint64_t SC_SETTLE   = 400000;  // プロンプト検出後、送信開始までの落ち着き
+
+// エスケープ展開（send / wait / expect の引数）
+static std::string sc_unescape(const char* s) {
+    std::string out;
+    for (const char* p = s; *p; p++) {
+        if (*p != '\\') { out.push_back(*p); continue; }
+        p++;
+        switch (*p) {
+            case 'r': out.push_back('\r'); break;
+            case 'n': out.push_back('\n'); break;
+            case 't': out.push_back('\t'); break;
+            case 'e': out.push_back('\033'); break;
+            case '\\': out.push_back('\\'); break;
+            case '0': case '1': case '2': case '3':
+            case '4': case '5': case '6': case '7': {
+                int v = 0, k = 0;
+                while (k < 3 && *p >= '0' && *p <= '7') { v = v*8 + (*p - '0'); p++; k++; }
+                p--; out.push_back((char)v); break;
+            }
+            case 'x': {
+                p++; int v = 0, k = 0;
+                while (k < 2 && isxdigit((unsigned char)*p)) {
+                    char c = *p; int d = (c<='9')?c-'0':(tolower(c)-'a'+10);
+                    v = v*16 + d; p++; k++;
+                }
+                p--; out.push_back((char)v); break;
+            }
+            case '\0': p--; break;   // 行末の \ はそのまま終了
+            default: out.push_back(*p); break;
+        }
+    }
+    return out;
+}
+
+// スクリプトファイルを読み込んで g_script に積む。成功なら true。
+static bool sc_parse(const char* file);
 
 // wasm_uart.v TX から呼ばれる: 文字を TTY 専用 fd へ出力
+// ── DPI 実装 ─────────────────────────────────────────────────────────────
+
 extern "C" void dpi_tty_putc(int ch) {
     char c = (char)(ch & 0x7F);
     { ssize_t r = write(g_tty_fd, &c, 1); (void)r; }
@@ -103,6 +176,44 @@ extern "C" void dpi_tty_putc(int ch) {
 
 // wasm_uart.v RX から毎クロック呼ばれる: 入力文字を返す（なければ -1）
 extern "C" int dpi_tty_getc() {
+    // ── --v6-script モード: スクリプトに従って入力を生成する ──
+    if (g_v6_script) {
+        if (g_sc_idx >= g_script.size()) return -1;   // 完了（main 側でループ終了）
+        ScCmd& c = g_script[g_sc_idx];
+
+        if (c.type == SC_TIMEOUT) {
+            g_sc_timeout = strtoull(c.arg.c_str(), nullptr, 10);
+            g_sc_idx++; return -1;
+        }
+        if (c.type == SC_SEND) {
+            if (g_sc_send_pos >= c.arg.size()) {       // 送信完了 → 次へ
+                g_sc_idx++; g_sc_send_pos = 0; g_sc_mark = g_capture_len;
+                g_sc_deadline = 0; return -1;
+            }
+            if (sim_time < g_sc_char_next) return -1;  // ペーシング（UART RX ガード合わせ）
+            g_sc_char_next = sim_time + SC_CHAR_GAP;
+            return (unsigned char)c.arg[g_sc_send_pos++];
+        }
+        // SC_WAIT / SC_EXPECT
+        if (g_sc_deadline == 0) g_sc_deadline = sim_time + g_sc_timeout;
+        g_capture_buf[g_capture_len] = '\0';
+        if (strstr(g_capture_buf + g_sc_mark, c.arg.c_str())) {   // マッチ
+            // V6 のプロンプト印字直後は getty/sh が入力待ちに入る前なので少し待つ
+            if (g_sc_settle == 0) g_sc_settle = sim_time + SC_SETTLE;
+            if (sim_time < g_sc_settle) return -1;
+            g_sc_settle = 0;
+            g_sc_idx++; g_sc_send_pos = 0; g_sc_mark = g_capture_len; g_sc_deadline = 0;
+            return -1;
+        }
+        if (sim_time >= g_sc_deadline) {               // タイムアウト
+            tty_msg("\r\n[v6-script] TIMEOUT (#%zu) %s: %s\r\n",
+                    g_sc_idx + 1, (c.type == SC_EXPECT) ? "expect" : "wait", c.arg.c_str());
+            if (c.type == SC_EXPECT) g_sc_failed = 1;
+            g_stop = 1;
+        }
+        return -1;
+    }
+
     // 起動遅延: bootrom の @ プロンプトが出るまで待つ
     if (boot_delay > 0) { boot_delay--; return -1; }
 
@@ -198,6 +309,49 @@ static int run_test(VerilatedContext* ctx, const char* mem_file) {
     return 1;
 }
 
+// ── テストモード: --rom-test ──────────────────────────────────────────────
+// ROM テスト: 任意の開始 PC でコードを実行し、UART 出力に期待文字列が現れたら PASS。
+// HALT（RAM テスト失敗）またはタイムアウトで FAIL。
+// 使い方: pdp11_sim --rom-test <mem_file> <start_pc_octal>
+static int run_rom_test(VerilatedContext* ctx, const char* mem_file, uint32_t start_pc) {
+    tty_msg("[pdp11] rom-test: %s  pc=%06o\r\n", mem_file, start_pc);
+    ram_clear();
+    int words = ram_load_mem(mem_file);
+    if (words < 0) {
+        tty_msg("[pdp11] ERROR: cannot load %s\r\n", mem_file);
+        return 1;
+    }
+    tty_msg("[pdp11] loaded %d words\r\n", words);
+
+    SIM_INITIAL_PC   = start_pc;
+    g_capture_mode   = true;
+    g_capture_len    = 0;
+    do_reset();
+
+    const uint64_t TIMEOUT    = 100000000ULL;
+    const char*    EXPECT_STR = "Hello world!";
+    for (uint64_t i = 0; i < TIMEOUT && !g_stop; i++) {
+        tick();
+        g_capture_buf[g_capture_len] = '\0';
+        if (strstr(g_capture_buf, EXPECT_STR)) {
+            tty_msg("\r\n[pdp11] found \"%s\"  t=%llu\r\n",
+                    EXPECT_STR, (unsigned long long)sim_time);
+            tty_msg("[pdp11] PASS\r\n");
+            return 0;
+        }
+        if (SIM_HALTED) {
+            tty_msg("\r\n[pdp11] HALT at pc=%06o  t=%llu\r\n",
+                    (unsigned)SIM_PC, (unsigned long long)sim_time);
+            tty_msg("[pdp11] FAIL\r\n");
+            return 1;
+        }
+    }
+    tty_msg("\r\n[pdp11] TIMEOUT after %llu cycles\r\n",
+            (unsigned long long)sim_time);
+    tty_msg("[pdp11] FAIL\r\n");
+    return 1;
+}
+
 // ── テストモード: --diag ──────────────────────────────────────────────────
 // MAINDEC 診断プログラムをロードし、initial_pc=0200 で実行する。
 // UART 出力を表示し、HALT または タイムアウトで終了する。
@@ -263,6 +417,57 @@ static int run_diag(VerilatedContext* ctx, const char* diag_name) {
     return fail_found ? 1 : 0;
 }
 
+// ── テストモード: --v6-script ─────────────────────────────────────────────
+static bool sc_parse(const char* file) {
+    FILE* f = fopen(file, "r");
+    if (!f) { tty_msg("[v6-script] cannot open %s\r\n", file); return false; }
+    char line[2048];
+    int lineno = 0;
+    while (fgets(line, sizeof(line), f)) {
+        lineno++;
+        size_t n = strlen(line);
+        while (n && (line[n-1] == '\n' || line[n-1] == '\r')) line[--n] = 0;
+        char* p = line;
+        while (*p == ' ' || *p == '\t') p++;
+        if (*p == 0 || *p == '#') continue;
+        if      (strncmp(p, "wait ",    5) == 0) g_script.push_back({SC_WAIT,   sc_unescape(p + 5)});
+        else if (strncmp(p, "expect ",  7) == 0) g_script.push_back({SC_EXPECT, sc_unescape(p + 7)});
+        else if (strncmp(p, "send ",    5) == 0) g_script.push_back({SC_SEND,   sc_unescape(p + 5)});
+        else if (strncmp(p, "timeout ", 8) == 0) g_script.push_back({SC_TIMEOUT, std::string(p + 8)});
+        else { tty_msg("[v6-script] %s:%d unknown directive: %s\r\n", file, lineno, p); fclose(f); return false; }
+    }
+    fclose(f);
+    if (g_script.empty()) { tty_msg("[v6-script] empty script: %s\r\n", file); return false; }
+    return true;
+}
+
+// Unix V6 をブートし、スクリプトのシナリオを流して PASS/FAIL を返す。
+static int run_v6_script(VerilatedContext* ctx, const char* script_file) {
+    if (!sc_parse(script_file)) return 2;
+    g_v6_script    = true;
+    g_capture_mode = true;
+    g_capture_len  = 0;
+    g_sc_mark      = 0;
+    do_reset();
+    tty_msg("[v6-script] %s — %zu directives\r\n", script_file, g_script.size());
+
+    const uint64_t LIMIT = 4000000000ULL;   // 全体の安全上限（約 4B クロック）
+    for (uint64_t i = 0; i < LIMIT && !g_stop && !ctx->gotFinish(); i++) {
+        tick();
+        if (g_sc_idx >= g_script.size()) break;   // 全ディレクティブ消化
+    }
+
+    bool all_done = (g_sc_idx >= g_script.size());
+    if (g_sc_failed || !all_done) {
+        tty_msg("\r\n[v6-script] FAIL (%zu/%zu directives, t=%llu)\r\n",
+                g_sc_idx, g_script.size(), (unsigned long long)sim_time);
+        return 1;
+    }
+    tty_msg("\r\n[v6-script] PASS (%zu directives, t=%llu)\r\n",
+            g_script.size(), (unsigned long long)sim_time);
+    return 0;
+}
+
 // ── main ─────────────────────────────────────────────────────────────────
 int main(int argc, char** argv) {
     // Verilator の $display は printf() → stdout に出力される。
@@ -274,8 +479,10 @@ int main(int argc, char** argv) {
     setbuf(stdout, NULL);
 
     // ── 引数解析 ─────────────────────────────────────────────────────────
-    enum Mode { MODE_INTERACTIVE, MODE_RUN_TEST, MODE_DIAG } mode = MODE_INTERACTIVE;
-    const char* mode_arg = nullptr;
+    enum Mode { MODE_INTERACTIVE, MODE_RUN_TEST, MODE_DIAG, MODE_ROM_TEST,
+                MODE_V6_SCRIPT } mode = MODE_INTERACTIVE;
+    const char* mode_arg  = nullptr;
+    const char* mode_arg2 = nullptr;
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--run-test") == 0 && i + 1 < argc) {
@@ -284,14 +491,21 @@ int main(int argc, char** argv) {
         } else if (strcmp(argv[i], "--diag") == 0 && i + 1 < argc) {
             mode = MODE_DIAG;
             mode_arg = argv[++i];
+        } else if (strcmp(argv[i], "--rom-test") == 0 && i + 2 < argc) {
+            mode     = MODE_ROM_TEST;
+            mode_arg  = argv[++i];
+            mode_arg2 = argv[++i];
+        } else if (strcmp(argv[i], "--v6-script") == 0 && i + 1 < argc) {
+            mode = MODE_V6_SCRIPT;
+            mode_arg = argv[++i];
         }
     }
 
     VerilatedContext* ctx = new VerilatedContext;
     ctx->commandArgs(argc, argv);
 
-    // ディスクイメージ（テストモードでは不要）
-    if (mode == MODE_INTERACTIVE) {
+    // ディスクイメージ（V6 を起動するモードで必要; .mem/diag テストでは不要）
+    if (mode == MODE_INTERACTIVE || mode == MODE_V6_SCRIPT) {
         if (!getenv("IDEIMAGE")) {
             const char* candidates[] = {
                 "examples/09-pdp11/disk/unix_v6_rk05.dsk",
@@ -325,6 +539,11 @@ int main(int argc, char** argv) {
         int ret = 0;
         if (mode == MODE_RUN_TEST)
             ret = run_test(ctx, mode_arg);
+        else if (mode == MODE_ROM_TEST)
+            ret = run_rom_test(ctx, mode_arg,
+                               (uint32_t)strtol(mode_arg2, nullptr, 8));
+        else if (mode == MODE_V6_SCRIPT)
+            ret = run_v6_script(ctx, mode_arg);
         else
             ret = run_diag(ctx, mode_arg);
         top->final();

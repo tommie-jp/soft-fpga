@@ -52,6 +52,44 @@ g++ $CXX_FLAGS \
 
 echo "=== Done ==="
 echo "  $EXAMPLE/build/pdp11_sim"
+
+# ── sdiag ROM テスト用バイナリ (boot_diag モード) ────────────────────────────
+OBJ_DIR_DIAG="$ROOT/obj_dir_09_host_diag"
+echo ""
+echo "=== Verilator 5.x (diag) ==="
+rm -rf "$OBJ_DIR_DIAG"
+verilator --cc \
+    --no-timing \
+    --top-module test_top_wasm \
+    -Wno-DECLFILENAME \
+    -Wno-MULTITOP \
+    -Wno-UNUSEDSIGNAL \
+    -Wno-UNOPTFLAT \
+    -Wno-WIDTHEXPAND \
+    -Wno-WIDTHTRUNC \
+    -Wno-STMTDLY \
+    -Wno-TIMESCALEMOD \
+    -Wno-CASEX \
+    -Wno-CASEINCOMPLETE \
+    "$EXAMPLE/verilog/test_top_wasm_diag.v" \
+    +incdir+"$EXAMPLE/verilog" \
+    +incdir+"$VENDOR/rtl" \
+    --Mdir "$OBJ_DIR_DIAG"
+
+echo "=== C++ build (diag) ==="
+V_SRCS_DIAG=$(ls "$OBJ_DIR_DIAG"/Vtest_top_wasm*.cpp | grep -v '__Dpi\.cpp')
+# shellcheck disable=SC2086
+g++ $CXX_FLAGS \
+    $V_SRCS_DIAG \
+    "$VERILATOR_ROOT/include/verilated.cpp" \
+    "$VERILATOR_ROOT/include/verilated_threads.cpp" \
+    "$EXAMPLE/cxx/ide_v5.cpp" \
+    "$EXAMPLE/cxx/ram_v5.cpp" \
+    "$EXAMPLE/cxx/main_linux.cpp" \
+    -o "$EXAMPLE/build/pdp11_sdiag_sim"
+
+echo "=== Done ==="
+echo "  $EXAMPLE/build/pdp11_sdiag_sim"
 echo ""
 echo "Usage:"
 echo "  IDEIMAGE=examples/09-pdp11/disk/unix_v6_rk05.dsk $EXAMPLE/build/pdp11_sim"

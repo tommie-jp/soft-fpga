@@ -73,6 +73,7 @@ jobs:
         run: |
           mkdir _site
           cp index.html _site/index.html
+          cp web/favicon.ico _site/favicon.ico
           cp -r examples _site/examples
           cp -r docs _site/docs
           cp -r js _site/js

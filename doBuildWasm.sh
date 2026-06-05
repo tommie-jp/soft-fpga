@@ -14,6 +14,7 @@ usage() {
   02-traffic-fsm
   03-uart
   04-6502 (Apple-I)
+  09-pdp11 (Unix V6)
 
 前提: Verilator・emsdk がインストール済みであること。
 
@@ -42,6 +43,9 @@ echo "=== build-wasm: 03-uart ==="
 
 echo "=== build-wasm: 04-6502 Apple-I ==="
 "$SCRIPT_DIR/scripts/build-wasm-04.sh"
+
+echo "=== build-wasm: 09-pdp11 Unix V6 ==="
+"$SCRIPT_DIR/scripts/build-wasm-09.sh"
 
 echo ""
 echo "All WASM builds done."

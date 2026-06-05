@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# doDeployAll.sh — examples/06-8080 をビルドして GitHub Pages にデプロイする
+# doDeployAll.sh — examples/06-8080 と 09-pdp11 をビルドして GitHub Pages にデプロイする
 #
 # 処理内容:
-#   1. doBuildAll.sh — 全成果物をビルド
+#   1. doBuildAll.sh — 06-8080 全成果物をビルド
+#   1b. scripts/build-wasm-09.sh — 09-pdp11 WASM をビルド（ディスクイメージも自動ステージ）
 #   2. gen-timing-ss-index.py — タイミング図ギャラリー再生成
-#   3. scripts/doDeployPages.sh --no-build 06 — gh-pages ブランチへデプロイ
+#   3. scripts/doDeployPages.sh --no-build 06 09 — gh-pages ブランチへデプロイ
 #   4. scripts/check-pages-deploy.sh — デプロイ完了・動作確認
 #      フェーズ1: GitHub Deployments API でデプロイ成否を確認
 #      フェーズ2: curl で主要 URL の HTTP 200 を確認
@@ -31,12 +32,12 @@ usage() {
     cat <<'EOF'
 使い方: doDeployAll.sh [-y] [--no-build] [--no-gallery] [--no-deploy] [--no-check] [--no-gallery-check]
 
-examples/06-8080 をビルドして GitHub Pages にデプロイする。
+examples/06-8080 と 09-pdp11 をビルドして GitHub Pages にデプロイする。
 
 処理内容:
-  1. doBuildAll.sh                           全成果物をビルド
+  1. doBuildAll.sh + build-wasm-09.sh        全成果物をビルド
   2. gen-timing-ss-index.py                  タイミング図ギャラリー再生成
-  3. scripts/doDeployPages.sh --no-build 06  gh-pages ブランチへデプロイ
+  3. scripts/doDeployPages.sh --no-build 06 09  gh-pages ブランチへデプロイ
   4. scripts/check-pages-deploy.sh           デプロイ完了・動作確認
      フェーズ1: GitHub Deployments API でデプロイ成否を確認
      フェーズ2: curl で主要 URL の HTTP 200 を確認
@@ -44,6 +45,8 @@ examples/06-8080 をビルドして GitHub Pages にデプロイする。
      フェーズ4: 内部リンク切れチェック
   5. scripts/check-gallery-links.py          ギャラリーリンクチェック
      test/ss/8080/index.html が参照する PNG・viewer.html を GitHub Pages で確認
+  6. scripts/check-pdp11-links.py            PDP-11 ローカルリンクチェック（デプロイ前）
+     index.html・sim-worker.js・sft-pdp11-docs.js の参照ファイル存在確認と一貫性検証
 
 前提条件:
   - git remote "origin" が設定済みで push 権限があること
@@ -60,6 +63,7 @@ examples/06-8080 をビルドして GitHub Pages にデプロイする。
   --no-deploy            ステップ3 GitHub Pages デプロイをスキップ
   --no-check             ステップ4 デプロイ確認をスキップ
   --no-gallery-check     ステップ5 ギャラリーリンクチェックをスキップ
+  --no-pdp11-links       ステップ6 PDP-11 ローカルリンクチェックをスキップ
   -h, --help             このヘルプを表示して終了
 
 使用例:
@@ -80,6 +84,7 @@ SKIP_GALLERY=false
 SKIP_DEPLOY=false
 SKIP_CHECK=false
 SKIP_GALLERY_CHECK=false
+SKIP_PDP11_LINKS=false
 YES=false
 
 while [[ $# -gt 0 ]]; do
@@ -90,7 +95,8 @@ while [[ $# -gt 0 ]]; do
         --no-gallery)        SKIP_GALLERY=true;       shift ;;
         --no-deploy)         SKIP_DEPLOY=true;        shift ;;
         --no-check)          SKIP_CHECK=true;         shift ;;
-        --no-gallery-check)  SKIP_GALLERY_CHECK=true; shift ;;
+        --no-gallery-check)  SKIP_GALLERY_CHECK=true;  shift ;;
+        --no-pdp11-links)    SKIP_PDP11_LINKS=true;    shift ;;
         *) echo "不明なオプション: $1" >&2; usage >&2; exit 1 ;;
     esac
 done
@@ -138,18 +144,21 @@ fi
 step_header() {
     local num="$1" label="$2" skipped="$3"
     if [[ "$skipped" == true ]]; then
-        printf "${CYAN}[%s/5]${RESET} %s → ${YELLOW}スキップ${RESET}\n\n" "$num" "$label"
+        printf "${CYAN}[%s/6]${RESET} %s → ${YELLOW}スキップ${RESET}\n\n" "$num" "$label"
     else
-        printf "${CYAN}[%s/5]${RESET} %s\n\n" "$num" "$label"
+        printf "${CYAN}[%s/6]${RESET} %s\n\n" "$num" "$label"
     fi
 }
 
 # ---------------------------------------------------------------------------
 # ステップ 1: 全ビルド
 # ---------------------------------------------------------------------------
-step_header 1 "ビルド (doBuildAll.sh)" "$SKIP_BUILD"
+step_header 1 "ビルド (doBuildAll.sh + build-wasm-09.sh)" "$SKIP_BUILD"
 if [[ "$SKIP_BUILD" == false ]]; then
     bash "${SCRIPT_DIR}/doBuildAll.sh"
+    echo ""
+    echo "--- 09-pdp11 WASM ビルド ---"
+    bash "${SCRIPT_DIR}/scripts/build-wasm-09.sh"
     echo ""
 fi
 
@@ -169,9 +178,9 @@ fi
 # ---------------------------------------------------------------------------
 # ステップ 3: GitHub Pages へデプロイ
 # ---------------------------------------------------------------------------
-step_header 3 "GitHub Pages デプロイ (scripts/doDeployPages.sh --no-build 06)" "$SKIP_DEPLOY"
+step_header 3 "GitHub Pages デプロイ (scripts/doDeployPages.sh --no-build 06 09)" "$SKIP_DEPLOY"
 if [[ "$SKIP_DEPLOY" == false ]]; then
-    bash "${SCRIPT_DIR}/scripts/doDeployPages.sh" --no-build 06
+    bash "${SCRIPT_DIR}/scripts/doDeployPages.sh" --no-build 06 09
     echo ""
 fi
 
@@ -218,6 +227,27 @@ if [[ "$SKIP_GALLERY_CHECK" == false ]]; then
         else
             printf "${GREEN}✓ ギャラリーリンクチェック 完了${RESET}\n"
         fi
+    fi
+    echo ""
+fi
+
+# ---------------------------------------------------------------------------
+# ステップ 6: PDP-11 ローカルリンクチェック
+# ---------------------------------------------------------------------------
+step_header 6 "PDP-11 ローカルリンクチェック (scripts/check-pdp11-links.py)" "$SKIP_PDP11_LINKS"
+if [[ "$SKIP_PDP11_LINKS" == false ]]; then
+    set +e
+    python3 "${SCRIPT_DIR}/scripts/check-pdp11-links.py" \
+        "${SCRIPT_DIR}/examples/09-pdp11/web" 2>&1 | sed 's/^/  /'
+    p11_exit=${PIPESTATUS[0]}
+    set -e
+
+    echo ""
+    if [[ $p11_exit -ne 0 ]]; then
+        printf "${RED}✗ PDP-11 リンクチェックに問題があります。${RESET}\n"
+        exit 1
+    else
+        printf "${GREEN}✓ PDP-11 リンクチェック 完了${RESET}\n"
     fi
     echo ""
 fi

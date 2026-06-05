@@ -1,7 +1,7 @@
 // harness.cpp — PDP-11 / Unix V6 WASM ハーネス（Phase 4）
 //
 // DPI 実装（dpi_tty_putc / dpi_tty_getc）、step_n、send_key、
-// get_display_char、ring buffer（RING_WORDS=5）、PC トリガー、sim_init、
+// get_display_char、ring buffer（RING_WORDS=9）、PC トリガー、sim_init、
 // GPR snapshot（R0-R5/SP）、MMU PAR/PDR 読み取りを提供する。
 
 #include "Vtest_top_wasm.h"
@@ -46,8 +46,11 @@ static uint64_t        sim_time = 0;
 #define OBS_INT_VEC  (top->rootp->test_top_wasm__DOT__obs_int_vec)
 #define OBS_INT_IPL  (top->rootp->test_top_wasm__DOT__obs_int_ipl)
 #define OBS_ADDR_V   (top->rootp->test_top_wasm__DOT__obs_addr_v)
+// Phase 4 拡張観測信号
+#define OBS_EXTRA1   (top->rootp->test_top_wasm__DOT__obs_extra1)
+#define OBS_WORD4    (top->rootp->test_top_wasm__DOT__obs_word4)
 
-// ── ring buffer（RING_WORDS = 5）─────────────────────────────────────────
+// ── ring buffer（RING_WORDS = 9）─────────────────────────────────────────
 //
 // Word0 [31:0]:
 //   [17: 0] bus_addr_p  — Unibus 物理アドレス（18 ビット）
@@ -66,13 +69,24 @@ static uint64_t        sim_time = 0;
 //   [15: 0] PC          — プログラムカウンタ（仮想）
 //   [31:16] bus_addr_v  — 仮想アドレス（16 ビット）
 // Word3 [31:0]:
-//   [ 7: 0] int_vec     — 割り込みベクタ（8 ビット）
-//   [15: 8] int_ipl     — 割り込み優先レベル（8 ビット）
+//   [ 7: 0] int_vec       — 割り込みベクタ（8 ビット）
+//   [15: 8] int_ipl       — 割り込み優先レベル（8 ビット）
+//   [16]    reserved
+//   [17]    bus_error     — バスエラー（NXM/no_decode）
+//   [18]    waited        — CPU バス待ちストール
+//   [19]    nxm_access    — 存在しないメモリアクセス
+//   [20]    iopage_access — I/O ページアクセス
+//   [21]    trap_bus      — バスエラートラップ（ベクタ 4）
+//   [22]    trap_abort    — MMU アボートトラップ（ベクタ 0o250）
+//   [23]    trap_odd      — 奇数アドレスアクセス
+//   [31:24] reserved
 // Word4 [31:0]:
-//   予備
+//   [ 4: 0] istate        — CPU マイクロシーケンサ状態
+//   [20: 5] isn           — 現在の命令ワード
+//   [31:21] reserved
 
 #define RING_SIZE  4096
-#define RING_WORDS 5
+#define RING_WORDS 9
 
 static uint32_t ring[RING_SIZE * RING_WORDS];
 static uint32_t ring_head = 0;
@@ -92,9 +106,18 @@ static inline void sample_ring() {
          | ((uint32_t)(OBS_PSW)  << 16);
     p[2] = ((uint32_t)(OBS_PC)     & 0xFFFFu)
          | ((uint32_t)(OBS_ADDR_V) << 16);
-    p[3] = ((uint32_t)(OBS_INT_VEC & 0xFFu))
-         | ((uint32_t)(OBS_INT_IPL & 0xFFu) << 8);
-    p[4] = 0;
+    p[3] = ((uint32_t)(OBS_INT_VEC  & 0xFFu))
+         | ((uint32_t)(OBS_INT_IPL  & 0xFFu) << 8)
+         | ((uint32_t)(OBS_EXTRA1   & 0xFFFFu) << 16);
+    p[4] = (uint32_t)OBS_WORD4;
+    // Word5-8: GPR スナップショット（R0-R5, SP）
+    p[5] = ((uint32_t)(top->rootp->test_top_wasm__DOT__top__DOT__cpu__DOT__r0) & 0xFFFFu)
+         | ((uint32_t)(top->rootp->test_top_wasm__DOT__top__DOT__cpu__DOT__r1) << 16);
+    p[6] = ((uint32_t)(top->rootp->test_top_wasm__DOT__top__DOT__cpu__DOT__r2) & 0xFFFFu)
+         | ((uint32_t)(top->rootp->test_top_wasm__DOT__top__DOT__cpu__DOT__r3) << 16);
+    p[7] = ((uint32_t)(top->rootp->test_top_wasm__DOT__top__DOT__cpu__DOT__r4) & 0xFFFFu)
+         | ((uint32_t)(top->rootp->test_top_wasm__DOT__top__DOT__cpu__DOT__r5) << 16);
+    p[8] = ((uint32_t)(top->rootp->test_top_wasm__DOT__top__DOT__cpu__DOT__sp) & 0xFFFFu);
     ring_head++;
 }
 
@@ -111,10 +134,11 @@ static uint8_t con_in_buf[CON_IN_SIZE];
 static int     con_in_head = 0;
 static int     con_in_tail = 0;
 
-// ── GPR スナップショット（R0-R5, SP = 7 × uint16_t）──────────────────────
-// CPU は pdp11 モジュール (top.cpu.r0..r5, top.cpu.sp) に直接アクセスする。
+// ── GPR スナップショット（R0-R5, SP, istate = 8 × uint16_t）────────────────
+// CPU は pdp11 モジュール (top.cpu.r0..r5, top.cpu.sp, top.cpu.istate) に直接アクセス。
+// インデックス: 0=R0 1=R1 2=R2 3=R3 4=R4 5=R5 6=SP 7=istate
 
-static uint16_t gpr_snap[7];
+static uint16_t gpr_snap[8];
 
 // ── MMU スナップショット（Kernel I-space 8 pages + User I-space 8 pages）──
 // 各エントリ: upper16=PAR[11:0], lower16=PDR[15:0]
@@ -181,6 +205,13 @@ static void do_reset() {
     for (int i = 0; i < 64; i++) tick();
 }
 
+// ── RAM 操作（ram_v5.cpp の extern） ────────────────────────────────────────
+
+extern "C" {
+    void ram_clear(void);
+    void ram_write_word(uint32_t byte_addr, uint16_t word);
+}
+
 // ── エクスポート関数 ──────────────────────────────────────────────────────
 
 extern "C" {
@@ -206,13 +237,73 @@ EMSCRIPTEN_KEEPALIVE void sim_init() {
     do_reset();
 }
 
+// ── ベアメタル初期化 ─────────────────────────────────────────────────────
+// Unix V6 ブートなし。RAM をクリアし、initial_pc を設定してリセットする。
+// ポストリセットのフリーランニングティックは行わない（テストプログラムが
+// write_word で書き込まれる前に HALT(0) を実行してしまうのを防ぐため）。
+// CPU の実行は resume メッセージ受信後に開始する。
+EMSCRIPTEN_KEEPALIVE void sim_init_bare(uint32_t start_pc) {
+    VerilatedContext* ctx = new VerilatedContext;
+    top = new Vtest_top_wasm(ctx);
+
+    memset(ring,     0, sizeof(ring));
+    memset(con_out_buf, 0, sizeof(con_out_buf));
+    memset(con_in_buf,  0, sizeof(con_in_buf));
+    memset(gpr_snap, 0, sizeof(gpr_snap));
+    memset(mmu_snap, 0, sizeof(mmu_snap));
+    con_out_head = con_out_tail = 0;
+    con_in_head  = con_in_tail  = 0;
+    ring_head    = 0;
+    sim_time     = 0;
+    g_trigger_pc = 0;
+    g_triggered  = 0;
+
+    ram_clear();
+
+    // 重要: eval_initial__TOP は最初の eval() 呼び出し時に実行され、
+    // initial_pc を Verilog の initial 値（0o173000）で上書きする。
+    // そのため initial_pc の書き込みは最初の eval() の「後」に行う必要がある。
+    SIM_BUTTON = 0;
+    SIM_SYSCLK = 0;
+    top->eval();  // eval_initial__TOP を起動（initial_pc = 0o173000 にリセット）
+
+    // eval_initial 実行後に initial_pc を目的アドレスに設定する
+    top->rootp->test_top_wasm__DOT__top__DOT__initial_pc = (uint32_t)start_pc;
+
+    // リセットパルス（ポストリセットティックなし）:
+    // ポストリセットティックを走らせると、RAM がゼロ（= HALT 命令）のため
+    // CPU が HALT を実行して止まる。write_word で実プログラムを書いてから
+    // resume でシミュレーションを開始するため、ここではリセット解除のみ行う。
+    SIM_BUTTON = (1 << 3);           // リセットアサート
+    for (int i = 0; i < 64; i++) tick();
+    SIM_BUTTON = 0;                   // リセット解除
+    top->eval();                      // 解除伝搬（ティックは走らせない）
+}
+
+// ベアメタル: バイトアドレス byte_addr に 16bit ワードを 1 つ書く
+EMSCRIPTEN_KEEPALIVE void sim_write_word(uint32_t byte_addr, uint32_t word) {
+    ram_write_word(byte_addr, (uint16_t)(word & 0xFFFFu));
+}
+
+// ベアメタル: トリガー・HALT 判定なしで n_ticks だけ進める（ポストトリガー用）
+EMSCRIPTEN_KEEPALIVE void sim_step_bare(int n_ticks) {
+    for (int i = 0; i < n_ticks; i++) {
+        tick();
+        if ((sim_time & 3u) == 0) sample_ring();
+    }
+    if (top) update_gpr();
+}
+
 EMSCRIPTEN_KEEPALIVE void step_n(int n) {
     for (int i = 0; i < n && !g_triggered; i++) {
         if (OBS_HALTED) break;   // CPU halt: stop simulation
         tick();
         if ((sim_time & 3u) == 0) sample_ring();
-        // PC トリガー判定
-        if (g_trigger_pc && ((uint32_t)OBS_PC == g_trigger_pc)) {
+        // PC トリガー判定:
+        // obs_pc はフェッチ中に +2 済みのため、バス仮想アドレス(obs_addr_v)と
+        // バス読み出しストローブ(obs_rd)の組み合わせで命令フェッチを検出する。
+        if (g_trigger_pc && OBS_RD
+                && ((uint32_t)(OBS_ADDR_V & 0xFFFFu) == g_trigger_pc)) {
             if (g_trigger_once) {
                 g_triggered = 1;
                 break;

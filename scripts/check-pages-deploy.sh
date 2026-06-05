@@ -40,6 +40,7 @@ CPM_BOOT_TIMEOUT=60   # GitHub Pages 経由での A> 待ち（秒）
 SMOKE_URLS=(
     "${PAGES_BASE}/"
     "${PAGES_BASE}/examples/06-8080/web/"
+    "${PAGES_BASE}/examples/09-pdp11/web/"
     "${PAGES_BASE}/js/rtlscope-la.js"
     "${PAGES_BASE}/js/xterm-jp106.js"
     "${PAGES_BASE}/js/monaco-wasm-editor.js"

@@ -53,6 +53,13 @@ void ram_clear(void) {
     memset(ram_l, 0, sizeof(ram_l));
 }
 
+// ベアメタルテスト用: バイトアドレス byte_addr に 16bit ワードを書く
+void ram_write_word(uint32_t byte_addr, uint16_t word) {
+    uint32_t wa = (byte_addr >> 1) & 0x1FFFFu;
+    ram_l[wa] = (unsigned char)(word & 0xFFu);
+    ram_h[wa] = (unsigned char)((word >> 8) & 0xFFu);
+}
+
 // .mem ファイル（<8進バイトアドレス> <8進ワード値>）を RAM にロードする。
 // 戻り値: ロードしたワード数（エラー時 -1）
 int ram_load_mem(const char *filename) {

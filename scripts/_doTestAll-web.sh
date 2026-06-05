@@ -47,6 +47,7 @@ done
 # テスト結果を集計するための変数
 RESULT_6502=0
 RESULT_8080=0
+RESULT_PDP11=0
 
 echo ""
 echo "02---Playwright テスト実行 (04-6502 Apple-I)..."
@@ -62,10 +63,17 @@ echo "03---Playwright テスト実行 (06-8080 CP/M WASM)..."
     --browser chromium \
     || RESULT_8080=$?
 
+echo ""
+echo "04---Playwright テスト実行 (09-PDP-11 Unix V6)..."
+"${VENV}/bin/pytest" "${PROJECT_ROOT}/verif/web/test_pdp11.py" -v \
+    --base-url "http://localhost:${PORT}/examples/09-pdp11/web/index.html" \
+    --browser chromium \
+    || RESULT_PDP11=$?
+
 # 終了コード: いずれかが失敗していたら 1
-if [[ "${RESULT_6502}" -ne 0 ]] || [[ "${RESULT_8080}" -ne 0 ]]; then
+if [[ "${RESULT_6502}" -ne 0 ]] || [[ "${RESULT_8080}" -ne 0 ]] || [[ "${RESULT_PDP11}" -ne 0 ]]; then
     echo ""
-    echo "Web テストに失敗があります: 04-6502=${RESULT_6502}  06-8080=${RESULT_8080}"
+    echo "Web テストに失敗があります: 04-6502=${RESULT_6502}  06-8080=${RESULT_8080}  09-PDP11=${RESULT_PDP11}"
     exit 1
 fi
 echo ""

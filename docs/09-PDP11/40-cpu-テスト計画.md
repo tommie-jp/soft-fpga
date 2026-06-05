@@ -16,9 +16,9 @@
 | MMU | FKTHB0 メモリ管理テスト | `pdp11_sim --diag FKTHB0` | ✅ PASS |
 | 診断（I/O） | FKTGC0 命令・I/O エクササイザ | `pdp11_sim --diag FKTGC0` | ✅ PASS |
 | OS ブート | Unix V6 ブート確認 | `./doPDP11-unix-v6.sh` | ✅ 手動確認済み |
-| OS コマンド | Unix V6 コマンド自動化 | `pdp11_sim --v6-script <file>` | ❌ 未実装 |
-| 信号/タイミング | GPR・PSW・MMU 波形 Vitest | `npm test` | ❌ 未実装 |
-| ブラウザ UI | Logic Analyzer / MMU パネル | Playwright | ❌ 未実装 |
+| OS コマンド | Unix V6 シナリオ自動化 | `scripts/test-pdp11-v6.sh`（`--v6-script`）| ✅ PASS |
+| 信号/タイミング | GPR・PSW・MMU・ring の Vitest | `examples/09-pdp11/tests/` で `npm test` | ✅ PASS 7/7 |
+| ブラウザ UI | Logic Analyzer / MMU パネル | `verif/web/test_pdp11.py`（Playwright）| ✅ PASS 6/6 |
 
 ---
 
@@ -234,3 +234,51 @@ Phase 4 V6 自動化 → Phase 5 Vitest。
 - [06/61-全命令タイミングテスト計画.md](../06-8080/61-全命令タイミングテスト計画.md) — 8080 タイミングテスト計画
 - `vendor/cpus-pdp11/tests/` — basic tests / MAINDEC 診断（.mem 変換済み）
 - `vendor/cpus-pdp11/verif/README` — Brad Parker の検証方針
+
+---
+
+## 実装状況（2026-06-05 追記）— テスト自動化 3 種を実装
+
+計画していた 3 つのテスト自動化を実装した。実行方法:
+
+### 1. Unix V6 シナリオ（`--v6-script`）
+
+`main_linux.cpp` に `--v6-script <file>` モードを追加。`wait` / `expect` / `send` /
+`timeout` ディレクティブで V6 を起動して操作し、PASS/FAIL を返す。
+
+```bash
+bash scripts/build-host-09.sh          # ネイティブ sim をビルド
+bash scripts/test-pdp11-v6.sh          # examples/09-pdp11/tests/v6-scripts/*.v6 を実行
+```
+
+- 例: [`cc-hello.v6`](../../examples/09-pdp11/tests/v6-scripts/cc-hello.v6)
+  — 起動 → root ログイン → printf プログラムを `cc` コンパイル＆実行を検証
+  （cc バスエラー修正・ディスク健全性の回帰テスト）。
+- 各実行はディスクのコピー上で行い、ソースディスクを汚さない。
+
+### 2. 信号 Vitest（GPR / PSW / MMU / ring）
+
+`build-wasm-09.sh` が Node.js 用 ES Module `examples/09-pdp11/tests/sim-test.mjs`
+（`MODULARIZE` + `EXPORT_ES6`、ディスク埋め込み）も生成する。Vitest で V6 を起動し、
+リングバッファ・GPR・MMU スナップショットに信号が反映されることを確認する。
+
+```bash
+bash scripts/build-wasm-09.sh          # sim-test.mjs を生成
+cd examples/09-pdp11/tests && npm install && npm test
+```
+
+- テスト: [`tests/signals/boot-signals.test.mjs`](../../examples/09-pdp11/tests/signals/boot-signals.test.mjs)（7 件）。
+
+### 3. ブラウザ UI（Playwright）
+
+[`verif/web/test_pdp11.py`](../../verif/web/test_pdp11.py)（6 件）。ブート→login、
+ブート進行インジケータ、レジスタパネルのライブ更新、MMU パネルの PAR 表示、
+Logic Analyzer canvas の描画、root シェル到達を検証する。
+
+```bash
+# サーバー起動 + 全 web テスト（04/06/09）をまとめて実行
+bash scripts/_doTestAll-web.sh
+# 単体:
+.venv/bin/pytest verif/web/test_pdp11.py -v \
+    --base-url http://localhost:8080/examples/09-pdp11/web/index.html
+```

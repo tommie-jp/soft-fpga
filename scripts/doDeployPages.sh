@@ -33,6 +33,7 @@ declare -a EXAMPLES=(
     "04:build-wasm-04.sh:examples/04-6502/web:04-6502"
     "05:build-wasm-05.sh:examples/05-dormann/web:05-dormann"
     "06:build-wasm-06.sh:examples/06-8080/web:examples/06-8080/web"
+    "09:build-wasm-09.sh:examples/09-pdp11/web:examples/09-pdp11/web"
 )
 
 # ---------- filter by targets ----------
@@ -140,6 +141,18 @@ for ex in "${EXAMPLES[@]}"; do
     for asset in "$src"/*.png "$src"/*.svg; do
         [ -f "$asset" ] && cp "$asset" "$dst/"
     done
+    # js/ ディレクトリ（rtlscope-la.js など: gitignore 対象だがビルド時に生成済み）
+    if [ -d "$src/js" ]; then
+        mkdir -p "$dst/js"
+        cp "$src/js/"*.js "$dst/js/" 2>/dev/null && \
+            echo "  Copied js/ → /${deploy_subdir}/js/" || true
+    fi
+    # disk/ ディレクトリ（ディスクイメージ: 例 unix_v6_rk05.dsk）
+    if [ -d "$src/disk" ]; then
+        mkdir -p "$dst/disk"
+        cp "$src/disk"/*.dsk "$dst/disk/" 2>/dev/null && \
+            echo "  Copied disk/ → /${deploy_subdir}/disk/" || true
+    fi
 
     # docs/ ディレクトリ（Markdown ドキュメント）
     # deploy_subdir が深い場合（例: examples/06-8080/web）は

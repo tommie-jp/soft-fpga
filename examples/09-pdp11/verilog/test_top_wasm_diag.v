@@ -1,23 +1,19 @@
-// test_top_wasm.v — PDP-11 WASM ビルド用トップレベル
+// test_top_wasm_diag.v — sdiag ROM テスト用トップレベル
 //
-// vendor/cpus-pdp11/verif/test_top.v をベースに以下の変更を適用:
-//   - fake_uart.v → wasm_uart.v (DPI ベースの UART)
-//   - debug_tt_out / debug_tt_int を無効化（$display を抑制）
-//   - WASM ハーネス用の obs_* 観測信号を追加（ring buffer 用）
+// test_top_wasm.v と同一だが bootrom.v の代わりに bootrom_diag.v を使用する。
+// これにより boot_diag モード（RAM テスト＋ UART 出力確認 ROM）が有効になる。
 //
-// ビルド: build-wasm-09.sh を参照
+// ビルド: build-host-09.sh (pdp11_sdiag_sim ターゲット)
 
-`define sim_time    1    // clk = sysclk（クロック分周しない）
-`define fake_uart   1    // tt_regs.v に fake_uart モジュールを使わせる
-// debug_tt_out, debug_tt_int は WASM では不要なのでコメントアウト
+`define sim_time    1
+`define fake_uart   1
 
 `include "pdp11.v"
 `include "ipl_below.v"
 `include "add8.v"
 
-// no_mmu はコメントアウト済み（top.v 内）→ 実 MMU (mmu.v) を使用
 `include "mmu.v"
-`include "null_mmu.v"   // null_mmu モジュール定義（top.v の ifdef で参照）
+`include "null_mmu.v"
 
 `include "execute.v"
 `include "mul1616.v"
@@ -35,12 +31,10 @@
 `include "tt_regs.v"
 `include "brg.v"
 
-// fake_uart マクロが定義されているので tt_regs.v は fake_uart モジュールをインスタンス化する
-// wasm_uart.v が module fake_uart を定義（DPI ベース）
 `include "wasm_uart.v"
 
 `include "bus.v"
-`include "bootrom.v"
+`include "bootrom_diag.v"   // boot_diag モード bootrom
 `include "iopage.v"
 `include "reset_btn.v"
 `include "ram_async.v"
@@ -49,7 +43,7 @@
 `include "display.v"
 `include "top.v"
 
-// ── wrap_ide / wrap_s3board_ram は test_top.v と同じ ──────────────────────
+// wrap_ide / wrap_s3board_ram は test_top_wasm.v と同一
 
 module wrap_ide(clk, ide_data_in, ide_data_out, ide_dior, ide_diow, ide_cs, ide_da);
 
@@ -140,7 +134,7 @@ module wrap_s3board_ram(clk,
 endmodule
 
 
-// ── test_top_wasm ──────────────────────────────────────────────────────────
+// ── test_top_wasm (diag variant) ───────────────────────────────────────────
 
 module test_top_wasm;
 
@@ -247,7 +241,6 @@ module test_top_wasm;
       .ram2_ub_n(ram2_ub_n),
       .ram2_lb_n(ram2_lb_n));
 
-   // CPU halt 検出（WASM では $finish は不要; harness.cpp が OBS_HALTED で停止する）
    reg halted_once;
    initial halted_once = 0;
    always @(posedge sysclk)
@@ -256,9 +249,6 @@ module test_top_wasm;
         $display("cpu halted");
      end
 
-   // ── WASM ハーネス用観測信号（ring buffer / Phase 2+3） ──────────────────
-   // harness.cpp が rootp 経由でアクセスする
-   // Phase 2: 基本バス信号
    wire [15:0] obs_pc       /* verilator public_flat */;
    wire [15:0] obs_psw      /* verilator public_flat */;
    wire [21:0] obs_addr_p   /* verilator public_flat */;
@@ -266,7 +256,6 @@ module test_top_wasm;
    wire        obs_wr       /* verilator public_flat */;
    wire [1:0]  obs_cpu_cm   /* verilator public_flat */;
    wire [4:0]  obs_rk_state /* verilator public_flat */;
-   // Phase 3: 追加信号
    wire        obs_rd       /* verilator public_flat */;
    wire        obs_byte_op  /* verilator public_flat */;
    wire        obs_trapped  /* verilator public_flat */;
@@ -279,14 +268,10 @@ module test_top_wasm;
    assign obs_pc       = top.pc;
    assign obs_psw      = top.psw;
    assign obs_addr_p   = top.bus_addr_p;
-   // bus_data_in: CPU→バス（書き込みデータ）
-   // bus_data_out: バス→CPU（読み出しデータ: RAM/IO の返り値）
-   // WR 中は書き込み値、それ以外（RD・アイドル）は読み出し値を表示する。
    assign obs_data     = top.bus_wr ? top.bus_data_in : top.bus_data_out;
    assign obs_wr       = top.bus_wr;
    assign obs_cpu_cm   = top.bus_cpu_cm;
    assign obs_rk_state = top.rk_state;
-   // Phase 3
    assign obs_rd       = top.bus_rd;
    assign obs_byte_op  = top.bus_byte_op;
    assign obs_trapped  = top.trapped;
@@ -296,13 +281,7 @@ module test_top_wasm;
    assign obs_int_ipl  = top.bus_int_ipl;
    assign obs_addr_v   = top.bus_addr_v;
 
-   // Phase 4: 拡張信号（Word3 高 16 bit / Word4）
-   // Word3[31:16]: 制御・トラップ信号
-   //   [16]=reserved [17]=bus_error [18]=waited [19]=nxm_access
-   //   [20]=iopage_access [21]=trap_bus [22]=trap_abort [23]=trap_odd
    wire [15:0] obs_extra1 /* verilator public_flat */;
-   // Word4[31:0]: istate + isn
-   //   [4:0]=istate [20:5]=isn [31:21]=reserved
    wire [31:0] obs_word4  /* verilator public_flat */;
 
    assign obs_extra1 = {
