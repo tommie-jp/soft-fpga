@@ -110,10 +110,15 @@ function _opnd11(field, st) {
   return '?';
 }
 
-// ISN セグメントのサンプル範囲から命令ストリーム fetch（rd && VA===PC）の
-// Data 値を時系列順に収集する。即値・インデックス語などの後続オペランド語が並ぶ。
+// ISN セグメントのサンプル範囲から命令ストリーム fetch の Data 値を収集する。
+//
+// PDP-11 では即値/インデックス語を (PC)+ でフェッチするが、s2 バスサイクル時点で
+// PC は既に +2 済み（s1 でインクリメント済み）のため va===pc にならない。
+// そこで va===pc-2 の rd=1 サイクルを「命令ストリーム読み出し開始」と見なし、
+// その直後 rd=0 で va が同じままのサイクルで正しいデータ（バス ACK 後の値）を取得する。
+// va===pc（次命令の f1 フェッチ）に到達したら収集を終了する。
 function _isnFetchWords11(ctx) {
-  var words = [], lastVA = -1;
+  var words = [], pendingVA = -1;
   var h = ctx.heapu32, RW = ctx.ringWords, rs = ctx.ringSize;
   for (var i = ctx.s0; i < ctx.s1; i++) {
     var b  = ((ctx.startSamp + i) & (rs - 1)) * RW;
@@ -122,9 +127,17 @@ function _isnFetchWords11(ctx) {
     var va = (w2 >>> 16) & 0xFFFF;
     var pc = w2 & 0xFFFF;
     if (rd && va === pc) {
-      if (va !== lastVA) { words.push(w1 & 0xFFFF); lastVA = va; }
+      break;  // 次命令の opcode フェッチ → 収集終了
+    } else if (rd && va === ((pc - 2 + 0x10000) & 0xFFFF)) {
+      // s2: PC は +2 済み、バスには命令ストリームのオペランド語アドレスが出ている。
+      // データはまだ ACK 前で不確定なので va を記憶して次サイクルで取得する。
+      pendingVA = va;
+    } else if (!rd && va === pendingVA && pendingVA !== -1) {
+      // ACK 後: rd=0 になったが va は同じアドレスのまま → データが確定済み
+      words.push(w1 & 0xFFFF);
+      pendingVA = -1;
     } else {
-      lastVA = -1;  // 非 fetch サイクルで run を区切る
+      pendingVA = -1;
     }
   }
   return words;
@@ -204,11 +217,11 @@ function fmtIsn11(v, ctx) {
   else if (_EIS11[op7])            need = _needsWord11(dst);
   else if (_SOP11[op10])           need = _needsWord11(dst);
 
-  // セグメント内 fetch 語の末尾 need 個 = オペランド語（先頭の opcode fetch は除外）
+  // セグメント内の命令ストリームオペランド語（src→dst の順）
   var st = { words: null, i: 0 };
   if (ctx && need > 0) {
     var fw = _isnFetchWords11(ctx);
-    st.words = fw.length > need ? fw.slice(fw.length - need) : fw;
+    st.words = fw.length > need ? fw.slice(0, need) : fw;
   }
 
   if (op4 >= 1 && op4 <= 6)  return _DOP11[op4]      + ' ' + _opnd11(src, st) + ',' + _opnd11(dst, st);
