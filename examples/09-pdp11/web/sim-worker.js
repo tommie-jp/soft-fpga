@@ -475,6 +475,16 @@ self.onmessage = function (e) {
       _laEnabled = !!d.enabled;
       break;
 
+    case 'exportDisk': {
+      try {
+        var _disk = Module.FS.readFile('/disk0.rk');
+        postMessage({ type: 'diskExported', data: _disk.buffer }, [_disk.buffer]);
+      } catch(_e) {
+        postMessage({ type: 'diskExportError', msg: String(_e) });
+      }
+      break;
+    }
+
     case 'poll_mmu':
       _sendMMU();
       break;
