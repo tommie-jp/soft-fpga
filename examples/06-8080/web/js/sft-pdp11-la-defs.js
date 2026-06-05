@@ -63,22 +63,71 @@ function _reg11(r) {
   return r === 7 ? 'PC' : (r === 6 ? 'SP' : 'R' + r);
 }
 
-// 6 bit オペランドフィールド (mode[5:3] reg[2:0]) を文字列化
-function _opnd11(field) {
+// 値を 8 進文字列化（オペランド即値表示用、先頭ゼロ埋めなし）
+function _oct11(v) {
+  return (v & 0xFFFF).toString(8);
+}
+
+// オペランドが後続ワード（即値・インデックス・絶対/相対アドレス）を 1 語消費するか
+function _needsWord11(field) {
+  var mode = (field >>> 3) & 7;
+  var reg  = field & 7;
+  return (mode === 6 || mode === 7 || (reg === 7 && (mode === 2 || mode === 3))) ? 1 : 0;
+}
+
+// 6 bit オペランドフィールド (mode[5:3] reg[2:0]) を文字列化。
+// st = { words: [後続ワード...], i: カーソル } を渡すと即値を具体値で表示する。
+function _opnd11(field, st) {
   var mode = (field >>> 3) & 7;
   var reg  = field & 7;
   var rn = _reg11(reg);
+  // 後続ワードを 1 語取り出す（無ければ null）
+  var w = function() {
+    if (st && st.words && st.i < st.words.length) return st.words[st.i++];
+    return null;
+  };
+  var x;
   switch (mode) {
     case 0: return rn;
     case 1: return '(' + rn + ')';
-    case 2: return reg === 7 ? '#imm'  : '(' + rn + ')+';
-    case 3: return reg === 7 ? '@#adr' : '@(' + rn + ')+';
+    case 2:
+      if (reg === 7) { x = w(); return x !== null ? '#' + _oct11(x) : '#imm'; }
+      return '(' + rn + ')+';
+    case 3:
+      if (reg === 7) { x = w(); return x !== null ? '@#' + _oct11(x) : '@#adr'; }
+      return '@(' + rn + ')+';
     case 4: return '-(' + rn + ')';
     case 5: return '@-(' + rn + ')';
-    case 6: return reg === 7 ? 'adr'   : 'X(' + rn + ')';
-    case 7: return reg === 7 ? '@adr'  : '@X(' + rn + ')';
+    case 6:
+      x = w();
+      if (reg === 7) return x !== null ? _oct11(x) : 'adr';           // 相対
+      return (x !== null ? _oct11(x) : 'X') + '(' + rn + ')';         // インデックス
+    case 7:
+      x = w();
+      if (reg === 7) return x !== null ? '@' + _oct11(x) : '@adr';    // 相対間接
+      return '@' + (x !== null ? _oct11(x) : 'X') + '(' + rn + ')';   // インデックス間接
   }
   return '?';
+}
+
+// ISN セグメントのサンプル範囲から命令ストリーム fetch（rd && VA===PC）の
+// Data 値を時系列順に収集する。即値・インデックス語などの後続オペランド語が並ぶ。
+function _isnFetchWords11(ctx) {
+  var words = [], lastVA = -1;
+  var h = ctx.heapu32, RW = ctx.ringWords, rs = ctx.ringSize;
+  for (var i = ctx.s0; i < ctx.s1; i++) {
+    var b  = ((ctx.startSamp + i) & (rs - 1)) * RW;
+    var w0 = h[b], w1 = h[b + 1], w2 = h[b + 2];
+    var rd = (w0 >>> 19) & 1;
+    var va = (w2 >>> 16) & 0xFFFF;
+    var pc = w2 & 0xFFFF;
+    if (rd && va === pc) {
+      if (va !== lastVA) { words.push(w1 & 0xFFFF); lastVA = va; }
+    } else {
+      lastVA = -1;  // 非 fetch サイクルで run を区切る
+    }
+  }
+  return words;
 }
 
 // 分岐オフセット（符号付き 8 bit、ワード単位）を ".±n" で表す
@@ -130,33 +179,54 @@ function _ccc11(v) {
        + ((v & 0o02) ? 'V' : '') + ((v & 0o01) ? 'C' : '');
 }
 
-function fmtIsn11(v) {
+// ctx（レンダラから渡される { heapu32, ringWords, ringSize, startSamp, s0, s1 }）が
+// あれば、セグメント内の命令ストリーム fetch から即値・インデックス語を復元して
+// 具体値で表示する。ctx が無ければ #imm / X(Rn) などのプレースホルダにフォールバック。
+function fmtIsn11(v, ctx) {
   v = v & 0xFFFF;
   if (v === 0) return '';  // ring buffer 上は「命令未確定」を 0 で表す（HALT は表示しない）
 
   var op4 = (v >>> 12) & 0xF;
   var src = (v >>> 6) & 0o77;
   var dst = v & 0o77;
-  if (op4 >= 1 && op4 <= 6)  return _DOP11[op4]    + ' ' + _opnd11(src) + ',' + _opnd11(dst);
-  if (op4 >= 9 && op4 <= 14) return _DOPB11[op4 - 8] + ' ' + _opnd11(src) + ',' + _opnd11(dst);
+  var reg = (v >>> 6) & 7;
 
-  var op8 = (v >>> 8) & 0xFF;
+  // この命令が消費する後続オペランド語数（src→dst の順）
+  var op7  = (v >>> 9) & 0x7F;
+  var op8  = (v >>> 8) & 0xFF;
+  var op10 = (v >>> 6) & 0x3FF;
+  var need = 0;
+  if (op4 >= 1 && op4 <= 6)        need = _needsWord11(src) + _needsWord11(dst);
+  else if (op4 >= 9 && op4 <= 14)  need = _needsWord11(src) + _needsWord11(dst);
+  else if (_BR11[op8] || op8 === 0o210 || op8 === 0o211) need = 0;
+  else if (op7 === 0o004)          need = _needsWord11(dst);          // JSR
+  else if (op7 === 0o077)          need = 0;                          // SOB
+  else if (_EIS11[op7])            need = _needsWord11(dst);
+  else if (_SOP11[op10])           need = _needsWord11(dst);
+
+  // セグメント内 fetch 語の末尾 need 個 = オペランド語（先頭の opcode fetch は除外）
+  var st = { words: null, i: 0 };
+  if (ctx && need > 0) {
+    var fw = _isnFetchWords11(ctx);
+    st.words = fw.length > need ? fw.slice(fw.length - need) : fw;
+  }
+
+  if (op4 >= 1 && op4 <= 6)  return _DOP11[op4]      + ' ' + _opnd11(src, st) + ',' + _opnd11(dst, st);
+  if (op4 >= 9 && op4 <= 14) return _DOPB11[op4 - 8] + ' ' + _opnd11(src, st) + ',' + _opnd11(dst, st);
+
   if (_BR11[op8])     return _BR11[op8] + ' ' + _soff11(v);
   if (op8 === 0o210)  return 'EMT ' + (v & 0xFF).toString(8);
   if (op8 === 0o211)  return 'TRAP ' + (v & 0xFF).toString(8);
 
-  var op7 = (v >>> 9) & 0x7F;
-  var reg = (v >>> 6) & 7;
-  if (op7 === 0o004)  return 'JSR ' + _reg11(reg) + ',' + _opnd11(dst);
+  if (op7 === 0o004)  return 'JSR ' + _reg11(reg) + ',' + _opnd11(dst, st);
   if (op7 === 0o077)  return 'SOB ' + _reg11(reg) + ',off';
   if (_EIS11[op7]) {
     return op7 === 0o074
-      ? 'XOR ' + _reg11(reg) + ',' + _opnd11(dst)
-      : _EIS11[op7] + ' ' + _opnd11(dst) + ',' + _reg11(reg);
+      ? 'XOR ' + _reg11(reg) + ',' + _opnd11(dst, st)
+      : _EIS11[op7] + ' ' + _opnd11(dst, st) + ',' + _reg11(reg);
   }
 
-  var op10 = (v >>> 6) & 0x3FF;
-  if (_SOP11[op10])   return _SOP11[op10] + ' ' + _opnd11(dst);
+  if (_SOP11[op10])   return _SOP11[op10] + ' ' + _opnd11(dst, st);
 
   if ((v & 0o177770) === 0o000200)  return 'RTS ' + _reg11(v & 7);
   if (_NOP11[v])                    return _NOP11[v];
@@ -347,7 +417,7 @@ var PDP11_LA_CONFIG = {
     psw11:   function(v) { return fmtPSW11(v); },
     mode11:  function(v) { return fmtMode11(v); },
     istate11:function(v) { return fmtIstate11(v); },
-    isn11:   function(v) { return fmtIsn11(v); },
+    isn11:   function(v, sig, ctx) { return fmtIsn11(v, ctx); },
     oct:     function(v, w) { return fmtOct(v, w); },
     dec:     function(v)    { return String(v >>> 0); }
   },

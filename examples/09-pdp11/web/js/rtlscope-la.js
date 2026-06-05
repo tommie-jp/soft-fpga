@@ -1272,13 +1272,13 @@
 
           // hex セグメント描画
           var gw0h = heapu32[(startSamp & (ringSize - 1)) * RW + sw];
-          var pv   = (gw0h >> sig.bit) & MASK, ss = SIG_X, segs = [];
+          var pv   = (gw0h >> sig.bit) & MASK, ss = SIG_X, ps = 0, segs = [];
           for (var i = 1; i < samples; i++) {
             var gw = heapu32[((startSamp + i) & (ringSize - 1)) * RW + sw];
             var v  = (gw >> sig.bit) & MASK, xn = SIG_X + i * laZoom;
-            if (v !== pv) { segs.push({ x: ss, w: xn - ss, val: pv }); ss = xn; pv = v; }
+            if (v !== pv) { segs.push({ x: ss, w: xn - ss, val: pv, s0: ps, s1: i }); ss = xn; ps = i; pv = v; }
           }
-          segs.push({ x: ss, w: SIG_X + samples * laZoom - ss, val: pv });
+          segs.push({ x: ss, w: SIG_X + samples * laZoom - ss, val: pv, s0: ps, s1: samples });
 
           // ── 左端縦棒抑制: view 外にデータがあり値が連続している場合は縦棒なし ──
           var v0h = (gw0h >> sig.bit) & MASK;
@@ -1360,7 +1360,10 @@
             } else if ((laZoom >= 4 && s.w > 4) || s.w > 24) {
               if (sig.fmt && cbFmt[sig.fmt]) {
                 _fnt = '10px monospace';
-                _str = cbFmt[sig.fmt](s.val);
+                _str = cbFmt[sig.fmt](s.val, sig, {
+                  heapu32: heapu32, ringWords: RW, ringSize: ringSize,
+                  startSamp: startSamp, s0: s.s0, s1: s.s1
+                });
               } else {
                 var _fullLbl  = s.val.toString(16).toUpperCase().padStart(hexPad, '0');
                 var _shortLbl = s.val.toString(16).toUpperCase();
