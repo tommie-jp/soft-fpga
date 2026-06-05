@@ -192,18 +192,18 @@ function _decodeBusCycle(w0, w1, w2) {
   var pc   = w2 & 0xFFFF;
   var trap = (w0 >>> 23) & 1;
 
-  if (trap)       return { label: 'TRAP',   color: 'rgba(255,80,0,0.75)'    };
+  if (trap)       return { label: 'TRAP',   short: 'T', color: 'rgba(255,80,0,0.75)'    };
   if (!rd && !wr) return null;
 
   // I/O ページ: 物理アドレス 0x1F000–0x1FFFF (= Unibus 0o760000–0o777777)
   var io = (ap >> 12) === 0x1F;
 
   if (rd && (av === pc))
-                  return { label: 'FETCH',  color: 'rgba(40,120,230,0.65)'  };
-  if (rd && io)   return { label: 'IO_RD',  color: 'rgba(0,190,130,0.65)'   };
-  if (wr && io)   return { label: 'IO_WR',  color: 'rgba(230,110,0,0.65)'   };
-  if (rd)         return { label: 'MEM_RD', color: 'rgba(30,170,30,0.65)'   };
-  if (wr)         return { label: 'MEM_WR', color: 'rgba(190,40,0,0.65)'    };
+                  return { label: 'FETCH',  short: 'F', color: 'rgba(40,120,230,0.65)'  };
+  if (rd && io)   return { label: 'IO_RD',  short: 'r', color: 'rgba(0,190,130,0.65)'   };
+  if (wr && io)   return { label: 'IO_WR',  short: 'w', color: 'rgba(230,110,0,0.65)'   };
+  if (rd)         return { label: 'MEM_RD', short: 'R', color: 'rgba(30,170,30,0.65)'   };
+  if (wr)         return { label: 'MEM_WR', short: 'W', color: 'rgba(190,40,0,0.65)'    };
   return null;
 }
 
@@ -248,7 +248,7 @@ var PDP11_LA_CONFIG = {
           ctx.save();
           ctx.fillStyle = '#fff';
           ctx.textAlign = 'center';
-          var lbl = bw > 26 ? segD.label : segD.label.charAt(0);
+          var lbl = bw > 26 ? segD.label : (segD.short || segD.label.charAt(0));
           ctx.font = bw > 26 ? 'bold 10px monospace' : 'bold 9px monospace';
           ctx.fillText(lbl, bx + bw / 2, p.decY + p.decH * 0.75);
           ctx.restore();
