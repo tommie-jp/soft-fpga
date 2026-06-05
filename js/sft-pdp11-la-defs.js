@@ -10,7 +10,7 @@
 //  Word5: [15:0]=R0 [31:16]=R1
 //  Word6: [15:0]=R2 [31:16]=R3
 //  Word7: [15:0]=R4 [31:16]=R5
-//  Word8: [15:0]=SP
+//  Word8: [15:0]=SP [31:16]=M1(メモリプローブ値)
 
 var RING_WORDS_PDP11 = 9;
 
@@ -174,6 +174,11 @@ var LA_SIGNALS_PDP11 = [
   {
     id:'sp', label:'SP',  word:8, bit:0,  type:'hex', width:16, color:'#adf', on:false,
     fmt:'oct', tip:'SP = r6[current_mode] スタックポインタ（8 進表示）'
+  },
+  // === メモリプローブ（M1） ===
+  {
+    id:'mem_m1', label:'M1', word:8, bit:16, type:'hex', width:16, color:'#ffc', on:false,
+    fmt:'oct', tip:'メモリプローブ値: sim_set_mem_probe(addr) で指定アドレスの RAM 内容を毎サンプル記録'
   },
 ];
 
