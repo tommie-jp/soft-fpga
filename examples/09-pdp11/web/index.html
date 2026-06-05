@@ -733,6 +733,14 @@ worker.onmessage = function(e) {
       onTriggered(d.pc);
       break;
 
+    case 'bare_ready':
+      window._pdp11BareReady = true;
+      break;
+
+    case 'bare_stepped':
+      window._pdp11BareStepped = true;
+      break;
+
     // ── Freeze ─────────────────────────────────────────────────────────
     case 'frozen':
       laFrozen = true;
@@ -1240,7 +1248,9 @@ function hideTrigHit() {
   document.getElementById('trig-hit').classList.remove('show');
 }
 // Playwright テスト用: PC trigger 発火 PC（null = 未発火）
-window._pdp11TriggeredPC = null;
+window._pdp11TriggeredPC  = null;
+window._pdp11BareReady    = false;
+window._pdp11BareStepped  = false;
 
 function onTriggered(pc) {
   simPaused = true;

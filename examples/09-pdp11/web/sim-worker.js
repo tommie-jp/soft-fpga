@@ -405,6 +405,47 @@ self.onmessage = function (e) {
       }
       break;
 
+    // ── ベアメタルモード ──────────────────────────────────────────────────
+
+    // Playwright テスト用: トリガー設定と実行開始をアトミックに行う。
+    // resume + set_trigger を別メッセージで送ると setTimeout(simLoop,0) が
+    // set_trigger より先に発火する競合が生じるため、1 メッセージにまとめる。
+    case 'set_trigger_and_run':
+      if (Module._sim_clear_trigger) Module._sim_clear_trigger();
+      if (Module._sim_set_pc_trigger) Module._sim_set_pc_trigger(d.pc >>> 0);
+      diskReady = true;
+      running   = true;
+      postMessage({ type: 'resumed' });
+      scheduleNext();
+      break;
+
+    // Unix V6 ブートなし: RAM クリア + initial_pc 設定 + リセット
+    case 'init_bare':
+      if (Module._sim_init_bare) {
+        Module._sim_init_bare(d.start_pc >>> 0);
+        RING_WORDS  = Module._get_ring_words ? Module._get_ring_words() : RING_WORDS;
+        RING_SIZE   = Module._get_ring_size  ? Module._get_ring_size()  : RING_SIZE;
+        diskReady   = true;   // ディスク不要なのでそのまま実行可能
+        running     = false;
+        postMessage({ type: 'bare_ready', start_pc: d.start_pc });
+      }
+      break;
+
+    // ベアメタル: バイトアドレス byte_addr にワードを書く
+    case 'write_word':
+      if (Module._sim_write_word) Module._sim_write_word(d.addr >>> 0, d.word >>> 0);
+      break;
+
+    // ベアメタル: トリガーなしで n_ticks だけ進める（ポストトリガー用）
+    case 'step_bare': {
+      var n = (d.n | 0);
+      if (Module._sim_step_bare) Module._sim_step_bare(n);
+      _sendRing();
+      _sendGPR();
+      postMessage({ type: 'bare_stepped' });
+      break;
+    }
+
     case 'set_trigger':
       if (Module._sim_set_pc_trigger) Module._sim_set_pc_trigger(d.pc >>> 0);
       break;
