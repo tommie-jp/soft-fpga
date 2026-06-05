@@ -174,9 +174,10 @@ function _isnFetchWords11(ctx) {
 }
 
 // 分岐オフセット（符号付き 8 bit、ワード単位）を ".±n" で表す
-function _soff11(v) {
+function _soff11(v, pc) {
   var off = v & 0xFF;
   if (off > 127) off -= 256;
+  if (pc !== undefined) return _oct11((pc + 2 + off * 2) & 0xFFFF);
   return '.' + (off >= 0 ? '+' : '') + off;
 }
 
@@ -254,15 +255,26 @@ function fmtIsn11(v, ctx) {
     st.words = fw.length > need ? fw.slice(0, need) : fw;
   }
 
+  // ISN セグメント先頭サンプル（f1 フェッチ時点）の PC をリングバッファから取得
+  var pc;
+  if (ctx && ctx.heapu32) {
+    var _b0 = ((ctx.startSamp + ctx.s0) & (ctx.ringSize - 1)) * ctx.ringWords;
+    pc = ctx.heapu32[_b0 + 2] & 0xFFFF;
+  }
+
   if (op4 >= 1 && op4 <= 6)  return _DOP11[op4]      + ' ' + _opnd11(src, st) + ',' + _opnd11(dst, st);
   if (op4 >= 9 && op4 <= 14) return _DOPB11[op4 - 8] + ' ' + _opnd11(src, st) + ',' + _opnd11(dst, st);
 
-  if (_BR11[op8])     return _BR11[op8] + ' ' + _soff11(v);
+  if (_BR11[op8])     return _BR11[op8] + ' ' + _soff11(v, pc);
   if (op8 === 0o210)  return 'EMT ' + (v & 0xFF).toString(8);
   if (op8 === 0o211)  return 'TRAP ' + (v & 0xFF).toString(8);
 
   if (op7 === 0o004)  return 'JSR ' + _reg11(reg) + ',' + _opnd11(dst, st);
-  if (op7 === 0o077)  return 'SOB ' + _reg11(reg) + ',off';
+  if (op7 === 0o077) {
+    var _sobOff = v & 0o77;
+    var _tgt = pc !== undefined ? _oct11((pc + 2 - _sobOff * 2) & 0xFFFF) : _sobOff;
+    return 'SOB ' + _reg11(reg) + ',' + _tgt;
+  }
   if (_EIS11[op7]) {
     return op7 === 0o074
       ? 'XOR ' + _reg11(reg) + ',' + _opnd11(dst, st)
