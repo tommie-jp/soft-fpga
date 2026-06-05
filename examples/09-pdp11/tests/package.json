@@ -1,0 +1,13 @@
+{
+  "name": "pdp11-v6-signal-tests",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "PDP-11 / Unix V6 Logic Analyzer 信号（GPR/PSW/MMU/ring）の Vitest 検証",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.0"
+  }
+}

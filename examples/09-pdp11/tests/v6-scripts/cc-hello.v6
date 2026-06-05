@@ -1,0 +1,30 @@
+# cc-hello.v6 — Unix V6 で printf プログラムを cc コンパイル＆実行する回帰テスト
+# （cc バスエラー修正とディスク健全性の両方を検証する）
+#
+# ディレクティブ:
+#   wait <s>    : 文字列 s が出力に現れるまで待つ
+#   expect <s>  : 現れなければ FAIL
+#   send <s>    : コンソールへ送信（\r \004 などのエスケープ可）
+#   timeout <n> : 以降の wait/expect のタイムアウト（クロック数）
+
+wait @
+send rkunix\r
+expect login:
+send root\r
+expect #
+
+# printf を使う hello プログラムを作成
+# 注: C ソース中の \n は \\n と書く（\n はスクリプト上では実際の改行になる）
+send cat >hello.c\r
+send main(){ printf("V6CC-%d\\n", 6*7); }\r
+send \004
+expect #
+
+# コンパイル（多パス: c0/c1/c2/as/ld）。長めのタイムアウト。
+timeout 200000000
+send cc hello.c\r
+expect #
+
+# 実行して printf の結果を確認（6*7=42）
+send a.out\r
+expect V6CC-42
