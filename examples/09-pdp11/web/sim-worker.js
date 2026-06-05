@@ -31,6 +31,7 @@ var mmuFrameCnt   = 0;
 
 // Speed が setSpeed メッセージで固定されているかどうか
 var _speedFixed = false;
+var _laEnabled  = true;
 
 // ── キー入力キュー（ペースト文字化け防止）─────────────────────────────────
 // onmessage から受け取った文字をここにバッファし、simLoop で少しずつ
@@ -185,6 +186,7 @@ function simLoop() {
 
 function _sendRing() {
   var head = Module._get_ring_head() >>> 0;
+  if (!_laEnabled) { lastRingHead = head; return; }
   if (head === lastRingHead) return;
 
   var count = (head - lastRingHead) >>> 0;
@@ -203,7 +205,7 @@ function _sendRing() {
   var u16  = Module.HEAPU16;
   var gpr  = Array.from(u16.slice(gprBase16, gprBase16 + 7));
 
-  postMessage({ type: 'ring', head: head, snap: snap.buffer, gpr: gpr }, [snap.buffer]);
+  postMessage({ type: 'ring', head: head, snap: snap.buffer, gpr: gpr, steps: stepsPerFrame }, [snap.buffer]);
   lastRingHead = head;
 }
 
@@ -469,12 +471,29 @@ self.onmessage = function (e) {
       _speedFixed   = true;
       break;
 
+    case 'setLA':
+      _laEnabled = !!d.enabled;
+      break;
+
     case 'poll_mmu':
       _sendMMU();
       break;
 
     // ── Freeze 機能 ───────────────────────────────────────────────────────
     // LA の表示を一時停止するためにシミュレーションを止める
+    case 'step':
+      if (!running) {
+        Module._step_n(d.n || 300);
+        var _sc = [];
+        var _sch;
+        while ((_sch = Module._get_display_char()) !== -1) _sc.push(_sch & 0x7F);
+        if (_sc.length > 0) postMessage({ type: 'tty', chars: _sc });
+        _sendRing();
+        _sendGPR();
+        postMessage({ type: 'stepped' });
+      }
+      break;
+
     case 'freeze':
       running = false;
       _sendRing();

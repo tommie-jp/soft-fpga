@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>09-PDP-11 / Unix V6 — rtlscope</title>
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; }
@@ -238,6 +239,208 @@
     .modal-btns  { display:flex; gap:6px; justify-content:flex-end; }
     .modal-btns button { padding:3px 14px; }
     button.flash { background:#664 !important; }
+
+    /* ── LA Fill/Hatch チェックボックス ── */
+    .la-fill-label, .la-hatch-label {
+      display:inline-flex; align-items:center; gap:3px;
+      font-size:11px; font-family:monospace; padding:2px 6px;
+      border:1px solid #aab; border-radius:2px; background:#d0d0e0;
+      color:#446; cursor:pointer; user-select:none;
+    }
+    .la-fill-label input, .la-hatch-label input { cursor:pointer; margin:0; accent-color:#446; }
+
+    /* ── LA ズームセレクト ── */
+    #la-zoom-sel {
+      font-size:11px; padding:1px 2px; font-family:monospace;
+      border:1px solid #aab; background:#d8d8f0; color:#446;
+      cursor:pointer; min-width:44px;
+    }
+
+    /* ── Debug パネル ── */
+    #debug-panel {
+      background:#1a1a1a; border:1px solid #444; font-size:12px;
+      color:#ccc; margin-bottom:6px;
+    }
+    #debug-panel.hidden { display:none; }
+    #dbg-header {
+      display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+      padding:4px 8px; background:#222; border-bottom:1px solid #333;
+    }
+    #dbg-header .dbg-lbl { font-size:12px; color:#aaa; flex-shrink:0; }
+    .dbg-tabs { display:flex; gap:2px; }
+    .dbg-tab {
+      padding:2px 8px; font-size:11px; font-family:monospace;
+      background:#1a1a1a; border:1px solid #444; cursor:pointer; color:#888;
+    }
+    .dbg-tab.active { background:#2a2a2a; font-weight:bold; color:#ccc; }
+    .dbg-tab:hover  { background:#222; }
+    .dbg-content {
+      padding:3px 6px; min-height:50px; max-height:120px;
+      overflow-y:auto; font-family:monospace; font-size:11px;
+    }
+    .dbg-row { display:flex; gap:6px; border-bottom:1px solid #222; padding:1px 0; }
+    .dbg-pc  { color:#888; width:5em; flex-shrink:0; font-variant-numeric:tabular-nums; }
+    .dbg-ev  { color:#f84; }
+    .dbg-mod { color:#68f; }
+
+    /* ── テーマ カスタムドロップダウン ── */
+    #theme-menu { position:relative; display:inline-block; }
+    .theme-btn {
+      border:1px solid #555; padding:3px 22px 3px 8px; cursor:pointer;
+      background:#333; font-size:12px; font-family:monospace; color:#ccc;
+      position:relative; white-space:nowrap; user-select:none;
+    }
+    .theme-btn:hover { background:#444; }
+    .theme-arrow { position:absolute; right:5px; top:50%; transform:translateY(-50%); font-size:9px; }
+    .theme-list {
+      position:absolute; top:100%; left:0; z-index:600;
+      border:1px solid #666; box-shadow:0 3px 10px rgba(0,0,0,.6);
+      min-width:100%; margin-top:1px;
+    }
+    .th-item {
+      padding:5px 10px; cursor:pointer; display:flex; align-items:center; gap:5px;
+      white-space:nowrap; font-size:12px; font-family:monospace;
+    }
+    .th-item:hover { opacity:.8; }
+    .th-chk { display:inline-block; width:1em; text-align:center; flex-shrink:0; }
+
+    /* ── KBD バー（ターミナル直上） ── */
+    #kbd-layout-bar {
+      display:flex; align-items:center; gap:6px;
+      padding:2px 5px 3px; font-size:11px; font-family:monospace;
+      color:#666; border-bottom:1px solid #333; background:#111;
+    }
+    #kbd-layout-bar label { cursor:pointer; display:flex; align-items:center; gap:3px; }
+    #kbd-layout-bar input[type=radio] { margin:0; accent-color:#4fc; }
+    #kbd-layout-bar .kbd-sep { color:#444; margin:0 2px; }
+    #kbd-layout-bar button {
+      padding:1px 6px; font-size:11px; font-family:monospace; cursor:pointer;
+      border:1px solid #444; border-radius:3px; background:#1a1a1a; color:#aaa;
+    }
+    #kbd-layout-bar button:hover { background:#222; }
+
+    /* ── サイクル情報 ── */
+    #cycle-info { font-size:11px; color:#666; margin-left:2px; font-family:monospace; }
+
+    /* ── Speed Custom 入力 ── */
+    #speed-num { font-size:12px; padding:2px 4px; font-family:monospace;
+                 background:#333; color:#ccc; border:1px solid #555; width:90px; }
+
+    /* ── FS ソートヘッダ ── */
+    #fs-thead { display:flex; font-size:10px; color:#666; padding:1px 4px;
+                border-bottom:1px solid #333; cursor:default; user-select:none;
+                background:#111; }
+    .fs-th { flex:1; padding:1px 2px; cursor:pointer; }
+    .fs-th:hover { color:#aaa; }
+    .fs-th.active { color:#cc9; }
+    .fs-th-sz { flex:0 0 44px; text-align:right; }
+
+    /* ── モバイル対応 ── */
+    @media (max-width:600px) {
+      body { padding: max(5px, env(safe-area-inset-top, 5px))
+                      max(0px, env(safe-area-inset-right, 0px))
+                      max(5px, env(safe-area-inset-bottom, 5px))
+                      max(0px, env(safe-area-inset-left, 0px)); }
+      h2 { font-size:13px; overflow-wrap:break-word; line-height:1.5; }
+      .main { display:block; }
+      .col-left { width:100%; overflow-x:auto; }
+      .col-right { width:100%; box-sizing:border-box; margin-top:6px; }
+      .toolbar { flex-wrap:wrap; gap:4px; }
+      #docs-panel { max-height:90px; }
+      #ctrl-zone {
+        position:fixed;
+        bottom: env(safe-area-inset-bottom, 0px);
+        left:0; right:0; z-index:200;
+        background:#1a1a1a; border-top:1px solid #444;
+        padding:4px 5px;
+      }
+      .col-left { padding-bottom:52px; }
+    }
+
+    /* ── CPU バー（ターミナル直上） ── */
+    #cpu-bar {
+      display:flex; align-items:center; gap:5px; flex-wrap:wrap;
+      padding:3px 5px; border-bottom:1px solid #333; background:#111;
+      font-size:11px; font-family:monospace;
+    }
+    #cpu-bar .cpu-lbl { color:#555; font-weight:bold; font-size:11px; }
+    #cpu-bar .r-lbl   { color:#555; }
+    #cpu-bar .r-val   { color:#4fc; font-weight:bold; font-variant-numeric:tabular-nums; }
+    #cpu-bar .r-val.user { color:#68f; }
+    #cpu-bar .r-val.trap { color:#f84; }
+    #cpu-bar .r-sep   { color:#333; margin:0 1px; }
+    #r-disasm {
+      font-size:11px; color:#8a8; margin-left:4px;
+      white-space:nowrap; overflow:hidden; max-width:18ch; font-family:monospace;
+    }
+    #r-frozen-badge {
+      display:none; font-size:10px; font-weight:bold; color:#f84;
+      padding:1px 5px; border:1px solid #f84; border-radius:2px; margin-left:4px;
+    }
+
+    /* ── Monaco エディタ モーダル ── */
+    #editor-modal {
+      position:fixed; inset:0; z-index:2000;
+      display:flex; align-items:flex-start; justify-content:center;
+      padding-top:env(safe-area-inset-top, 0px);
+    }
+    #editor-overlay-ed { position:fixed; inset:0; background:rgba(0,0,0,.6); }
+    #editor-pane {
+      position:relative; width:92%; max-width:960px;
+      height:88dvh; max-height:88dvh; margin-top:3dvh;
+      background:#1c1c1c; display:flex; flex-direction:column;
+      box-shadow:0 4px 32px rgba(0,0,0,.7); border:1px solid #555;
+    }
+    #editor-tb {
+      display:flex; align-items:center; gap:5px; padding:4px 8px;
+      border-bottom:1px solid #444; background:#1a1a1a; flex-shrink:0; flex-wrap:wrap;
+    }
+    #editor-filename-lbl {
+      font-size:13px; font-weight:bold; color:#ccc; font-family:monospace;
+      flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    }
+    #editor-tb button, #editor-tb label {
+      background:#2a2a2a; color:#ccc; border:1px solid #555; padding:2px 8px;
+      cursor:pointer; font-size:12px; font-family:monospace; white-space:nowrap;
+      touch-action:manipulation;
+    }
+    #editor-tb button:hover, #editor-tb label:hover { background:#333; }
+    #editor-linenum.ln-off { opacity:0.45; }
+    #editor-cm { flex:1; overflow:hidden; min-height:0; }
+    #editor-footer {
+      display:flex; align-items:center; gap:6px; padding:4px 8px;
+      border-top:1px solid #444; background:#1a1a1a; flex-shrink:0; flex-wrap:wrap;
+    }
+    #editor-footer input {
+      flex:1; min-width:80px; background:#111; color:#ccc; border:1px solid #555;
+      padding:3px 8px; font-family:monospace; font-size:12px; outline:none; box-sizing:border-box;
+    }
+    #editor-footer button {
+      background:#2a2a2a; color:#ccc; border:1px solid #555; padding:3px 10px;
+      cursor:pointer; font-size:12px; font-family:monospace;
+    }
+    #editor-footer button:hover { background:#333; }
+    @media (max-width:600px) {
+      #editor-pane { width:100%; max-width:100%; height:100dvh; max-height:100dvh; margin-top:0; }
+    }
+
+    /* ── copyright / file-versions ── */
+    #copyright { font-size:12px; color:#555; margin:6px 0 0; }
+    #copyright a { color:#666; }
+    #file-versions {
+      display: inline-grid;
+      grid-template-columns: auto auto auto;
+      gap: 2px 12px;
+      margin-top: 4px;
+      padding: 3px 8px;
+      border: 1px solid #2a2a2a;
+      border-radius: 3px;
+      font-size: 11px; color: #444; font-family: monospace;
+      vertical-align: top;
+    }
+    .fv-lbl  { color: #555; font-weight: bold; }
+    .fv-file { color: #444; white-space: nowrap; }
+    .fv-date { color: #444; white-space: nowrap; text-align: right; }
   </style>
 </head>
 <body>
@@ -251,33 +454,49 @@
   </div>
 </div>
 
-<h2>PDP-11 / Unix V6 — rtlscope soft-FPGA Ver.1.0.0 2026/06/06 04:50</h2>
+<h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.0 2026/06/06 08:47</span></h2>
+<p style="font-size:12px;color:#777;margin:0 0 5px;"><a href="https://github.com/lisper/cpus-pdp11" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">cpus-pdp11</a> (Brad Parker RTL) → <a href="https://www.veripool.org/verilator/" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Verilator</a> → <a href="https://en.wikipedia.org/wiki/WebAssembly" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">WASM</a> &nbsp;|&nbsp; <a href="https://en.wikipedia.org/wiki/History_of_Unix" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Unix V6</a> + custom RK11 BIOS</p>
 
 <div class="toolbar">
   <button id="btn-boot"  disabled>Boot Unix V6</button>
   <button id="btn-reset" disabled>Reset</button>
   <button id="btn-pause" disabled>Pause</button>
-  <button id="btn-kbd" title="キーボード配列を切り替え（US ↔ JIS/106）">US</button>
-  <button id="btn-paste"  title="クリップボードからターミナルへ貼り付け" style="font-size:11px;">PASTE</button>
   <button id="btn-editor" title="テキストエディタ：cat > ファイル でソースをターミナルへ送信" style="font-size:11px;">EDITOR</button>
-  <button id="btn-copy"   title="選択テキストをコピー" style="font-size:11px;">COPY</button>
   <select id="speed-sel" title="シミュレーション速度">
     <option value="50000">Slow</option>
     <option value="200000" selected>Normal</option>
     <option value="600000">Fast</option>
     <option value="2000000">Max</option>
+    <option value="custom">Custom...</option>
   </select>
+  <input id="speed-num" type="number" min="1000" max="10000000" step="10000"
+         title="steps/frame" placeholder="steps/frame" style="display:none;">
+  <span id="cycle-info"></span>
   <select id="font-sel" title="フォントサイズ">
+    <option value="6">6px</option>
+    <option value="7">7px</option>
+    <option value="8">8px</option>
+    <option value="9">9px</option>
     <option value="10">10px</option>
+    <option value="11">11px</option>
     <option value="12">12px</option>
+    <option value="13">13px</option>
     <option value="14" selected>14px</option>
+    <option value="15">15px</option>
     <option value="16">16px</option>
+    <option value="18">18px</option>
+    <option value="20">20px</option>
   </select>
-  <select id="theme-sel" title="テーマ">
-    <option value="green" selected>Green</option>
-    <option value="amber">Amber</option>
-    <option value="white">White</option>
-  </select>
+  <div id="theme-menu">
+    <div id="theme-btn" class="theme-btn">
+      <span id="theme-label">Green</span><span class="theme-arrow">▼</span>
+    </div>
+    <div id="theme-list" class="theme-list" style="display:none;">
+      <div class="th-item" data-value="green" style="background:#000;color:#33FF00;"><span class="th-chk"></span>Green</div>
+      <div class="th-item" data-value="amber" style="background:#100800;color:#FFB300;"><span class="th-chk"></span>Amber</div>
+      <div class="th-item" data-value="white" style="background:#fff;color:#111;"><span class="th-chk"></span>White</div>
+    </div>
+  </div>
   <span class="status" id="status">Loading...</span>
 </div>
 
@@ -318,11 +537,31 @@
 <div class="main">
   <!-- 左: ターミナル -->
   <div class="col-left">
+    <div id="kbd-layout-bar">
+      <span style="color:#555;">KBD:</span>
+      <label><input type="radio" name="kbd-layout" value="us" style="margin:0;"> US</label>
+      <label><input type="radio" name="kbd-layout" value="jp106" style="margin:0;"> JIS</label>
+      <span class="kbd-sep">|</span>
+      <button id="btn-copy"  title="選択テキストをクリップボードにコピー">COPY</button>
+      <button id="btn-paste" title="クリップボードからターミナルへ貼り付け">PASTE</button>
+    </div>
+    <div id="cpu-bar">
+      <span class="cpu-lbl">CPU</span>
+      <span class="r-lbl">PC:</span><span class="r-val" id="r-pc-bar">------</span>
+      <span class="r-sep">|</span>
+      <span class="r-lbl">PSW:</span><span class="r-val" id="r-psw-bar">--------</span>
+      <span class="r-sep">|</span>
+      <span class="r-val" id="r-mode-bar">------</span>
+      <span id="r-disasm"></span>
+      <span id="r-frozen-badge">FROZEN</span>
+    </div>
     <div id="terminal"></div>
-    <div class="ctrl-bar">
-      <button class="ctrl-btn" data-ch="3">Ctrl-C</button>
-      <button class="ctrl-btn" data-ch="4">Ctrl-D</button>
+    <div id="ctrl-zone" class="ctrl-bar">
+      <button class="ctrl-btn" data-ch="3">^C</button>
+      <button class="ctrl-btn" data-ch="4">^D</button>
+      <button class="ctrl-btn" data-ch="26">^Z</button>
       <button class="ctrl-btn" data-ch="27">ESC</button>
+      <button class="ctrl-btn" data-ch="9">TAB</button>
       <button class="ctrl-btn" data-ch="8">BS</button>
       <span id="macro-status"></span>
       <button id="btn-macro-stop" class="ctrl-btn" style="display:none;color:#f66;">&#x25A0;STOP</button>
@@ -335,8 +574,13 @@
         <button id="btn-fs-refresh">&#x21BA;</button>
         <input id="fs-upload-input" type="file" style="display:none">
         <button id="btn-fs-upload">UPLOAD</button>
+        <span id="fs-drop-hint" style="font-size:10px;color:#666;margin-left:4px;">← Drop files</span>
       </div>
       <div id="fs-path">/</div>
+      <div id="fs-thead">
+        <span class="fs-th active" data-col="name">Name ↑</span>
+        <span class="fs-th fs-th-sz" data-col="size">Size</span>
+      </div>
       <div id="fs-list"></div>
     </div>
   </div>
@@ -378,6 +622,19 @@
       </div>
     </div>
 
+    <!-- Debug パネル -->
+    <div id="debug-panel">
+      <div id="dbg-header">
+        <span class="dbg-lbl">Debug</span>
+        <div class="dbg-tabs">
+          <button class="dbg-tab active" data-tab="traplog">Trap Log</button>
+          <button class="dbg-tab"        data-tab="modelog">Mode Log</button>
+        </div>
+      </div>
+      <div id="tab-traplog" class="dbg-content"></div>
+      <div id="tab-modelog" class="dbg-content" style="display:none;"></div>
+    </div>
+
     <!-- PC トリガーパネル -->
     <div class="trig-panel">
       <h3>PC Trigger</h3>
@@ -400,9 +657,26 @@
     <div class="la-section">
       <div class="la-header">
         <h3>Logic Analyzer</h3>
+        <button class="la-zoom-btn" id="btn-la-toggle" title="LA ON/OFF — OFFにするとリングバッファ書き込みをスキップして速度向上">LA ON</button>
         <button class="la-zoom-btn" id="la-zoom-out">−</button>
-        <span id="la-zoom-lbl">1×</span>
+        <select id="la-zoom-sel" title="ズーム倍率">
+          <option value="0">1/4x</option>
+          <option value="1">1/2x</option>
+          <option value="2">1x</option>
+          <option value="3">2x</option>
+          <option value="4">4x</option>
+          <option value="5" selected>8x</option>
+          <option value="6">16x</option>
+          <option value="7">32x</option>
+          <option value="8">64x</option>
+        </select>
         <button class="la-zoom-btn" id="la-zoom-in">+</button>
+        <label class="la-fill-label" title="信号レーン塗りつぶし ON/OFF">
+          <input type="checkbox" id="la-fill-chk" checked> Fill
+        </label>
+        <label class="la-hatch-label" title="ハッチパターン ON/OFF">
+          <input type="checkbox" id="la-hatch-chk" checked> Hatch
+        </label>
         <button class="la-zoom-btn" id="btn-la-freeze">Freeze</button>
         <span id="frozen-badge" style="display:none;">FROZEN</span>
       </div>
@@ -413,6 +687,8 @@
         <button id="la-nav-prev">&#8249;</button>
         <button id="la-nav-next">&#8250;</button>
         <button id="la-nav-end">&#187;</button>
+        <button id="btn-step" title="1ステップ実行（Freeze 中のみ有効）">▶ Step</button>
+        <button id="btn-goto-trig" title="トリガー発火位置へジャンプ">⊙Trig</button>
         <span id="la-pos-lbl"></span>
         <a id="la-ss-link" href="../../../test/ss/pdp11/index.html" target="_blank"
            rel="noopener" title="PDP-11 全命令タイミング図">&#x1F4F7; SS</a>
@@ -420,6 +696,12 @@
     </div>
   </div>
 </div>
+
+<p id="copyright">&copy; 2026 <a href="https://github.com/tommie-jp" target="_blank" rel="noopener">tommie.jp</a>
+  &nbsp;&mdash;&nbsp;
+  <a href="09-pdp11-QR.png" target="_blank" rel="noopener">QR</a>
+  <span id="file-versions"></span>
+</p>
 
 <!-- ペーストダイアログ -->
 <div id="paste-modal" class="modal-ov" style="display:none;">
@@ -435,13 +717,20 @@
   </div>
 </div>
 
-<!-- テキストエディタ -->
-<div id="editor-modal" class="modal-ov" style="display:none;">
-  <div class="modal-box">
-    <h3>Editor — <code>cat &gt; filename</code> でソースをターミナルへ送信</h3>
-    <input id="editor-fname" class="modal-fname" type="text" value="hello.c" placeholder="ファイル名（例: hello.c）">
-    <textarea id="editor-ta" placeholder="C ソースをここに入力&#10;例: main()&#10;{&#10;    printf(&quot;Hello\n&quot;);&#10;}"></textarea>
-    <div class="modal-btns">
+<!-- テキストエディタ (Monaco) -->
+<div id="editor-modal" style="display:none;">
+  <div id="editor-overlay-ed"></div>
+  <div id="editor-pane">
+    <div id="editor-tb">
+      <span id="editor-filename-lbl">hello.c</span>
+      <button id="editor-linenum" title="行番号 ON/OFF">Ln</button>
+      <label title="ホストからファイルを読み込む">Upload<input id="editor-upload" type="file" style="display:none;"></label>
+      <button id="editor-download" title="ダウンロード">Download</button>
+      <button id="editor-close">✕ Close</button>
+    </div>
+    <div id="editor-cm"></div>
+    <div id="editor-footer">
+      <input id="editor-fname" type="text" value="hello.c" placeholder="ファイル名（例: hello.c）">
       <button id="editor-send">cat &gt; ファイル</button>
       <button id="editor-cancel">Cancel</button>
     </div>
@@ -464,6 +753,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+<script src="../../../js/monaco-wasm-editor.js"></script>
 <script src="js/rtlscope-la.js"></script>
 <script src="js/sft-pdp11-la-defs.js"></script>
 <script src="js/sft-pdp11-docs.js"></script>
@@ -536,13 +826,60 @@ la._updateCanvas();
     if (la.zoomOut) la.zoomOut();
     else if (la._zoom > 1) { la._zoom = Math.max(1, la._zoom >>> 1); la._updateCanvas(); }
     updateZoomLbl();
+    _syncZoomSel();
   });
   if (btnIn) btnIn.addEventListener('click', function() {
     if (la.zoomIn) la.zoomIn();
     else { la._zoom = Math.min(64, la._zoom << 1); la._updateCanvas(); }
     updateZoomLbl();
+    _syncZoomSel();
   });
+  // ズームセレクト (#8)
+  var zoomSel = document.getElementById('la-zoom-sel');
+  function _syncZoomSel() {
+    if (!zoomSel) return;
+    var LEVELS = [0.25, 0.5, 1, 2, 4, 8, 16, 32, 64];
+    var cur = la._zoom;
+    for (var zi = 0; zi < LEVELS.length; zi++) {
+      if (Math.abs(LEVELS[zi] - cur) < 0.01) { zoomSel.value = zi; break; }
+    }
+  }
+  if (zoomSel) {
+    zoomSel.addEventListener('change', function() {
+      la.setZoom(parseInt(this.value, 10));
+      updateZoomLbl();
+    });
+    _syncZoomSel();
+  }
 })();
+
+// ── Fill / Hatch チェックボックス (#7) ───────────────────────────────────
+(function() {
+  var fillChk  = document.getElementById('la-fill-chk');
+  var hatchChk = document.getElementById('la-hatch-chk');
+  if (fillChk)  fillChk.addEventListener('change',  function() { la.setFillEnabled(this.checked); });
+  if (hatchChk) hatchChk.addEventListener('change', function() { la.setHatchEnabled(this.checked); });
+})();
+
+// ── Step / ⊙Trig (#9 / #10) ──────────────────────────────────────────────
+document.getElementById('btn-step').addEventListener('click', function() {
+  if (laFrozen) worker.postMessage({ type: 'step', n: 300 });
+});
+document.getElementById('btn-goto-trig').addEventListener('click', function() {
+  if (la.gotoTrig) la.gotoTrig(0.3);
+});
+
+// ── LA ON/OFF (A) ─────────────────────────────────────────────────────────
+var _laOn = true;
+document.getElementById('btn-la-toggle').addEventListener('click', function() {
+  _laOn = !_laOn;
+  worker.postMessage({ type: 'setLA', enabled: _laOn });
+  this.textContent = _laOn ? 'LA ON' : 'LA OFF';
+  this.style.color = _laOn ? '' : '#f84';
+});
+
+// ── KBD バー bindLayoutBar (E) ────────────────────────────────────────────
+_jp106.bindLayoutBar(document.querySelectorAll('input[name="kbd-layout"]'));
 
 // ── トリガープリセットプルダウン ─────────────────────────────────────────
 (function() {
@@ -742,6 +1079,8 @@ worker.onmessage = function(e) {
       _pendingTrigHead = false;
       la.update(d.head, localRing, undefined, _trigForUpdate);
       updateRegs(snap, d.gpr);
+      _ringCount++; if (d.steps) _lastSteps = d.steps;
+      _updateCycleInfo();
       break;
 
     case 'gpr':
@@ -765,11 +1104,15 @@ worker.onmessage = function(e) {
       window._pdp11BareStepped = true;
       break;
 
+    case 'stepped':
+      break;
+
     // ── Freeze ─────────────────────────────────────────────────────────
     case 'frozen':
       laFrozen = true;
       document.getElementById('btn-la-freeze').textContent = 'Unfreeze';
       document.getElementById('frozen-badge').style.display = '';
+      document.getElementById('r-frozen-badge').style.display = '';
       setStatus('Frozen');
       break;
 
@@ -777,6 +1120,7 @@ worker.onmessage = function(e) {
       laFrozen = false;
       document.getElementById('btn-la-freeze').textContent = 'Freeze';
       document.getElementById('frozen-badge').style.display = 'none';
+      document.getElementById('r-frozen-badge').style.display = 'none';
       setStatus('Running');
       break;
 
@@ -910,17 +1254,56 @@ document.querySelectorAll('.ctrl-btn[data-ch]').forEach(function(btn) {
 // ── COPY ボタン ──────────────────────────────────────────────────────────
 document.getElementById('btn-copy').addEventListener('click', function() {
   var sel = term.getSelection ? term.getSelection() : '';
-  if (sel && navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(sel);
-    _flashBtn('btn-copy');
+  if (!sel) { term.focus(); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(sel).then(function() {
+      term.clearSelection();
+      _flashBtn('btn-copy');
+      term.focus();
+    }).catch(function(err) {
+      console.error('[COPY]', err);
+      term.focus();
+    });
   }
 });
 
-// ── Speed セレクタ ────────────────────────────────────────────────────────
-document.getElementById('speed-sel').addEventListener('change', function() {
-  var steps = parseInt(this.value, 10);
-  if (steps > 0) worker.postMessage({ type: 'setSpeed', steps: steps });
-});
+// ── Speed セレクタ + Custom 入力 (G) ──────────────────────────────────────
+(function() {
+  var sel = document.getElementById('speed-sel');
+  var num = document.getElementById('speed-num');
+  function applySpeed() {
+    var steps = sel.value === 'custom'
+      ? (parseInt(num.value) || 200000)
+      : parseInt(sel.value, 10);
+    if (steps > 0) worker.postMessage({ type: 'setSpeed', steps: steps });
+  }
+  sel.addEventListener('change', function() {
+    if (this.value === 'custom') {
+      num.style.display = '';
+      num.value = num.value || '200000';
+      num.focus();
+    } else {
+      num.style.display = 'none';
+    }
+    applySpeed();
+  });
+  num.addEventListener('change', applySpeed);
+})();
+
+// ── cycle-info 更新 (H) ───────────────────────────────────────────────────
+var _ringCount = 0, _lastHzTime = 0, _lastSteps = 200000;
+function _updateCycleInfo() {
+  var now = Date.now();
+  if (_lastHzTime === 0) { _lastHzTime = now; return; }
+  var dt = now - _lastHzTime;
+  if (dt < 800) return;
+  var fps = _ringCount * 1000 / dt;
+  var mhz = (_lastSteps * fps / 1e6).toFixed(1);
+  var el  = document.getElementById('cycle-info');
+  if (el) el.textContent = mhz + ' MHz';
+  _ringCount = 0;
+  _lastHzTime = now;
+}
 
 // ── Font セレクタ ─────────────────────────────────────────────────────────
 document.getElementById('font-sel').addEventListener('change', function() {
@@ -929,19 +1312,44 @@ document.getElementById('font-sel').addEventListener('change', function() {
   if (term.refresh) term.refresh(0, term.rows - 1);
 });
 
-// ── Theme セレクタ ────────────────────────────────────────────────────────
+// ── Theme カスタムドロップダウン ──────────────────────────────────────────
 var THEMES = {
   green: { background:'#0a0a0a', foreground:'#c8ffc8', cursor:'#4f4' },
   amber: { background:'#100800', foreground:'#ffb000', cursor:'#fc0' },
   white: { background:'#ffffff', foreground:'#111111', cursor:'#333' }
 };
-document.getElementById('theme-sel').addEventListener('change', function() {
-  var t = THEMES[this.value];
-  if (t && term.options) {
-    term.options.theme = t;
-    if (term.refresh) term.refresh(0, term.rows - 1);
-  }
-});
+var currentTheme = localStorage.getItem('pdp11_theme') || 'green';
+
+function applyTheme(name) {
+  var t = THEMES[name];
+  if (!t) return;
+  currentTheme = name;
+  localStorage.setItem('pdp11_theme', name);
+  if (term.options) { term.options.theme = t; if (term.refresh) term.refresh(0, term.rows - 1); }
+  var lbl = document.getElementById('theme-label');
+  if (lbl) lbl.textContent = name.charAt(0).toUpperCase() + name.slice(1);
+  document.querySelectorAll('#theme-list .th-chk').forEach(function(el) {
+    el.textContent = el.parentElement.dataset.value === name ? '✓' : '';
+  });
+}
+
+(function() {
+  var btn  = document.getElementById('theme-btn');
+  var list = document.getElementById('theme-list');
+  if (!btn || !list) return;
+  btn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    list.style.display = list.style.display === 'none' ? '' : 'none';
+  });
+  list.querySelectorAll('.th-item').forEach(function(el) {
+    el.addEventListener('click', function() {
+      applyTheme(this.dataset.value);
+      list.style.display = 'none';
+    });
+  });
+  document.addEventListener('click', function() { list.style.display = 'none'; });
+  applyTheme(currentTheme);
+})();
 
 // ── コマンド履歴 ─────────────────────────────────────────────────────────
 var inputHistory = [];
@@ -966,48 +1374,120 @@ function _flashBtn(id) {
   setTimeout(function() { b.classList.remove('flash'); }, 200);
 }
 
-// ── FS 操作補助 ───────────────────────────────────────────────────────────
-var _fsEntries = [];  // 最後に取得した FS エントリ一覧
+// ── FS 操作補助 (K sort / L drag / M download) ───────────────────────────
+var _fsEntries = [];
+var _fsSortCol = 'name';
+var _fsSortAsc = true;
 
 function _requestFSList() {
   worker.postMessage({ type: 'listFS', requestId: 'panel' });
 }
 
 function _renderFSPanel(entries) {
-  _fsEntries = entries;
+  _fsEntries = entries || [];
+  _sortAndRender();
+}
+
+function _sortAndRender() {
+  var col = _fsSortCol, asc = _fsSortAsc;
+  var sorted = _fsEntries.slice().sort(function(a, b) {
+    var va = col === 'size' ? (a.size || 0) : a.path;
+    var vb = col === 'size' ? (b.size || 0) : b.path;
+    if (va < vb) return asc ? -1 : 1;
+    if (va > vb) return asc ? 1 : -1;
+    return 0;
+  });
+
+  // ヘッダ矢印更新
+  document.querySelectorAll('#fs-thead .fs-th').forEach(function(th) {
+    var c = th.dataset.col;
+    th.classList.toggle('active', c === col);
+    if (c === col) th.textContent = (c === 'name' ? 'Name' : 'Size') + (asc ? ' ↑' : ' ↓');
+    else            th.textContent = (c === 'name' ? 'Name' : 'Size');
+  });
+
   var el = document.getElementById('fs-list');
   if (!el) return;
-  if (!entries || entries.length === 0) {
+  if (!sorted.length) {
     el.innerHTML = '<span style="color:#555;font-size:10px;">（エントリなし）</span>';
     return;
   }
   var rows = '';
-  for (var i = 0; i < entries.length; i++) {
-    var e    = entries[i];
-    var cls  = e.isDir ? 'fs-dir' : 'fs-name';
-    var sz   = e.isDir ? '' : e.size + 'B';
-    var path = e.path;
-    rows += '<tr data-path="' + path.replace(/"/g,'&quot;') + '" data-dir="' + (e.isDir?'1':'0') + '">' +
+  for (var i = 0; i < sorted.length; i++) {
+    var e   = sorted[i];
+    var cls = e.isDir ? 'fs-dir' : 'fs-name';
+    var sz  = e.isDir ? '' : e.size + 'B';
+    var esc = e.path.replace(/"/g,'&quot;');
+    rows += '<tr data-path="' + esc + '" data-dir="' + (e.isDir?'1':'0') + '">' +
             '<td class="' + cls + '">' + e.path + '</td>' +
-            '<td class="fs-size">' + sz + '</td></tr>';
+            '<td class="fs-size">' + sz + '</td>' +
+            (e.isDir ? '<td></td>' :
+             '<td style="width:22px;padding:0 2px;"><button class="fs-dl-btn" data-path="' + esc + '" ' +
+             'title="ダウンロード" style="padding:0 4px;font-size:9px;background:#1e1e14;border:1px solid #444;color:#888;cursor:pointer;">↓</button></td>') +
+            '</tr>';
   }
-  el.innerHTML = '<table>' + rows + '</table>';
-  // クリックで type / script
+  el.innerHTML = '<table style="width:100%;border-collapse:collapse;">' + rows + '</table>';
+
   el.querySelectorAll('tr').forEach(function(tr) {
-    tr.addEventListener('click', function() {
+    tr.addEventListener('click', function(ev) {
+      if (ev.target.classList.contains('fs-dl-btn')) return;
       var p   = tr.dataset.path;
       var isD = tr.dataset.dir === '1';
       if (isD) return;
-      // .sh / .script / .scr → !script で実行
       if (/\.(sh|script|scr)$/i.test(p)) {
-        var fname = p.replace(/.*\//, '');
-        _executeHostCmd('script ' + fname);
+        _executeHostCmd('script ' + p.replace(/.*\//, ''));
       } else {
         _executeHostCmd('type ' + p);
       }
     });
   });
+  el.querySelectorAll('.fs-dl-btn').forEach(function(btn) {
+    btn.addEventListener('click', function(ev) {
+      ev.stopPropagation();
+      _executeHostCmd('get ' + btn.dataset.path);
+    });
+  });
 }
+
+// FS ソートヘッダ
+(function() {
+  document.querySelectorAll('#fs-thead .fs-th').forEach(function(th) {
+    th.addEventListener('click', function() {
+      var col = th.dataset.col;
+      if (_fsSortCol === col) { _fsSortAsc = !_fsSortAsc; }
+      else { _fsSortCol = col; _fsSortAsc = true; }
+      _sortAndRender();
+    });
+  });
+})();
+
+// FS Drag & Drop (L)
+(function() {
+  var panel = document.getElementById('fs-panel');
+  var hint  = document.getElementById('fs-drop-hint');
+  if (!panel) return;
+  panel.addEventListener('dragover', function(e) {
+    e.preventDefault(); e.dataTransfer.dropEffect = 'copy';
+    panel.style.outline = '2px dashed #cc9';
+  });
+  panel.addEventListener('dragleave', function(e) {
+    if (!panel.contains(e.relatedTarget)) panel.style.outline = '';
+  });
+  panel.addEventListener('drop', function(e) {
+    e.preventDefault(); panel.style.outline = '';
+    var files = e.dataTransfer.files;
+    if (!files.length || !simStarted) return;
+    Array.from(files).forEach(function(file) {
+      var reader = new FileReader();
+      reader.onload = function(ev) {
+        worker.postMessage({ type: 'writeFS', name: file.name, data: ev.target.result },
+                           [ev.target.result]);
+        if (hint) { hint.textContent = file.name + ' uploading...'; setTimeout(function() { hint.textContent = '← Drop files'; }, 2000); }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  });
+})();
 
 // ── ホストコマンド（! プレフィックス）────────────────────────────────────
 var _inputBuf = '';
@@ -1147,11 +1627,59 @@ document.getElementById('paste-cancel').addEventListener('click', function() {
   term.focus();
 });
 
-// ── EDITOR ボタン ─────────────────────────────────────────────────────────
-function openEditorModal() {
-  document.getElementById('editor-modal').style.display = 'flex';
-  document.getElementById('editor-ta').focus();
+// ── Monaco エディタ ───────────────────────────────────────────────────────
+var _wasmEd = null;
+if (typeof MonacoWasmEditor !== 'undefined') MonacoWasmEditor.preload();
+
+function _getEditorValue() {
+  return _wasmEd ? _wasmEd.getValue() : '';
 }
+
+function openEditorModal() {
+  var modal = document.getElementById('editor-modal');
+  modal.style.display = 'flex';
+  var fname = document.getElementById('editor-fname').value.trim() || 'hello.c';
+  document.getElementById('editor-filename-lbl').textContent = fname;
+  if (typeof MonacoWasmEditor !== 'undefined') {
+    if (!_wasmEd) {
+      _wasmEd = new MonacoWasmEditor({
+        container: '#editor-cm',
+        theme: 'vs-dark',
+        fontSize: 13,
+        asciiOnly: false,
+      });
+    }
+    var cur = _wasmEd.getValue ? _wasmEd.getValue() : '';
+    _wasmEd.open(fname, cur).then(function() {
+      _wasmEd.attachJP106(window._jp106);
+      _applyEditorLineNum();
+    });
+  }
+}
+
+function closeEditorModal() {
+  document.getElementById('editor-modal').style.display = 'none';
+  term.focus();
+}
+
+// 行番号トグル
+var _editorLineNum = localStorage.getItem('editor-linenum') !== '0';
+function _applyEditorLineNum() {
+  var btn = document.getElementById('editor-linenum');
+  if (btn) btn.classList.toggle('ln-off', !_editorLineNum);
+  if (_wasmEd) _wasmEd.setLineNumbers(_editorLineNum);
+}
+document.getElementById('editor-linenum').addEventListener('click', function() {
+  _editorLineNum = !_editorLineNum;
+  localStorage.setItem('editor-linenum', _editorLineNum ? '1' : '0');
+  _applyEditorLineNum();
+});
+_applyEditorLineNum();
+
+// fname 変更時にラベル同期
+document.getElementById('editor-fname').addEventListener('input', function() {
+  document.getElementById('editor-filename-lbl').textContent = this.value || 'hello.c';
+});
 
 document.getElementById('btn-editor').addEventListener('click', function() {
   if (!simStarted) return;
@@ -1160,9 +1688,8 @@ document.getElementById('btn-editor').addEventListener('click', function() {
 
 document.getElementById('editor-send').addEventListener('click', function() {
   var fname   = (document.getElementById('editor-fname').value.trim() || 'out.c');
-  var content = document.getElementById('editor-ta').value;
-  document.getElementById('editor-modal').style.display = 'none';
-  term.focus();
+  var content = _getEditorValue();
+  closeEditorModal();
   worker.postMessage({ type: 'send_str', str: 'cat > ' + fname + '\r' });
   var lines = content.split('\n');
   for (var li = 0; li < lines.length; li++) {
@@ -1175,16 +1702,40 @@ document.getElementById('editor-send').addEventListener('click', function() {
   _flashBtn('btn-editor');
 });
 
-document.getElementById('editor-cancel').addEventListener('click', function() {
-  document.getElementById('editor-modal').style.display = 'none';
-  term.focus();
+document.getElementById('editor-cancel').addEventListener('click', closeEditorModal);
+document.getElementById('editor-close').addEventListener('click', closeEditorModal);
+document.getElementById('editor-overlay-ed').addEventListener('click', closeEditorModal);
+
+document.getElementById('editor-upload').addEventListener('change', function() {
+  var file = this.files[0];
+  if (!file) return;
+  this.value = '';
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    var text = new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(ev.target.result))
+               .replace(/\r\n/g, '\n');
+    if (_wasmEd) _wasmEd.setValue(text);
+    document.getElementById('editor-fname').value = file.name;
+    document.getElementById('editor-filename-lbl').textContent = file.name;
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+document.getElementById('editor-download').addEventListener('click', function() {
+  var fname   = document.getElementById('editor-fname').value.trim() || 'out.c';
+  var content = _getEditorValue();
+  var a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(new Blob([content], { type: 'text/plain' })),
+    download: fname,
+  });
+  a.click(); URL.revokeObjectURL(a.href);
 });
 
 // Escape キーでモーダルを閉じる
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
     document.getElementById('paste-modal').style.display  = 'none';
-    document.getElementById('editor-modal').style.display = 'none';
+    if (document.getElementById('editor-modal').style.display !== 'none') closeEditorModal();
   }
 });
 
@@ -1340,6 +1891,42 @@ document.getElementById('btn-trig-resume').addEventListener('click', function() 
   worker.postMessage({ type: 'resume' });
 });
 
+// ── Debug パネル (#12) ────────────────────────────────────────────────────
+var _trapLog  = [];
+var _modeLog  = [];
+var _prevMode = -1;
+var _dbgTab   = 'traplog';
+
+(function() {
+  document.querySelectorAll('.dbg-tab').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      _dbgTab = btn.dataset.tab;
+      document.querySelectorAll('.dbg-tab').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      document.getElementById('tab-traplog').style.display = _dbgTab === 'traplog' ? '' : 'none';
+      document.getElementById('tab-modelog').style.display = _dbgTab === 'modelog' ? '' : 'none';
+    });
+  });
+})();
+
+function _renderTrapLog() {
+  var el = document.getElementById('tab-traplog');
+  if (!el) return;
+  el.innerHTML = _trapLog.slice(0, 30).map(function(r) {
+    return '<div class="dbg-row"><span class="dbg-pc">' + oct6(r.pc) + '</span>' +
+           '<span class="dbg-ev">TRAP  PSW=' + hex4(r.psw) + '</span></div>';
+  }).join('');
+}
+
+function _renderModeLog() {
+  var el = document.getElementById('tab-modelog');
+  if (!el) return;
+  el.innerHTML = _modeLog.slice(0, 30).map(function(r) {
+    return '<div class="dbg-row"><span class="dbg-pc">' + oct6(r.pc) + '</span>' +
+           '<span class="dbg-mod">' + MODE_NAMES[r.from] + ' → ' + MODE_NAMES[r.to] + '</span></div>';
+  }).join('');
+}
+
 // ── レジスタ表示 ──────────────────────────────────────────────────────────
 var MODE_NAMES = ['Kernel', 'Super', '??', 'User'];
 
@@ -1379,6 +1966,23 @@ function updateRegs(snap, gpr) {
   modeEl.textContent = MODE_NAMES[mode];
   modeEl.className   = 'reg-val' + (mode === 3 ? ' user' : '');
   if (trap) modeEl.className = 'reg-val trap';
+
+  // CPU バー更新
+  var cpuPcEl  = document.getElementById('r-pc-bar');
+  var cpuPswEl = document.getElementById('r-psw-bar');
+  var cpuModeEl= document.getElementById('r-mode-bar');
+  if (cpuPcEl)   cpuPcEl.textContent  = oct6(pc);
+  if (cpuPswEl)  cpuPswEl.textContent = fmtPSW11(psw);
+  if (cpuModeEl) {
+    cpuModeEl.textContent = MODE_NAMES[mode];
+    cpuModeEl.className   = 'r-val' + (mode === 3 ? ' user' : '') + (trap ? ' trap' : '');
+  }
+  // 逆アセンブル: Word4[20:5] = ISN
+  var disEl = document.getElementById('r-disasm');
+  if (disEl && snap.length > last + 4) {
+    var _isn = (snap[last + 4] >>> 5) & 0xFFFF;
+    disEl.textContent = (typeof fmtIsn11 === 'function' && _isn) ? fmtIsn11(_isn, null) : '';
+  }
   document.getElementById('r-addr').textContent = oct6(ap);
   document.getElementById('r-data').textContent = hex4(data);
   var rkEl = document.getElementById('r-rk');
@@ -1386,6 +1990,19 @@ function updateRegs(snap, gpr) {
   rkEl.className   = 'reg-val' + (rk !== 0 ? ' active' : '');
 
   if (gpr) updateGPRDisplay(gpr);
+
+  // Debug ログ更新
+  if (trap) {
+    _trapLog.unshift({ pc: pc, psw: psw });
+    if (_trapLog.length > 60) _trapLog.pop();
+    if (_dbgTab === 'traplog') _renderTrapLog();
+  }
+  if (_prevMode !== -1 && mode !== _prevMode) {
+    _modeLog.unshift({ from: _prevMode, to: mode, pc: pc });
+    if (_modeLog.length > 60) _modeLog.pop();
+    if (_dbgTab === 'modelog') _renderModeLog();
+  }
+  _prevMode = mode;
 }
 
 // ── docs モーダル ─────────────────────────────────────────────────────────
@@ -1409,6 +2026,44 @@ function updateRegs(snap, gpr) {
   });
   document.getElementById('doc-close').addEventListener('click', function() {
     document.getElementById('doc-modal').style.display = 'none';
+  });
+})();
+
+// ── ファイルバージョン表 ───────────────────────────────────────────────────
+(function() {
+  var el = document.getElementById('file-versions');
+  if (!el) return;
+  var FILES = [
+    { lbl: 'WASM',   src: 'sim.wasm',              desc: 'Verilog RTL → Verilator → Emscripten' },
+    { lbl: 'worker', src: 'sim-worker.js',          desc: 'WASM シミュレーション Web Worker' },
+    { lbl: 'LA',     src: 'js/rtlscope-la.js',      desc: 'Logic Analyzer ライブラリ (RTLScopeLA)' },
+    { lbl: 'la-def', src: 'js/sft-pdp11-la-defs.js',desc: 'PDP-11 LA シグナル定義' },
+    { lbl: 'docs',   src: 'js/sft-pdp11-docs.js',   desc: 'ドキュメントリスト' },
+  ];
+  function _fmtDate(s) {
+    if (!s) return '?';
+    var d = new Date(s);
+    if (isNaN(d)) return '?';
+    return String(d.getMonth()+1).padStart(2,'0') + '/' +
+           String(d.getDate()).padStart(2,'0') + ' ' +
+           String(d.getHours()).padStart(2,'0') + ':' +
+           String(d.getMinutes()).padStart(2,'0');
+  }
+  var _results = new Array(FILES.length);
+  var _remain  = FILES.length;
+  FILES.forEach(function(f, idx) {
+    fetch(f.src, { method: 'HEAD', cache: 'no-store' })
+      .then(function(r) { _results[idx] = _fmtDate(r.headers.get('Last-Modified')); })
+      .catch(function()  { _results[idx] = '?'; })
+      .then(function() {
+        if (--_remain > 0) return;
+        el.innerHTML = FILES.map(function(f, i) {
+          var esc = f.desc.replace(/"/g,'&quot;');
+          return '<span class="fv-lbl"  title="' + esc + '">' + f.lbl + '</span>' +
+                 '<span class="fv-file" title="' + esc + '">' + f.src.replace(/.*\//,'') + '</span>' +
+                 '<span class="fv-date" title="' + esc + '">' + (_results[i]||'?') + '</span>';
+        }).join('');
+      });
   });
 })();
 </script>
