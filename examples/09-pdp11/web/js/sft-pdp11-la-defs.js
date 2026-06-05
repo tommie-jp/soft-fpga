@@ -48,6 +48,36 @@ function fmtIstate11(val) {
   return ISTATE_NAMES_PDP11[i] !== undefined ? ISTATE_NAMES_PDP11[i] : ('?' + i);
 }
 
+// ── トリガー T=0 のアンカリング ─────────────────────────────────────────────
+// 既定では発火時の ring_head（= RD↑ の 1 つ後ろ）が T=0 になり、フェッチの
+// バス読み出しサイクルの途中（ACK 側）に基準が来てしまう。これを「マイクロ
+// シーケンサがフェッチ状態 (istate=f1) に立ち上がったサンプル」へ前詰めし、
+// 観測命令の fetch→decode→execute→writeback を丸ごと T≥0 に収める。
+//
+// 引数 head は発火時の ring_head（RD↑ サンプルの 1 つ後ろ）。返り値はアンカー
+// サンプルの絶対インデックス（head と同じ空間）。
+//
+// リセット直後は CPU が長時間 f1 に留まる（バス未応答のアイドル）ため、単純な
+// 「f1 立ち上がり」探索だと遥か手前まで遡ってしまう。上限 MAX_BACK 内で非 f1 への
+// 遷移が見つからなければアイドルとみなし、RD↑ の直前を採用する。
+var ISTATE_F1_PDP11 = 1;  // pdp11.v の istate パラメータ: f1 = 1
+function pdp11TrigAnchorF1(ring, head, ringSize, ringWords) {
+  var MAX_BACK = 16;
+  function istateAt(samp) {
+    return ring[((samp >>> 0) % ringSize) * ringWords + 4] & 0x1f;  // Word4[4:0]=istate
+  }
+  var fired = (head - 1) >>> 0;                                // RD↑ のサンプル
+  if (istateAt(fired) !== ISTATE_F1_PDP11) return head >>> 0;  // 保険: f1 でなければ従来通り
+  var anchor = fired, hitEdge = false;
+  for (var k = 0; k < MAX_BACK; k++) {
+    var prev = (anchor - 1) >>> 0;
+    if (istateAt(prev) !== ISTATE_F1_PDP11) { hitEdge = true; break; }
+    anchor = prev;
+  }
+  if (!hitEdge) anchor = (fired - 1) >>> 0;                    // アイドル: RD↑ 直前
+  return anchor >>> 0;
+}
+
 // 8 進表示（先頭ゼロ埋め）
 function fmtOct(val, width) {
   var digits = Math.ceil(width * Math.LOG2E * Math.LOG10E) + 1;
