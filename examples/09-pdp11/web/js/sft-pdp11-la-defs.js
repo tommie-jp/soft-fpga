@@ -468,6 +468,21 @@ var PDP11_LA_CONFIG = {
   decodeLaneH:   20,
   storagePrefix: 'pdp11_la_',
 
+  groups: [
+    { label: 'Bus',       color: '#a07020',
+      ids: ['addr_p','addr_v','data','bus_wr','bus_rd','byte_op'] },
+    { label: 'CPU',       color: '#2868b0',
+      ids: ['pc','psw','cm','pri','istate','isn'] },
+    { label: 'Interrupt', color: '#887010',
+      ids: ['bus_int','int_vec','int_ipl'] },
+    { label: 'Trap/Err',  color: '#c04010',
+      ids: ['trapped','halted','bus_error','nxm_access','trap_bus','trap_abort','trap_odd'] },
+    { label: 'RK11',      color: '#9020a0',
+      ids: ['rk_state'] },
+    { label: 'GPR',       color: '#2848a8',
+      ids: ['r0','r1','r2','r3','r4','r5','sp','mem_m1'] },
+  ],
+
   formatters: {
     psw11:   function(v) { return fmtPSW11(v); },
     mode11:  function(v) { return fmtMode11(v); },

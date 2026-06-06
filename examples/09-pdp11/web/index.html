@@ -23,8 +23,7 @@
 
     /* ── ブート進行インジケータ ── */
     .boot-progress { background:#161e16; border:1px solid #3a5a3a; padding:5px 10px;
-                     font-size:11px; margin-bottom:6px; display:none; }
-    .boot-progress.show { display:block; }
+                     font-size:11px; margin-bottom:6px; display:block; }
     .boot-progress h3 { margin:0 0 4px; font-size:11px; color:#6a9a6a; }
     .boot-steps { display:flex; gap:6px; flex-wrap:wrap; }
     .boot-step  { padding:2px 8px; border:1px solid #3a4a3a; color:#555; font-size:10px; border-radius:2px; }
@@ -454,63 +453,8 @@
   </div>
 </div>
 
-<h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.0 2026/06/06 08:55</span></h2>
+<h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.0 2026/06/06 18:55</span></h2>
 <p style="font-size:12px;color:#777;margin:0 0 5px;"><a href="https://github.com/lisper/cpus-pdp11" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">cpus-pdp11</a> (Brad Parker RTL) → <a href="https://www.veripool.org/verilator/" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Verilator</a> → <a href="https://en.wikipedia.org/wiki/WebAssembly" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">WASM</a> &nbsp;|&nbsp; <a href="https://en.wikipedia.org/wiki/History_of_Unix" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Unix V6</a> + custom RK11 BIOS</p>
-
-<div class="toolbar">
-  <button id="btn-boot"  disabled>Boot Unix V6</button>
-  <button id="btn-reset" disabled>Reset</button>
-  <button id="btn-pause" disabled>Pause</button>
-  <button id="btn-editor" title="テキストエディタ：cat > ファイル でソースをターミナルへ送信" style="font-size:11px;">EDITOR</button>
-  <select id="speed-sel" title="シミュレーション速度">
-    <option value="50000">Slow</option>
-    <option value="200000" selected>Normal</option>
-    <option value="600000">Fast</option>
-    <option value="2000000">Max</option>
-    <option value="custom">Custom...</option>
-  </select>
-  <input id="speed-num" type="number" min="1000" max="10000000" step="10000"
-         title="steps/frame" placeholder="steps/frame" style="display:none;">
-  <span id="cycle-info"></span>
-  <select id="font-sel" title="フォントサイズ">
-    <option value="6">6px</option>
-    <option value="7">7px</option>
-    <option value="8">8px</option>
-    <option value="9">9px</option>
-    <option value="10">10px</option>
-    <option value="11">11px</option>
-    <option value="12">12px</option>
-    <option value="13">13px</option>
-    <option value="14" selected>14px</option>
-    <option value="15">15px</option>
-    <option value="16">16px</option>
-    <option value="18">18px</option>
-    <option value="20">20px</option>
-  </select>
-  <div id="theme-menu">
-    <div id="theme-btn" class="theme-btn">
-      <span id="theme-label">Green</span><span class="theme-arrow">▼</span>
-    </div>
-    <div id="theme-list" class="theme-list" style="display:none;">
-      <div class="th-item" data-value="green" style="background:#000;color:#33FF00;"><span class="th-chk"></span>Green</div>
-      <div class="th-item" data-value="amber" style="background:#100800;color:#FFB300;"><span class="th-chk"></span>Amber</div>
-      <div class="th-item" data-value="white" style="background:#fff;color:#111;"><span class="th-chk"></span>White</div>
-    </div>
-  </div>
-  <span class="status" id="status">Loading...</span>
-</div>
-
-<!-- ブート進行インジケータ -->
-<div class="boot-progress" id="boot-progress">
-  <h3>Boot Progress</h3>
-  <div class="boot-steps">
-    <span class="boot-step" id="bp-bootrom">bootrom</span>
-    <span class="boot-step" id="bp-kernel">kernel init</span>
-    <span class="boot-step" id="bp-mem">mem=</span>
-    <span class="boot-step" id="bp-user">user space</span>
-    <span class="boot-step" id="bp-login">login:</span>
-  </div>
-</div>
 
 <!-- docs パネル -->
 <div id="docs-panel">
@@ -537,6 +481,59 @@
 <div class="main">
   <!-- 左: ターミナル -->
   <div class="col-left">
+    <div class="toolbar">
+      <button id="btn-boot"  disabled>Boot Unix V6</button>
+      <button id="btn-reset" disabled>Reset</button>
+      <button id="btn-pause" disabled>Pause</button>
+      <button id="btn-editor" title="テキストエディタ：cat > ファイル でソースをターミナルへ送信" style="font-size:11px;">EDITOR</button>
+      <select id="speed-sel" title="シミュレーション速度">
+        <option value="50000">Slow</option>
+        <option value="200000" selected>Normal</option>
+        <option value="600000">Fast</option>
+        <option value="2000000">Max</option>
+        <option value="custom">Custom...</option>
+      </select>
+      <input id="speed-num" type="number" min="1000" max="10000000" step="10000"
+             title="steps/frame" placeholder="steps/frame" style="display:none;">
+      <span id="cycle-info"></span>
+      <select id="font-sel" title="フォントサイズ">
+        <option value="6">6px</option>
+        <option value="7">7px</option>
+        <option value="8">8px</option>
+        <option value="9">9px</option>
+        <option value="10">10px</option>
+        <option value="11">11px</option>
+        <option value="12">12px</option>
+        <option value="13">13px</option>
+        <option value="14" selected>14px</option>
+        <option value="15">15px</option>
+        <option value="16">16px</option>
+        <option value="18">18px</option>
+        <option value="20">20px</option>
+      </select>
+      <div id="theme-menu">
+        <div id="theme-btn" class="theme-btn">
+          <span id="theme-label">Green</span><span class="theme-arrow">▼</span>
+        </div>
+        <div id="theme-list" class="theme-list" style="display:none;">
+          <div class="th-item" data-value="green" style="background:#000;color:#33FF00;"><span class="th-chk"></span>Green</div>
+          <div class="th-item" data-value="amber" style="background:#100800;color:#FFB300;"><span class="th-chk"></span>Amber</div>
+          <div class="th-item" data-value="white" style="background:#fff;color:#111;"><span class="th-chk"></span>White</div>
+        </div>
+      </div>
+      <span class="status" id="status">Loading...</span>
+    </div>
+    <!-- ブート進行インジケータ -->
+    <div class="boot-progress" id="boot-progress">
+      <h3>Boot Progress</h3>
+      <div class="boot-steps">
+        <span class="boot-step" id="bp-bootrom">bootrom</span>
+        <span class="boot-step" id="bp-kernel">kernel init</span>
+        <span class="boot-step" id="bp-mem">mem=</span>
+        <span class="boot-step" id="bp-user">user space</span>
+        <span class="boot-step" id="bp-login">login:</span>
+      </div>
+    </div>
     <div id="kbd-layout-bar">
       <span style="color:#555;">KBD:</span>
       <label><input type="radio" name="kbd-layout" value="us" style="margin:0;"> US</label>
@@ -637,10 +634,20 @@
       <div id="tab-modelog" class="dbg-content" style="display:none;"></div>
     </div>
 
-    <!-- PC トリガーパネル -->
+    <!-- トリガーパネル -->
     <div class="trig-panel">
-      <h3>PC Trigger</h3>
+      <h3>Trigger</h3>
       <div class="trig-row">
+        <label>種別</label>
+        <select id="trig-type">
+          <option value="1">PC 値一致</option>
+          <option value="2">Fetch (istate=f1)</option>
+          <option value="3">I/O ページアクセス</option>
+          <option value="4">TRAP 発生</option>
+          <option value="5">バスエラー</option>
+        </select>
+      </div>
+      <div class="trig-row" id="trig-pc-row">
         <label>PC(8)</label>
         <input type="text" id="trig-pc" placeholder="例: 4014" maxlength="8">
         <select id="trig-preset">
@@ -652,7 +659,7 @@
         <button id="btn-trig-clear">Clear</button>
         <button id="btn-trig-resume">Resume</button>
       </div>
-      <div class="trig-hit" id="trig-hit">⏸ Triggered! PC hit.</div>
+      <div class="trig-hit" id="trig-hit">⏸ Triggered!</div>
     </div>
 
     <!-- Logic Analyzer -->
@@ -1095,7 +1102,7 @@ worker.onmessage = function(e) {
       break;
 
     case 'triggered':
-      onTriggered(d.pc);
+      onTriggered(d.pc, d.trigType);
       _pendingTrigHead = true;
       break;
 
@@ -1932,13 +1939,17 @@ window._pdp11TriggeredPC  = null;
 window._pdp11BareReady    = false;
 window._pdp11BareStepped  = false;
 
-function onTriggered(pc) {
+var _TRIG_LABELS = { 1: 'PC', 2: 'Fetch', 3: 'I/O', 4: 'TRAP', 5: 'BUSERR' };
+
+function onTriggered(pc, trigType) {
   simPaused = true;
   window._pdp11TriggeredPC = pc;  // Playwright 検出用
   document.getElementById('btn-pause').textContent = 'Resume';
-  setStatus('Triggered @ PC=' + pc.toString(8));
+  var kind  = _TRIG_LABELS[trigType] || 'PC';
+  var pcStr = '0o' + pc.toString(8);
+  setStatus('Triggered: ' + kind + ' @ PC=' + pcStr);
   var el = document.getElementById('trig-hit');
-  el.textContent = '⏸ Triggered! PC=0o' + pc.toString(8);
+  el.textContent = '⏸ Triggered! ' + kind + ' @ PC=' + pcStr;
   el.classList.add('show');
 }
 
@@ -1975,13 +1986,27 @@ window.sim.screenshotCanvas = function(selector) {
   return canvas.toDataURL('image/png');
 };
 
+// trig-type 変更: PC 入力行の表示切り替え
+document.getElementById('trig-type').addEventListener('change', function() {
+  document.getElementById('trig-pc-row').style.display =
+    (this.value === '1') ? '' : 'none';
+});
+
 document.getElementById('btn-trig-set').addEventListener('click', function() {
-  var val = document.getElementById('trig-pc').value.trim();
-  if (!val) return;
-  var pc = parseInt(val, 8);
-  if (isNaN(pc)) { alert('8 進数で入力してください（例: 4014）'); return; }
-  worker.postMessage({ type: 'set_trigger', pc: pc });
-  setStatus('Trigger set @ PC=0o' + pc.toString(8));
+  var trigType = parseInt(document.getElementById('trig-type').value, 10);
+  var trigVal  = 0;
+  if (trigType === 1) {
+    var raw = document.getElementById('trig-pc').value.trim();
+    if (!raw) return;
+    trigVal = parseInt(raw, 8);
+    if (isNaN(trigVal)) { alert('8 進数で入力してください（例: 4014）'); return; }
+  } else if (trigType === 2) {
+    trigVal = 1;  // istate f1 = 1
+  }
+  worker.postMessage({ type: 'set_trigger', trigType: trigType, val: trigVal });
+  var _labels = { 1: 'PC=0o' + trigVal.toString(8), 2: 'istate=f1',
+                  3: 'I/O ページ', 4: 'TRAP', 5: 'BUSERR' };
+  setStatus('Trigger set: ' + (_labels[trigType] || '?'));
   hideTrigHit();
 });
 

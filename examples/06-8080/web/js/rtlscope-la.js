@@ -444,6 +444,33 @@
       mRow.appendChild(trigBtn);
     })();
 
+    // ── All ON / All OFF ──
+    if (self._groups.length > 0) {
+      var allRow = document.createElement('div');
+      allRow.style.cssText =
+        'display:flex;gap:4px;padding-bottom:7px;margin-bottom:4px;border-bottom:1px solid #eee;';
+      var mkAllBtn = function(label, targetOn) {
+        var btn = document.createElement('button');
+        btn.textContent = label;
+        btn.style.cssText =
+          'font-size:10px;padding:1px 8px;line-height:1.5;border:1px solid #aaa;' +
+          'cursor:pointer;background:#e8e8e8;color:#444;font-family:monospace;border-radius:3px;';
+        btn.addEventListener('click', function() {
+          self._signals.forEach(function(s) {
+            self._sigVisible[s.id] = targetOn;
+            localStorage.setItem(self._prefix + 'sig_' + s.id, targetOn ? '1' : '0');
+            updatePickerCheck(s.id, targetOn);
+          });
+          self._updateCanvas();
+          rebuildActiveBar();
+        });
+        return btn;
+      };
+      allRow.appendChild(mkAllBtn('All ON',  true));
+      allRow.appendChild(mkAllBtn('All OFF', false));
+      picker.appendChild(allRow);
+    }
+
     // ── ピッカー内容を構築（グループ別） ──
     self._groups.forEach(function(grp, gi) {
       var gc = grp.color || '#666';
