@@ -42,19 +42,19 @@ R0 を初期値から 0 までカウントダウンしながら R1 に積算す�
 （[14 章 §11](14-adb-デバッガー-使い方.md) 参照）。
 
 ```asm
-/ loop.s — R0 をカウントダウンし R1 に積算する小ループ
+| loop.s — count down R0, accumulate into R1
 start:
-        mov     $1000,r0        / R0 = 0o1000 回ループ（捕捉窓を広げるため多めに）
-        clr     r1              / R1 = 0（積算用）
+        mov     $1000,r0        | R0 = 0o1000 (512 iterations; wide window for trigger)
+        clr     r1              | R1 = 0 (accumulator)
 loop:
-        add     r0,r1           / R1 += R0
-        sob     r0,loop         / R0--, ゼロでなければ loop へ
-        sys     1               / exit システムコール（trap）
+        add     r0,r1           | R1 += R0
+        sob     r0,loop         | R0--; branch to loop if non-zero
+        sys     1               | exit syscall (assembles to trap 0o104401)
 ```
 
 ### 2.1 V6 `as` 構文メモ
 
-- コメントは `/` から行末まで。
+- コメントは `|` から行末まで。`/` は除算演算子なのでコメントには使えない。
 - ラベルは `name:`。即値は `$n`（8 進。`$1000` は 0o1000）。
 - `sys 1` は `exit` システムコール。`as` では `trap` 命令（0o104401）に展開される。
 - `sob r0,loop` は PDP-11/40 以降の「Subtract One and Branch」。1 命令でループを回せる。
