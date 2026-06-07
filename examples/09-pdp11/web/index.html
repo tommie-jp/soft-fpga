@@ -82,6 +82,10 @@
                         font-size:11px; padding:2px 4px; flex:1; }
     .trig-hit { color:#f84; font-size:11px; display:none; margin-top:2px; }
     .trig-hit.show { display:block; }
+    /* CodeMirror 式トリガーエディタ */
+    #trig-expr-cm { flex:1; min-width:0; }
+    #trig-expr-cm .cm-editor { width:100%; }
+    #trig-expr-cm .cm-scroller { overflow:hidden; }
 
     /* ── Logic Analyzer（rtlscope-la.js はライトテーマ描画） ── */
     .la-section { background:#dde; border:1px solid #aab; box-sizing:border-box; }
@@ -463,7 +467,7 @@
   </div>
 </div>
 
-<h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.0 2026/06/07 22:53</span></h2>
+<h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.0 2026/06/08 01:22</span></h2>
 <p style="font-size:12px;color:#777;margin:0 0 5px;"><a href="https://github.com/lisper/cpus-pdp11" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">cpus-pdp11</a> (Brad Parker RTL) → <a href="https://www.veripool.org/verilator/" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Verilator</a> → <a href="https://en.wikipedia.org/wiki/WebAssembly" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">WASM</a> &nbsp;|&nbsp; <a href="https://en.wikipedia.org/wiki/History_of_Unix" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Unix V6</a> + custom RK11 BIOS</p>
 
 <!-- docs パネル -->
@@ -669,6 +673,7 @@
       <option value="3">I/O ページアクセス</option>
       <option value="4">TRAP 発生</option>
       <option value="5">バスエラー</option>
+      <option value="7">式 (Expr)</option>
     </select>
   </div>
   <div class="trig-row" id="trig-pc-row">
@@ -681,6 +686,10 @@
   <div class="trig-row" id="trig-data-row" style="display:none;">
     <label title="フェッチ時のバスデータ＝命令語(8進)。db の逆アセンブルで命令語を確認して入力">DATA(8)</label>
     <input type="text" id="trig-data" placeholder="例: 060001" maxlength="8">
+  </div>
+  <div class="trig-row" id="trig-expr-row" style="display:none;">
+    <label style="width:auto;flex-shrink:0;">式</label>
+    <div id="trig-expr-cm"></div>
   </div>
   <div class="trig-row">
     <button id="btn-trig-set">Set</button>
@@ -1063,6 +1072,7 @@ var _ringSize  = 4096;
 var _ringWords = RING_WORDS_PDP11;
 var _pendingTrigHead     = false;
 var _pendingTrigFireHead = -1;
+var _exprTrigAst         = null;   // 式トリガー AST（null = 未設定）
 
 worker.onmessage = function(e) {
   var d = e.data;
@@ -1121,6 +1131,28 @@ worker.onmessage = function(e) {
         var idx = ((prevHead + i) >>> 0) % _ringSize;
         for (var w = 0; w < _ringWords; w++) {
           localRing[idx * _ringWords + w] = snap[i * _ringWords + w];
+        }
+      }
+      // 式トリガースキャン（JS サイド: Wasm 不要）
+      if (_exprTrigAst) {
+        for (var _ei = 0; _ei < count; _ei++) {
+          var _eabs  = (prevHead + _ei) >>> 0;
+          var _ebase     = (_eabs % _ringSize) * _ringWords;
+          var _eprevBase = (((_eabs - 1 + _ringSize) % _ringSize) * _ringWords) >>> 0;
+          try {
+            if (_trigEvalExpr(_exprTrigAst, localRing, _ebase, _eprevBase)) {
+              _exprTrigAst         = null;
+              _pendingTrigHead     = true;
+              _pendingTrigFireHead = (_eabs + 1) >>> 0;
+              worker.postMessage({ type: 'pause' });
+              onTriggered(localRing[_ebase + 2] & 0xFFFF, 7);
+              break;
+            }
+          } catch(_ee) {
+            _exprTrigAst = null;
+            setStatus('式エラー: ' + _ee.message);
+            break;
+          }
         }
       }
       // トリガー T=0 は istate=f1 の立ち上がり（フェッチ開始）に吸着させる。
@@ -2103,7 +2135,7 @@ window._pdp11TriggeredPC  = null;
 window._pdp11BareReady    = false;
 window._pdp11BareStepped  = false;
 
-var _TRIG_LABELS = { 1: 'PC', 2: 'Fetch', 3: 'I/O', 4: 'TRAP', 5: 'BUSERR', 6: 'PC+Data' };
+var _TRIG_LABELS = { 1: 'PC', 2: 'Fetch', 3: 'I/O', 4: 'TRAP', 5: 'BUSERR', 6: 'PC+Data', 7: 'Expr' };
 
 function onTriggered(pc, trigType) {
   simPaused = true;
@@ -2158,12 +2190,29 @@ document.getElementById('trig-type').addEventListener('change', function() {
     (v === '1' || v === '6') ? '' : 'none';
   document.getElementById('trig-data-row').style.display =
     (v === '6') ? '' : 'none';
+  document.getElementById('trig-expr-row').style.display =
+    (v === '7') ? '' : 'none';
 });
 
 document.getElementById('btn-trig-set').addEventListener('click', function() {
   var trigType = parseInt(document.getElementById('trig-type').value, 10);
   var trigVal  = 0;
   var lbl      = '?';
+  _exprTrigAst = null;  // 以前の式トリガーを解除
+  if (trigType === 7) {
+    var exprStr = (window._trigExprView ? window._trigExprView.state.doc.toString() : '').trim();
+    if (!exprStr) return;
+    try {
+      _exprTrigAst = _trigParse(exprStr);
+    } catch(e) {
+      alert('式エラー: ' + e.message);
+      return;
+    }
+    worker.postMessage({ type: 'clear_trigger' });
+    setStatus('Trigger set: ' + exprStr);
+    hideTrigHit();
+    return;
+  }
   if (trigType === 1) {
     var raw = document.getElementById('trig-pc').value.trim();
     if (!raw) return;
@@ -2193,6 +2242,7 @@ document.getElementById('btn-trig-set').addEventListener('click', function() {
 });
 
 document.getElementById('btn-trig-clear').addEventListener('click', function() {
+  _exprTrigAst = null;
   worker.postMessage({ type: 'clear_trigger' });
   hideTrigHit();
   setStatus(simPaused ? 'Paused' : 'Running');
@@ -2202,6 +2252,241 @@ document.getElementById('btn-trig-resume').addEventListener('click', function() 
   hideTrigHit();
   worker.postMessage({ type: 'resume' });
 });
+
+// ── 式トリガー パーサ / エバリュエータ ─────────────────────────────────────
+// JS 条件式構文
+// 比較: ==, !=, <, >, <=, >=
+// 論理: &&, ||, !
+// カッコ: ()
+// エッジ: signal.rising  signal.falling  signal.edge
+// 数値: 04014(8進), 0o4014(8進ES6), 0x1FF(16進), 10(10進)
+// 文字列: "F1"  "USER"  "FETCH"  "MOV R3,-(SP)"
+// 例: PC == 04014 && RD == 1
+//     RD.rising && PC >= 04000
+//     ISN == "MOV R3,-(SP)" && istate == "F1"
+//     !(PC == 0 || PC == 2)
+
+var _TRIG_SIG_ALIASES = (function() {
+  var m = {};
+  LA_SIGNALS_PDP11.forEach(function(s) { m[s.id.toUpperCase()] = s.id; });
+  m['ADDR'] = 'addr_p'; m['PA']  = 'addr_p'; m['VA']     = 'addr_v';
+  m['WR']   = 'bus_wr'; m['RD']  = 'bus_rd'; m['BYTE']   = 'byte_op';
+  m['MODE'] = 'cm';     m['CM']  = 'cm';
+  m['ISTATE'] = 'istate'; m['ISN']    = 'isn';
+  m['TRAP']   = 'trapped'; m['HALT']   = 'halted';
+  m['INT']    = 'bus_int'; m['VEC']    = 'int_vec'; m['IPL'] = 'int_ipl';
+  m['RK']     = 'rk_state';
+  m['BUSERR'] = 'bus_error'; m['NXM']    = 'nxm_access';
+  m['TBUS']   = 'trap_bus';  m['TABORT'] = 'trap_abort'; m['TODD'] = 'trap_odd';
+  m['M1']     = 'mem_m1';
+  return m;
+})();
+
+// 仮想信号: ring buffer の複数フィールドから計算する合成シグナル
+// CYCLE/CYC/CYLE → バスサイクル種別文字列 (FETCH/MEM_RD/MEM_WR/IO_RD/IO_WR/TRAP/"")
+var _TRIG_VIRT = {
+  CYCLE: {
+    id: 'cycle', label: 'Cycle', virtual: true,
+    eval: function(ring, base) {
+      var d = _decodeBusCycle(ring[base]>>>0, ring[base+1]>>>0, ring[base+2]>>>0);
+      return d ? d.label : '';
+    }
+  }
+};
+var _TRIG_VIRT_ALIASES = { CYCLE:'CYCLE', CYC:'CYCLE', CYLE:'CYCLE' };
+
+function _trigFindSig(name) {
+  var up = name.toUpperCase();
+  if (_TRIG_VIRT_ALIASES[up]) return _TRIG_VIRT[_TRIG_VIRT_ALIASES[up]];
+  var id = _TRIG_SIG_ALIASES[up] || name.toLowerCase();
+  for (var _k = 0; _k < LA_SIGNALS_PDP11.length; _k++) {
+    if (LA_SIGNALS_PDP11[_k].id === id) return LA_SIGNALS_PDP11[_k];
+  }
+  return null;
+}
+
+// 文字列比較用フォーマッター（大文字化）
+var _EXPR_FMT = {
+  psw11:    function(v) { return fmtPSW11(v).toUpperCase(); },
+  mode11:   function(v) { return fmtMode11(v).toUpperCase(); },
+  istate11: function(v) { return fmtIstate11(v).toUpperCase(); },
+  isn11:    function(v) { return (fmtIsn11(v) || '').toUpperCase(); },
+  oct:      function(v) { return (v >>> 0).toString(8); },
+  dec:      function(v) { return String(v >>> 0); },
+};
+
+// 再帰下降パーサ（JS 条件式構文）
+function _trigParse(src) {
+  var ci = 0;
+  function skipWS() { while (ci < src.length && /\s/.test(src[ci])) ci++; }
+
+  // 次の論理演算子 (&&/||) をピーク（位置は進めない）
+  function peekLogOp() {
+    var j = ci;
+    while (j < src.length && /\s/.test(src[j])) j++;
+    var s2 = src.slice(j, j + 2);
+    return (s2 === '&&' || s2 === '||') ? s2 : null;
+  }
+  function consumeLogOp() { skipWS(); ci += 2; }
+
+  function consumeIdent() {
+    skipWS();
+    var m = src.slice(ci).match(/^[A-Za-z][A-Za-z0-9_]*/);
+    if (!m) throw new Error('識別子が必要: "' + src.slice(ci, ci + 8) + '"');
+    ci += m[0].length;
+    return m[0];
+  }
+  function consumeCmpOp() {
+    skipWS();
+    var s = src.slice(ci);
+    if (s.slice(0, 2) === '==') { ci += 2; return '=='; }
+    if (s.slice(0, 2) === '!=') { ci += 2; return '!='; }
+    if (s.slice(0, 2) === '<=') { ci += 2; return '<='; }
+    if (s.slice(0, 2) === '>=') { ci += 2; return '>='; }
+    if (s[0] === '<') { ci++; return '<'; }
+    if (s[0] === '>') { ci++; return '>'; }
+    throw new Error('比較演算子 (==, !=, <, >, <=, >=) が必要: "' + s.slice(0, 5) + '"');
+  }
+  function consumeValue() {
+    skipWS();
+    if (ci >= src.length) throw new Error('値が必要（式が途中で終わっています）');
+    // クォート文字列
+    if (src[ci] === '"') {
+      ci++;
+      var qs = '';
+      while (ci < src.length && src[ci] !== '"') qs += src[ci++];
+      if (ci < src.length) ci++;
+      return { t: 'STR', v: qs };
+    }
+    // 数値: 0o(8進ES6), 0x(16進), 0始まり(8進レガシー), それ以外(10進)
+    if (/[0-9]/.test(src[ci])) {
+      var ns = '';
+      while (ci < src.length && /[A-Za-z0-9_]/.test(src[ci])) ns += src[ci++];
+      var num;
+      if (/^0[oO]/.test(ns))       num = parseInt(ns.slice(2), 8);
+      else if (/^0[xX]/.test(ns))  num = parseInt(ns.slice(2), 16);
+      else if (/^0[0-9]/.test(ns)) num = parseInt(ns, 8);
+      else                          num = parseInt(ns, 10);
+      if (isNaN(num)) throw new Error('数値が不正: ' + ns);
+      return { t: 'NUM', v: num };
+    }
+    throw new Error('値は数値または "文字列" で指定してください: "' + src.slice(ci, ci + 10) + '"');
+  }
+
+  function parseExpr() { return parseOr(); }
+  function parseOr() {
+    var n = parseAnd();
+    while (peekLogOp() === '||') { consumeLogOp(); n = {op:'||', l:n, r:parseAnd()}; }
+    return n;
+  }
+  function parseAnd() {
+    var n = parseNot();
+    while (peekLogOp() === '&&') { consumeLogOp(); n = {op:'&&', l:n, r:parseNot()}; }
+    return n;
+  }
+  function parseNot() {
+    skipWS();
+    if (ci < src.length && src[ci] === '!') { ci++; return {op:'!', a:parseNot()}; }
+    return parseAtom();
+  }
+  function parseAtom() {
+    skipWS();
+    if (ci < src.length && src[ci] === '(') {
+      ci++;
+      var e = parseExpr();
+      skipWS();
+      if (ci >= src.length || src[ci] !== ')') throw new Error(') が必要: "' + (src[ci] || 'EOF') + '"');
+      ci++;
+      return e;
+    }
+    var name = consumeIdent();
+    var sig  = _trigFindSig(name);
+    if (!sig) throw new Error('不明な信号名: ' + name + '\n(PC, ISN, RD, WR, Data, Addr, istate, R0-R5 など)');
+    skipWS();
+    // エッジ検出: signal.rising / .falling / .edge
+    if (ci < src.length && src[ci] === '.') {
+      ci++;
+      var prop = '';
+      while (ci < src.length && /[A-Za-z]/.test(src[ci])) prop += src[ci++];
+      prop = prop.toLowerCase();
+      if (prop === 'rising')  return {op:'RISING',  sig:sig};
+      if (prop === 'falling') return {op:'FALLING', sig:sig};
+      if (prop === 'edge')    return {op:'EDGE',    sig:sig};
+      throw new Error('エッジ指定は .rising, .falling, .edge のみ対応: ".' + prop + '"');
+    }
+    var op  = consumeCmpOp();
+    var val = consumeValue();
+    return {op:op, sig:sig, val:val};
+  }
+
+  skipWS();
+  if (ci >= src.length) throw new Error('式が空です');
+  var ast = parseExpr();
+  skipWS();
+  if (ci < src.length) throw new Error('式の末尾に余分な文字: "' + src.slice(ci, ci + 10) + '"');
+  return ast;
+}
+
+// ring buffer から信号値を取り出す
+function _trigSigVal(sig, ring, base) {
+  var gw   = ring[base + (sig.word || 0)] >>> 0;
+  var MASK = sig.width < 32 ? ((1 << sig.width) - 1) : 0xFFFFFFFF;
+  return (gw >>> (sig.bit || 0)) & MASK;
+}
+
+// 1 サンプル評価（base=現サンプル, prevBase=1つ前サンプル）
+function _trigEvalExpr(node, ring, base, prevBase) {
+  var op = node.op;
+  if (op === '||') return _trigEvalExpr(node.l, ring, base, prevBase) || _trigEvalExpr(node.r, ring, base, prevBase);
+  if (op === '&&') return _trigEvalExpr(node.l, ring, base, prevBase) && _trigEvalExpr(node.r, ring, base, prevBase);
+  if (op === '!')  return !_trigEvalExpr(node.a, ring, base, prevBase);
+
+  var sig = node.sig;
+
+  // エッジ検出（ビット信号のみ対応）
+  if (op === 'RISING' || op === 'FALLING' || op === 'EDGE') {
+    if (sig.virtual) throw new Error(sig.label + ' はエッジ検出非対応');
+    var pv = _trigSigVal(sig, ring, prevBase);
+    var cv = _trigSigVal(sig, ring, base);
+    if (op === 'RISING')  return pv === 0 && cv !== 0;
+    if (op === 'FALLING') return pv !== 0 && cv === 0;
+    return pv !== cv;  // EDGE
+  }
+
+  // 仮想信号（Cycle など）: 文字列比較のみ
+  if (sig.virtual) {
+    if (node.val.t !== 'STR') throw new Error(sig.label + ' は文字列比較のみ対応 (例: Cycle == "FETCH")');
+    var vStr = (sig.eval(ring, base) || '').toUpperCase();
+    var rStr = node.val.v.toUpperCase();
+    if (op === '==') return vStr === rStr;
+    if (op === '!=') return vStr !== rStr;
+    throw new Error(sig.label + ' は == と != のみ対応');
+  }
+
+  var sigV = _trigSigVal(sig, ring, base);
+
+  // 文字列比較（フォーマッター経由）
+  if (node.val.t === 'STR') {
+    var fmt = sig.fmt && _EXPR_FMT[sig.fmt];
+    if (!fmt) throw new Error(sig.label + ' は文字列比較非対応（数値で比較してください）');
+    var sStr  = fmt(sigV).toUpperCase();
+    var rStr2 = node.val.v.toUpperCase();
+    if (op === '==') return sStr === rStr2;
+    if (op === '!=') return sStr !== rStr2;
+    throw new Error(sig.label + ' の文字列値は == と != のみ対応');
+  }
+
+  // 数値比較
+  var n = node.val.v >>> 0;
+  sigV = sigV >>> 0;
+  if (op === '==') return sigV === n;
+  if (op === '!=') return sigV !== n;
+  if (op === '<')  return sigV < n;
+  if (op === '>')  return sigV > n;
+  if (op === '<=') return sigV <= n;
+  if (op === '>=') return sigV >= n;
+  throw new Error('不明な演算子: ' + op);
+}
 
 // ── Debug パネル (#12) ────────────────────────────────────────────────────
 var _trapLog  = [];
@@ -2356,6 +2641,147 @@ function updateRegs(snap, gpr) {
       });
   });
 })();
+</script>
+
+<!-- ── 式トリガー: CodeMirror 6 エディタ ───────────────────────────────── -->
+<script type="module">
+import { EditorView, keymap, placeholder as cmPlaceholder }
+  from 'https://esm.sh/@codemirror/view@6';
+import { EditorState }
+  from 'https://esm.sh/@codemirror/state@6';
+import { history, defaultKeymap, historyKeymap }
+  from 'https://esm.sh/@codemirror/commands@6';
+import { javascript }
+  from 'https://esm.sh/@codemirror/lang-javascript@6';
+import { autocompletion, completionKeymap, closeBrackets, closeBracketsKeymap }
+  from 'https://esm.sh/@codemirror/autocomplete@6';
+
+// ── 補完候補 ────────────────────────────────────────────────────────────
+const SIG_COMPLETIONS = [
+  'PC', 'RD', 'WR', 'ISN', 'istate', 'Mode', 'VA', 'Addr', 'Data', 'Byte',
+  'PSW', 'Pri', 'TRAP', 'HALT', 'INT', 'Vec', 'IPL', 'RK',
+  'BUSERR', 'NXM', 'TBUS', 'TABORT', 'TODD',
+  'R0', 'R1', 'R2', 'R3', 'R4', 'R5', 'SP', 'M1', 'Cycle',
+].map(s => ({ label: s, type: 'variable', detail: 'signal' }));
+
+const EDGE_COMPLETIONS = [
+  { label: 'rising',  type: 'keyword', detail: '0→1' },
+  { label: 'falling', type: 'keyword', detail: '1→0' },
+  { label: 'edge',    type: 'keyword', detail: '変化' },
+];
+
+// 信号名 → 候補文字列値（_EXPR_FMT の大文字出力に対応）
+const STR_BY_SIG = {
+  istate: ['H1','F1','C1','S1','S2','S3','S4','D1','D2','D3','D4',
+           'E1','W1','O1','O2','O3','P1','T0','T1','T2','T3','T4','I1'],
+  mode:   ['KERNEL','SUPER','USER'],
+  cm:     ['KERNEL','SUPER','USER'],
+  cycle:  ['FETCH','MEM_RD','MEM_WR','IO_RD','IO_WR','TRAP'],
+  cyc:    ['FETCH','MEM_RD','MEM_WR','IO_RD','IO_WR','TRAP'],
+  cyle:   ['FETCH','MEM_RD','MEM_WR','IO_RD','IO_WR','TRAP'],
+};
+const ALL_STR_VALS = [...new Set(Object.values(STR_BY_SIG).flat())];
+
+function trigCompletion(context) {
+  const text = context.state.doc.sliceString(0, context.pos);
+
+  // signal.xxx → エッジ補完
+  const dotM = text.match(/\w+\.(\w*)$/);
+  if (dotM) {
+    return { from: context.pos - dotM[1].length, options: EDGE_COMPLETIONS };
+  }
+
+  // signal == "|signal != " → 文字列値補完
+  const strM = text.match(/(\w+)\s*[!=]=\s*"([^"]*)$/);
+  if (strM) {
+    const vals = STR_BY_SIG[strM[1].toLowerCase()] || ALL_STR_VALS;
+    return {
+      from: context.pos - strM[2].length,
+      options: vals.map(v => ({ label: v, type: 'text', apply: v + '"' })),
+    };
+  }
+
+  // 識別子 → 信号名補完
+  const word = context.matchBefore(/\w*/);
+  if (!word || (word.from === word.to && !context.explicit)) return null;
+  return { from: word.from, options: SIG_COMPLETIONS };
+}
+
+// ── ダークテーマ（ページ配色に合わせる）────────────────────────────────
+const darkTheme = EditorView.theme({
+  '&': {
+    background: '#222',
+    border: '1px solid #444',
+    width: '100%',
+  },
+  '.cm-content': {
+    color: '#cf9',
+    padding: '2px 6px',
+    fontFamily: 'monospace',
+    fontSize: '12px',
+    caretColor: '#cf9',
+    minHeight: '22px',
+  },
+  '.cm-line': { padding: '0' },
+  '&.cm-focused': { outline: 'none', borderColor: '#88a' },
+  '.cm-selectionBackground': { background: '#334 !important' },
+  '&.cm-focused .cm-selectionBackground': { background: '#446 !important' },
+  '.cm-cursor': { borderLeftColor: '#cf9' },
+  '.cm-placeholder': { color: '#555' },
+  // 補完ドロップダウン
+  '.cm-tooltip': {
+    background: '#1a1a2a',
+    border: '1px solid #556',
+    color: '#ccc',
+  },
+  '.cm-tooltip.cm-tooltip-autocomplete > ul > li': {
+    padding: '2px 10px',
+    fontFamily: 'monospace',
+    fontSize: '12px',
+  },
+  '.cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected]': {
+    background: '#334',
+    color: '#cf9',
+  },
+  '.cm-completionMatchedText': {
+    color: '#ff9',
+    textDecoration: 'none',
+    fontWeight: 'bold',
+  },
+}, { dark: true });
+
+// ── 改行禁止（1行エディタ）─────────────────────────────────────────────
+const singleLine = EditorState.transactionFilter.of(tr =>
+  tr.newDoc.lines > 1 ? [] : tr
+);
+
+// ── エディタ構築 ────────────────────────────────────────────────────────
+const container = document.getElementById('trig-expr-cm');
+if (!container) throw new Error('trig-expr-cm が見つかりません');
+
+const view = new EditorView({
+  state: EditorState.create({
+    extensions: [
+      history(),
+      javascript(),
+      autocompletion({ override: [trigCompletion] }),
+      closeBrackets(),
+      keymap.of([
+        { key: 'Enter', run: () => { document.getElementById('btn-trig-set').click(); return true; } },
+        ...defaultKeymap,
+        ...historyKeymap,
+        ...completionKeymap,
+        ...closeBracketsKeymap,
+      ]),
+      cmPlaceholder('例: PC == 04014 && RD == 1   RD.rising   ISN == "MOV R3,-(SP)"'),
+      darkTheme,
+      singleLine,
+    ],
+  }),
+  parent: container,
+});
+
+window._trigExprView = view;
 </script>
 </body>
 </html>
