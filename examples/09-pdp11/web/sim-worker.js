@@ -81,13 +81,7 @@ function injectMacro() {
     var space  = Module._sim_con_in_space ? Module._sim_con_in_space() : 100;
     var inject = Math.min(Math.max(0, space - 4), seg.data.length - seg.pos, 64);
     if (inject > 0) {
-      var _dbg = [];
-      for (var j = 0; j < inject; j++) {
-        var _b = seg.data[seg.pos++];
-        _dbg.push(_b);
-        Module._send_key(_b);
-      }
-      console.log('[macro] send bytes:', _dbg.map(function(b){return b+'('+String.fromCharCode(b)+')';}).join(' '));
+      for (var j = 0; j < inject; j++) Module._send_key(seg.data[seg.pos++]);
     }
     if (seg.pos >= seg.data.length) {
       macroSegIdx++;
@@ -150,8 +144,6 @@ function simLoop() {
   var ch;
   while ((ch = Module._get_display_char()) !== -1) chars.push(ch & 0x7F);
   if (chars.length > 0) {
-    if (macroSegments.length > 0 || macroExpect)
-      console.log('[tty] rx bytes:', chars.map(function(b){return b+'('+String.fromCharCode(b)+')';}).join(' '));
     postMessage({ type: 'tty', chars: chars });
   }
 
@@ -350,6 +342,174 @@ function v6ReadFile(disk, inode) {
   }
 
   return result;
+}
+
+// ── Unix V6 FS 書き込みサポート ──────────────────────────────────────────────
+// TTY を完全にバイパスして /tmp/ 以下に小ファイル（最大 8 ブロック = 4KB）を書き込む。
+// kernel の buffer cache との整合性:
+//   - /tmp ディレクトリブロック (817) は boot+login 直後はキャッシュされていない。
+//   - inode ブロック 14 (inode 193-208) も同様に未キャッシュ。
+//   - データブロック (3108 番台) は kernel の in-memory free list に含まれない。
+//   - i_mode を設定することで kernel ialloc() がスキップする。
+
+var V6_TMP_INO     = 96;   // /tmp の inode 番号
+var V6_TMP_DIR_BLK = 817;  // /tmp ディレクトリブロック番号 (block 0)
+var V6_TMP_DIR_BL2 = 101;  // /tmp ディレクトリブロック番号 (block 1)
+
+function v6DskWrU16(disk, off, val) {
+  disk[off]     = val & 0xFF;
+  disk[off + 1] = (val >> 8) & 0xFF;
+}
+
+// ディスクイメージ上の inode を書き込む
+function v6DskWriteInode(disk, ino, f) {
+  var idx  = ino - 1;
+  var blk  = V6_INODE_START + Math.floor(idx / V6_INODES_PER_BLOCK);
+  var base = blk * V6_BLOCK_SIZE + (idx % V6_INODES_PER_BLOCK) * V6_INODE_SIZE;
+  v6DskWrU16(disk, base,     f.mode);
+  disk[base + 2] = f.nlink & 0xFF;
+  disk[base + 3] = f.uid   & 0xFF;
+  disk[base + 4] = f.gid   & 0xFF;
+  disk[base + 5] = (f.size >>> 16) & 0xFF;
+  v6DskWrU16(disk, base + 6, f.size & 0xFFFF);
+  for (var i = 0; i < 8; i++) v6DskWrU16(disk, base + 8 + i * 2, f.addr[i] || 0);
+  for (var j = 24; j < 32; j++) disk[base + j] = 0;  // atime/mtime = 0
+}
+
+// superblock の s_free[0] が指すチェーンブロックから nBlocks 個取得する。
+// 取得するのは先頭エントリ (index 0, 1, ...) = kernel が最後に割り当てるブロック = 最安全。
+function v6DskAllocChainBlocks(disk, nBlocks) {
+  var sbOff = V6_BLOCK_SIZE;                               // superblock は block 1
+  var sNfree = disk[sbOff + 4] | (disk[sbOff + 5] << 8);  // s_nfree
+  if (sNfree === 0) throw new Error('V6: disk full');
+  var chainNo = disk[sbOff + 6] | (disk[sbOff + 7] << 8); // s_free[0] = chain link
+  if (chainNo === 0) throw new Error('V6: no chain block');
+  var cOff    = chainNo * V6_BLOCK_SIZE;
+  var cNfree  = disk[cOff] | (disk[cOff + 1] << 8);
+  if (cNfree < nBlocks) throw new Error('V6: chain too small');
+  var blocks = [];
+  for (var i = 0; i < nBlocks; i++) {
+    var pos = cOff + 2 + i * 2;
+    blocks.push(disk[pos] | (disk[pos + 1] << 8));
+  }
+  return blocks;
+}
+
+// /tmp ディレクトリから fname のエントリを探して { entOff, ino } を返す（なければ null）
+function v6DskFindTmpEntry(disk, fname) {
+  var dirs = [
+    { blk: V6_TMP_DIR_BLK, cnt: 32 },
+    { blk: V6_TMP_DIR_BL2, cnt: 1  }
+  ];
+  for (var di = 0; di < dirs.length; di++) {
+    var base = dirs[di].blk * V6_BLOCK_SIZE;
+    for (var ei = 0; ei < dirs[di].cnt; ei++) {
+      var off  = base + ei * 16;
+      var eIno = disk[off] | (disk[off + 1] << 8);
+      if (eIno === 0) continue;
+      var eName = '';
+      for (var ni = 0; ni < 14; ni++) {
+        var c = disk[off + 2 + ni]; if (c === 0) break;
+        eName += String.fromCharCode(c);
+      }
+      if (eName === fname) return { entOff: off, ino: eIno };
+    }
+  }
+  return null;
+}
+
+// /tmp ディレクトリの空きスロット（ino=0）に新エントリを追加する
+function v6DskAddTmpEntry(disk, newIno, fname) {
+  var dirs = [
+    { blk: V6_TMP_DIR_BLK, cnt: 32 },
+    { blk: V6_TMP_DIR_BL2, cnt: 1  }
+  ];
+  for (var di = 0; di < dirs.length; di++) {
+    var base = dirs[di].blk * V6_BLOCK_SIZE;
+    for (var ei = 0; ei < dirs[di].cnt; ei++) {
+      var off = base + ei * 16;
+      if ((disk[off] | (disk[off + 1] << 8)) !== 0) continue;  // occupied
+      v6DskWrU16(disk, off, newIno);
+      for (var ni = 0; ni < 14; ni++) disk[off + 2 + ni] = (ni < fname.length) ? fname.charCodeAt(ni) & 0x7F : 0;
+      return true;
+    }
+  }
+  return false;
+}
+
+// inode 番号 startIno 以降で i_mode == 0 の空き inode を探す
+function v6DskFindFreeInode(disk, startIno) {
+  var sbOff  = V6_BLOCK_SIZE;
+  var sIsize = disk[sbOff] | (disk[sbOff + 1] << 8);
+  var maxIno = (sIsize - 2) * V6_INODES_PER_BLOCK;
+  for (var ino = startIno; ino <= maxIno; ino++) {
+    var idx  = ino - 1;
+    var base = (V6_INODE_START + Math.floor(idx / V6_INODES_PER_BLOCK)) * V6_BLOCK_SIZE
+             + (idx % V6_INODES_PER_BLOCK) * V6_INODE_SIZE;
+    if ((disk[base] | (disk[base + 1] << 8)) === 0) return ino;
+  }
+  return -1;
+}
+
+// ファイル名が V6 で有効かチェック（14 文字以下、ASCII 印字可能文字のみ）
+function v6ValidateName(name) {
+  return name && name.length > 0 && name.length <= 14 && /^[\x21-\x7e]+$/.test(name);
+}
+
+// V6 FS の /tmp/ に contentBytes を fname で書き込む（既存ファイルは上書き）。
+// 戻り値: { ino, path }
+function v6DskWriteFile(disk, path, contentBytes) {
+  var fname = path.replace(/^\/+/, '').replace(/^tmp\/+/, '');
+  if (fname.indexOf('/') !== -1) fname = fname.split('/').pop();
+  if (!v6ValidateName(fname)) throw new Error('無効なファイル名: ' + fname);
+  if (contentBytes.length > 8 * V6_BLOCK_SIZE) throw new Error('ファイルが大きすぎます（最大 4KB）');
+
+  var nBlocks = Math.max(1, Math.ceil(contentBytes.length / V6_BLOCK_SIZE));
+  var existing = v6DskFindTmpEntry(disk, fname);
+  var newIno, addrArr;
+
+  if (existing) {
+    // 既存ファイルを上書き: inode はそのまま、データブロックを再割り当て
+    newIno = existing.ino;
+    var oldInode = v6ReadInode(disk, newIno);
+    var oldAddr  = oldInode.addr.slice();
+    var oldNBlk  = 0;
+    for (var ai = 0; ai < 8; ai++) { if (oldAddr[ai]) oldNBlk++; else break; }
+    addrArr = oldAddr.slice();
+    if (nBlocks > oldNBlk) {
+      var extra = v6DskAllocChainBlocks(disk, nBlocks - oldNBlk);
+      for (var xi = 0; xi < extra.length; xi++) addrArr[oldNBlk + xi] = extra[xi];
+    }
+  } else {
+    // 新規作成: 空き inode + チェーンブロック + ディレクトリエントリ
+    newIno = v6DskFindFreeInode(disk, 199);
+    if (newIno < 0) throw new Error('空き inode なし');
+    var blks = v6DskAllocChainBlocks(disk, nBlocks);
+    addrArr  = [0, 0, 0, 0, 0, 0, 0, 0];
+    for (var bi = 0; bi < nBlocks; bi++) addrArr[bi] = blks[bi];
+  }
+
+  // データブロックにコンテンツを書き込む
+  for (var bj = 0; bj < nBlocks; bj++) {
+    var blkOff = addrArr[bj] * V6_BLOCK_SIZE;
+    var srcOff = bj * V6_BLOCK_SIZE;
+    for (var zi = 0; zi < V6_BLOCK_SIZE; zi++) disk[blkOff + zi] = 0;
+    var cpLen = Math.min(V6_BLOCK_SIZE, contentBytes.length - srcOff);
+    for (var ci = 0; ci < cpLen; ci++) disk[blkOff + ci] = contentBytes[srcOff + ci];
+  }
+
+  // inode を書き込む（IALLOC | 通常ファイル | rw-r--r-- = 0x81A4）
+  v6DskWriteInode(disk, newIno, {
+    mode: 0x81A4, nlink: 1, uid: 0, gid: 0,
+    size: contentBytes.length, addr: addrArr
+  });
+
+  // 新規の場合のみディレクトリエントリを追加
+  if (!existing && !v6DskAddTmpEntry(disk, newIno, fname)) {
+    throw new Error('/tmp: 空きディレクトリエントリなし');
+  }
+
+  return { ino: newIno, path: '/tmp/' + fname };
 }
 
 // / を再帰的にリストして {name,path,ino,size,isDir,mode} の配列を返す
@@ -724,5 +884,23 @@ self.onmessage = function (e) {
       macroExpect   = null;
       postMessage({ type: 'scriptEnded' });
       break;
+
+    // V6 FS への直接書き込み（TTY バイパス）
+    case 'v6WriteFile': {
+      try {
+        var wRaw = Module.FS.readFile('/disk0.rk');
+        var wDsk = wRaw.slice();  // 書き込み可能なコピー
+        var wContent = new Uint8Array(d.content);
+        var wResult  = v6DskWriteFile(wDsk, d.path, wContent);
+        Module.FS.writeFile('/disk0.rk', wDsk);
+        diskData = wDsk;  // V6 FS リーダーキャッシュを更新
+        postMessage({ type: 'v6WriteFileDone', requestId: d.requestId,
+                      path: wResult.path, ino: wResult.ino });
+      } catch (werr) {
+        postMessage({ type: 'v6WriteFileError', requestId: d.requestId,
+                      error: werr.message });
+      }
+      break;
+    }
   }
 };

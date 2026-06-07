@@ -359,6 +359,9 @@
         padding:4px 5px;
       }
       .col-left { padding-bottom:52px; }
+      /* doc モーダル: スマホでは画面いっぱいに使い、本文幅を最大化 */
+      #doc-pane { width:100%; max-width:100%; height:94dvh; max-height:94dvh; margin-top:2dvh; }
+      #doc-prev, #doc-next { max-width:84px; }
     }
 
     /* ── CPU バー（ターミナル直上） ── */
@@ -458,7 +461,7 @@
   </div>
 </div>
 
-<h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.0 2026/06/07 16:39</span></h2>
+<h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.0 2026/06/07 17:16</span></h2>
 <p style="font-size:12px;color:#777;margin:0 0 5px;"><a href="https://github.com/lisper/cpus-pdp11" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">cpus-pdp11</a> (Brad Parker RTL) → <a href="https://www.veripool.org/verilator/" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Verilator</a> → <a href="https://en.wikipedia.org/wiki/WebAssembly" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">WASM</a> &nbsp;|&nbsp; <a href="https://en.wikipedia.org/wiki/History_of_Unix" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Unix V6</a> + custom RK11 BIOS</p>
 
 <!-- docs パネル -->
@@ -502,7 +505,7 @@
       </select>
       <input id="speed-num" type="number" min="1000" max="10000000" step="10000"
              title="steps/frame" placeholder="steps/frame" style="display:none;">
-      <span id="cycle-info"></span>
+      <span id="cycle-info" title="シミュレーション速度 / 実機比較（実機 PDP-11/40 ≈ 3.33MHz を 100%）"></span>
       <select id="font-sel" title="フォントサイズ">
         <option value="6">6px</option>
         <option value="7">7px</option>
@@ -1202,6 +1205,16 @@ worker.onmessage = function(e) {
       term.write('\r\n[FS Error] ' + (d.msg || '') + '\r\n');
       break;
 
+    case 'v6WriteFileDone':
+      term.write('\r\n[Editor] ' + d.path + ' を書き込みました\r\n');
+      // buffer cache 解放のため ls /usr を実行（'t' を含まないコマンド）
+      worker.postMessage({ type: 'send_str', str: 'ls /usr\r' });
+      break;
+
+    case 'v6WriteFileError':
+      term.write('\r\n[Editor Error] ' + (d.error || '不明なエラー') + '\r\n');
+      break;
+
     // ── FS エントリ（listFS 応答）──────────────────────────────────────
     case 'fsEntries':
       if (d.requestId === 'panel') {
@@ -1435,16 +1448,23 @@ _termUI.setupCopyBtn('btn-copy');
 })();
 
 // ── cycle-info 更新 (H) ───────────────────────────────────────────────────
+// 実機比較の基準クロック: 本 RTL は CLR reg = 5 tick で、これが実機の CLR
+// レジスタ ≈ 1.5µs に整合する（22 章 Q3 のタイミング検証）。
+// よって 5 tick ÷ 1.5µs ≈ 3.33 MHz が「この RTL が実機速度で動くときの
+// tick レート」= 実機比較 100% の基準値。
+var REAL_PDP11_MHZ = 3.33;
 var _ringCount = 0, _lastHzTime = 0, _lastSteps = 200000;
 function _updateCycleInfo() {
   var now = Date.now();
   if (_lastHzTime === 0) { _lastHzTime = now; return; }
   var dt = now - _lastHzTime;
   if (dt < 800) return;
-  var fps = _ringCount * 1000 / dt;
-  var mhz = (_lastSteps * fps / 1e6).toFixed(1);
-  var el  = document.getElementById('cycle-info');
-  if (el) el.textContent = mhz + ' MHz';
+  var fps    = _ringCount * 1000 / dt;
+  var mhzNum = _lastSteps * fps / 1e6;
+  var mhz    = mhzNum.toFixed(1);
+  var pct    = Math.round(mhzNum / REAL_PDP11_MHZ * 100);
+  var el     = document.getElementById('cycle-info');
+  if (el) el.textContent = mhz + ' MHz (' + pct + '%)';
   _ringCount = 0;
   _lastHzTime = now;
 }
@@ -1856,29 +1876,12 @@ document.getElementById('editor-send').addEventListener('click', function() {
   var content = _getEditorValue();
   closeEditorModal();
 
-  // Unix V6 TTY の @ (kill-line) が PDP-11 GAS アセンブリ等に含まれると行が消えるため、
-  // kill 文字を印字可能な ` (backtick) に一時変更してから cat で送信する。
-  // V6 Thompson シェルはバックティックを特殊文字として扱わないため引用符不要。
-  // erase (DEL=0x7F) は変更しない（制御文字を避けることで echo 化けを防ぐ）。
-  var lines = content.split('\n');
-  var parts = [];
-  parts.push('stty kill `\n');   // backtick を kill char に（@ の kill-line を無効化）
-  parts.push('!sleep 400\n');
-  parts.push('cat > ' + fname + '\n');
-  for (var li = 0; li < lines.length; li++) {
-    var line = lines[li];
-    if (li < lines.length - 1 || line.length > 0) {
-      parts.push(line + '\n');
-    }
-  }
-  parts.push('\x04\n');
-  parts.push('!sleep 1200\n');
-  parts.push('stty kill @\n');   // @ を kill char に復元
-
-  var scriptText = parts.join('');
-  var buf = new TextEncoder().encode(scriptText).buffer;
-  worker.postMessage({ type: 'writeFS', requestId: 'editorSend', name: '_editor_send.tmp', data: buf }, [buf]);
-  worker.postMessage({ type: 'scriptRun',  requestId: 'editorSend', name: '_editor_send.tmp' });
+  // TTY を使わず V6 FS に直接書き込む（/tmp/<fname>）
+  var path         = '/tmp/' + fname;
+  var contentBytes = new TextEncoder().encode(content);
+  var buf          = contentBytes.buffer.slice(0);
+  worker.postMessage({ type: 'v6WriteFile', requestId: 'editorSend',
+                       path: path, content: buf }, [buf]);
   _flashBtn('btn-editor');
 });
 

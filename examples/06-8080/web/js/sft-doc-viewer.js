@@ -27,10 +27,14 @@
   // ── デフォルト CSS (#doc-content スタイル) ──────────────────────────────
   var _CSS =
     '#doc-content{' +
-      'flex:1;overflow-y:auto;padding:16px 24px;' +
+      'flex:1;overflow-y:auto;overflow-x:hidden;padding:16px 24px;' +
       'font-family:-apple-system,BlinkMacSystemFont,sans-serif;' +
-      'line-height:1.7;font-size:13px;color:#111' +
+      'line-height:1.7;font-size:13px;color:#111;' +
+      // 長い語・URL・連続英数字がブラウザ幅を超えないよう折り返す
+      'overflow-wrap:break-word;word-break:break-word' +
     '}' +
+    // 画像はペイン幅に収める（縦横比維持）
+    '#doc-content img{max-width:100%;height:auto}' +
     '#doc-content h1{font-size:18px;color:#1a2e78;border-bottom:2px solid #5a7acc;' +
       'padding-bottom:6px;margin-top:0}' +
     '#doc-content h2{font-size:15px;color:#1a4896;border-bottom:1px solid #8aaad8;' +
@@ -48,7 +52,15 @@
       'border:1px solid #b8cce0;border-radius:3px}' +
     '#doc-content pre code{background:none;padding:0;white-space:pre;color:#111}' +
     '#doc-content blockquote{border-left:3px solid #7a9acc;margin:0;' +
-      'padding-left:10px;color:#334}';
+      'padding-left:10px;color:#334}' +
+    // ── スマホ幅: パディングを詰め、本文をブラウザ幅に合わせる ──
+    '@media (max-width:600px){' +
+      '#doc-content{padding:12px 14px;font-size:14px;line-height:1.6}' +
+      '#doc-content h1{font-size:17px}' +
+      '#doc-content h2{font-size:15px}' +
+      '#doc-content pre{font-size:12px}' +
+      '#doc-content th,#doc-content td{padding:2px 5px;font-size:11px}' +
+    '}';
 
   function _injectCSS() {
     if (document.getElementById('sft-doc-viewer-style')) return;
