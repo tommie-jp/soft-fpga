@@ -467,7 +467,7 @@
   </div>
 </div>
 
-<h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.0 2026/06/08 01:39</span></h2>
+<h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.0 2026/06/08 01:51</span></h2>
 <p style="font-size:12px;color:#777;margin:0 0 5px;"><a href="https://github.com/lisper/cpus-pdp11" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">cpus-pdp11</a> (Brad Parker RTL) → <a href="https://www.veripool.org/verilator/" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Verilator</a> → <a href="https://en.wikipedia.org/wiki/WebAssembly" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">WASM</a> &nbsp;|&nbsp; <a href="https://en.wikipedia.org/wiki/History_of_Unix" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Unix V6</a> + custom RK11 BIOS</p>
 
 <!-- docs パネル -->
@@ -2192,7 +2192,14 @@ document.getElementById('trig-type').addEventListener('change', function() {
     (v === '6') ? '' : 'none';
   document.getElementById('trig-expr-row').style.display =
     (v === '7') ? '' : 'none';
-  if (v === '7' && window._initTrigExprCM) window._initTrigExprCM();
+  if (v === '7') {
+    if (window._initTrigExprCM) window._initTrigExprCM();
+  } else if (window._trigExprView) {
+    // Expr 非選択: CM を destroy してメインスレッドへの影響をゼロにする
+    window._exprSavedContent = window._trigExprView.state.doc.toString();
+    window._trigExprView.destroy();
+    window._trigExprView = null;
+  }
 });
 
 document.getElementById('btn-trig-set').addEventListener('click', function() {
@@ -2649,7 +2656,7 @@ function updateRegs(snap, gpr) {
 // CodeMirror は「式(Expr)」選択時に初めてロード（遅延初期化）
 // ページロード時にモジュールをダウンロードしないことで xterm 入力への影響を排除する
 window._initTrigExprCM = async function() {
-  if (window._trigExprView) return;  // 二重初期化防止
+  if (window._trigExprView) return;
 
   const [
     { EditorView, keymap, placeholder: cmPlaceholder },
@@ -2737,12 +2744,13 @@ window._initTrigExprCM = async function() {
     tr.newDoc.lines > 1 ? [] : tr
   );
 
-  // ── エディタ構築 ────────────────────────────────────────────────────────
+  // ── エディタ構築（destroy 後の再作成でも内容を復元）────────────────────
   const container = document.getElementById('trig-expr-cm');
   if (!container) return;
 
   const view = new EditorView({
     state: EditorState.create({
+      doc: window._exprSavedContent || '',  // 前回の入力内容を復元
       extensions: [
         history(),
         javascript(),
@@ -2764,7 +2772,7 @@ window._initTrigExprCM = async function() {
   });
 
   window._trigExprView = view;
-  view.focus();
+  // view.focus() は意図的に呼ばない: xterm からフォーカスを奪わないため
 };
 </script>
 </body>
