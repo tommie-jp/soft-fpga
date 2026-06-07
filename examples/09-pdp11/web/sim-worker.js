@@ -81,7 +81,13 @@ function injectMacro() {
     var space  = Module._sim_con_in_space ? Module._sim_con_in_space() : 100;
     var inject = Math.min(Math.max(0, space - 4), seg.data.length - seg.pos, 64);
     if (inject > 0) {
-      for (var j = 0; j < inject; j++) Module._send_key(seg.data[seg.pos++]);
+      var _dbg = [];
+      for (var j = 0; j < inject; j++) {
+        var _b = seg.data[seg.pos++];
+        _dbg.push(_b);
+        Module._send_key(_b);
+      }
+      console.log('[macro] send bytes:', _dbg.map(function(b){return b+'('+String.fromCharCode(b)+')';}).join(' '));
     }
     if (seg.pos >= seg.data.length) {
       macroSegIdx++;
@@ -143,7 +149,11 @@ function simLoop() {
   var chars = [];
   var ch;
   while ((ch = Module._get_display_char()) !== -1) chars.push(ch & 0x7F);
-  if (chars.length > 0) postMessage({ type: 'tty', chars: chars });
+  if (chars.length > 0) {
+    if (macroSegments.length > 0 || macroExpect)
+      console.log('[tty] rx bytes:', chars.map(function(b){return b+'('+String.fromCharCode(b)+')';}).join(' '));
+    postMessage({ type: 'tty', chars: chars });
+  }
 
   // ── !expect: TTY 出力をパターンマッチ ────────────────────────────────
   if (macroExpect && chars.length > 0) {
