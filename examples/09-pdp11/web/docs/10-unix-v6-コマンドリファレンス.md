@@ -1,7 +1,13 @@
 # 10. Unix V6 コマンドリファレンス
 
 このシミュレータに収録されている Unix V6 の主要コマンド一覧。
-コマンドはすべて `/bin/` または `/usr/bin/` に存在する。
+コマンドの多くは `/bin/` または `/usr/bin/`（ゲームは `/usr/games/`）に存在する。
+
+> **⚠️ 注意マークについて**
+> ⚠️ が付いたコマンドは **Unix V6（1975）には存在しない**（このシミュレータの
+> V6 ディスクイメージにも未収録）。後の V7 / BSD で追加されたもので、
+> 混同しやすいため明示する。判定は実際の V6 ファイルシステム
+> （`/bin`・`/usr/bin`・`/usr/games`）の中身と照合済み。
 
 ## 1. シェル組み込み
 
@@ -36,8 +42,8 @@ Thompson シェル (`/bin/sh`) の組み込みコマンド。
 | `grep` | 正規表現検索。`-v` で反転 | `grep root /etc/passwd` |
 | `sort` | 行を辞書順ソート | `sort /etc/passwd` |
 | `wc` | 行数・単語数・バイト数カウント | `wc /usr/sys/ken/main.c` |
-| `head` | 先頭 N 行表示 | `head /usr/sys/ken/main.c` |
-| `tail` | 末尾 N 行表示 | `tail /usr/sys/ken/main.c` |
+| ⚠️ `head` | **V6 に無し**（1BSD で追加）。代替は `ed` / `pr` | — |
+| ⚠️ `tail` | **V6 に無し**（V7 で追加）。代替は `ed`（`$` 行など）| — |
 | `diff` | 2 ファイルの差分 | `diff a.c b.c` |
 | `pr` | ページ番号付きで整形出力 | `pr file.txt` |
 
@@ -62,9 +68,9 @@ Thompson シェル (`/bin/sh`) の組み込みコマンド。
 | `ld` | リンカ | `ld /lib/crt0.o prog.o -lc` |
 | `ar` | アーカイブ管理（ライブラリ作成）| `ar tv /lib/libc.a` |
 | `nm` | シンボルテーブル表示 | `nm a.out` |
-| `od` | バイナリを 8 進ダンプ | `od -c a.out \| head` |
-| `adb` | アセンブラデバッガ | `adb a.out` |
-| `make` | `Makefile` ベースのビルドツール（V6 付属）| `make` |
+| `od` | バイナリを 8 進ダンプ | `od -c a.out` |
+| ⚠️ `adb` | **V6 に無し**（V7 で追加）。V6 のデバッガは `db` / `cdb` | `db a.out` |
+| ⚠️ `make` | **V6 に無し**（1976 年・PWB/V7 から）。V6 は `sh` スクリプトでビルド | — |
 
 ### cc の基本的な使い方
 
@@ -118,8 +124,11 @@ bc
 | `wump` | Wumpus（史上初のテキストアドベンチャーゲームの原型）|
 | `ttt` | 三目並べ |
 | `chess` | チェス |
-| `fortune` | ランダムな格言表示（ディスクイメージによっては未収録）|
-| `maze` | 迷路生成 |
+| `bj` | ブラックジャック |
+| `cubic` | 3D 三目並べ |
+| `moo` | 数当てゲーム（Bulls and Cows）|
+| ⚠️ `fortune` | **V6 に無し**（V7 で追加）。V6 の `/usr/games` には未収録 |
+| ⚠️ `maze` | **V6 に無し**。V6 の `/usr/games` には未収録 |
 
 ## 8. ed — 行指向テキストエディタ
 

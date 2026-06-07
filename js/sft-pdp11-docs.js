@@ -9,6 +9,7 @@ var PDP11_DOC_LIST = [
   { file: '11-thompson-シェル.md',              label: '11 Thompson シェル使い方' },
   { file: '08-ed-使い方.md',                   label: '08 ed エディタ使い方' },
   { file: '10-unix-v6-コマンドリファレンス.md',  label: '10 Unix V6 コマンドリファレンス' },
+  { file: '12-unix-v6-システムコール.md',       label: '12 システムコール参考' },
   { file: '13-c-コンパイル入門.md',             label: '13 C コンパイル入門 ※WASM非対応' },
   { file: '14-adb-デバッガー-使い方.md',        label: '14 デバッグ手法（od / printf / SIMH）' },
   { file: '20-デバッグパネル-使い方.md',        label: '20 デバッグパネル・Logic Analyzer' },
