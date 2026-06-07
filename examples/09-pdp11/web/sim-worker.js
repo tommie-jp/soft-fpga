@@ -586,6 +586,49 @@ self.onmessage = function (e) {
       break;
     }
 
+    // Emscripten FS からスクリプトファイルを削除
+    case 'deleteFS': {
+      try {
+        Module.FS.unlink('/' + d.name);
+        postMessage({ type: 'fsDeleted', requestId: d.requestId, name: d.name });
+      } catch (err) {
+        postMessage({ type: 'fsError', requestId: d.requestId, msg: 'deleteFS 失敗: ' + err.message });
+      }
+      break;
+    }
+
+    // Emscripten FS ファイル一覧を返す（スクリプト用）
+    case 'listWasmFS': {
+      try {
+        var wfAll = Module.FS.readdir('/');
+        var wfRes = [];
+        for (var wfi = 0; wfi < wfAll.length; wfi++) {
+          var wfn = wfAll[wfi];
+          if (wfn === '.' || wfn === '..' || wfn === 'disk0.rk') continue;
+          try {
+            var wst = Module.FS.stat('/' + wfn);
+            if (Module.FS.isFile(wst.mode)) wfRes.push({ name: wfn, size: wst.size });
+          } catch(we) { /* スキップ */ }
+        }
+        postMessage({ type: 'wasmFSEntries', requestId: d.requestId, entries: wfRes });
+      } catch (err) {
+        postMessage({ type: 'fsError', requestId: d.requestId, msg: 'listWasmFS 失敗: ' + err.message });
+      }
+      break;
+    }
+
+    // Emscripten FS ファイルを読み込んで返す（ダウンロード用）
+    case 'readWasmFS': {
+      try {
+        var wrd = Module.FS.readFile('/' + d.name);
+        var wrb = wrd.buffer.slice(wrd.byteOffset, wrd.byteOffset + wrd.byteLength);
+        postMessage({ type: 'wasmFSFile', requestId: d.requestId, name: d.name, data: wrb }, [wrb]);
+      } catch (err) {
+        postMessage({ type: 'fsError', requestId: d.requestId, msg: 'readWasmFS 失敗: ' + err.message });
+      }
+      break;
+    }
+
     // ── マクロ（!script）制御 ────────────────────────────────────────────
     // スクリプトファイルを Emscripten FS → V6 FS の順で探してパース・再生する
     case 'scriptRun': {

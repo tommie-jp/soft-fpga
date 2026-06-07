@@ -71,7 +71,7 @@
 
     /* ── PC トリガーパネル ── */
     .trig-panel { background:#1a1e1a; border:1px solid #3a4a3a; padding:6px 10px;
-                  font-size:12px; margin-bottom:6px; }
+                  font-size:12px; margin-top:8px; box-sizing:border-box; }
     .trig-panel h3 { margin:0 0 4px; font-size:12px; color:#6a8a6a; }
     .trig-row { display:flex; gap:6px; align-items:center; margin-bottom:4px; }
     .trig-row label { color:#888; font-size:11px; width:40px; }
@@ -84,7 +84,7 @@
     .trig-hit.show { display:block; }
 
     /* ── Logic Analyzer（rtlscope-la.js はライトテーマ描画） ── */
-    .la-section { background:#dde; border:1px solid #aab; }
+    .la-section { background:#dde; border:1px solid #aab; box-sizing:border-box; }
     .la-header { display:flex; align-items:center; gap:6px; padding:4px 8px;
                  border-bottom:1px solid #bbc; flex-wrap:wrap; background:#d0d0e0; }
     .la-header h3 { margin:0; font-size:12px; color:#446; flex:1; }
@@ -184,6 +184,26 @@
     #fs-list td.fs-name { color:#cc9; }
     #fs-list td.fs-dir  { color:#6ae; }
     #fs-list td.fs-size { color:#666; text-align:right; width:50px; }
+
+    /* ── WASM FS パネル ── */
+    #wasm-panel { background:#141420; border:1px solid #28283a; padding:5px 8px;
+                  font-size:11px; margin-top:5px; }
+    #wasm-hdr   { display:flex; align-items:center; gap:5px; font-size:11px;
+                  color:#7a8a9a; margin-bottom:4px; flex-wrap:wrap; }
+    #wasm-hdr button { padding:1px 6px; font-size:10px; }
+    #wasm-drop-hint { font-size:10px; color:#446; }
+    #wasm-list { max-height:140px; overflow-y:auto; }
+    #wasm-list table { width:100%; border-collapse:collapse; }
+    #wasm-list tr { cursor:default; }
+    #wasm-list tr:hover td { background:#1a1a28; }
+    #wasm-list td { padding:1px 4px; font-size:10px; color:#aaa; border-bottom:1px solid #222233; }
+    #wasm-list td.wf-name { color:#9cf; }
+    #wasm-list td.wf-size { color:#666; text-align:right; width:52px; }
+    #wasm-list td.wf-acts { width:64px; text-align:right; white-space:nowrap; }
+    .wf-btn { padding:0 4px; font-size:9px; background:#222233; border:1px solid #444;
+              color:#aaa; cursor:pointer; margin-left:2px; border-radius:2px; }
+    .wf-btn:hover { background:#333355; }
+    .wf-del:hover { background:#332222; color:#f88; }
 
     /* ── Speed / Font / Theme セレクタ ── */
     .toolbar select { background:#333; color:#ccc; border:1px solid #555;
@@ -438,7 +458,7 @@
   </div>
 </div>
 
-<h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.0 2026/06/07 14:37</span></h2>
+<h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.0 2026/06/07 15:00</span></h2>
 <p style="font-size:12px;color:#777;margin:0 0 5px;"><a href="https://github.com/lisper/cpus-pdp11" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">cpus-pdp11</a> (Brad Parker RTL) → <a href="https://www.veripool.org/verilator/" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Verilator</a> → <a href="https://en.wikipedia.org/wiki/WebAssembly" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">WASM</a> &nbsp;|&nbsp; <a href="https://en.wikipedia.org/wiki/History_of_Unix" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Unix V6</a> + custom RK11 BIOS</p>
 
 <!-- docs パネル -->
@@ -556,11 +576,8 @@
       <div id="fs-hdr">
         V6 Filesystem
         <button id="btn-fs-refresh">&#x21BA;</button>
-        <input id="fs-upload-input" type="file" style="display:none">
-        <button id="btn-fs-upload">UPLOAD</button>
         <button id="btn-save-disk" title="現在のディスクを IndexedDB に保存" disabled>&#x1F4BE; Save</button>
         <button id="btn-reset-disk" title="サーバーの元のディスクイメージに戻す" style="display:none;">Reset</button>
-        <span id="fs-drop-hint" style="font-size:10px;color:#666;margin-left:4px;">← Drop</span>
       </div>
       <div id="fs-path">/</div>
       <div id="fs-thead">
@@ -568,6 +585,17 @@
         <span class="fs-th fs-th-sz" data-col="size">Size</span>
       </div>
       <div id="fs-list"></div>
+    </div>
+
+    <!-- WASM FS パネル（アップロード済みスクリプト） -->
+    <div id="wasm-panel">
+      <div id="wasm-hdr">
+        <span>WASM FS</span>
+        <button id="btn-fs-upload" title="スクリプトをアップロード">&#x2191; Upload</button>
+        <input id="fs-upload-input" type="file" style="display:none">
+        <span id="wasm-drop-hint">&#x2190; Drop</span>
+      </div>
+      <div id="wasm-list"></div>
     </div>
   </div>
 
@@ -620,81 +648,81 @@
       <div id="tab-traplog" class="dbg-content"></div>
       <div id="tab-modelog" class="dbg-content" style="display:none;"></div>
     </div>
+  </div>
+</div>
 
-    <!-- トリガーパネル -->
-    <div class="trig-panel">
-      <h3>Trigger</h3>
-      <div class="trig-row">
-        <label>種別</label>
-        <select id="trig-type">
-          <option value="1">PC 値一致</option>
-          <option value="6">PC + データ一致</option>
-          <option value="2">Fetch (istate=f1)</option>
-          <option value="3">I/O ページアクセス</option>
-          <option value="4">TRAP 発生</option>
-          <option value="5">バスエラー</option>
-        </select>
-      </div>
-      <div class="trig-row" id="trig-pc-row">
-        <label>PC(8)</label>
-        <input type="text" id="trig-pc" placeholder="例: 4014" maxlength="8">
-        <select id="trig-preset">
-          <option value="">— 既知アドレス —</option>
-        </select>
-      </div>
-      <div class="trig-row" id="trig-data-row" style="display:none;">
-        <label title="フェッチ時のバスデータ＝命令語(8進)。db の逆アセンブルで命令語を確認して入力">DATA(8)</label>
-        <input type="text" id="trig-data" placeholder="例: 060001" maxlength="8">
-      </div>
-      <div class="trig-row">
-        <button id="btn-trig-set">Set</button>
-        <button id="btn-trig-clear">Clear</button>
-        <button id="btn-trig-resume">Resume</button>
-      </div>
-      <div class="trig-hit" id="trig-hit">⏸ Triggered!</div>
-    </div>
+<!-- Trigger: 全幅 -->
+<div class="trig-panel">
+  <h3>Trigger</h3>
+  <div class="trig-row">
+    <label>種別</label>
+    <select id="trig-type">
+      <option value="1">PC 値一致</option>
+      <option value="6">PC + データ一致</option>
+      <option value="2">Fetch (istate=f1)</option>
+      <option value="3">I/O ページアクセス</option>
+      <option value="4">TRAP 発生</option>
+      <option value="5">バスエラー</option>
+    </select>
+  </div>
+  <div class="trig-row" id="trig-pc-row">
+    <label>PC(8)</label>
+    <input type="text" id="trig-pc" placeholder="例: 4014" maxlength="8">
+    <select id="trig-preset">
+      <option value="">— 既知アドレス —</option>
+    </select>
+  </div>
+  <div class="trig-row" id="trig-data-row" style="display:none;">
+    <label title="フェッチ時のバスデータ＝命令語(8進)。db の逆アセンブルで命令語を確認して入力">DATA(8)</label>
+    <input type="text" id="trig-data" placeholder="例: 060001" maxlength="8">
+  </div>
+  <div class="trig-row">
+    <button id="btn-trig-set">Set</button>
+    <button id="btn-trig-clear">Clear</button>
+    <button id="btn-trig-resume">Resume</button>
+  </div>
+  <div class="trig-hit" id="trig-hit">⏸ Triggered!</div>
+</div>
 
-    <!-- Logic Analyzer -->
-    <div class="la-section">
-      <div class="la-header">
-        <h3>Logic Analyzer</h3>
-        <button class="la-zoom-btn" id="btn-la-toggle" title="LA ON/OFF — OFFにするとリングバッファ書き込みをスキップして速度向上">LA ON</button>
-        <button class="la-zoom-btn" id="la-zoom-out">−</button>
-        <select id="la-zoom-sel" title="ズーム倍率">
-          <option value="0">1/4x</option>
-          <option value="1">1/2x</option>
-          <option value="2">1x</option>
-          <option value="3">2x</option>
-          <option value="4">4x</option>
-          <option value="5" selected>8x</option>
-          <option value="6">16x</option>
-          <option value="7">32x</option>
-          <option value="8">64x</option>
-        </select>
-        <button class="la-zoom-btn" id="la-zoom-in">+</button>
-        <label class="la-fill-label" title="信号レーン塗りつぶし ON/OFF">
-          <input type="checkbox" id="la-fill-chk" checked> Fill
-        </label>
-        <label class="la-hatch-label" title="ハッチパターン ON/OFF">
-          <input type="checkbox" id="la-hatch-chk" checked> Hatch
-        </label>
-        <button class="la-zoom-btn" id="btn-la-freeze">Freeze</button>
-        <span id="frozen-badge" style="display:none;">FROZEN</span>
-      </div>
-      <div id="la-toggles"></div>
-      <canvas id="la"></canvas>
-      <div class="la-nav">
-        <button id="la-nav-start">&#171;</button>
-        <button id="la-nav-prev">&#8249;</button>
-        <button id="la-nav-next">&#8250;</button>
-        <button id="la-nav-end">&#187;</button>
-        <button id="btn-step" title="1ステップ実行（Freeze 中のみ有効）">▶ Step</button>
-        <button id="btn-goto-trig" title="トリガー発火位置へジャンプ">⊙Trig</button>
-        <span id="la-pos-lbl"></span>
-        <a id="la-ss-link" href="../../../test/ss/pdp11/index.html" target="_blank"
-           rel="noopener" title="PDP-11 全命令タイミング図">&#x1F4F7; SS</a>
-      </div>
-    </div>
+<!-- Logic Analyzer: 全幅 -->
+<div class="la-section">
+  <div class="la-header">
+    <h3>Logic Analyzer</h3>
+    <button class="la-zoom-btn" id="btn-la-toggle" title="LA ON/OFF — OFFにするとリングバッファ書き込みをスキップして速度向上">LA ON</button>
+    <button class="la-zoom-btn" id="la-zoom-out">−</button>
+    <select id="la-zoom-sel" title="ズーム倍率">
+      <option value="0">1/4x</option>
+      <option value="1">1/2x</option>
+      <option value="2">1x</option>
+      <option value="3">2x</option>
+      <option value="4">4x</option>
+      <option value="5" selected>8x</option>
+      <option value="6">16x</option>
+      <option value="7">32x</option>
+      <option value="8">64x</option>
+    </select>
+    <button class="la-zoom-btn" id="la-zoom-in">+</button>
+    <label class="la-fill-label" title="信号レーン塗りつぶし ON/OFF">
+      <input type="checkbox" id="la-fill-chk" checked> Fill
+    </label>
+    <label class="la-hatch-label" title="ハッチパターン ON/OFF">
+      <input type="checkbox" id="la-hatch-chk" checked> Hatch
+    </label>
+    <button class="la-zoom-btn" id="btn-la-freeze">Freeze</button>
+    <span id="frozen-badge" style="display:none;">FROZEN</span>
+  </div>
+  <div id="la-toggles"></div>
+  <canvas id="la"></canvas>
+  <div class="la-nav">
+    <button id="la-nav-start">&#171;</button>
+    <button id="la-nav-prev">&#8249;</button>
+    <button id="la-nav-next">&#8250;</button>
+    <button id="la-nav-end">&#187;</button>
+    <button id="btn-step" title="1ステップ実行（Freeze 中のみ有効）">▶ Step</button>
+    <button id="btn-goto-trig" title="トリガー発火位置へジャンプ">⊙Trig</button>
+    <span id="la-pos-lbl"></span>
+    <a id="la-ss-link" href="../../../test/ss/pdp11/index.html" target="_blank"
+       rel="noopener" title="PDP-11 全命令タイミング図">&#x1F4F7; SS</a>
   </div>
 </div>
 
@@ -1035,7 +1063,7 @@ worker.onmessage = function(e) {
       document.getElementById('btn-save-disk').disabled = false;
       resetBootProgress();
       // FS パネルの初回取得（ディスクロード後）
-      setTimeout(_requestFSList, 500);
+      setTimeout(function() { _requestFSList(); _requestWasmFSList(); }, 500);
       break;
 
     case 'paused':
@@ -1173,11 +1201,14 @@ worker.onmessage = function(e) {
       if (d.requestId === 'panel') {
         _renderFSPanel(d.entries);
       } else if (d.requestId === 'tty') {
-        // !ls コマンド → ターミナルに表示
-        var lines2 = (d.entries || []).map(function(e) {
-          return (e.isDir ? 'd' : '-') + ' ' + e.path;
+        // !ls コマンド → ターミナルに表示（サイズ付き）
+        var ents2 = (d.entries || []).slice().sort(function(a, b) { return a.path.localeCompare(b.path); });
+        var lines2 = ents2.map(function(e) {
+          var flag = e.isDir ? 'd' : '-';
+          var sz   = e.isDir ? '' : String(e.size).padStart(7) + ' B';
+          return flag + ' ' + e.path.padEnd(26) + sz;
         });
-        term.write('\r\n' + lines2.join('\r\n') + '\r\n');
+        term.write('\r\n' + (lines2.length ? lines2.join('\r\n') : '(empty)') + '\r\n');
       }
       break;
 
@@ -1202,9 +1233,31 @@ worker.onmessage = function(e) {
 
     // ── writeFS 完了 ────────────────────────────────────────────────────
     case 'fsWritten':
-      // アップロード完了: FS パネルを更新
       if (simStarted) _requestFSList();
+      _requestWasmFSList();
       break;
+
+    // ── deleteFS 完了 ───────────────────────────────────────────────────
+    case 'fsDeleted':
+      term.write('\r\nDeleted: ' + (d.name || '') + '\r\n');
+      _requestWasmFSList();
+      break;
+
+    // ── WASM FS 一覧 ────────────────────────────────────────────────────
+    case 'wasmFSEntries':
+      _renderWasmFSPanel(d.entries);
+      break;
+
+    // ── WASM FS ファイルダウンロード ────────────────────────────────────
+    case 'wasmFSFile': {
+      var wblob = new Blob([d.data]);
+      var wurl  = URL.createObjectURL(wblob);
+      var wa    = document.createElement('a');
+      wa.href = wurl; wa.download = d.name;
+      wa.click();
+      URL.revokeObjectURL(wurl);
+      break;
+    }
   }
 };
 
@@ -1460,6 +1513,49 @@ function _requestFSList() {
   worker.postMessage({ type: 'listFS', requestId: 'panel' });
 }
 
+function _requestWasmFSList() {
+  if (!simStarted) return;
+  worker.postMessage({ type: 'listWasmFS', requestId: 'wasm' });
+}
+
+function _renderWasmFSPanel(entries) {
+  var el = document.getElementById('wasm-list');
+  if (!el) return;
+  if (!entries || !entries.length) {
+    el.innerHTML = '<span style="color:#446;font-size:10px;padding:2px 4px;display:block;">（ファイルなし）</span>';
+    return;
+  }
+  var sorted = entries.slice().sort(function(a, b) { return a.name.localeCompare(b.name); });
+  var rows = '';
+  for (var i = 0; i < sorted.length; i++) {
+    var e   = sorted[i];
+    var esc = e.name.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    rows += '<tr data-name="' + esc + '">' +
+      '<td class="wf-name">' + esc + '</td>' +
+      '<td class="wf-size">' + e.size + 'B</td>' +
+      '<td class="wf-acts">' +
+        '<button class="wf-btn wf-run" title="スクリプトとして実行">&#x25B6;</button>' +
+        '<button class="wf-btn wf-dl"  title="ダウンロード">&#x2193;</button>' +
+        '<button class="wf-btn wf-del" title="削除">&#x2715;</button>' +
+      '</td></tr>';
+  }
+  el.innerHTML = '<table style="width:100%;border-collapse:collapse;">' + rows + '</table>';
+  el.querySelectorAll('tr').forEach(function(tr) {
+    var name = tr.dataset.name;
+    tr.querySelector('.wf-run').addEventListener('click', function(ev) {
+      ev.stopPropagation(); _executeHostCmd('script ' + name);
+    });
+    tr.querySelector('.wf-dl').addEventListener('click', function(ev) {
+      ev.stopPropagation();
+      worker.postMessage({ type: 'readWasmFS', requestId: 'download', name: name });
+    });
+    tr.querySelector('.wf-del').addEventListener('click', function(ev) {
+      ev.stopPropagation();
+      worker.postMessage({ type: 'deleteFS', requestId: 'tty', name: name });
+    });
+  });
+}
+
 function _renderFSPanel(entries) {
   _fsEntries = entries || [];
   _sortAndRender();
@@ -1538,14 +1634,14 @@ function _sortAndRender() {
   });
 })();
 
-// FS Drag & Drop (L)
+// WASM FS Drag & Drop
 (function() {
-  var panel = document.getElementById('fs-panel');
-  var hint  = document.getElementById('fs-drop-hint');
+  var panel = document.getElementById('wasm-panel');
+  var hint  = document.getElementById('wasm-drop-hint');
   if (!panel) return;
   panel.addEventListener('dragover', function(e) {
     e.preventDefault(); e.dataTransfer.dropEffect = 'copy';
-    panel.style.outline = '2px dashed #cc9';
+    panel.style.outline = '2px dashed #9cf';
   });
   panel.addEventListener('dragleave', function(e) {
     if (!panel.contains(e.relatedTarget)) panel.style.outline = '';
@@ -1559,7 +1655,7 @@ function _sortAndRender() {
       reader.onload = function(ev) {
         worker.postMessage({ type: 'writeFS', name: file.name, data: ev.target.result },
                            [ev.target.result]);
-        if (hint) { hint.textContent = file.name + ' uploading...'; setTimeout(function() { hint.textContent = '← Drop files'; }, 2000); }
+        if (hint) { hint.textContent = file.name + ' …'; setTimeout(function() { hint.textContent = '← Drop'; }, 2000); }
       };
       reader.readAsArrayBuffer(file);
     });
@@ -1572,18 +1668,28 @@ var _inputBuf = '';
 function _executeHostCmd(cmd) {
   var parts = cmd.trim().split(/\s+/);
   var verb  = parts[0].toLowerCase();
+  // エイリアス解決
+  if (verb === 'dir')  verb = 'ls';
+  if (verb === 'run')  verb = 'script';
+  if (verb === 'cat')  verb = 'type';
+  if (verb === 'dl')   verb = 'get';
+  if (verb === '?')    verb = 'help';
+  if (verb === 'del')  verb = 'rm';
+
   if (verb === 'help') {
-    term.write('\r\n!help                このヘルプ\r\n' +
-               '!paste               PASTE ダイアログ\r\n' +
-               '!editor              テキストエディタ\r\n' +
-               '!sleep N             N ミリ秒待機\r\n' +
-               '!script <file>       スクリプト再生\r\n' +
-               '!stop                スクリプト停止\r\n' +
-               '!ls [path]           V6 FS 一覧\r\n' +
-               '!type <path>         V6 FS ファイル表示\r\n' +
-               '!get  <path>         V6 FS ファイルダウンロード\r\n' +
-               '!upload              ファイルアップロード\r\n' +
-               '\r\n');
+    term.write('\r\n' +
+      '!help / !?           このヘルプ\r\n' +
+      '!paste               PASTE ダイアログ\r\n' +
+      '!editor              テキストエディタ\r\n' +
+      '!ls [path]           V6 FS 一覧  (!dir)\r\n' +
+      '!type <path>         V6 FS ファイル表示  (!cat)\r\n' +
+      '!get  <path>         V6 FS ダウンロード  (!dl)\r\n' +
+      '!upload              スクリプトをアップロード\r\n' +
+      '!rm <name>           アップロード済みスクリプトを削除  (!del)\r\n' +
+      '!script <file>       スクリプト再生  (!run)\r\n' +
+      '!stop                スクリプト停止\r\n' +
+      '!sleep N             N ミリ秒待機\r\n' +
+      '\r\n');
   } else if (verb === 'paste') {
     setTimeout(openPasteModal, 10);
   } else if (verb === 'editor') {
@@ -1591,18 +1697,23 @@ function _executeHostCmd(cmd) {
   } else if (verb === 'sleep' && parts[1]) {
     var ms = parseInt(parts[1], 10) || 0;
     setTimeout(function() { worker.postMessage({ type: 'key', ch: 0x0D }); }, ms);
-  } else if (verb === 'script' && parts[1]) {
-    // !script <filename> — Worker に scriptRun を送る
-    worker.postMessage({ type: 'scriptRun', name: parts[1], path: '/' + parts[1] });
+  } else if (verb === 'script') {
+    if (!parts[1]) { term.write('\r\nUsage: !script <file>\r\n'); }
+    else { worker.postMessage({ type: 'scriptRun', name: parts[1], path: '/' + parts[1] }); }
   } else if (verb === 'stop') {
     worker.postMessage({ type: 'scriptStop' });
   } else if (verb === 'ls') {
     var lsPath = parts[1] || '/';
     worker.postMessage({ type: 'listFS', requestId: 'tty', path: lsPath });
-  } else if (verb === 'type' && parts[1]) {
-    worker.postMessage({ type: 'readFS', requestId: 'tty', path: parts[1] });
-  } else if (verb === 'get' && parts[1]) {
-    worker.postMessage({ type: 'readFS', requestId: 'download', path: parts[1] });
+  } else if (verb === 'type') {
+    if (!parts[1]) { term.write('\r\nUsage: !type <path>\r\n'); }
+    else { worker.postMessage({ type: 'readFS', requestId: 'tty', path: parts[1] }); }
+  } else if (verb === 'get') {
+    if (!parts[1]) { term.write('\r\nUsage: !get <path>\r\n'); }
+    else { worker.postMessage({ type: 'readFS', requestId: 'download', path: parts[1] }); }
+  } else if (verb === 'rm') {
+    if (!parts[1]) { term.write('\r\nUsage: !rm <name>\r\n'); }
+    else { worker.postMessage({ type: 'deleteFS', requestId: 'tty', name: parts[1] }); }
   } else if (verb === 'upload') {
     document.getElementById('fs-upload-input').click();
   } else {
