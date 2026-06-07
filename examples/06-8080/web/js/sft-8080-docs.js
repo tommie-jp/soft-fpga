@@ -1,10 +1,7 @@
-// sft-8080-docs.js — CP/M ドキュメントビューア（DOC_LIST / openDoc）
-//
-// 06-8080 Web UI から分離。initUI ローカル非依存（marked + fetch + DOM のみ）。
-// doc-modal / doc-select / doc-prev / doc-next の DOM リスナは index.html の initUI() 側に残し、
-// それらが openDoc（グローバル）を呼ぶ。marked（CDN）は openDoc 実行時に参照する。
+'use strict';
+// sft-8080-docs.js — CP/M ドキュメントリスト
+// 依存: sft-doc-viewer.js (SftDocViewer) を先に読み込むこと
 
-// ── CP/M DOCS 文書リスト（docs-panel の順序と一致させること）──
 var DOC_LIST = [
   { file: '02-CP_M-歴史的価値.md',              label: '02 CP/M 歴史的価値' },
   { file: '03-開発ツール.md',                    label: '03 開発ツール' },
@@ -24,51 +21,6 @@ var DOC_LIST = [
   { file: '52-メモリマップ.md',                 label: '52 メモリマップ & I/O ポート' },
   { file: '53-参考資料.md',                     label: '53 参考資料' },
 ];
-var _docIdx = -1; // 現在開いている文書の DOC_LIST インデックス
 
-function openDoc(file) {
-  // DOC_LIST 内のインデックスを求め、前・次ボタンとドロップダウンを更新する
-  var idx = -1;
-  for (var i = 0; i < DOC_LIST.length; i++) {
-    if (DOC_LIST[i].file === file) { idx = i; break; }
-  }
-  _docIdx = idx;
-
-  var btnPrev = document.getElementById('doc-prev');
-  var btnNext = document.getElementById('doc-next');
-  var sel     = document.getElementById('doc-select');
-
-  if (idx > 0) {
-    btnPrev.textContent = '‹ ' + DOC_LIST[idx - 1].label; // ‹ prev
-    btnPrev.disabled = false;
-  } else {
-    btnPrev.textContent = '‹';
-    btnPrev.disabled = true;
-  }
-  if (idx >= 0 && idx < DOC_LIST.length - 1) {
-    btnNext.textContent = DOC_LIST[idx + 1].label + ' ›'; // next ›
-    btnNext.disabled = false;
-  } else {
-    btnNext.textContent = '›';
-    btnNext.disabled = true;
-  }
-  if (sel && idx >= 0) { sel.value = file; }
-
-  fetch('docs/' + file)
-    .then(function(r) {
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      return r.text();
-    })
-    .then(function(md) {
-      var html = marked.parse(md)
-        .replace(/<table/g, '<div class="table-wrap"><table')
-        .replace(/<\/table>/g, '</table></div>');
-      var content = document.getElementById('doc-content');
-      content.innerHTML = html;
-      content.scrollTop = 0;
-      document.getElementById('doc-modal').style.display = 'flex';
-    })
-    .catch(function(e) {
-      alert('ドキュメントを読み込めませんでした: ' + file + '\n' + e);
-    });
-}
+var _docViewer = new SftDocViewer(DOC_LIST, { docsPath: 'docs/' });
+function openDoc(file) { _docViewer.openDoc(file); }
