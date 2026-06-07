@@ -30,7 +30,10 @@ var lastRingHead  = 0;
 var mmuFrameCnt   = 0;
 
 // Speed が setSpeed メッセージで固定されているかどうか
-var _speedFixed = false;
+var _speedFixed  = false;
+var _laEnabled   = true;
+// 現在設定中のトリガー種別（0=NONE 1=PC 2=ISTATE 3=IOPAGE 4=TRAP 5=BUSERR）
+var _curTrigType = 0;
 
 // ── キー入力キュー（ペースト文字化け防止）─────────────────────────────────
 // onmessage から受け取った文字をここにバッファし、simLoop で少しずつ
@@ -160,7 +163,7 @@ function simLoop() {
   if (Module._sim_trigger_hit && Module._sim_trigger_hit()) {
     running = false;
     var pc = Module._get_pc ? Module._get_pc() : 0;
-    postMessage({ type: 'triggered', pc: pc });
+    postMessage({ type: 'triggered', pc: pc, trigType: _curTrigType });
     _sendRing();
     _sendGPR();
     return;
@@ -185,6 +188,7 @@ function simLoop() {
 
 function _sendRing() {
   var head = Module._get_ring_head() >>> 0;
+  if (!_laEnabled) { lastRingHead = head; return; }
   if (head === lastRingHead) return;
 
   var count = (head - lastRingHead) >>> 0;
@@ -203,7 +207,7 @@ function _sendRing() {
   var u16  = Module.HEAPU16;
   var gpr  = Array.from(u16.slice(gprBase16, gprBase16 + 7));
 
-  postMessage({ type: 'ring', head: head, snap: snap.buffer, gpr: gpr }, [snap.buffer]);
+  postMessage({ type: 'ring', head: head, snap: snap.buffer, gpr: gpr, steps: stepsPerFrame }, [snap.buffer]);
   lastRingHead = head;
 }
 
@@ -410,14 +414,22 @@ self.onmessage = function (e) {
     // Playwright テスト用: トリガー設定と実行開始をアトミックに行う。
     // resume + set_trigger を別メッセージで送ると setTimeout(simLoop,0) が
     // set_trigger より先に発火する競合が生じるため、1 メッセージにまとめる。
-    case 'set_trigger_and_run':
+    case 'set_trigger_and_run': {
       if (Module._sim_clear_trigger) Module._sim_clear_trigger();
-      if (Module._sim_set_pc_trigger) Module._sim_set_pc_trigger(d.pc >>> 0);
+      var taType = (d.trigType !== undefined) ? (d.trigType | 0) : 1;
+      var taVal  = (d.val     !== undefined) ? (d.val  >>> 0) : (d.pc >>> 0);
+      _curTrigType = taType;
+      if (Module._sim_set_trigger) {
+        Module._sim_set_trigger(taType, taVal);
+      } else if (Module._sim_set_pc_trigger) {
+        Module._sim_set_pc_trigger(taVal);
+      }
       diskReady = true;
       running   = true;
       postMessage({ type: 'resumed' });
       scheduleNext();
       break;
+    }
 
     // Unix V6 ブートなし: RAM クリア + initial_pc 設定 + リセット
     case 'init_bare':
@@ -451,11 +463,20 @@ self.onmessage = function (e) {
       break;
     }
 
-    case 'set_trigger':
-      if (Module._sim_set_pc_trigger) Module._sim_set_pc_trigger(d.pc >>> 0);
+    case 'set_trigger': {
+      var stType = (d.trigType !== undefined) ? (d.trigType | 0) : 1;
+      var stVal  = (d.val     !== undefined) ? (d.val  >>> 0) : (d.pc >>> 0);
+      _curTrigType = stType;
+      if (Module._sim_set_trigger) {
+        Module._sim_set_trigger(stType, stVal);
+      } else if (Module._sim_set_pc_trigger) {
+        Module._sim_set_pc_trigger(stVal);
+      }
       break;
+    }
 
     case 'clear_trigger':
+      _curTrigType = 0;
       if (Module._sim_clear_trigger) Module._sim_clear_trigger();
       break;
 
@@ -469,12 +490,39 @@ self.onmessage = function (e) {
       _speedFixed   = true;
       break;
 
+    case 'setLA':
+      _laEnabled = !!d.enabled;
+      break;
+
+    case 'exportDisk': {
+      try {
+        var _disk = Module.FS.readFile('/disk0.rk');
+        postMessage({ type: 'diskExported', data: _disk.buffer }, [_disk.buffer]);
+      } catch(_e) {
+        postMessage({ type: 'diskExportError', msg: String(_e) });
+      }
+      break;
+    }
+
     case 'poll_mmu':
       _sendMMU();
       break;
 
     // ── Freeze 機能 ───────────────────────────────────────────────────────
     // LA の表示を一時停止するためにシミュレーションを止める
+    case 'step':
+      if (!running) {
+        Module._step_n(d.n || 300);
+        var _sc = [];
+        var _sch;
+        while ((_sch = Module._get_display_char()) !== -1) _sc.push(_sch & 0x7F);
+        if (_sc.length > 0) postMessage({ type: 'tty', chars: _sc });
+        _sendRing();
+        _sendGPR();
+        postMessage({ type: 'stepped' });
+      }
+      break;
+
     case 'freeze':
       running = false;
       _sendRing();

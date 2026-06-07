@@ -8,6 +8,7 @@
   clr/com/inc/dec/neg/adc/sbc/tst/ror/rol/asr/asl/sxt/swab/mfps/mtps  単項
   clrb/comb/incb/decb/negb/adcb/sbcb/tstb/rorb/rolb/asrb/aslb/movb/cmpb  バイト
   mov/cmp/bit/bic/bis/add/sub/xor    双項
+  mul/div/ash/ashc src, Rn           EIS（乗除算・シフト）
   br/bne/beq/bge/blt/bgt/ble/bhi/blos/bcc/bcs/bvc/bvs  分岐
   jsr rN, label         サブルーチン呼び出し
   rts rN                サブルーチンリターン
@@ -113,6 +114,14 @@ _SINGLE: dict[str, tuple[int, bool]] = {
 _SINGLE['mfps'] = (0o106700, False)  # MFPS = 106700 + dd
 _SINGLE['mtps'] = (0o106400, False)  # MTPS = 106400 + ss
 _SINGLE['swab'] = (0o000300, False)  # SWAB = 000300 + dd
+
+# EIS 命令: `mnem src, Rn`  opcode base  (Rn in bits[8:6], src in bits[5:0])
+_EIS: dict[str, int] = {
+    'mul':  0o070000,   # MUL src, Rn  → Rn × src → Rn (hi), Rn+1 (lo)
+    'div':  0o071000,   # DIV src, Rn  → Rn:Rn+1 ÷ src → Rn=商, Rn+1=余数
+    'ash':  0o072000,   # ASH src, Rn  → Rn シフト (正=左, 負=右)
+    'ashc': 0o073000,   # ASHC src, Rn → Rn:Rn+1 32ビットシフト
+}
 
 # 双項命令: opcode base
 _DOUBLE: dict[str, int] = {
@@ -399,6 +408,16 @@ def _emit_instr(
             emit(w)
         return
 
+    # ---- EIS 命令: mul/div/ash/ashc src, Rn ----
+    if mnem in _EIS:
+        parts = [p.strip() for p in rest.split(',', 1)]
+        src_spec, src_extra = _enc_operand(parts[0], cur_loc + 2, labels)
+        r = _REG[parts[1].strip()]
+        emit(_EIS[mnem] | (r << 6) | src_spec)
+        for w in src_extra:
+            emit(w)
+        return
+
     raise ValueError(f"Unknown mnemonic: {mnem!r} in {line!r}")
 
 
@@ -429,6 +448,9 @@ def _inst_size(line: str, labels: dict[str, int]) -> int:
         return 1 + _operand_extra_words(parts[0]) + (
             _operand_extra_words(parts[1]) if len(parts) > 1 else 0
         )
+    if mnem in _EIS:
+        parts = rest.split(',', 1)
+        return 1 + _operand_extra_words(parts[0].strip())
     return 1  # unknown → 1 ワードとして扱う
 
 

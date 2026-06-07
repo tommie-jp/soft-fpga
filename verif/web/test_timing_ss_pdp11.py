@@ -67,6 +67,7 @@ SIG_BUS    = ['pc', 'addr_p', 'data', 'bus_rd', 'bus_wr']
 SIG_STD    = SIG_BUS + ['cm']
 SIG_MEM    = SIG_STD + ['addr_v', 'byte_op']
 SIG_BRANCH = ['pc', 'addr_p', 'bus_rd']
+SIG_EIS    = SIG_STD + ['istate', 'r0', 'r1']   # EIS: istate で多サイクル待機を可視化
 
 
 # ── データクラス ────────────────────────────────────────────────────────────────
@@ -1114,11 +1115,135 @@ mov 2(r0), r1
     ),
 ]
 
+# ── Phase N — EIS instructions (6件) ─────────────────────────────────────────
+# mul/div/ash/ashc は内部ハードウェア（mul1616/div3216/shift32）で処理するため
+# 数〜数十クロックの stall が発生する。zoom=8 で内部処理サイクルを可視化する。
+#
+# アドレス計算:
+#   mul src, Rn  / div src, Rn  → 1ワード（ソースがレジスタ直接の場合）
+#   ash $n, Rn   / ashc $n, Rn  → 2ワード（即値シフト量 = extra word あり）
+_N: list[TimingCasePDP11] = [
+    # MUL r1, r0: R0=3, R1=5 → R0:R1 = 0:15 (高位:低位)
+    #   mov $3, r0  (2ワード=01000-01003)
+    #   mov $5, r1  (2ワード=01004-01007)
+    #   mul r1, r0  (1ワード=01010) ← trigger  mul1616 ~16サイクル待機
+    TimingCasePDP11(
+        55, 'mul-r-r',
+        asm=""". = 01000
+mov $3, r0
+mov $5, r1
+mul r1, r0
+1: br 1b
+""",
+        trigger_pc=0o1010,
+        signals=SIG_EIS,
+        zoom=8,
+        post_delay=150,
+        desc='MUL R0xR1 -> R0:R1 = 0:15',
+    ),
+
+    # DIV r2, r0: R0:R1=0:15, R2=3 → R0=5(商), R1=0(余数)
+    #   clr r0        (1ワード=01000)  dividend high = 0
+    #   mov $17, r1   (2ワード=01002-01005)  dividend low = 0o17 = 15
+    #   mov $3, r2    (2ワード=01006-01011)  divisor = 3
+    #   div r2, r0    (1ワード=01012) ← trigger  div3216 ~32サイクル待機
+    TimingCasePDP11(
+        56, 'div-r-r',
+        asm=""". = 01000
+clr r0
+mov $17, r1
+mov $3, r2
+div r2, r0
+1: br 1b
+""",
+        trigger_pc=0o1012,
+        signals=SIG_EIS,
+        zoom=8,
+        post_delay=250,
+        desc='DIV R0:R1/R2 -> R0=5(quotient) R1=0(remainder)',
+    ),
+
+    # ASH $3, r0: R0=0o100=64 → R0 <<= 3 → R0=0o1000=512
+    #   mov $100, r0  (2ワード=01000-01003)
+    #   ash $3, r0    (2ワード=01004-01007) ← trigger  左シフト 3
+    TimingCasePDP11(
+        57, 'ash-pos',
+        asm=""". = 01000
+mov $100, r0
+ash $3, r0
+1: br 1b
+""",
+        trigger_pc=0o1004,
+        signals=SIG_EIS,
+        zoom=8,
+        post_delay=100,
+        desc='ASH R0 left-shift 3 (64->512)',
+    ),
+
+    # ASH $177776, r0: R0=0o100=64 → R0 >>= 2 → R0=0o20=16 (算術右シフト)
+    #   シフト量 0o177776 の下位 6bit = 0o76 = -2 (6bit符号付き)
+    #   mov $100, r0  (2ワード=01000-01003)
+    #   ash $177776, r0 (2ワード=01004-01007) ← trigger  右シフト 2
+    TimingCasePDP11(
+        58, 'ash-neg',
+        asm=""". = 01000
+mov $100, r0
+ash $177776, r0
+1: br 1b
+""",
+        trigger_pc=0o1004,
+        signals=SIG_EIS,
+        zoom=8,
+        post_delay=100,
+        desc='ASH R0 arith-right-shift 2 (64->16)',
+    ),
+
+    # ASHC $4, r0: R0:R1={0,1} → <<= 4 → R0:R1={0,0o20}=16
+    #   clr r0        (1ワード=01000)
+    #   mov $1, r1    (2ワード=01002-01005)
+    #   ashc $4, r0   (2ワード=01006-01011) ← trigger  32bit 左シフト 4
+    TimingCasePDP11(
+        59, 'ashc-r',
+        asm=""". = 01000
+clr r0
+mov $1, r1
+ashc $4, r0
+1: br 1b
+""",
+        trigger_pc=0o1006,
+        signals=SIG_EIS,
+        zoom=8,
+        post_delay=100,
+        desc='ASHC R0:R1 32bit left-shift 4 ({0,1}->{0,16})',
+    ),
+
+    # DIV r2, r0 ゼロ除算: R0:R1={1,0}, R2=0 → V=1 (overflow), abort
+    #   mov $1, r0    (2ワード=01000-01003)  dividend high = 1 (非ゼロ)
+    #   clr r1        (1ワード=01004)        dividend low = 0
+    #   clr r2        (1ワード=01006)        divisor = 0 → overflow
+    #   div r2, r0    (1ワード=01010) ← trigger  div_abort で V=1
+    TimingCasePDP11(
+        60, 'div-ovf',
+        asm=""". = 01000
+mov $1, r0
+clr r1
+clr r2
+div r2, r0
+1: br 1b
+""",
+        trigger_pc=0o1010,
+        signals=SIG_EIS,
+        zoom=8,
+        post_delay=100,
+        desc='DIV divide-by-zero -> V=1 abort',
+    ),
+]
+
 # ── 全ケースリスト ─────────────────────────────────────────────────────────────
 CASES: list[TimingCasePDP11] = (
-    _A + _B + _C + _D + _E + _F + _G + _H + _I + _J + _K
+    _A + _B + _C + _D + _E + _F + _G + _H + _I + _J + _K + _N
 )
-assert len(CASES) == 55, f"期待 55 ケース、実際 {len(CASES)} ケース"
+assert len(CASES) == 61, f"期待 61 ケース、実際 {len(CASES)} ケース"
 
 
 # ── ヘルパー関数（ベアメタルモード）────────────────────────────────────────────

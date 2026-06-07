@@ -49,7 +49,7 @@ verilator --cc \
     +incdir+"$VENDOR/rtl" \
     --Mdir "$OBJ_DIR"
 
-COMMON_FLAGS="-O3 -std=c++17 -DVL_IGNORE_UNKNOWN_ARCH \
+COMMON_FLAGS="-O3 -msimd128 -std=c++17 -DVL_IGNORE_UNKNOWN_ARCH \
   -I$VERILATOR_ROOT/include \
   -I$VERILATOR_ROOT/include/vltstd \
   -I$OBJ_DIR"
@@ -80,7 +80,7 @@ em++ $COMMON_FLAGS \
     -s EXPORTED_FUNCTIONS='["_sim_init","_step_n","_send_key","_get_display_char",
                             "_get_ring_ptr","_get_ring_head","_get_ring_size","_get_ring_words",
                             "_get_pc","_sim_con_in_space",
-                            "_sim_set_pc_trigger","_sim_trigger_hit","_sim_clear_trigger",
+                            "_sim_set_pc_trigger","_sim_set_trigger","_sim_trigger_hit","_sim_clear_trigger",
                             "_get_gpr_ptr",
                             "_sim_update_mmu","_get_mmu_ptr","_get_mmu_size",
                             "_malloc","_free"]' \
@@ -129,7 +129,7 @@ if [ -f "$TEST_DISK" ]; then
         -s EXPORTED_FUNCTIONS='["_sim_init","_step_n","_send_key","_get_display_char",
                                 "_get_ring_ptr","_get_ring_head","_get_ring_size","_get_ring_words",
                                 "_get_pc","_sim_con_in_space",
-                                "_sim_set_pc_trigger","_sim_trigger_hit","_sim_clear_trigger",
+                                "_sim_set_pc_trigger","_sim_set_trigger","_sim_trigger_hit","_sim_clear_trigger",
                                 "_get_gpr_ptr",
                                 "_sim_update_mmu","_get_mmu_ptr","_get_mmu_size",
                                 "_malloc","_free"]' \
