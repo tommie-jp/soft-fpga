@@ -11,7 +11,7 @@ var PDP11_DOC_LIST = [
   { file: '10-unix-v6-コマンドリファレンス.md',  label: '10 Unix V6 コマンドリファレンス' },
   { file: '12-unix-v6-システムコール.md',       label: '12 システムコール参考' },
   { file: '13-c-コンパイル入門.md',             label: '13 C コンパイル入門 ※WASM非対応' },
-  { file: '14-adb-デバッガー-使い方.md',        label: '14 デバッグ手法（od / printf / SIMH）' },
+  { file: '14-db-デバッガー-使い方.md',         label: '14 db デバッガの使い方' },
   { file: '20-デバッグパネル-使い方.md',        label: '20 デバッグパネル・Logic Analyzer' },
   { file: '21-バスサイクル実例.md',             label: '21 LA バスサイクル実例集' },
   { file: '22-全命令タイミング図.md',           label: '22 全命令タイミング図（61 ケース）' },

@@ -12,7 +12,7 @@ Bourne シェル（V7）や bash よりシンプルで、覚えやすい。
 # ls                     ← ファイル一覧
 # ls -l                  ← 詳細一覧（パーミッション・サイズ）
 # ls -la                 ← 隠しファイルも表示
-# cd /usr/sys/ken        ← ディレクトリ移動
+# chdir /usr/sys/ken     ← ディレクトリ移動（V6 は cd ではなく chdir）
 # cat file.txt           ← ファイル表示
 # echo hello world       ← 文字列出力
 ```
@@ -134,7 +134,7 @@ Thu Jan  1 00:00:00 1970
 
 ```text
 # ls /usr/sys/ken | grep '\.c$'      ← .c ファイルのみ
-# cat /etc/passwd | sort | head -5   ← パスワードファイルを先頭 5 行
+# cat /etc/passwd | sort           ← パスワードファイルをソート表示
 # echo 'main(){printf("x");}' | cc  ← パイプからコンパイル
 # od -c /bin/sh | grep 'S H E L'    ← バイナリ検索
 ```
