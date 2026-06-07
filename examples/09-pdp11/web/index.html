@@ -458,7 +458,7 @@
   </div>
 </div>
 
-<h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.0 2026/06/07 15:13</span></h2>
+<h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.0 2026/06/07 15:19</span></h2>
 <p style="font-size:12px;color:#777;margin:0 0 5px;"><a href="https://github.com/lisper/cpus-pdp11" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">cpus-pdp11</a> (Brad Parker RTL) → <a href="https://www.veripool.org/verilator/" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Verilator</a> → <a href="https://en.wikipedia.org/wiki/WebAssembly" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">WASM</a> &nbsp;|&nbsp; <a href="https://en.wikipedia.org/wiki/History_of_Unix" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Unix V6</a> + custom RK11 BIOS</p>
 
 <!-- docs パネル -->
@@ -1845,18 +1845,33 @@ document.getElementById('btn-editor').addEventListener('click', function() {
 });
 
 document.getElementById('editor-send').addEventListener('click', function() {
+  if (!simStarted) return;
   var fname   = (document.getElementById('editor-fname').value.trim() || 'out.c');
   var content = _getEditorValue();
   closeEditorModal();
-  worker.postMessage({ type: 'send_str', str: 'cat > ' + fname + '\r' });
+
+  // Unix V6 TTY の @ (kill-line) が PDP-11 アセンブリ等に含まれると文字化けするため、
+  // マクロシステムで stty kill/erase を無害な ^A/^B に変更してから cat で送信し、
+  // !sleep で完了を待ってから元の設定（kill=@ erase=DEL）へ戻す。
   var lines = content.split('\n');
+  var parts = [];
+  parts.push('stty kill \x01 erase \x02\n');
+  parts.push('!sleep 500\n');
+  parts.push('cat > ' + fname + '\n');
   for (var li = 0; li < lines.length; li++) {
     var line = lines[li];
     if (li < lines.length - 1 || line.length > 0) {
-      worker.postMessage({ type: 'send_str', str: line + '\r' });
+      parts.push(line + '\n');
     }
   }
-  worker.postMessage({ type: 'key', ch: 0x04 });
+  parts.push('\x04\n');
+  parts.push('!sleep 1000\n');
+  parts.push('stty kill @ erase \x7f\n');
+
+  var scriptText = parts.join('');
+  var buf = new TextEncoder().encode(scriptText).buffer;
+  worker.postMessage({ type: 'writeFS', requestId: 'editorSend', name: '_editor_send.tmp', data: buf }, [buf]);
+  worker.postMessage({ type: 'scriptRun',  requestId: 'editorSend', name: '_editor_send.tmp' });
   _flashBtn('btn-editor');
 });
 

@@ -604,7 +604,7 @@ self.onmessage = function (e) {
         var wfRes = [];
         for (var wfi = 0; wfi < wfAll.length; wfi++) {
           var wfn = wfAll[wfi];
-          if (wfn === '.' || wfn === '..' || wfn === 'disk0.rk') continue;
+          if (wfn === '.' || wfn === '..' || wfn === 'disk0.rk' || wfn[0] === '_') continue;
           try {
             var wst = Module.FS.stat('/' + wfn);
             if (Module.FS.isFile(wst.mode)) wfRes.push({ name: wfn, size: wst.size });
