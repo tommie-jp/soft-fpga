@@ -458,7 +458,7 @@
   </div>
 </div>
 
-<h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.0 2026/06/07 15:19</span></h2>
+<h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.0 2026/06/07 15:50</span></h2>
 <p style="font-size:12px;color:#777;margin:0 0 5px;"><a href="https://github.com/lisper/cpus-pdp11" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">cpus-pdp11</a> (Brad Parker RTL) → <a href="https://www.veripool.org/verilator/" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Verilator</a> → <a href="https://en.wikipedia.org/wiki/WebAssembly" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">WASM</a> &nbsp;|&nbsp; <a href="https://en.wikipedia.org/wiki/History_of_Unix" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Unix V6</a> + custom RK11 BIOS</p>
 
 <!-- docs パネル -->
@@ -1040,7 +1040,8 @@ var diskBuffer = null;
 var localRing  = null;
 var _ringSize  = 4096;
 var _ringWords = RING_WORDS_PDP11;
-var _pendingTrigHead = false;
+var _pendingTrigHead     = false;
+var _pendingTrigFireHead = -1;
 
 worker.onmessage = function(e) {
   var d = e.data;
@@ -1101,10 +1102,14 @@ worker.onmessage = function(e) {
         }
       }
       // トリガー T=0 は istate=f1 の立ち上がり（フェッチ開始）に吸着させる。
-      var _trigForUpdate = _pendingTrigHead
-        ? pdp11TrigAnchorF1(localRing, d.head, _ringSize, _ringWords)
-        : undefined;
-      _pendingTrigHead = false;
+      // ポストトリガー収集後: fireHead（発火時 ring_head）起点で f1 を探す。
+      var _trigForUpdate;
+      if (_pendingTrigHead) {
+        var _anchorHead = (_pendingTrigFireHead >= 0) ? _pendingTrigFireHead : d.head;
+        _trigForUpdate = pdp11TrigAnchorF1(localRing, _anchorHead, _ringSize, _ringWords);
+      }
+      _pendingTrigHead     = false;
+      _pendingTrigFireHead = -1;
       la.update(d.head, localRing, undefined, _trigForUpdate);
       updateRegs(snap, d.gpr);
       _ringCount++; if (d.steps) _lastSteps = d.steps;
@@ -1121,7 +1126,8 @@ worker.onmessage = function(e) {
 
     case 'triggered':
       onTriggered(d.pc, d.trigType);
-      _pendingTrigHead = true;
+      _pendingTrigHead     = true;
+      _pendingTrigFireHead = (d.fireHead !== undefined && d.fireHead >= 0) ? (d.fireHead >>> 0) : -1;
       break;
 
     case 'bare_ready':
@@ -1850,13 +1856,14 @@ document.getElementById('editor-send').addEventListener('click', function() {
   var content = _getEditorValue();
   closeEditorModal();
 
-  // Unix V6 TTY の @ (kill-line) が PDP-11 アセンブリ等に含まれると文字化けするため、
-  // マクロシステムで stty kill/erase を無害な ^A/^B に変更してから cat で送信し、
-  // !sleep で完了を待ってから元の設定（kill=@ erase=DEL）へ戻す。
+  // Unix V6 TTY の @ (kill-line) が PDP-11 GAS アセンブリ等に含まれると行が消えるため、
+  // kill 文字を印字可能な ` (backtick) に一時変更してから cat で送信する。
+  // V6 Thompson シェルはバックティックを特殊文字として扱わないため引用符不要。
+  // erase (DEL=0x7F) は変更しない（制御文字を避けることで echo 化けを防ぐ）。
   var lines = content.split('\n');
   var parts = [];
-  parts.push('stty kill \x01 erase \x02\n');
-  parts.push('!sleep 500\n');
+  parts.push('stty kill `\n');   // backtick を kill char に（@ の kill-line を無効化）
+  parts.push('!sleep 400\n');
   parts.push('cat > ' + fname + '\n');
   for (var li = 0; li < lines.length; li++) {
     var line = lines[li];
@@ -1865,8 +1872,8 @@ document.getElementById('editor-send').addEventListener('click', function() {
     }
   }
   parts.push('\x04\n');
-  parts.push('!sleep 1000\n');
-  parts.push('stty kill @ erase \x7f\n');
+  parts.push('!sleep 1200\n');
+  parts.push('stty kill @\n');   // @ を kill char に復元
 
   var scriptText = parts.join('');
   var buf = new TextEncoder().encode(scriptText).buffer;

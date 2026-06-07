@@ -162,8 +162,9 @@ function simLoop() {
   // トリガーヒット確認
   if (Module._sim_trigger_hit && Module._sim_trigger_hit()) {
     running = false;
-    var pc = Module._get_pc ? Module._get_pc() : 0;
-    postMessage({ type: 'triggered', pc: pc, trigType: _curTrigType });
+    var pc       = Module._get_pc ? Module._get_pc() : 0;
+    var fireHead = Module._get_trig_fire_head ? (Module._get_trig_fire_head() >>> 0) : -1;
+    postMessage({ type: 'triggered', pc: pc, trigType: _curTrigType, fireHead: fireHead });
     _sendRing();
     _sendGPR();
     return;
