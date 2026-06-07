@@ -177,11 +177,14 @@ function simLoop() {
 
   // 式トリガー（Wasm ネイティブ評価）: 新着サンプルを全スキャン
   if (_exprEval) {
-    var _exHead = Module._get_ring_head() >>> 0;
+    var _exHead  = Module._get_ring_head() >>> 0;
     var _exCount = Math.min((_exHead - lastRingHead) >>> 0, RING_SIZE);
+    // ring_tick_mask=0 かつ stepsPerFrame > RING_SIZE の場合、1フレームで ring が複数周し
+    // lastRingHead 起点のスロットが上書きされているため、正しい先頭を _exHead - _exCount から取る。
+    var _exStart = (_exHead - _exCount) >>> 0;
     var _h = Module.HEAPU32;
     for (var _xi = 0; _xi < _exCount; _xi++) {
-      var _xabs = (lastRingHead + _xi) >>> 0;
+      var _xabs = (_exStart + _xi) >>> 0;
       var _xb   = (_xabs % RING_SIZE) * RING_WORDS + ringBase;
       var _xpb  = (((_xabs - 1 + RING_SIZE) >>> 0) % RING_SIZE) * RING_WORDS + ringBase;
       if (_exprEval(
