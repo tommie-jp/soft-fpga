@@ -461,7 +461,7 @@
   </div>
 </div>
 
-<h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.0 2026/06/07 17:48</span></h2>
+<h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.0 2026/06/07 18:52</span></h2>
 <p style="font-size:12px;color:#777;margin:0 0 5px;"><a href="https://github.com/lisper/cpus-pdp11" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">cpus-pdp11</a> (Brad Parker RTL) → <a href="https://www.veripool.org/verilator/" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Verilator</a> → <a href="https://en.wikipedia.org/wiki/WebAssembly" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">WASM</a> &nbsp;|&nbsp; <a href="https://en.wikipedia.org/wiki/History_of_Unix" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Unix V6</a> + custom RK11 BIOS</p>
 
 <!-- docs パネル -->
@@ -1036,9 +1036,24 @@ document.getElementById('btn-mmu-toggle').addEventListener('click', function() {
 
 // ── Worker ────────────────────────────────────────────────────────────────
 var worker = new Worker('sim-worker.js');
-var simStarted = false;
-var simPaused  = false;
-var diskBuffer = null;
+var simStarted  = false;
+var simPaused   = false;
+var diskBuffer  = null;
+var _workerReady = false;
+
+// URL に ?autoboot=0 が指定されたら自動ブートを抑止する。
+// ベアメタル用途（タイミング図テスト等で Unix V6 を起動したくない場合）向け。
+// 抑止時は btn-boot を有効のまま残し、手動ブートできるようにする。
+var _autoBootEnabled = new URLSearchParams(location.search).get('autoboot') !== '0';
+
+// worker 準備完了 ＆ ディスク読込完了の両方が揃ったら自動でブートする。
+// どちらが先に完了しても確実に 1 度だけ起動する。
+function _maybeAutoBoot() {
+  if (!_autoBootEnabled) return;
+  if (!_workerReady || !diskBuffer || simStarted) return;
+  document.getElementById('btn-boot').disabled = true;
+  startSim();
+}
 
 var localRing  = null;
 var _ringSize  = 4096;
@@ -1053,7 +1068,8 @@ worker.onmessage = function(e) {
       _ringSize  = d.ringSize  || 4096;
       _ringWords = d.ringWords || RING_WORDS_PDP11;
       localRing  = new Uint32Array(_ringSize * _ringWords);
-      if (diskBuffer) startSim();
+      _workerReady = true;
+      _maybeAutoBoot();
       break;
 
     case 'started':
@@ -1341,10 +1357,11 @@ function _onDiskReady(buf, fromIDB) {
   if (fromIDB) {
     _idbHasSave = true;
     document.getElementById('btn-reset-disk').style.display = '';
-    setStatus('保存済みディスクを復元 — Boot ボタンを押してください');
+    setStatus('保存済みディスクを復元 — 自動ブート中...');
   } else {
-    setStatus('Ready — Boot ボタンを押してください');
+    setStatus('Ready — 自動ブート中...');
   }
+  _maybeAutoBoot();
 }
 
 function _fetchDiskFromServer() {
