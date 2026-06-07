@@ -1,0 +1,29 @@
+# 05-ed.v6 — ed ラインエディタの動作確認
+#
+# 検証内容:
+#   a  → テキスト追記モード
+#   p  → カレント行の表示
+#   w  → ファイル書き出し（書き出し後は q でクリーン終了）
+#   q  → 終了してシェルへ戻ること
+#
+# 注: q を叩く前に w で書き出しを行い、ed の「未保存警告(?)」を回避する。
+
+wait @
+send rkunix\r
+expect login:
+send root\r
+expect #
+
+send ed\r
+send a\r
+send hello from ed\r
+send .\r
+send p\r
+expect hello from ed
+send w /tmp/ed.out\r
+send q\r
+expect #
+
+# 書き出されたファイルを cat で確認
+send cat /tmp/ed.out\r
+expect hello from ed

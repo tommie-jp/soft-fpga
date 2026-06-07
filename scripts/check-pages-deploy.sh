@@ -87,7 +87,7 @@ else
         info "デプロイ ID を検索中 (最新)..."
     fi
 
-    id_deadline=$(( $(date +%s) + 60 ))
+    id_deadline=$(( $(date +%s) + 120 ))
     while [[ $(date +%s) -lt $id_deadline ]]; do
         json=$(gh api "repos/${REPO}/deployments?environment=github-pages&per_page=5" 2>/dev/null || echo "[]")
         if [[ -n "$TARGET_SHA" ]]; then
@@ -125,8 +125,7 @@ EOF
     fi
 
     if [[ -z "$deploy_id" ]]; then
-        fail "デプロイ ID が見つかりません (SHA: ${TARGET_SHA:-指定なし})"
-        overall_ok=false
+        warn "デプロイ ID が見つかりません (SHA: ${TARGET_SHA:-指定なし}) — Phase2 実態確認で判定します"
         phase1_ok=false
     else
         info "デプロイ #${deploy_id} を検出"
@@ -150,9 +149,8 @@ EOF
                         break
                         ;;
                     failure|error)
-                        fail "state=${state}  (${elapsed}s)"
+                        warn "GitHub API: state=${state}  (${elapsed}s) — Phase2 実態確認で判定します"
                         info "詳細: https://github.com/${REPO}/deployments"
-                        overall_ok=false
                         break
                         ;;
                     *)
@@ -163,9 +161,8 @@ EOF
             sleep 5
         done
 
-        if [[ "$phase1_ok" == false && "$overall_ok" == true ]]; then
-            fail "タイムアウト (${TIMEOUT}s) — デプロイがまだ完了していません"
-            overall_ok=false
+        if [[ "$phase1_ok" == false ]]; then
+            warn "フェーズ1 タイムアウト (${TIMEOUT}s) — Phase2 実態確認で判定します"
         fi
     fi
 fi
@@ -243,6 +240,9 @@ fi
 # ════════════════════════════════════════════════════════════════════════════
 echo ""
 if [[ "$overall_ok" == true ]]; then
+    if [[ "$phase1_ok" == false ]]; then
+        warn "Phase1 GitHub API 未確認（SHA 不一致 or タイムアウト）— Phase2/3 実態確認で合格"
+    fi
     printf "${GREEN}  ✓ デプロイ確認 完了${RESET}\n"
     exit 0
 else

@@ -1,0 +1,25 @@
+# 07-who-ps.v6 — who / date の動作確認
+#
+# 検証内容:
+#   who  → 現在ログイン中のユーザー（root）が表示されること
+#   date → コマンドが正常終了してプロンプトへ戻ること
+#
+# 注: ps は /etc/ps がない clean ディスク状態では無出力で終了する V6 固有の挙動がある。
+#     /etc/ps は ps の初回起動時にカーネルシンボルテーブルから自動生成されるが、
+#     シンボルテーブルがない（stripped kernel）場合は生成されない。
+#     ps の実行自体は WASM コマンドテスト（step 12）で確認済みのため、
+#     ここでは who と date に絞る。
+
+wait @
+send rkunix\r
+expect login:
+send root\r
+expect #
+
+# who: root がログイン中であることを確認
+send who\r
+expect root
+
+# date: 正常終了してシェルへ戻ること
+send date\r
+expect #

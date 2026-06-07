@@ -1,0 +1,29 @@
+# 03-wc-sort.v6 — wc / sort の動作確認
+#
+# 検証内容:
+#   wc   → 行数・単語数・ファイル名が出力されること
+#   sort → アルファベット昇順に並び替えられること
+#
+# テストファイル /tmp/words.txt を作成して使用する。
+
+wait @
+send rkunix\r
+expect login:
+send root\r
+expect #
+
+# テスト用 3 行ファイルを作成
+send cat >/tmp/words.txt\r
+send cherry\r
+send apple\r
+send banana\r
+send \004
+expect #
+
+# wc: ファイル名が出力されること
+send wc /tmp/words.txt\r
+expect /tmp/words.txt
+
+# sort: アルファベット順で apple が最初に来ること
+send sort /tmp/words.txt\r
+expect apple

@@ -5,7 +5,8 @@
   "description": "PDP-11 / Unix V6 Logic Analyzer 信号（GPR/PSW/MMU/ring）の Vitest 検証",
   "scripts": {
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:commands": "node test_commands_executable.mjs"
   },
   "devDependencies": {
     "vitest": "^1.6.0"

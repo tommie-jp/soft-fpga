@@ -25,6 +25,11 @@ usage() {
   --timing-ss      [08] 8080 全命令タイミング図スクリーンショット (73 ケース)
   --pdp11          [09] PDP-11 basic tests (test0–17 + sdiag ROM test, 19 件)
                    [10] PDP-11 MAINDEC 診断
+                   [12] PDP-11 WASM コマンド起動テスト (Unix V6 /bin・/usr/bin 全コマンド)
+                   [13] PDP-11 Unix V6 シナリオテスト (ls/cat/grep/sort/wc/ed/dc/as/db 等)
+  --v6 [scenario]  [13] Unix V6 シナリオテストのみ実行（--pdp11 の 09/10/12 はスキップ）
+                   scenario を指定すると単一シナリオだけ実行（拡張子省略可）
+                   例: doTest.sh --v6 08-as
   --timing-ss-pdp11 [11] PDP-11 全命令タイミング図スクリーンショット (55 ケース)
                 [10] PDP-11 MAINDEC 診断 (FKAAC0/FKABD0/FKACA0/FKTHB0/FKTGC0)
 
@@ -45,10 +50,12 @@ RUN_SIM_API=false
 RUN_TIMING_SS=false
 RUN_PDP11=false
 RUN_TIMING_SS_PDP11=false
+RUN_V6=false
+V6_FILTER=""
 ANY_FLAG=false
 
-for arg in "$@"; do
-  case "$arg" in
+while [[ $# -gt 0 ]]; do
+  case "$1" in
     -h|--help)
       usage; exit 0 ;;
     --cocotb)
@@ -67,11 +74,19 @@ for arg in "$@"; do
       RUN_PDP11=true; ANY_FLAG=true ;;
     --timing-ss-pdp11)
       RUN_TIMING_SS_PDP11=true; ANY_FLAG=true ;;
+    --v6)
+      RUN_V6=true; ANY_FLAG=true
+      # 次の引数がオプションでなければシナリオ名として受け取る
+      if [[ $# -gt 1 && "${2:0:1}" != "-" ]]; then
+        V6_FILTER="$2"; shift
+      fi
+      ;;
     *)
-      echo "不明なオプション: $arg" >&2
+      echo "不明なオプション: $1" >&2
       usage >&2
       exit 1 ;;
   esac
+  shift
 done
 
 # フラグ未指定 → 全グループ実行
@@ -218,6 +233,19 @@ if $RUN_PDP11; then
 
   run_step "10" "PDP-11 MAINDEC 診断 (FKAAC0/FKABD0/FKACA0/FKTHB0/FKTGC0)" \
     bash scripts/test-pdp11-diags.sh
+
+  run_step "12" "PDP-11 WASM コマンド起動テスト (Unix V6 /bin・/usr/bin)" \
+    bash -c 'cd examples/09-pdp11/tests && node test_commands_executable.mjs'
+fi
+
+if $RUN_PDP11 || $RUN_V6; then
+  if [[ -n "$V6_FILTER" ]]; then
+    run_step "13" "PDP-11 Unix V6 シナリオテスト ($V6_FILTER)" \
+      bash scripts/test-pdp11-v6.sh "$V6_FILTER"
+  else
+    run_step "13" "PDP-11 Unix V6 シナリオテスト (全シナリオ)" \
+      bash scripts/test-pdp11-v6.sh
+  fi
 fi
 
 # ---------------------------------------------------------------------------

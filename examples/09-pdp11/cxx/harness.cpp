@@ -172,23 +172,32 @@ static uint32_t mmu_snap[16];
 //   TRIG_IOPAGE  3 — I/O ページアクセス (obs_extra1[3])
 //   TRIG_TRAP    4 — トラップ発生 (obs_trapped)
 //   TRIG_BUSERR  5 — バスエラー (obs_extra1[0])
+//   TRIG_PC_DATA 6 — VA 一致かつバスデータ一致
+//                    g_trig_val = (opcode << 16) | VA
+//                    obs_addr_v == VA かつ obs_data == opcode（フェッチ時）
+//                    VA だけでは複数プロセスが同じ低位アドレスを共有して誤検出する
+//                    ため、命令語(opcode)も照合してプロセスを一意に絞り込む。
 #define TRIG_NONE    0
 #define TRIG_PC      1
 #define TRIG_ISTATE  2
 #define TRIG_IOPAGE  3
 #define TRIG_TRAP    4
 #define TRIG_BUSERR  5
+#define TRIG_PC_DATA 6
 
 // obs_extra1 ビット位置（test_top_wasm.v の assign 順と対応）
 // assign obs_extra1 = {8'b0, trap_odd, trap_abort, trap_bus, iopage, nxm, waited, bus_error, 1'b0}
 #define EXTRA1_BUS_ERROR  (2u)   // bit 1: top.bus_error
 #define EXTRA1_IOPAGE     (16u)  // bit 4: top.bus1.iopage_access
 
-static int      g_trig_type    = TRIG_NONE;
-static uint32_t g_trig_val     = 0;
-static int      g_triggered    = 0;
-static int      g_trigger_once = 1;  // 1 回ヒットしたら停止
-static uint8_t  g_prev_istate  = 0xFFu; // istate エッジ検出用
+static int      g_trig_type         = TRIG_NONE;
+static uint32_t g_trig_val          = 0;
+static int      g_triggered         = 0;
+static int      g_trigger_once      = 1;  // 1 回ヒットしたら停止
+static uint8_t  g_prev_istate       = 0xFFu; // istate エッジ検出用
+static uint32_t g_trig_fire_head    = 0;     // トリガー発火時の ring_head
+static int      g_post_trig_remain  = 0;     // 発火後に収集する残りサンプル数
+#define POST_TRIG_SAMPLES 100
 
 // ── DPI 実装（wasm_uart.v から呼ばれる） ─────────────────────────────────
 
@@ -266,13 +275,15 @@ EMSCRIPTEN_KEEPALIVE void sim_init() {
     memset(mmu_snap, 0, sizeof(mmu_snap));
     con_out_head = con_out_tail = 0;
     con_in_head  = con_in_tail  = 0;
-    ring_head      = 0;
-    sim_time       = 0;
-    g_trig_type    = TRIG_NONE;
-    g_trig_val     = 0;
-    g_triggered    = 0;
-    g_prev_istate  = 0xFFu;
-    ring_tick_mask = 3u;   // Unix V6 ブート: 4tick/sample
+    ring_head          = 0;
+    sim_time           = 0;
+    g_trig_type        = TRIG_NONE;
+    g_trig_val         = 0;
+    g_triggered        = 0;
+    g_prev_istate      = 0xFFu;
+    g_trig_fire_head   = 0;
+    g_post_trig_remain = 0;
+    ring_tick_mask     = 3u;   // Unix V6 ブート: 4tick/sample
 
     do_reset();
 }
@@ -293,13 +304,15 @@ EMSCRIPTEN_KEEPALIVE void sim_init_bare(uint32_t start_pc) {
     memset(mmu_snap, 0, sizeof(mmu_snap));
     con_out_head = con_out_tail = 0;
     con_in_head  = con_in_tail  = 0;
-    ring_head      = 0;
-    sim_time       = 0;
-    g_trig_type    = TRIG_NONE;
-    g_trig_val     = 0;
-    g_triggered    = 0;
-    g_prev_istate  = 0xFFu;
-    ring_tick_mask = 0u;   // ベアメタル タイミング図: 1tick/sample
+    ring_head          = 0;
+    sim_time           = 0;
+    g_trig_type        = TRIG_NONE;
+    g_trig_val         = 0;
+    g_triggered        = 0;
+    g_prev_istate      = 0xFFu;
+    g_trig_fire_head   = 0;
+    g_post_trig_remain = 0;
+    ring_tick_mask     = 0u;   // ベアメタル タイミング図: 1tick/sample
 
     ram_clear();
 
@@ -344,11 +357,18 @@ EMSCRIPTEN_KEEPALIVE void sim_step_bare(int n_ticks) {
 
 EMSCRIPTEN_KEEPALIVE void step_n(int n) {
     for (int i = 0; i < n && !g_triggered; i++) {
-        if (OBS_HALTED) break;
+        // ポストトリガー収集中は HALT を無視して収集を完走させる
+        if (OBS_HALTED && g_post_trig_remain == 0) break;
         tick();
-        if ((sim_time & ring_tick_mask) == 0) sample_ring();
+        bool sampled = (sim_time & ring_tick_mask) == 0;
+        if (sampled) sample_ring();
 
-        if (g_trig_type != TRIG_NONE) {
+        if (g_post_trig_remain > 0) {
+            // トリガー発火後のカウントダウン（ring サンプル単位）
+            if (sampled && --g_post_trig_remain == 0) {
+                g_triggered = 1;
+            }
+        } else if (g_trig_type != TRIG_NONE) {
             bool hit = false;
             switch (g_trig_type) {
                 case TRIG_PC:
@@ -356,6 +376,16 @@ EMSCRIPTEN_KEEPALIVE void step_n(int n) {
                     hit = OBS_RD
                        && ((uint32_t)(OBS_ADDR_V & 0xFFFFu) == g_trig_val);
                     break;
+                case TRIG_PC_DATA: {
+                    // VA と バスデータ(命令語) の両方一致でプロセスを一意に絞る。
+                    // g_trig_val = (opcode << 16) | VA
+                    uint16_t va = (uint16_t)(g_trig_val & 0xFFFFu);
+                    uint16_t op = (uint16_t)((g_trig_val >> 16) & 0xFFFFu);
+                    hit = OBS_RD
+                       && ((uint16_t)(OBS_ADDR_V & 0xFFFFu) == va)
+                       && ((uint16_t)(OBS_DATA  & 0xFFFFu) == op);
+                    break;
+                }
                 case TRIG_ISTATE: {
                     uint8_t cur = (uint8_t)(OBS_WORD4 & 0x1Fu);
                     hit = (cur == (uint8_t)g_trig_val)
@@ -376,8 +406,9 @@ EMSCRIPTEN_KEEPALIVE void step_n(int n) {
                     break;
             }
             if (hit && g_trigger_once) {
-                g_triggered = 1;
-                break;
+                // 発火位置を記録し、ポストトリガー収集を開始する
+                g_trig_fire_head   = ring_head;
+                g_post_trig_remain = POST_TRIG_SAMPLES;
             }
         }
     }
@@ -428,14 +459,17 @@ EMSCRIPTEN_KEEPALIVE void sim_set_pc_trigger(uint32_t pc) {
 }
 
 // トリガーヒット確認（1 = ヒット）
-EMSCRIPTEN_KEEPALIVE int sim_trigger_hit() { return g_triggered; }
+EMSCRIPTEN_KEEPALIVE int      sim_trigger_hit()      { return g_triggered; }
+EMSCRIPTEN_KEEPALIVE uint32_t get_trig_fire_head()   { return g_trig_fire_head; }
 
 // トリガー解除
 EMSCRIPTEN_KEEPALIVE void sim_clear_trigger() {
-    g_trig_type   = TRIG_NONE;
-    g_trig_val    = 0;
-    g_triggered   = 0;
-    g_prev_istate = 0xFFu;
+    g_trig_type        = TRIG_NONE;
+    g_trig_val         = 0;
+    g_triggered        = 0;
+    g_prev_istate      = 0xFFu;
+    g_trig_fire_head   = 0;
+    g_post_trig_remain = 0;
 }
 
 // ── GPR アクセス ──────────────────────────────────────────────────────────

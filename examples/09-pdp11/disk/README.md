@@ -99,7 +99,35 @@ md5sum unix_v6_rk05.dsk
 
 ---
 
-## 2. 配置後の確認
+## 2. ps コマンドを動かすパッチ（ビルドで自動適用）
+
+素の RK05 イメージは `ps` / `ps -ag` が動きません。原因は 2 つ:
+
+1. `ps` は既定でネームリストを `/unix` から読むが、起動カーネルは `/rkunix`
+   （別ビルド）なのでシンボルアドレスがずれ、何も表示できない。
+2. `ps` はカーネルの `swapdev` と一致するブロック特殊ファイルが `/dev` に無いと
+   `no swap device` で終了する。素のイメージの `/dev` にはブロックデバイスが無い
+   （しかも `/etc/mknod` 自体がトラップするため V6 内から作れない）。
+
+これを解決するため、ビルド時に [`scripts/patch-v6-disk-ps.py`](../../../scripts/patch-v6-disk-ps.py)
+を**冪等に自動適用**します（`/unix` を `/rkunix` へハードリンク、`/dev/rk0`・`/dev/swap`
+をブロック特殊ファイル `dev == swapdev` で作成）。`make wasm-09` / `bash scripts/build-wasm-09.sh`
+を実行すれば `disk/` と `web/disk/` の両方に適用されるため、**upstream から再取得・再生成
+しても修正は失われません**。
+
+手動で当てる場合:
+
+```bash
+python3 scripts/patch-v6-disk-ps.py examples/09-pdp11/disk/unix_v6_rk05.dsk
+# 2 回目以降は "already patched" で skip（冪等）
+```
+
+> 注: パッチ適用後はディスクの MD5 が変わります（方法 D の照合値はパッチ前の素イメージ
+> のものです）。
+
+---
+
+## 3. 配置後の確認
 
 ```bash
 # ネイティブシミュレーションで動作確認
@@ -116,7 +144,7 @@ cd examples/09-pdp11/web && python3 -m http.server 8080
 
 ---
 
-## 3. ライセンス
+## 4. ライセンス
 
 Unix V6 は 2002 年に Caldera International（現 SCO）から
 **歴史的目的のための非商用利用**が許可されました。
@@ -129,7 +157,7 @@ Unix V6 は 2002 年に Caldera International（現 SCO）から
 
 ---
 
-## 4. 参考リンク
+## 5. 参考リンク
 
 - [TUHS Unix Heritage Society](https://www.tuhs.org/)
 - [TUHS Unix V6 アーカイブ](https://www.tuhs.org/Archive/Distributions/Research/Ken_Thompson_s_Unix_V6/)

@@ -1496,7 +1496,9 @@ def bare_page(browser, base_url: str) -> Page:
     # 幅を広げてLA が 1100px 以上確保できるようにする
     ctx = browser.new_context(viewport={'width': 1800, 'height': 900})
     page = ctx.new_page()
-    page.goto(base_url)
+    # ?autoboot=0: 自動ブートを抑止しベアメタルで使う（btn-boot は有効のまま残る）
+    sep = '&' if '?' in base_url else '?'
+    page.goto(f"{base_url}{sep}autoboot=0")
 
     # WASM モジュールがロードされ、worker が起動するまで待つ
     page.wait_for_function(

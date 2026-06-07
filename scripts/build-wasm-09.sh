@@ -115,6 +115,16 @@ echo "  web/docs/: $(ls "$ROOT/docs/09-PDP11/"*.md | wc -l) .md files"
 # Unix V6 ディスクを /disk0.rk として埋め込むので Vitest 側は単体で起動できる。
 TEST_DIR="$EXAMPLE/tests"
 TEST_DISK="$ROOT/examples/09-pdp11/disk/unix_v6_rk05.dsk"
+
+# ── V6 ディスクに ps 修正パッチを適用（冪等）────────────────────────────────
+# 素の RK05 イメージは `ps`/`ps -ag` が動かない（/unix が起動カーネルと不一致、
+# /dev に swap ブロックノードが無い）。upstream から再生成しても失われないよう、
+# ビルドのたびに冪等パッチを当てる。詳細は scripts/patch-v6-disk-ps.py のヘッダ。
+PATCH_PS="$ROOT/scripts/patch-v6-disk-ps.py"
+if [ -f "$TEST_DISK" ]; then
+    python3 "$PATCH_PS" "$TEST_DISK" || echo "WARNING: ps パッチ失敗 ($TEST_DISK)" >&2
+fi
+
 if [ -f "$TEST_DISK" ]; then
     mkdir -p "$TEST_DIR"
     echo "=== Emscripten: test build (Node.js ES Module) ==="
@@ -180,6 +190,11 @@ else
     fi
     rm -f "$TMP_ZIP"
     rm -rf "$TMP_DIR"
+fi
+
+# ステージングしたディスク（既存/コピー/ダウンロードのいずれでも）に ps 修正を適用。
+if [ -f "$DISK_WEB" ]; then
+    python3 "$PATCH_PS" "$DISK_WEB" || echo "WARNING: ps パッチ失敗 ($DISK_WEB)" >&2
 fi
 
 echo ""

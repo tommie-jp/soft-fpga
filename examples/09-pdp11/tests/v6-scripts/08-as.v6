@@ -1,0 +1,48 @@
+# 08-as.v6 — Unix V6 アセンブラ (as) の動作確認
+#
+# 検証内容:
+#   as loop.s → エラーなくアセンブル完了すること
+#   a.out     → 実行して正常終了 (sys 1) でプロンプトに戻ること
+#   nm a.out  → シンボルテーブルに loop / start が含まれること
+#   od -o a.out → ヘッダ先頭ワードが a.out マジック 000407 であること
+#
+# プログラム仕様:
+#   R0 を 0o1000(=512) から 0 までカウントダウンしながら R1 に加算し、
+#   sys 1 (exit) で終了する。出力はない。
+#
+# 参考: doc/25-as-db-命令シーケンスデモ.md のプログラムと同じ構成。
+
+wait @
+send rkunix\r
+expect login:
+send root\r
+expect #
+
+# アセンブリソース作成 (cat + ^D)
+send cat >loop.s\r
+send start:\r
+send  mov $1000,r0\r
+send  clr r1\r
+send loop:\r
+send  add r0,r1\r
+send  sob r0,loop\r
+send  sys 1\r
+send \004
+expect #
+
+# アセンブル: as はエラーがなければ何も表示しない
+timeout 100000000
+send as loop.s\r
+expect #
+
+# 実行: 出力なし・プロンプト復帰 = 正常終了
+send a.out\r
+expect #
+
+# nm: シンボルテーブルに loop ラベルが現れること
+send nm a.out\r
+expect loop
+
+# od -o: a.out ヘッダ先頭ワードは 000407 (非 split I/D バイナリのマジック)
+send od -o a.out\r
+expect 000407

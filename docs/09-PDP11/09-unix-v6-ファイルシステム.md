@@ -32,7 +32,7 @@
 | `/etc/motd` | ログイン時のメッセージ |
 | `/dev/rk0` | RK05 ディスク raw デバイス |
 | `/dev/tty` | コンソール端末 |
-| `/dev/mem` | 物理メモリ（adb などが使用）|
+| `/dev/mem` | 物理メモリ（`ps` などが使用）|
 
 ## 3. デバイスファイル (`/dev`)
 
@@ -62,7 +62,7 @@ crw-rw-rw-  1 root    3,  0  tty    ← コンソール端末
 # ls -la /usr/sys/ken      ← カーネル C ソース一覧
 # cat /etc/passwd          ← ユーザー一覧（root のパスワードは空）
 # ls /usr/games            ← 収録ゲーム一覧
-# od -c /bin/ls | head     ← バイナリの 8 進ダンプ
+# od -c /bin/ls            ← バイナリの 8 進ダンプ
 # size /bin/sh             ← text+data+bss サイズ確認
 ```
 

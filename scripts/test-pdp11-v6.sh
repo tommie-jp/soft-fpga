@@ -16,7 +16,16 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$SCRIPT_DIR/.."
 SIM="$ROOT/examples/09-pdp11/build/pdp11_sim"
 SCRIPT_DIR_V6="$ROOT/examples/09-pdp11/tests/v6-scripts"
-DISK_SRC="${IDEIMAGE:-$ROOT/examples/09-pdp11/disk/unix_v6_rk05.dsk}"
+# テスト用ディスク: IDEIMAGE 指定 > .bak（インタラクティブ使用で汚染されない既知良好イメージ）> 通常イメージ
+_DISK_MAIN="$ROOT/examples/09-pdp11/disk/unix_v6_rk05.dsk"
+_DISK_BAK="$ROOT/examples/09-pdp11/disk/unix_v6_rk05.dsk.bak"
+if [[ -n "${IDEIMAGE:-}" ]]; then
+    DISK_SRC="$IDEIMAGE"
+elif [[ -f "$_DISK_BAK" ]]; then
+    DISK_SRC="$_DISK_BAK"
+else
+    DISK_SRC="$_DISK_MAIN"
+fi
 TIMEOUT="${TIMEOUT:-300}"
 
 if [[ ! -x "$SIM" ]]; then

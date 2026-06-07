@@ -1,0 +1,46 @@
+# 09-db.v6 — db デバッガの起動確認
+#
+# 検証内容:
+#   db a.out を実行してシェルへ戻ること
+#
+# 既知の制限:
+#   このシミュレータは ptrace/T-bit 未実装のため、db は起動時に
+#   Memory Fault でクラッシュして終了する。
+#   `:r` `:s` `:c` 等のプロセス実行・ステップ実行コマンドは動作しない。
+#   ファイルモード逆アセンブル (0?6i) もプロセス生成を伴うため使用できない。
+#
+#   このテストは「db が安全にクラッシュしてシェルへ戻ること」を確認する。
+#   db を使った逆アセンブルは nm / od で代替可能 (08-as.v6 参照)。
+#
+# 参考: doc/25-as-db-命令シーケンスデモ.md
+#       doc/14-adb-デバッガー-使い方.md
+
+wait @
+send rkunix\r
+expect login:
+send root\r
+expect #
+
+# アセンブリソース作成
+send cat >loop.s\r
+send start:\r
+send  mov $1000,r0\r
+send  clr r1\r
+send loop:\r
+send  add r0,r1\r
+send  sob r0,loop\r
+send  sys 1\r
+send \004
+expect #
+
+# アセンブル
+timeout 100000000
+send as loop.s\r
+expect #
+
+# db を起動 — $q で終了してシェルへ戻ること
+# (ptrace/T-bit 未実装のため :r/:s/:c は使用不可)
+timeout 200000000
+send db a.out\r
+send $q\r
+expect #

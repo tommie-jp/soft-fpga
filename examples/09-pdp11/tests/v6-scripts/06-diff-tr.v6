@@ -1,0 +1,33 @@
+# 06-diff-tr.v6 — diff / tr の動作確認
+#
+# 検証内容:
+#   diff /tmp/f1 /tmp/f2  → 差分行に "hello" が含まれること
+#   tr a-z A-Z            → "hello" が "HELLO" に変換されること
+#
+# 注: このディスクイメージの /bin/dc は inode/ブロック不整合で実行不能のため
+#     dc テストを diff / tr テストに置き換えた。
+#     (ls -l → 10254 bytes, od -b → 0000000, size → "Bad format")
+#
+# send の後は expect を 1 回だけ発行する（2 回連続 expect は mark が飛び越える）。
+
+wait @
+send rkunix\r
+expect login:
+send root\r
+expect #
+timeout 200000000
+
+# diff — 2 ファイルを作成して差分確認
+send echo hello >/tmp/f1\r
+expect #
+send echo world >/tmp/f2\r
+expect #
+send diff /tmp/f1 /tmp/f2\r
+expect hello
+
+# tr — 小文字→大文字変換（HELLO が最終確認）
+send echo hello >/tmp/in\r
+expect #
+# V6 tr は a-z 範囲展開非対応。26文字を明示指定する。
+send tr abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ </tmp/in\r
+expect HELLO

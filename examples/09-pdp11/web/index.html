@@ -71,7 +71,7 @@
 
     /* ── PC トリガーパネル ── */
     .trig-panel { background:#1a1e1a; border:1px solid #3a4a3a; padding:6px 10px;
-                  font-size:12px; margin-bottom:6px; }
+                  font-size:12px; margin-top:8px; box-sizing:border-box; }
     .trig-panel h3 { margin:0 0 4px; font-size:12px; color:#6a8a6a; }
     .trig-row { display:flex; gap:6px; align-items:center; margin-bottom:4px; }
     .trig-row label { color:#888; font-size:11px; width:40px; }
@@ -84,7 +84,7 @@
     .trig-hit.show { display:block; }
 
     /* ── Logic Analyzer（rtlscope-la.js はライトテーマ描画） ── */
-    .la-section { background:#dde; border:1px solid #aab; }
+    .la-section { background:#dde; border:1px solid #aab; box-sizing:border-box; }
     .la-header { display:flex; align-items:center; gap:6px; padding:4px 8px;
                  border-bottom:1px solid #bbc; flex-wrap:wrap; background:#d0d0e0; }
     .la-header h3 { margin:0; font-size:12px; color:#446; flex:1; }
@@ -168,22 +168,7 @@
       flex:1; min-width:0; font-size:12px; border:1px solid #aaa;
       background:#fff; color:#111; padding:2px 4px; cursor:pointer;
     }
-    #doc-content {
-      flex:1; overflow-y:auto; padding:14px 20px;
-      font-family:-apple-system,BlinkMacSystemFont,sans-serif;
-      line-height:1.7; font-size:13px; color:#111;
-    }
-    #doc-content h1 { font-size:17px; border-bottom:2px solid #ddd; padding-bottom:5px; margin-top:0; }
-    #doc-content h2 { font-size:14px; border-bottom:1px solid #eee; padding-bottom:3px; margin-top:18px; }
-    #doc-content h3 { font-size:13px; color:#333; margin-top:12px; }
-    #doc-content .table-wrap { overflow-x:auto; }
-    #doc-content table { border-collapse:collapse; min-width:100%; margin:6px 0; }
-    #doc-content th { background:#f0f0f0; }
-    #doc-content th, #doc-content td { border:1px solid #ccc; padding:3px 8px; font-size:12px; }
-    #doc-content code { background:#f0f0f0; padding:1px 4px; font-size:12px; border-radius:2px; }
-    #doc-content pre  { background:#f5f5f5; padding:8px 12px; overflow-x:auto; border:1px solid #ddd; border-radius:3px; }
-    #doc-content pre code { background:none; padding:0; white-space:pre; }
-    #doc-content blockquote { border-left:3px solid #ccc; margin:0; padding-left:10px; color:#666; }
+    /* #doc-content スタイルは sft-doc-viewer.js が注入 */
 
     /* ── FS パネル ── */
     #fs-panel { background:#1a1a14; border:1px solid #3a3a28; padding:5px 8px;
@@ -199,6 +184,28 @@
     #fs-list td.fs-name { color:#cc9; }
     #fs-list td.fs-dir  { color:#6ae; }
     #fs-list td.fs-size { color:#666; text-align:right; width:50px; }
+
+    /* ── WASM FS パネル ── */
+    #wasm-panel { background:#141420; border:1px solid #28283a; padding:5px 8px;
+                  font-size:11px; margin-top:5px; }
+    #wasm-hdr   { display:flex; align-items:center; gap:5px; font-size:11px;
+                  color:#7a8a9a; margin-bottom:4px; flex-wrap:wrap; }
+    #wasm-hdr button { padding:1px 6px; font-size:10px; }
+    #wasm-drop-hint { font-size:10px; color:#446; }
+    #wasm-list { max-height:140px; overflow-y:auto; }
+    #wasm-list table { width:100%; border-collapse:collapse; }
+    #wasm-list tr { cursor:default; }
+    #wasm-list tr:hover td { background:#1a1a28; }
+    #wasm-list td { padding:1px 4px; font-size:10px; color:#aaa; border-bottom:1px solid #222233; }
+    #wasm-list td.wf-name { color:#9cf; }
+    #wasm-list td.wf-size { color:#666; text-align:right; width:52px; }
+    #wasm-list td.wf-acts { width:118px; text-align:right; white-space:nowrap; }
+    .wf-btn { padding:0 4px; font-size:9px; background:#222233; border:1px solid #444;
+              color:#aaa; cursor:pointer; margin-left:2px; border-radius:2px; }
+    .wf-btn:hover { background:#333355; }
+    .wf-del:hover { background:#332222; color:#f88; }
+    .wf-lf { color:#566; }                                   /* OFF: 無変換 */
+    .wf-lf.on { color:#0f0; border-color:#0a0; background:#0a3a0a; } /* ON: LF 変換 */
 
     /* ── Speed / Font / Theme セレクタ ── */
     .toolbar select { background:#333; color:#ccc; border:1px solid #555;
@@ -354,6 +361,9 @@
         padding:4px 5px;
       }
       .col-left { padding-bottom:52px; }
+      /* doc モーダル: スマホでは画面いっぱいに使い、本文幅を最大化 */
+      #doc-pane { width:100%; max-width:100%; height:94dvh; max-height:94dvh; margin-top:2dvh; }
+      #doc-prev, #doc-next { max-width:84px; }
     }
 
     /* ── CPU バー（ターミナル直上） ── */
@@ -465,11 +475,14 @@
   <a href="#" onclick="openDoc('11-thompson-シェル.md');return false;">11 Thompson シェル使い方</a>
   <a href="#" onclick="openDoc('08-ed-使い方.md');return false;">08 ed エディタ使い方</a>
   <a href="#" onclick="openDoc('10-unix-v6-コマンドリファレンス.md');return false;">10 Unix V6 コマンドリファレンス</a>
+  <a href="#" onclick="openDoc('12-unix-v6-システムコール.md');return false;">12 システムコール参考</a>
   <a href="#" onclick="openDoc('13-c-コンパイル入門.md');return false;">13 C コンパイル入門</a>
-  <a href="#" onclick="openDoc('14-adb-デバッガー-使い方.md');return false;">14 デバッグ手法（od / printf）</a>
+  <a href="#" onclick="openDoc('14-db-デバッガー-使い方.md');return false;">14 db デバッガの使い方</a>
   <a href="#" onclick="openDoc('20-デバッグパネル-使い方.md');return false;">20 デバッグパネル・Logic Analyzer</a>
   <a href="#" onclick="openDoc('21-バスサイクル実例.md');return false;">21 LA バスサイクル実例集</a>
-  <a href="#" onclick="openDoc('22-全命令タイミング図.md');return false;">22 全命令タイミング図（55 ケース）</a>
+  <a href="#" onclick="openDoc('22-全命令タイミング図.md');return false;">22 全命令タイミング図（61 ケース）</a>
+  <a href="#" onclick="openDoc('24-全命令タイミング図-解説.md');return false;">24 タイミング図ケース別解説</a>
+  <a href="#" onclick="openDoc('25-as-db-命令シーケンスデモ.md');return false;">25 as/db で命令シーケンス図</a>
   <a href="#" onclick="openDoc('52-メモリマップ.md');return false;">52 メモリマップ</a>
   <a href="#" onclick="openDoc('53-参考資料.md');return false;">53 参考資料</a>
   <a href="#" onclick="openDoc('54-simh-使い方.md');return false;">54 SIMH 使い方（cc 対応）</a>
@@ -495,7 +508,7 @@
       </select>
       <input id="speed-num" type="number" min="1000" max="10000000" step="10000"
              title="steps/frame" placeholder="steps/frame" style="display:none;">
-      <span id="cycle-info"></span>
+      <span id="cycle-info" title="シミュレーション速度 / 実機比較（実機 PDP-11/40 ≈ 3.33MHz を 100%）"></span>
       <select id="font-sel" title="フォントサイズ">
         <option value="6">6px</option>
         <option value="7">7px</option>
@@ -559,7 +572,7 @@
       <button class="ctrl-btn" data-ch="26">^Z</button>
       <button class="ctrl-btn" data-ch="27">ESC</button>
       <button class="ctrl-btn" data-ch="9">TAB</button>
-      <button class="ctrl-btn" data-ch="8">BS</button>
+      <button class="ctrl-btn" data-ch="127">BS</button>
       <span id="macro-status"></span>
       <button id="btn-macro-stop" class="ctrl-btn" style="display:none;color:#f66;">&#x25A0;STOP</button>
     </div>
@@ -569,11 +582,8 @@
       <div id="fs-hdr">
         V6 Filesystem
         <button id="btn-fs-refresh">&#x21BA;</button>
-        <input id="fs-upload-input" type="file" style="display:none">
-        <button id="btn-fs-upload">UPLOAD</button>
         <button id="btn-save-disk" title="現在のディスクを IndexedDB に保存" disabled>&#x1F4BE; Save</button>
         <button id="btn-reset-disk" title="サーバーの元のディスクイメージに戻す" style="display:none;">Reset</button>
-        <span id="fs-drop-hint" style="font-size:10px;color:#666;margin-left:4px;">← Drop</span>
       </div>
       <div id="fs-path">/</div>
       <div id="fs-thead">
@@ -581,6 +591,17 @@
         <span class="fs-th fs-th-sz" data-col="size">Size</span>
       </div>
       <div id="fs-list"></div>
+    </div>
+
+    <!-- WASM FS パネル（アップロード済みスクリプト） -->
+    <div id="wasm-panel">
+      <div id="wasm-hdr">
+        <span>WASM FS</span>
+        <button id="btn-fs-upload" title="スクリプトをアップロード">&#x2191; Upload</button>
+        <input id="fs-upload-input" type="file" style="display:none">
+        <span id="wasm-drop-hint">&#x2190; Drop</span>
+      </div>
+      <div id="wasm-list"></div>
     </div>
   </div>
 
@@ -633,76 +654,81 @@
       <div id="tab-traplog" class="dbg-content"></div>
       <div id="tab-modelog" class="dbg-content" style="display:none;"></div>
     </div>
+  </div>
+</div>
 
-    <!-- トリガーパネル -->
-    <div class="trig-panel">
-      <h3>Trigger</h3>
-      <div class="trig-row">
-        <label>種別</label>
-        <select id="trig-type">
-          <option value="1">PC 値一致</option>
-          <option value="2">Fetch (istate=f1)</option>
-          <option value="3">I/O ページアクセス</option>
-          <option value="4">TRAP 発生</option>
-          <option value="5">バスエラー</option>
-        </select>
-      </div>
-      <div class="trig-row" id="trig-pc-row">
-        <label>PC(8)</label>
-        <input type="text" id="trig-pc" placeholder="例: 4014" maxlength="8">
-        <select id="trig-preset">
-          <option value="">— 既知アドレス —</option>
-        </select>
-      </div>
-      <div class="trig-row">
-        <button id="btn-trig-set">Set</button>
-        <button id="btn-trig-clear">Clear</button>
-        <button id="btn-trig-resume">Resume</button>
-      </div>
-      <div class="trig-hit" id="trig-hit">⏸ Triggered!</div>
-    </div>
+<!-- Trigger: 全幅 -->
+<div class="trig-panel">
+  <h3>Trigger</h3>
+  <div class="trig-row">
+    <label>種別</label>
+    <select id="trig-type">
+      <option value="1">PC 値一致</option>
+      <option value="6">PC + データ一致</option>
+      <option value="2">Fetch (istate=f1)</option>
+      <option value="3">I/O ページアクセス</option>
+      <option value="4">TRAP 発生</option>
+      <option value="5">バスエラー</option>
+    </select>
+  </div>
+  <div class="trig-row" id="trig-pc-row">
+    <label>PC(8)</label>
+    <input type="text" id="trig-pc" placeholder="例: 4014" maxlength="8">
+    <select id="trig-preset">
+      <option value="">— 既知アドレス —</option>
+    </select>
+  </div>
+  <div class="trig-row" id="trig-data-row" style="display:none;">
+    <label title="フェッチ時のバスデータ＝命令語(8進)。db の逆アセンブルで命令語を確認して入力">DATA(8)</label>
+    <input type="text" id="trig-data" placeholder="例: 060001" maxlength="8">
+  </div>
+  <div class="trig-row">
+    <button id="btn-trig-set">Set</button>
+    <button id="btn-trig-clear">Clear</button>
+    <button id="btn-trig-resume">Resume</button>
+  </div>
+  <div class="trig-hit" id="trig-hit">⏸ Triggered!</div>
+</div>
 
-    <!-- Logic Analyzer -->
-    <div class="la-section">
-      <div class="la-header">
-        <h3>Logic Analyzer</h3>
-        <button class="la-zoom-btn" id="btn-la-toggle" title="LA ON/OFF — OFFにするとリングバッファ書き込みをスキップして速度向上">LA ON</button>
-        <button class="la-zoom-btn" id="la-zoom-out">−</button>
-        <select id="la-zoom-sel" title="ズーム倍率">
-          <option value="0">1/4x</option>
-          <option value="1">1/2x</option>
-          <option value="2">1x</option>
-          <option value="3">2x</option>
-          <option value="4">4x</option>
-          <option value="5" selected>8x</option>
-          <option value="6">16x</option>
-          <option value="7">32x</option>
-          <option value="8">64x</option>
-        </select>
-        <button class="la-zoom-btn" id="la-zoom-in">+</button>
-        <label class="la-fill-label" title="信号レーン塗りつぶし ON/OFF">
-          <input type="checkbox" id="la-fill-chk" checked> Fill
-        </label>
-        <label class="la-hatch-label" title="ハッチパターン ON/OFF">
-          <input type="checkbox" id="la-hatch-chk" checked> Hatch
-        </label>
-        <button class="la-zoom-btn" id="btn-la-freeze">Freeze</button>
-        <span id="frozen-badge" style="display:none;">FROZEN</span>
-      </div>
-      <div id="la-toggles"></div>
-      <canvas id="la"></canvas>
-      <div class="la-nav">
-        <button id="la-nav-start">&#171;</button>
-        <button id="la-nav-prev">&#8249;</button>
-        <button id="la-nav-next">&#8250;</button>
-        <button id="la-nav-end">&#187;</button>
-        <button id="btn-step" title="1ステップ実行（Freeze 中のみ有効）">▶ Step</button>
-        <button id="btn-goto-trig" title="トリガー発火位置へジャンプ">⊙Trig</button>
-        <span id="la-pos-lbl"></span>
-        <a id="la-ss-link" href="../../../test/ss/pdp11/index.html" target="_blank"
-           rel="noopener" title="PDP-11 全命令タイミング図">&#x1F4F7; SS</a>
-      </div>
-    </div>
+<!-- Logic Analyzer: 全幅 -->
+<div class="la-section">
+  <div class="la-header">
+    <h3>Logic Analyzer</h3>
+    <button class="la-zoom-btn" id="btn-la-toggle" title="LA ON/OFF — OFFにするとリングバッファ書き込みをスキップして速度向上">LA ON</button>
+    <button class="la-zoom-btn" id="la-zoom-out">−</button>
+    <select id="la-zoom-sel" title="ズーム倍率">
+      <option value="0">1/4x</option>
+      <option value="1">1/2x</option>
+      <option value="2">1x</option>
+      <option value="3">2x</option>
+      <option value="4">4x</option>
+      <option value="5" selected>8x</option>
+      <option value="6">16x</option>
+      <option value="7">32x</option>
+      <option value="8">64x</option>
+    </select>
+    <button class="la-zoom-btn" id="la-zoom-in">+</button>
+    <label class="la-fill-label" title="信号レーン塗りつぶし ON/OFF">
+      <input type="checkbox" id="la-fill-chk" checked> Fill
+    </label>
+    <label class="la-hatch-label" title="ハッチパターン ON/OFF">
+      <input type="checkbox" id="la-hatch-chk" checked> Hatch
+    </label>
+    <button class="la-zoom-btn" id="btn-la-freeze">Freeze</button>
+    <span id="frozen-badge" style="display:none;">FROZEN</span>
+  </div>
+  <div id="la-toggles"></div>
+  <canvas id="la"></canvas>
+  <div class="la-nav">
+    <button id="la-nav-start">&#171;</button>
+    <button id="la-nav-prev">&#8249;</button>
+    <button id="la-nav-next">&#8250;</button>
+    <button id="la-nav-end">&#187;</button>
+    <button id="btn-step" title="1ステップ実行（Freeze 中のみ有効）">▶ Step</button>
+    <button id="btn-goto-trig" title="トリガー発火位置へジャンプ">⊙Trig</button>
+    <span id="la-pos-lbl"></span>
+    <a id="la-ss-link" href="../../../test/ss/pdp11/index.html" target="_blank"
+       rel="noopener" title="PDP-11 全命令タイミング図">&#x1F4F7; SS</a>
   </div>
 </div>
 
@@ -712,19 +738,6 @@
   <span id="file-versions"></span>
 </p>
 
-<!-- ペーストダイアログ -->
-<div id="paste-modal" class="modal-ov" style="display:none;">
-  <div class="modal-box">
-    <h3>Paste — Unix V6 ターミナルへ送信</h3>
-    <p>貼り付け後に <strong>Send</strong> → 1 文字ずつペーシング送信（文字化けしません）<br>
-       <code>\n</code> は自動的に <code>\r</code> (Enter) へ変換されます。</p>
-    <textarea id="paste-ta" placeholder="ここに Ctrl+V で貼り付け"></textarea>
-    <div class="modal-btns">
-      <button id="paste-send">Send</button>
-      <button id="paste-cancel">Cancel</button>
-    </div>
-  </div>
-</div>
 
 <!-- テキストエディタ (Monaco) -->
 <div id="editor-modal" style="display:none;">
@@ -748,7 +761,7 @@
 
 <!-- doc モーダル -->
 <div id="doc-modal" style="display:none;">
-  <div id="doc-overlay" onclick="document.getElementById('doc-modal').style.display='none'"></div>
+  <div id="doc-overlay"></div>
   <div id="doc-pane">
     <div id="doc-toolbar">
       <button id="doc-prev" disabled>‹</button>
@@ -765,7 +778,9 @@
 <script src="../../../js/monaco-wasm-editor.js"></script>
 <script src="js/rtlscope-la.js"></script>
 <script src="js/sft-pdp11-la-defs.js"></script>
+<script src="../../../js/sft-doc-viewer.js"></script>
 <script src="js/sft-pdp11-docs.js"></script>
+<script src="../../../js/sft-xterm-util.js"></script>
 <script src="../../../js/xterm-jp106.js"></script>
 <script>
 'use strict';
@@ -778,6 +793,15 @@ var term = new Terminal({
 });
 term.open(document.getElementById('terminal'));
 window.term = term;  // Playwright テスト用に公開
+
+// ── ターミナル UI ヘルパー ────────────────────────────────────────────────
+var _termUI = new SftTerminalUI({
+  term:       term,
+  sendKey:    function(ch) { if (simStarted) worker.postMessage({ type: 'key', ch: ch }); },
+  isActive:   function() { return simStarted; },
+  flashBtn:   function(id) { _flashBtn(id); },
+  pasteDelay: 50,
+});
 
 // ── JIS(106) キーボード対応 ── js/xterm-jp106.js が担当 ───────────────────
 // US 配列のときは素通し（onData が処理）。JIS のときは @ : ^ \ _ 等の
@@ -1015,14 +1039,30 @@ document.getElementById('btn-mmu-toggle').addEventListener('click', function() {
 
 // ── Worker ────────────────────────────────────────────────────────────────
 var worker = new Worker('sim-worker.js');
-var simStarted = false;
-var simPaused  = false;
-var diskBuffer = null;
+var simStarted  = false;
+var simPaused   = false;
+var diskBuffer  = null;
+var _workerReady = false;
+
+// URL に ?autoboot=0 が指定されたら自動ブートを抑止する。
+// ベアメタル用途（タイミング図テスト等で Unix V6 を起動したくない場合）向け。
+// 抑止時は btn-boot を有効のまま残し、手動ブートできるようにする。
+var _autoBootEnabled = new URLSearchParams(location.search).get('autoboot') !== '0';
+
+// worker 準備完了 ＆ ディスク読込完了の両方が揃ったら自動でブートする。
+// どちらが先に完了しても確実に 1 度だけ起動する。
+function _maybeAutoBoot() {
+  if (!_autoBootEnabled) return;
+  if (!_workerReady || !diskBuffer || simStarted) return;
+  document.getElementById('btn-boot').disabled = true;
+  startSim();
+}
 
 var localRing  = null;
 var _ringSize  = 4096;
 var _ringWords = RING_WORDS_PDP11;
-var _pendingTrigHead = false;
+var _pendingTrigHead     = false;
+var _pendingTrigFireHead = -1;
 
 worker.onmessage = function(e) {
   var d = e.data;
@@ -1031,7 +1071,8 @@ worker.onmessage = function(e) {
       _ringSize  = d.ringSize  || 4096;
       _ringWords = d.ringWords || RING_WORDS_PDP11;
       localRing  = new Uint32Array(_ringSize * _ringWords);
-      if (diskBuffer) startSim();
+      _workerReady = true;
+      _maybeAutoBoot();
       break;
 
     case 'started':
@@ -1045,7 +1086,7 @@ worker.onmessage = function(e) {
       document.getElementById('btn-save-disk').disabled = false;
       resetBootProgress();
       // FS パネルの初回取得（ディスクロード後）
-      setTimeout(_requestFSList, 500);
+      setTimeout(function() { _requestFSList(); _requestWasmFSList(); }, 500);
       break;
 
     case 'paused':
@@ -1083,10 +1124,14 @@ worker.onmessage = function(e) {
         }
       }
       // トリガー T=0 は istate=f1 の立ち上がり（フェッチ開始）に吸着させる。
-      var _trigForUpdate = _pendingTrigHead
-        ? pdp11TrigAnchorF1(localRing, d.head, _ringSize, _ringWords)
-        : undefined;
-      _pendingTrigHead = false;
+      // ポストトリガー収集後: fireHead（発火時 ring_head）起点で f1 を探す。
+      var _trigForUpdate;
+      if (_pendingTrigHead) {
+        var _anchorHead = (_pendingTrigFireHead >= 0) ? _pendingTrigFireHead : d.head;
+        _trigForUpdate = pdp11TrigAnchorF1(localRing, _anchorHead, _ringSize, _ringWords);
+      }
+      _pendingTrigHead     = false;
+      _pendingTrigFireHead = -1;
       la.update(d.head, localRing, undefined, _trigForUpdate);
       updateRegs(snap, d.gpr);
       _ringCount++; if (d.steps) _lastSteps = d.steps;
@@ -1103,7 +1148,8 @@ worker.onmessage = function(e) {
 
     case 'triggered':
       onTriggered(d.pc, d.trigType);
-      _pendingTrigHead = true;
+      _pendingTrigHead     = true;
+      _pendingTrigFireHead = (d.fireHead !== undefined && d.fireHead >= 0) ? (d.fireHead >>> 0) : -1;
       break;
 
     case 'bare_ready':
@@ -1178,16 +1224,27 @@ worker.onmessage = function(e) {
       term.write('\r\n[FS Error] ' + (d.msg || '') + '\r\n');
       break;
 
+    case 'v6WriteFileDone':
+      term.write('\r\n[Editor] ' + d.path + ' (inode ' + d.ino + ')\r\n');
+      break;
+
+    case 'v6WriteFileError':
+      term.write('\r\n[Editor Error] ' + (d.error || '不明なエラー') + '\r\n');
+      break;
+
     // ── FS エントリ（listFS 応答）──────────────────────────────────────
     case 'fsEntries':
       if (d.requestId === 'panel') {
         _renderFSPanel(d.entries);
       } else if (d.requestId === 'tty') {
-        // !ls コマンド → ターミナルに表示
-        var lines2 = (d.entries || []).map(function(e) {
-          return (e.isDir ? 'd' : '-') + ' ' + e.path;
+        // !ls コマンド → ターミナルに表示（サイズ付き）
+        var ents2 = (d.entries || []).slice().sort(function(a, b) { return a.path.localeCompare(b.path); });
+        var lines2 = ents2.map(function(e) {
+          var flag = e.isDir ? 'd' : '-';
+          var sz   = e.isDir ? '' : String(e.size).padStart(7) + ' B';
+          return flag + ' ' + e.path.padEnd(26) + sz;
         });
-        term.write('\r\n' + lines2.join('\r\n') + '\r\n');
+        term.write('\r\n' + (lines2.length ? lines2.join('\r\n') : '(empty)') + '\r\n');
       }
       break;
 
@@ -1212,9 +1269,42 @@ worker.onmessage = function(e) {
 
     // ── writeFS 完了 ────────────────────────────────────────────────────
     case 'fsWritten':
-      // アップロード完了: FS パネルを更新
       if (simStarted) _requestFSList();
+      _requestWasmFSList();
       break;
+
+    // ── deleteFS 完了 ───────────────────────────────────────────────────
+    case 'fsDeleted':
+      term.write('\r\nDeleted: ' + (d.name || '') + '\r\n');
+      _requestWasmFSList();
+      break;
+
+    // ── WASM FS 一覧 ────────────────────────────────────────────────────
+    case 'wasmFSEntries':
+      _renderWasmFSPanel(d.entries);
+      break;
+
+    // ── WASM FS ファイルダウンロード ────────────────────────────────────
+    case 'wasmFSFile': {
+      if (d.requestId && d.requestId.indexOf('v6copy:') === 0) {
+        var vcName = d.requestId.slice('v6copy:'.length);
+        var vcBuf  = d.data instanceof ArrayBuffer ? d.data
+                   : d.data.buffer.slice(d.data.byteOffset, d.data.byteOffset + d.data.byteLength);
+        // V6 as/ed は CR を garbage 文字として扱う。ファイル毎の LF トグルが ON の
+        // ときだけ CRLF/CR を LF に正規化する（既定はテキスト拡張子で ON）。
+        if (_lfFlagFor(vcName)) vcBuf = _normalizeNewlinesToLF(vcBuf);
+        worker.postMessage({ type: 'v6WriteFile', requestId: 'wasmCopy',
+                             path: '/tmp/' + vcName, content: vcBuf }, [vcBuf]);
+      } else {
+        var wblob = new Blob([d.data]);
+        var wurl  = URL.createObjectURL(wblob);
+        var wa    = document.createElement('a');
+        wa.href = wurl; wa.download = d.name;
+        wa.click();
+        URL.revokeObjectURL(wurl);
+      }
+      break;
+    }
   }
 };
 
@@ -1281,10 +1371,11 @@ function _onDiskReady(buf, fromIDB) {
   if (fromIDB) {
     _idbHasSave = true;
     document.getElementById('btn-reset-disk').style.display = '';
-    setStatus('保存済みディスクを復元 — Boot ボタンを押してください');
+    setStatus('保存済みディスクを復元 — 自動ブート中...');
   } else {
-    setStatus('Ready — Boot ボタンを押してください');
+    setStatus('Ready — 自動ブート中...');
   }
+  _maybeAutoBoot();
 }
 
 function _fetchDiskFromServer() {
@@ -1357,27 +1448,10 @@ document.getElementById('btn-pause').addEventListener('click', function() {
 });
 
 // Ctrl キーボタン
-document.querySelectorAll('.ctrl-btn[data-ch]').forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    if (simStarted) worker.postMessage({ type: 'key', ch: parseInt(btn.dataset.ch) });
-  });
-});
+_termUI.setupCtrlBtns('.ctrl-btn[data-ch]');
 
 // ── COPY ボタン ──────────────────────────────────────────────────────────
-document.getElementById('btn-copy').addEventListener('click', function() {
-  var sel = term.getSelection ? term.getSelection() : '';
-  if (!sel) { term.focus(); return; }
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(sel).then(function() {
-      term.clearSelection();
-      _flashBtn('btn-copy');
-      term.focus();
-    }).catch(function(err) {
-      console.error('[COPY]', err);
-      term.focus();
-    });
-  }
-});
+_termUI.setupCopyBtn('btn-copy');
 
 // ── Speed セレクタ + Custom 入力 (G) ──────────────────────────────────────
 (function() {
@@ -1403,16 +1477,23 @@ document.getElementById('btn-copy').addEventListener('click', function() {
 })();
 
 // ── cycle-info 更新 (H) ───────────────────────────────────────────────────
+// 実機比較の基準クロック: 本 RTL は CLR reg = 5 tick で、これが実機の CLR
+// レジスタ ≈ 1.5µs に整合する（22 章 Q3 のタイミング検証）。
+// よって 5 tick ÷ 1.5µs ≈ 3.33 MHz が「この RTL が実機速度で動くときの
+// tick レート」= 実機比較 100% の基準値。
+var REAL_PDP11_MHZ = 3.33;
 var _ringCount = 0, _lastHzTime = 0, _lastSteps = 200000;
 function _updateCycleInfo() {
   var now = Date.now();
   if (_lastHzTime === 0) { _lastHzTime = now; return; }
   var dt = now - _lastHzTime;
   if (dt < 800) return;
-  var fps = _ringCount * 1000 / dt;
-  var mhz = (_lastSteps * fps / 1e6).toFixed(1);
-  var el  = document.getElementById('cycle-info');
-  if (el) el.textContent = mhz + ' MHz';
+  var fps    = _ringCount * 1000 / dt;
+  var mhzNum = _lastSteps * fps / 1e6;
+  var mhz    = mhzNum.toFixed(1);
+  var pct    = Math.round(mhzNum / REAL_PDP11_MHZ * 100);
+  var el     = document.getElementById('cycle-info');
+  if (el) el.textContent = mhz + ' MHz (' + pct + '%)';
   _ringCount = 0;
   _lastHzTime = now;
 }
@@ -1468,15 +1549,7 @@ var inputHistory = [];
 var histIdx      = -1;
 
 // ── ペースト送出 ──────────────────────────────────────────────────────────
-function _doPaste(text) {
-  if (!text || !simStarted) return;
-  for (var i = 0; i < text.length; i++) {
-    var code = text.charCodeAt(i);
-    if (code === 0x0A && i > 0 && text.charCodeAt(i - 1) === 0x0D) continue;
-    if (code === 0x0A) code = 0x0D;
-    worker.postMessage({ type: 'key', ch: code });
-  }
-}
+function _doPaste(text) { _termUI.doPaste(text); }
 
 // ── フラッシュエフェクト ──────────────────────────────────────────────────
 function _flashBtn(id) {
@@ -1493,6 +1566,114 @@ var _fsSortAsc = true;
 
 function _requestFSList() {
   worker.postMessage({ type: 'listFS', requestId: 'panel' });
+}
+
+function _requestWasmFSList() {
+  if (!simStarted) return;
+  worker.postMessage({ type: 'listWasmFS', requestId: 'wasm' });
+}
+
+// 改行正規化の対象とみなすテキストファイル拡張子。
+var _TEXT_EXTENSIONS = [
+  's', 'c', 'h', 'txt', 'asm', 'p', 'f', 'b',
+  'sh', 'mk', 'md', 'cfg', 'conf', 'ini', 'log'
+];
+
+// ファイル名がテキスト拡張子なら true。拡張子なしは安全側でテキスト扱い。
+function _isTextFilename(name) {
+  var base = String(name).replace(/.*\//, '');
+  var dot  = base.lastIndexOf('.');
+  if (dot <= 0) return true;          // 拡張子なし（Makefile 等）→ テキスト扱い
+  var ext = base.slice(dot + 1).toLowerCase();
+  return _TEXT_EXTENSIONS.indexOf(ext) !== -1;
+}
+
+// ファイル毎の LF 変換 ON/OFF をユーザ操作で上書きした値（未設定なら拡張子既定）。
+var _lfFlags = {};
+
+// →V6 時に LF 変換するか。ユーザ設定があればそれを、無ければ拡張子で既定を返す。
+function _lfFlagFor(name) {
+  return Object.prototype.hasOwnProperty.call(_lfFlags, name)
+       ? _lfFlags[name]
+       : _isTextFilename(name);
+}
+
+// CRLF/CR を LF に正規化した ArrayBuffer を返す（CR が無ければ buf をそのまま）。
+function _normalizeNewlinesToLF(buf) {
+  var src = new Uint8Array(buf);
+  var hasCR = false;
+  for (var i = 0; i < src.length; i++) {
+    if (src[i] === 0x0D) { hasCR = true; break; } // CR
+  }
+  if (!hasCR) return buf;             // 変換不要
+
+  var out = new Uint8Array(src.length);
+  var n = 0;
+  for (var j = 0; j < src.length; j++) {
+    var c = src[j];
+    if (c === 0x0D) {                 // CR
+      if (src[j + 1] === 0x0A) continue; // CRLF → 次の LF に委ねる
+      out[n++] = 0x0A;                // 単独 CR → LF
+    } else {
+      out[n++] = c;
+    }
+  }
+  return out.buffer.slice(0, n);
+}
+
+function _renderWasmFSPanel(entries) {
+  var el = document.getElementById('wasm-list');
+  if (!el) return;
+  if (!entries || !entries.length) {
+    el.innerHTML = '<span style="color:#446;font-size:10px;padding:2px 4px;display:block;">（ファイルなし）</span>';
+    return;
+  }
+  var sorted = entries.slice().sort(function(a, b) { return a.name.localeCompare(b.name); });
+  var rows = '';
+  for (var i = 0; i < sorted.length; i++) {
+    var e   = sorted[i];
+    var esc = e.name.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    rows += '<tr data-name="' + esc + '">' +
+      '<td class="wf-name">' + esc + '</td>' +
+      '<td class="wf-size">' + e.size + 'B</td>' +
+      '<td class="wf-acts">' +
+        '<button class="wf-btn wf-lf' + (_lfFlagFor(e.name) ? ' on' : '') + '"' +
+                ' title="→V6 時に CRLF/CR を LF へ変換">LF</button>' +
+        '<button class="wf-btn wf-v6"  title="V6 /tmp/ にコピー">&rarr;V6</button>' +
+        '<button class="wf-btn wf-run" title="スクリプトとして実行">&#x25B6;</button>' +
+        '<button class="wf-btn wf-dl"  title="ダウンロード">&#x2193;</button>' +
+        '<button class="wf-btn wf-del" title="削除">&#x2715;</button>' +
+      '</td></tr>';
+  }
+  el.innerHTML = '<table style="width:100%;border-collapse:collapse;">' + rows + '</table>';
+  el.querySelectorAll('tr').forEach(function(tr) {
+    var name = tr.dataset.name;
+    tr.querySelector('.wf-lf').addEventListener('click', (function(n) {
+      return function(ev) {
+        ev.stopPropagation();
+        _lfFlags[n] = !_lfFlagFor(n);          // 既定値からトグル
+        this.classList.toggle('on', _lfFlags[n]);
+      };
+    })(name));
+    tr.querySelector('.wf-v6').addEventListener('click', (function(n) {
+      return function(ev) {
+        ev.stopPropagation();
+        if (!simStarted) return;
+        worker.postMessage({ type: 'readWasmFS', requestId: 'v6copy:' + n, name: n });
+      };
+    })(name));
+    tr.querySelector('.wf-run').addEventListener('click', function(ev) {
+      ev.stopPropagation(); _executeHostCmd('script ' + name);
+    });
+    tr.querySelector('.wf-dl').addEventListener('click', function(ev) {
+      ev.stopPropagation();
+      worker.postMessage({ type: 'readWasmFS', requestId: 'download', name: name });
+    });
+    tr.querySelector('.wf-del').addEventListener('click', function(ev) {
+      ev.stopPropagation();
+      worker.postMessage({ type: 'deleteFS', requestId: 'tty', name: name });
+    });
+  });
 }
 
 function _renderFSPanel(entries) {
@@ -1573,14 +1754,14 @@ function _sortAndRender() {
   });
 })();
 
-// FS Drag & Drop (L)
+// WASM FS Drag & Drop
 (function() {
-  var panel = document.getElementById('fs-panel');
-  var hint  = document.getElementById('fs-drop-hint');
+  var panel = document.getElementById('wasm-panel');
+  var hint  = document.getElementById('wasm-drop-hint');
   if (!panel) return;
   panel.addEventListener('dragover', function(e) {
     e.preventDefault(); e.dataTransfer.dropEffect = 'copy';
-    panel.style.outline = '2px dashed #cc9';
+    panel.style.outline = '2px dashed #9cf';
   });
   panel.addEventListener('dragleave', function(e) {
     if (!panel.contains(e.relatedTarget)) panel.style.outline = '';
@@ -1594,7 +1775,7 @@ function _sortAndRender() {
       reader.onload = function(ev) {
         worker.postMessage({ type: 'writeFS', name: file.name, data: ev.target.result },
                            [ev.target.result]);
-        if (hint) { hint.textContent = file.name + ' uploading...'; setTimeout(function() { hint.textContent = '← Drop files'; }, 2000); }
+        if (hint) { hint.textContent = file.name + ' …'; setTimeout(function() { hint.textContent = '← Drop'; }, 2000); }
       };
       reader.readAsArrayBuffer(file);
     });
@@ -1607,18 +1788,28 @@ var _inputBuf = '';
 function _executeHostCmd(cmd) {
   var parts = cmd.trim().split(/\s+/);
   var verb  = parts[0].toLowerCase();
+  // エイリアス解決
+  if (verb === 'dir')  verb = 'ls';
+  if (verb === 'run')  verb = 'script';
+  if (verb === 'cat')  verb = 'type';
+  if (verb === 'dl')   verb = 'get';
+  if (verb === '?')    verb = 'help';
+  if (verb === 'del')  verb = 'rm';
+
   if (verb === 'help') {
-    term.write('\r\n!help                このヘルプ\r\n' +
-               '!paste               PASTE ダイアログ\r\n' +
-               '!editor              テキストエディタ\r\n' +
-               '!sleep N             N ミリ秒待機\r\n' +
-               '!script <file>       スクリプト再生\r\n' +
-               '!stop                スクリプト停止\r\n' +
-               '!ls [path]           V6 FS 一覧\r\n' +
-               '!type <path>         V6 FS ファイル表示\r\n' +
-               '!get  <path>         V6 FS ファイルダウンロード\r\n' +
-               '!upload              ファイルアップロード\r\n' +
-               '\r\n');
+    term.write('\r\n' +
+      '!help / !?           このヘルプ\r\n' +
+      '!paste               PASTE ダイアログ\r\n' +
+      '!editor              テキストエディタ\r\n' +
+      '!ls [path]           V6 FS 一覧  (!dir)\r\n' +
+      '!type <path>         V6 FS ファイル表示  (!cat)\r\n' +
+      '!get  <path>         V6 FS ダウンロード  (!dl)\r\n' +
+      '!upload              スクリプトをアップロード\r\n' +
+      '!rm <name>           アップロード済みスクリプトを削除  (!del)\r\n' +
+      '!script <file>       スクリプト再生  (!run)\r\n' +
+      '!stop                スクリプト停止\r\n' +
+      '!sleep N             N ミリ秒待機\r\n' +
+      '\r\n');
   } else if (verb === 'paste') {
     setTimeout(openPasteModal, 10);
   } else if (verb === 'editor') {
@@ -1626,18 +1817,23 @@ function _executeHostCmd(cmd) {
   } else if (verb === 'sleep' && parts[1]) {
     var ms = parseInt(parts[1], 10) || 0;
     setTimeout(function() { worker.postMessage({ type: 'key', ch: 0x0D }); }, ms);
-  } else if (verb === 'script' && parts[1]) {
-    // !script <filename> — Worker に scriptRun を送る
-    worker.postMessage({ type: 'scriptRun', name: parts[1], path: '/' + parts[1] });
+  } else if (verb === 'script') {
+    if (!parts[1]) { term.write('\r\nUsage: !script <file>\r\n'); }
+    else { worker.postMessage({ type: 'scriptRun', name: parts[1], path: '/' + parts[1] }); }
   } else if (verb === 'stop') {
     worker.postMessage({ type: 'scriptStop' });
   } else if (verb === 'ls') {
     var lsPath = parts[1] || '/';
     worker.postMessage({ type: 'listFS', requestId: 'tty', path: lsPath });
-  } else if (verb === 'type' && parts[1]) {
-    worker.postMessage({ type: 'readFS', requestId: 'tty', path: parts[1] });
-  } else if (verb === 'get' && parts[1]) {
-    worker.postMessage({ type: 'readFS', requestId: 'download', path: parts[1] });
+  } else if (verb === 'type') {
+    if (!parts[1]) { term.write('\r\nUsage: !type <path>\r\n'); }
+    else { worker.postMessage({ type: 'readFS', requestId: 'tty', path: parts[1] }); }
+  } else if (verb === 'get') {
+    if (!parts[1]) { term.write('\r\nUsage: !get <path>\r\n'); }
+    else { worker.postMessage({ type: 'readFS', requestId: 'download', path: parts[1] }); }
+  } else if (verb === 'rm') {
+    if (!parts[1]) { term.write('\r\nUsage: !rm <name>\r\n'); }
+    else { worker.postMessage({ type: 'deleteFS', requestId: 'tty', name: parts[1] }); }
   } else if (verb === 'upload') {
     document.getElementById('fs-upload-input').click();
   } else {
@@ -1705,39 +1901,9 @@ term.onData(function(data) {
 });
 
 // ── PASTE ボタン ─────────────────────────────────────────────────────────
-function openPasteModal() {
-  document.getElementById('paste-modal').style.display = 'flex';
-  document.getElementById('paste-ta').focus();
-}
+function openPasteModal() { _termUI.showPasteDialog(); }
 
-document.getElementById('btn-paste').addEventListener('click', function() {
-  if (!simStarted) return;
-  if (navigator.clipboard && navigator.clipboard.readText) {
-    navigator.clipboard.readText().then(function(text) {
-      _doPaste(text);
-      _flashBtn('btn-paste');
-    }).catch(function() {
-      openPasteModal();
-    });
-  } else {
-    openPasteModal();
-  }
-});
-
-document.getElementById('paste-send').addEventListener('click', function() {
-  var text = document.getElementById('paste-ta').value;
-  document.getElementById('paste-modal').style.display = 'none';
-  document.getElementById('paste-ta').value = '';
-  _doPaste(text);
-  _flashBtn('btn-paste');
-  term.focus();
-});
-
-document.getElementById('paste-cancel').addEventListener('click', function() {
-  document.getElementById('paste-modal').style.display = 'none';
-  document.getElementById('paste-ta').value = '';
-  term.focus();
-});
+_termUI.setupPasteBtn('btn-paste');
 
 // ── Monaco エディタ ───────────────────────────────────────────────────────
 var _wasmEd = null;
@@ -1799,18 +1965,17 @@ document.getElementById('btn-editor').addEventListener('click', function() {
 });
 
 document.getElementById('editor-send').addEventListener('click', function() {
+  if (!simStarted) return;
   var fname   = (document.getElementById('editor-fname').value.trim() || 'out.c');
   var content = _getEditorValue();
   closeEditorModal();
-  worker.postMessage({ type: 'send_str', str: 'cat > ' + fname + '\r' });
-  var lines = content.split('\n');
-  for (var li = 0; li < lines.length; li++) {
-    var line = lines[li];
-    if (li < lines.length - 1 || line.length > 0) {
-      worker.postMessage({ type: 'send_str', str: line + '\r' });
-    }
-  }
-  worker.postMessage({ type: 'key', ch: 0x04 });
+
+  // TTY を使わず V6 FS に直接書き込む（/tmp/<fname>）
+  var path         = '/tmp/' + fname;
+  var contentBytes = new TextEncoder().encode(content);
+  var buf          = contentBytes.buffer.slice(0);
+  worker.postMessage({ type: 'v6WriteFile', requestId: 'editorSend',
+                       path: path, content: buf }, [buf]);
   _flashBtn('btn-editor');
 });
 
@@ -1846,7 +2011,6 @@ document.getElementById('editor-download').addEventListener('click', function() 
 // Escape キーでモーダルを閉じる
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
-    document.getElementById('paste-modal').style.display  = 'none';
     if (document.getElementById('editor-modal').style.display !== 'none') closeEditorModal();
   }
 });
@@ -1939,7 +2103,7 @@ window._pdp11TriggeredPC  = null;
 window._pdp11BareReady    = false;
 window._pdp11BareStepped  = false;
 
-var _TRIG_LABELS = { 1: 'PC', 2: 'Fetch', 3: 'I/O', 4: 'TRAP', 5: 'BUSERR' };
+var _TRIG_LABELS = { 1: 'PC', 2: 'Fetch', 3: 'I/O', 4: 'TRAP', 5: 'BUSERR', 6: 'PC+Data' };
 
 function onTriggered(pc, trigType) {
   simPaused = true;
@@ -1986,27 +2150,45 @@ window.sim.screenshotCanvas = function(selector) {
   return canvas.toDataURL('image/png');
 };
 
-// trig-type 変更: PC 入力行の表示切り替え
+// trig-type 変更: PC / DATA 入力行の表示切り替え
+// 種別 1(PC) と 6(PC+データ) は VA 入力が必要。6 はさらに DATA 入力も表示する。
 document.getElementById('trig-type').addEventListener('change', function() {
+  var v = this.value;
   document.getElementById('trig-pc-row').style.display =
-    (this.value === '1') ? '' : 'none';
+    (v === '1' || v === '6') ? '' : 'none';
+  document.getElementById('trig-data-row').style.display =
+    (v === '6') ? '' : 'none';
 });
 
 document.getElementById('btn-trig-set').addEventListener('click', function() {
   var trigType = parseInt(document.getElementById('trig-type').value, 10);
   var trigVal  = 0;
+  var lbl      = '?';
   if (trigType === 1) {
     var raw = document.getElementById('trig-pc').value.trim();
     if (!raw) return;
     trigVal = parseInt(raw, 8);
     if (isNaN(trigVal)) { alert('8 進数で入力してください（例: 4014）'); return; }
+    lbl = 'PC=0o' + trigVal.toString(8);
+  } else if (trigType === 6) {
+    // VA(下位16bit) + opcode(上位16bit) をパックする
+    var rawVa = document.getElementById('trig-pc').value.trim();
+    var rawOp = document.getElementById('trig-data').value.trim();
+    if (!rawVa || !rawOp) return;
+    var va = parseInt(rawVa, 8);
+    var op = parseInt(rawOp, 8);
+    if (isNaN(va) || isNaN(op)) { alert('VA・DATA とも 8 進数で入力してください'); return; }
+    trigVal = (((op & 0xFFFF) << 16) | (va & 0xFFFF)) >>> 0;
+    lbl = 'PC=0o' + va.toString(8) + ' DATA=0o' + op.toString(8);
   } else if (trigType === 2) {
     trigVal = 1;  // istate f1 = 1
+    lbl = 'istate=f1';
+  } else {
+    var _l = { 3: 'I/O ページ', 4: 'TRAP', 5: 'BUSERR' };
+    lbl = _l[trigType] || '?';
   }
   worker.postMessage({ type: 'set_trigger', trigType: trigType, val: trigVal });
-  var _labels = { 1: 'PC=0o' + trigVal.toString(8), 2: 'istate=f1',
-                  3: 'I/O ページ', 4: 'TRAP', 5: 'BUSERR' };
-  setStatus('Trigger set: ' + (_labels[trigType] || '?'));
+  setStatus('Trigger set: ' + lbl);
   hideTrigHit();
 });
 
@@ -2135,29 +2317,7 @@ function updateRegs(snap, gpr) {
   _prevMode = mode;
 }
 
-// ── docs モーダル ─────────────────────────────────────────────────────────
-(function() {
-  // doc-select にリスト展開
-  var sel = document.getElementById('doc-select');
-  PDP11_DOC_LIST.forEach(function(d) {
-    var opt = document.createElement('option');
-    opt.value = d.file; opt.textContent = d.label;
-    sel.appendChild(opt);
-  });
-  sel.addEventListener('change', function() {
-    if (sel.value) openDoc(sel.value);
-  });
-  document.getElementById('doc-prev').addEventListener('click', function() {
-    if (_pdp11DocIdx > 0) openDoc(PDP11_DOC_LIST[_pdp11DocIdx - 1].file);
-  });
-  document.getElementById('doc-next').addEventListener('click', function() {
-    if (_pdp11DocIdx >= 0 && _pdp11DocIdx < PDP11_DOC_LIST.length - 1)
-      openDoc(PDP11_DOC_LIST[_pdp11DocIdx + 1].file);
-  });
-  document.getElementById('doc-close').addEventListener('click', function() {
-    document.getElementById('doc-modal').style.display = 'none';
-  });
-})();
+// ── docs モーダル ─── (イベントリスナー・select 生成は sft-doc-viewer.js が担当)
 
 // ── ファイルバージョン表 ───────────────────────────────────────────────────
 (function() {

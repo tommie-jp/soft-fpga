@@ -1,0 +1,55 @@
+# 04-file-ops.v6 — ファイル操作コマンドの動作確認
+#
+# 検証内容:
+#   mkdir  → ディレクトリ作成
+#   cp     → ファイルコピー（/tmp へ直接、内容の一致確認）
+#   mv     → 別ディレクトリへ移動、リネーム
+#   rm     → ファイル削除
+#   rmdir  → 空ディレクトリ削除
+#
+# 注: clean disk 状態では "mkdir /d + cp ... /d/f" が V6 カーネルの
+#     ブロック確保シーケンスで無限待ちになる既知問題がある。
+#     回避策: cp を /tmp に直接行い、mv で新規ディレクトリへ移動する。
+
+wait @
+send rkunix\r
+expect login:
+send root\r
+expect #
+
+# ディスク I/O を含む操作は 200M サイクルに延長
+timeout 200000000
+
+# cp: /etc/passwd を /tmp に直接コピー（新規ディレクトリ不要で安全）
+send cp /etc/passwd /tmp/pw\r
+expect #
+send cat /tmp/pw\r
+expect root
+
+# mkdir: /tmp/tst を作成
+send mkdir /tmp/tst\r
+expect #
+
+# mv: /tmp/pw → /tmp/tst/pw（新規ディレクトリへ移動）
+send mv /tmp/pw /tmp/tst/pw\r
+expect #
+send ls /tmp/tst\r
+expect pw
+
+# mv: pw → pw2 にリネーム
+send mv /tmp/tst/pw /tmp/tst/pw2\r
+expect #
+send ls /tmp/tst\r
+expect pw2
+
+# rm: ファイル削除
+send rm /tmp/tst/pw2\r
+expect #
+
+# rmdir: 空になったディレクトリを削除
+send rmdir /tmp/tst\r
+expect #
+
+# 削除後は /tmp を ls してもエラーなく返ること
+send ls /tmp\r
+expect #

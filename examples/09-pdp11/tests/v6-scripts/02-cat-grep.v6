@@ -1,0 +1,21 @@
+# 02-cat-grep.v6 — cat / grep / echo の動作確認
+#
+# 検証内容:
+#   cat /etc/passwd      → root エントリが表示されること
+#   grep root /etc/passwd → root 行が抽出されること
+#   echo                 → 引数がそのまま出力されること
+
+wait @
+send rkunix\r
+expect login:
+send root\r
+expect #
+
+send cat /etc/passwd\r
+expect root
+
+send grep root /etc/passwd\r
+expect root
+
+send echo v6-echo-ok\r
+expect v6-echo-ok

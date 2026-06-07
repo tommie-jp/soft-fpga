@@ -1,0 +1,668 @@
+{
+  "summary": {
+    "total": 108,
+    "ok": 104,
+    "notfound": 0,
+    "hang": 0,
+    "expectedHang": 4,
+    "aborted": 0
+  },
+  "results": [
+    {
+      "dir": "/bin",
+      "cmd": "ar",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "as",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "bas",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "cat",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "cc",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "cdb",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "chgrp",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "chmod",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "chown",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "clri",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "cmp",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "cp",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "date",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "db",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "dc",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "dcheck",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "dd",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "df",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "dsw",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "du",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "dump",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "echo",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "ed",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "exit",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "fc",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "file",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "goto",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "icheck",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "if",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "kill",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "ld",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "ln",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "login",
+      "status": "OK",
+      "detail": "spawned login"
+    },
+    {
+      "dir": "/bin",
+      "cmd": "ls",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "mail",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "mkdir",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "mv",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "ncheck",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "newgrp",
+      "status": "HANG",
+      "detail": "newgrp </dev/null;echo Qz7K usage: newgrp groupname # ",
+      "expected": true,
+      "expectedReason": "新シェルを exec するため MARK が届かない（実際は成功）"
+    },
+    {
+      "dir": "/bin",
+      "cmd": "nm",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "od",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "opr",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "passwd",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "pr",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "ps",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "restor",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "rew",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "rm",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "rmdir",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "sh",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "size",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "sort",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "strip",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "stty",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "su",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "sum",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "sync",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "time",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "tp",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "tty",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "uniq",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "who",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/bin",
+      "cmd": "write",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "ac",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "banner",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "bc",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "bcd",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "cal",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "chk",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "col",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "comm",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "cpall",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "cref",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "crpost",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "crypt",
+      "status": "HANG",
+      "detail": "crypt </dev/null;echo Qz7K ",
+      "expected": true,
+      "expectedReason": "鍵を /dev/tty から読むため端末入力待ちになる"
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "diff",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "fed",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "find",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "form",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "grep",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "gsi",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "index",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "m6",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "mesg",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "neqn",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "nice",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "nohup",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "nroff",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "pfe",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "prof",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "ptx",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "pwd",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "quiz",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "roff",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "sa",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "sleep",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "sno",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "split",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "tbl",
+      "status": "HANG",
+      "detail": "tbl </dev/null;echo Qz7K ",
+      "expected": true,
+      "expectedReason": "端末入力待ちでブロックする（/dev/null リダイレクトを無視）"
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "tee",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "tmg",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "tr",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "typo",
+      "status": "HANG",
+      "detail": "typo </dev/null;echo Qz7K ",
+      "expected": true,
+      "expectedReason": "端末入力待ちでブロックする（/dev/null リダイレクトを無視）"
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "units",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "upost",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "usort",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "wc",
+      "status": "OK",
+      "detail": ""
+    },
+    {
+      "dir": "/usr/bin",
+      "cmd": "yacc",
+      "status": "OK",
+      "detail": ""
+    }
+  ]
+}

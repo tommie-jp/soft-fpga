@@ -1,0 +1,21 @@
+# 01-ls.v6 — ls / pwd の基本動作確認
+#
+# 検証内容:
+#   ls /       → ルートに bin / etc / usr が存在すること
+#   ls /etc    → /etc に passwd が存在すること
+#   pwd        → カレントディレクトリが / であること
+
+wait @
+send rkunix\r
+expect login:
+send root\r
+expect #
+
+send ls /\r
+expect bin
+
+send ls /etc\r
+expect passwd
+
+send pwd\r
+expect /
