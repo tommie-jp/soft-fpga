@@ -144,9 +144,7 @@ function _emitNode(code, node) {
 
   var sig = node.sig;
   if (!sig) throw new Error('内部エラー: ノードに sig がありません');
-  if (sig.virtual) throw new Error('"' + sig.label + '" は仮想信号のため Wasm コンパイル非対応（CYCLE など）');
-  if (sig.fmt === 'isn11') throw new Error('"ISN" 文字列比較は Wasm コンパイル非対応');
-  if (sig.fmt === 'psw11') throw new Error('"PSW" 文字列比較は Wasm コンパイル非対応');
+  if (sig.virtual) throw new Error('"' + sig.label + '" は仮想信号のため Wasm コンパイル非対応（Cycle == "FETCH" → istate == "F1" && RD.rising で代替）');
 
   // ── エッジ検出 ─────────────────────────────────────────────────────────
   if (op === 'RISING') {
@@ -179,11 +177,16 @@ function _emitNode(code, node) {
   // ── 比較 ────────────────────────────────────────────────────────────────
   var numVal;
   if (node.val.t === 'STR') {
+    // 文字列→数値変換: mode11 / istate11 のみ対応。isn11 / psw11 は非対応。
     var fmt = sig.fmt;
-    if (!fmt || !_COMPILE_STR_TO_NUM[fmt]) {
-      throw new Error('"' + sig.label + '" の文字列比較は Wasm 非対応（数値で比較してください）');
+    var fmtTable = fmt && _COMPILE_STR_TO_NUM[fmt];
+    if (!fmtTable) {
+      throw new Error('"' + sig.label + '" 文字列比較は Wasm 非対応'
+        + (sig.fmt === 'isn11' ? '（ISN は生オペコード数値で比較: ISN == 0o5001 など）' : '')
+        + (sig.fmt === 'psw11' ? '（PSW は数値で比較: PSW == 0o0340 など）' : '')
+        + (!sig.fmt ? '（数値で比較してください）' : ''));
     }
-    numVal = _COMPILE_STR_TO_NUM[fmt][node.val.v.toUpperCase()];
+    numVal = fmtTable[node.val.v.toUpperCase()];
     if (numVal === undefined) {
       throw new Error('"' + node.val.v + '" は ' + sig.label + ' の有効な文字列値ではありません');
     }
