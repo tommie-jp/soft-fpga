@@ -114,6 +114,13 @@ if [ -d "$ROOT/js" ]; then
     echo "Copied js/ library files"
 fi
 
+# docs/ をルートの docs/ にコピー（CI の cp -r docs _site/docs と同等）
+# QR PNG の href="../../../docs/XX-QR.png" が gh-pages で解決できるようにする
+if [ -d "$ROOT/docs" ]; then
+    cp -r "$ROOT/docs" "$WORKTREE/docs"
+    echo "Copied docs/ → /docs/"
+fi
+
 for ex in "${EXAMPLES[@]}"; do
     IFS=: read -r id build_script web_dir deploy_subdir docs_dir <<< "$ex"
     src="$ROOT/$web_dir"
@@ -175,7 +182,8 @@ for ex in "${EXAMPLES[@]}"; do
     fi
     if [[ -n "$docs_src" ]]; then
         mkdir -p "$dst/docs"
-        cp "$docs_src"/*.md "$dst/docs/" 2>/dev/null || true
+        cp "$docs_src"/*.md  "$dst/docs/" 2>/dev/null || true
+        cp "$docs_src"/*.png "$dst/docs/" 2>/dev/null || true
         if [[ -d "$docs_src/img" ]]; then
             cp -r "$docs_src/img" "$dst/docs/"
             echo "  Copied docs/img/ → /${deploy_subdir}/docs/img/"
