@@ -1,4 +1,4 @@
-# 56. Unix V6 での MMU の使われ方 <a class="qr-link" href="docs/56-MMU-unix-v6-での使われ方-QR.png">QR</a>
+# 56. Unix V6 での MMU の使われ方 <a class="qr-link" href="../../../docs/09-PDP11/56-MMU-unix-v6-での使われ方-QR.png">QR</a>
 
 PDP-11 のメモリ管理（KT11 / MMU）を Unix V6 がどう使っているかの整理。
 本プロジェクトの可視化（MMU パネル）で何が見えているのかを理解するための背景資料。

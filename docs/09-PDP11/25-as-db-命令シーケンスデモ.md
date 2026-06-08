@@ -1,4 +1,4 @@
-# 25. Unix V6 の as / db で命令シーケンス図を見るデモ <a class="qr-link" href="docs/25-as-db-命令シーケンスデモ-QR.png">QR</a>
+# 25. Unix V6 の as / db で命令シーケンス図を見るデモ <a class="qr-link" href="../../../docs/09-PDP11/25-as-db-命令シーケンスデモ-QR.png">QR</a>
 
 Unix V6 自身のアセンブラ `as` とデバッガ `db` で小さなプログラムを書き、
 そのプログラムが特定の命令を実行する瞬間を soft-FPGA の **Logic Analyzer（LA）** で
