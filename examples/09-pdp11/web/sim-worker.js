@@ -140,7 +140,10 @@ function simLoop() {
   for (var ki = 0; ki < drain; ki++) Module._send_key(keyQueue.shift());
 
   var t0 = Date.now();
-  Module._step_n(stepsPerFrame);
+  // 式トリガー有効時: 1フレームで ring が複数周するとトリガーサンプルが上書きされて検出漏れになる。
+  // RING_SIZE-1 に制限し ring を 1 周以内に収め、前フレーム末尾サンプルも保持（エッジ検出用）。
+  var _effSteps = (_exprEval && stepsPerFrame > RING_SIZE - 1) ? (RING_SIZE - 1) : stepsPerFrame;
+  Module._step_n(_effSteps);
 
   // TTY 出力
   var chars = [];
@@ -176,12 +179,11 @@ function simLoop() {
   }
 
   // 式トリガー（Wasm ネイティブ評価）: 新着サンプルを全スキャン
+  // _effSteps <= RING_SIZE-1 の制限により ring は 1 周以内。lastRingHead から全サンプルが有効。
   if (_exprEval) {
     var _exHead  = Module._get_ring_head() >>> 0;
-    var _exCount = Math.min((_exHead - lastRingHead) >>> 0, RING_SIZE);
-    // ring_tick_mask=0 かつ stepsPerFrame > RING_SIZE の場合、1フレームで ring が複数周し
-    // lastRingHead 起点のスロットが上書きされているため、正しい先頭を _exHead - _exCount から取る。
-    var _exStart = (_exHead - _exCount) >>> 0;
+    var _exCount = (_exHead - lastRingHead) >>> 0;   // RING_SIZE-1 以下が保証される
+    var _exStart = lastRingHead;
     var _h = Module.HEAPU32;
     for (var _xi = 0; _xi < _exCount; _xi++) {
       var _xabs = (_exStart + _xi) >>> 0;
