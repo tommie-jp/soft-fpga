@@ -22,5 +22,5 @@ var PDP11_DOC_LIST = [
   { file: '54-simh-使い方.md',                 label: '54 SIMH 使い方（cc 対応）' },
 ];
 
-var _pdp11DocViewer = new SftDocViewer(PDP11_DOC_LIST, { docsPath: 'docs/' });
+var _pdp11DocViewer = new SftDocViewer(PDP11_DOC_LIST, { docsPath: 'docs/', useHash: true });
 function openDoc(file) { _pdp11DocViewer.openDoc(file); }

@@ -1,0 +1,40 @@
+@startuml 06-8080-arch
+skinparam backgroundColor white
+skinparam defaultFontColor #222222
+skinparam ArrowColor #444444
+skinparam componentStyle rectangle
+skinparam component {
+    BackgroundColor #f5f5f5
+    BorderColor #555555
+}
+skinparam packageBackgroundColor transparent
+
+package "Verilog RTL" #EEF4FF {
+    component [vm80a\n(Intel 8080A)] as rtl
+}
+
+package "Build Pipeline" #FFF8EE {
+    component [Verilator] as verilator
+    component [C++ Harness\n(ring buffer)] as harness
+    component [CP/M BIOS\n(I/O bridge)] as bios
+    component [Emscripten] as emcc
+}
+
+package "Browser" #EEFFEE {
+    component [.wasm\n(Web Worker)] as wasm
+    component [xterm.js\n(VT100 Terminal)] as xterm
+    component [Canvas\n(Logic Analyzer)] as canvas
+}
+
+rtl --> verilator : compile
+verilator --> harness : generate C++
+harness --> bios : IN/OUT port hooks
+harness --> emcc : compile
+bios --> emcc : compile
+emcc --> wasm : generate
+
+wasm --> xterm : postMessage (char)
+xterm --> wasm : postMessage (key)
+wasm --> canvas : TypedArray (ring buffer)
+
+@enduml
