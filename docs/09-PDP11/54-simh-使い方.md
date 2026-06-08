@@ -1,4 +1,4 @@
-# 54. SIMH — PDP-11 シミュレータ <a class="qr-link" href="../../../docs/09-PDP11/54-simh-使い方-QR.png">QR</a>
+# 54. SIMH — PDP-11 シミュレータ <a class="qr-link" href="../../../docs/09-PDP11/54-QR.png">QR</a>
 
 SIMH は Digital Equipment Corporation の歴史的コンピュータを再現する
 ソフトウェアシミュレータ群。PDP-11/Unix V6 を完全に動かせる。

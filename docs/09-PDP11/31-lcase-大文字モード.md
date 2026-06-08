@@ -1,4 +1,4 @@
-# 31. LCASE（大文字モード）の挙動 <a class="qr-link" href="../../../docs/09-PDP11/31-lcase-大文字モード-QR.png">QR</a>
+# 31. LCASE（大文字モード）の挙動 <a class="qr-link" href="../../../docs/09-PDP11/31-QR.png">QR</a>
 
 ## 1. 症状
 

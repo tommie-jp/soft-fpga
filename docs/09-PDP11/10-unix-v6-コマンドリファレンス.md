@@ -1,4 +1,4 @@
-# 10. Unix V6 コマンドリファレンス <a class="qr-link" href="../../../docs/09-PDP11/10-unix-v6-コマンドリファレンス-QR.png">QR</a>
+# 10. Unix V6 コマンドリファレンス <a class="qr-link" href="../../../docs/09-PDP11/10-QR.png">QR</a>
 
 このシミュレータに収録されている Unix V6（1975）の主要コマンド一覧。
 コマンドの多くは `/bin/` または `/usr/bin/`（ゲームは `/usr/games/`）に存在する。
