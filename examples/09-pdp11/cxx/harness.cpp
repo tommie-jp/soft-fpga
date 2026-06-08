@@ -346,6 +346,16 @@ EMSCRIPTEN_KEEPALIVE void sim_set_mem_probe(uint32_t byte_addr) {
     mem_probe_addr = byte_addr;
 }
 
+// サンプリング間隔マスクを動的に変更する
+//   mask=0  → 毎 tick（1tick/smpl: 式トリガーの取りこぼし防止）
+//   mask=3  → 4tick に 1 回（4tick/smpl: デフォルト、Unix V6 速度優先）
+EMSCRIPTEN_KEEPALIVE void sim_set_ring_tick_mask(uint32_t mask) {
+    ring_tick_mask = mask;
+}
+EMSCRIPTEN_KEEPALIVE uint32_t sim_get_ring_tick_mask() {
+    return ring_tick_mask;
+}
+
 // ベアメタル: トリガー・HALT 判定なしで n_ticks だけ進める（ポストトリガー用）
 EMSCRIPTEN_KEEPALIVE void sim_step_bare(int n_ticks) {
     for (int i = 0; i < n_ticks; i++) {

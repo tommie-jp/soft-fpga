@@ -62,7 +62,7 @@ static void ide_setup(struct ide_state_s *s) {
 static void ide_do_read(struct ide_state_s *s) {
     s->lba = ((s->reg_drvhead & 0x0f) << 24) | ((s->reg_cylhigh & 0xff) << 16)
            | ((s->reg_cyllow  & 0xff) <<  8) |  (s->reg_secnum & 0xff);
-    /* fprintf(stderr, "dpi_ide: READ lba=%u seccnt=%u\n", s->lba, s->reg_seccnt); */
+    fprintf(stderr, "dpi_ide: READ lba=%u seccnt=%u\n", s->lba, s->reg_seccnt);
     lseek(s->file_fd, (off_t)s->lba * 512, SEEK_SET);
     int ret = read(s->file_fd, s->fifo, 512 * s->reg_seccnt);
     if (ret < 0) perror("ide read");

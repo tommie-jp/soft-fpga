@@ -32,6 +32,7 @@ usage() {
                    例: doTest.sh --v6 08-as
   --timing-ss-pdp11 [11] PDP-11 全命令タイミング図スクリーンショット (55 ケース)
                 [10] PDP-11 MAINDEC 診断 (FKAAC0/FKABD0/FKACA0/FKTHB0/FKTGC0)
+                [14] PDP-11 Trigger 式テスト (Vitest, 純 JS・WASM 不要)
 
 複数グループの同時指定可:
   doTest.sh --8080 --web
@@ -236,6 +237,11 @@ if $RUN_PDP11; then
 
   run_step "12" "PDP-11 WASM コマンド起動テスト (Unix V6 /bin・/usr/bin)" \
     bash -c 'cd examples/09-pdp11/tests && node test_commands_executable.mjs'
+fi
+
+if $RUN_PDP11; then
+  run_step "14" "PDP-11 Trigger 式テスト (Vitest)" \
+    bash -c 'cd examples/09-pdp11/tests && npx vitest run trigger'
 fi
 
 if $RUN_PDP11 || $RUN_V6; then

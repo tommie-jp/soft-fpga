@@ -25,15 +25,19 @@ var ringBase      = 0;
 var gprBase16     = 0;
 var mmuBase32     = 0;
 var running       = false;
-var stepsPerFrame = 200000;
-var lastRingHead  = 0;
+var stepsPerFrame  = 200000;
+var _lastEffSteps  = 200000;  // _sendRing が steps フィールドに使う実効値
+var lastRingHead   = 0;
 var mmuFrameCnt   = 0;
 
 // Speed が setSpeed メッセージで固定されているかどうか
 var _speedFixed  = false;
 var _laEnabled   = true;
-// 現在設定中のトリガー種別（0=NONE 1=PC 2=ISTATE 3=IOPAGE 4=TRAP 5=BUSERR）
+// 現在設定中のトリガー種別（0=NONE 1=PC 2=ISTATE 3=IOPAGE 4=TRAP 5=BUSERR 7=EXPR）
 var _curTrigType = 0;
+// 式トリガー: コンパイル済み Wasm エクスポート関数（null = 未設定）
+// シグネチャ: eval(w0..w8: i32[9], pw0..pw8: i32[9]) → i32
+var _exprEval = null;
 
 // ── キー入力キュー（ペースト文字化け防止）─────────────────────────────────
 // onmessage から受け取った文字をここにバッファし、simLoop で少しずつ
@@ -137,7 +141,11 @@ function simLoop() {
   for (var ki = 0; ki < drain; ki++) Module._send_key(keyQueue.shift());
 
   var t0 = Date.now();
-  Module._step_n(stepsPerFrame);
+  // 式トリガー有効時: 1フレームで ring が複数周するとトリガーサンプルが上書きされて検出漏れになる。
+  // RING_SIZE-1 に制限し ring を 1 周以内に収め、前フレーム末尾サンプルも保持（エッジ検出用）。
+  var _effSteps = (_exprEval && stepsPerFrame > RING_SIZE - 1) ? (RING_SIZE - 1) : stepsPerFrame;
+  _lastEffSteps = _effSteps;
+  Module._step_n(_effSteps);
 
   // TTY 出力
   var chars = [];
@@ -161,7 +169,7 @@ function simLoop() {
     macroExpect = null;
   }
 
-  // トリガーヒット確認
+  // ハードウェアトリガーヒット確認
   if (Module._sim_trigger_hit && Module._sim_trigger_hit()) {
     running = false;
     var pc       = Module._get_pc ? Module._get_pc() : 0;
@@ -172,6 +180,36 @@ function simLoop() {
     return;
   }
 
+  // 式トリガー（Wasm ネイティブ評価）: 新着サンプルを全スキャン
+  // _effSteps <= RING_SIZE-1 の制限により ring は 1 周以内。lastRingHead から全サンプルが有効。
+  if (_exprEval) {
+    var _exHead  = Module._get_ring_head() >>> 0;
+    var _exCount = (_exHead - lastRingHead) >>> 0;   // RING_SIZE-1 以下が保証される
+    var _exStart = lastRingHead;
+    var _h = Module.HEAPU32;
+    for (var _xi = 0; _xi < _exCount; _xi++) {
+      var _xabs = (_exStart + _xi) >>> 0;
+      var _xb   = (_xabs % RING_SIZE) * RING_WORDS + ringBase;
+      var _xpb  = (((_xabs - 1 + RING_SIZE) >>> 0) % RING_SIZE) * RING_WORDS + ringBase;
+      if (_exprEval(
+        _h[_xb],   _h[_xb+1], _h[_xb+2], _h[_xb+3], _h[_xb+4],
+        _h[_xb+5], _h[_xb+6], _h[_xb+7], _h[_xb+8],
+        _h[_xpb],  _h[_xpb+1],_h[_xpb+2],_h[_xpb+3],_h[_xpb+4],
+        _h[_xpb+5],_h[_xpb+6],_h[_xpb+7],_h[_xpb+8]
+      )) {
+        _exprEval = null;
+        running   = false;
+        var _xPc  = Module._get_pc ? Module._get_pc() : 0;
+        var _xFh  = (_xabs + 1) >>> 0;
+        // 'triggered' を先に送り、後続 'ring' で UI がアンカー処理できるようにする
+        postMessage({ type: 'triggered', pc: _xPc, trigType: 7, fireHead: _xFh });
+        _sendRing();
+        _sendGPR();
+        return;
+      }
+    }
+  }
+
   // ring buffer スナップショット転送（GPR を含む）
   _sendRing();
 
@@ -179,8 +217,10 @@ function simLoop() {
   mmuFrameCnt++;
   if ((mmuFrameCnt & 15) === 0) _sendMMU();
 
-  // フレームレート自動調整（setSpeed で固定された場合はスキップ）
-  if (!_speedFixed) {
+  // フレームレート自動調整（setSpeed で固定の場合、または式トリガーで _effSteps が上書き中はスキップ）
+  // 式トリガー有効時は _effSteps が RING_SIZE-1 に固定されるため elapsed が常に短くなり
+  // stepsPerFrame が 2M 上限まで膨れ上がるのを防ぐ。
+  if (!_speedFixed && !_exprEval) {
     var elapsed = Date.now() - t0;
     if (elapsed < 8  && stepsPerFrame < 2000000) stepsPerFrame = Math.min(stepsPerFrame * 1.2 | 0, 2000000);
     if (elapsed > 22 && stepsPerFrame > 50000)   stepsPerFrame = Math.max(stepsPerFrame * 0.8 | 0, 50000);
@@ -210,7 +250,7 @@ function _sendRing() {
   var u16  = Module.HEAPU16;
   var gpr  = Array.from(u16.slice(gprBase16, gprBase16 + 7));
 
-  postMessage({ type: 'ring', head: head, snap: snap.buffer, gpr: gpr, steps: stepsPerFrame }, [snap.buffer]);
+  postMessage({ type: 'ring', head: head, snap: snap.buffer, gpr: gpr, steps: _lastEffSteps }, [snap.buffer]);
   lastRingHead = head;
 }
 
@@ -544,18 +584,17 @@ self.onmessage = function (e) {
       break;
 
     case 'key':
-      if (diskReady) keyQueue.push(d.ch);
+      keyQueue.push(d.ch);  // diskReady を待たず先行入力バッファとして機能
       break;
 
     case 'send_str':
-      if (diskReady) {
-        for (var si = 0; si < d.str.length; si++) keyQueue.push(d.str.charCodeAt(si));
-      }
+      for (var si = 0; si < d.str.length; si++) keyQueue.push(d.str.charCodeAt(si));
       break;
 
     case 'reset':
       running = false;
       macroSegments = []; macroSegIdx = 0; macroExpect = null;
+      keyQueue = [];  // リセット時に先行入力バッファをクリア
       if (diskReady) {
         Module._sim_init();
         lastRingHead = 0;
@@ -648,6 +687,7 @@ self.onmessage = function (e) {
 
     case 'clear_trigger':
       _curTrigType = 0;
+      _exprEval    = null;
       if (Module._sim_clear_trigger) Module._sim_clear_trigger();
       break;
 
@@ -664,6 +704,25 @@ self.onmessage = function (e) {
     case 'setLA':
       _laEnabled = !!d.enabled;
       break;
+
+    case 'set_ring_tick_mask':
+      if (Module._sim_set_ring_tick_mask) Module._sim_set_ring_tick_mask(d.mask >>> 0);
+      break;
+
+    case 'set_expr_trigger': {
+      // UI スレッドが trigCompileToWasm() で生成した Wasm バイト列を受け取り
+      // ここで同期インスタンス化する（Worker 内では同期 new WebAssembly.Module が許可されている）
+      _exprEval = null;
+      _curTrigType = 7;
+      try {
+        var _eMod  = new WebAssembly.Module(new Uint8Array(d.wasmBytes));
+        var _eInst = new WebAssembly.Instance(_eMod, {});
+        _exprEval  = _eInst.exports.eval;
+      } catch (_eErr) {
+        postMessage({ type: 'scriptWarn', msg: '式トリガー Wasm 初期化失敗: ' + _eErr.message });
+      }
+      break;
+    }
 
     case 'exportDisk': {
       try {

@@ -48,6 +48,7 @@ const EXPECTED_HANG = new Map([
   ['crypt',  '鍵を /dev/tty から読むため端末入力待ちになる'],
   ['tbl',    '端末入力待ちでブロックする（/dev/null リダイレクトを無視）'],
   ['typo',   '端末入力待ちでブロックする（/dev/null リダイレクトを無視）'],
+  ['cdb',    'C デバッガ: /dev/tty から対話入力を読むため /dev/null リダイレクトを無視して入力待ち'],
 ]);
 
 const sim = await loadSim();

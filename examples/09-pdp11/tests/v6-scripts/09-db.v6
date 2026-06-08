@@ -1,19 +1,27 @@
-# 09-db.v6 — db デバッガの起動確認
+# 09-db.v6 — db デバッガによる逆アセンブル確認
 #
-# 検証内容:
-#   db a.out を実行してシェルへ戻ること
+# 検証内容 (docs/09-PDP11/25-as-db-命令シーケンスデモ.md §3.2 に準拠):
+#   loop.s をアセンブルし db a.out で逆アセンブルを試みる
+#   0,6? → 先頭 6 ワード分を逆アセンブル
+#   %   → db 終了してシェルへ戻る
 #
-# 既知の制限:
-#   このシミュレータは ptrace/T-bit 未実装のため、db は起動時に
-#   Memory Fault でクラッシュして終了する。
-#   `:r` `:s` `:c` 等のプロセス実行・ステップ実行コマンドは動作しない。
-#   ファイルモード逆アセンブル (0?6i) もプロセス生成を伴うため使用できない。
+# 期待動作 (docs/25 §3.2):
+#   0:    mov   $1000,r0
+#   4:    clr   r1
+#   6:    add   r0,r1
+#   10:   sob   r0,6
+#   12:   sys   1
 #
-#   このテストは「db が安全にクラッシュしてシェルへ戻ること」を確認する。
-#   db を使った逆アセンブルは nm / od で代替可能 (08-as.v6 参照)。
+# 現状の制約:
+#   V6 db は a.out を fork+exec して ptrace で制御するが、
+#   このシミュレータでは ptrace が正常動作せず、全コマンドで
+#   "Memory fault -- Core dumped" でクラッシュする。
+#   T-bit は RTL 実装済み (pdp11.v psw[4], ベクタ 14 のトレーストラップ) だが、
+#   ptrace syscall (sys 26) の fork/exec フローが正常完了しない。
+#   このテストは db 起動 → コマンド送信 → クラッシュ → shell 復帰
+#   の一連の動作を確認する（#が返ることを検証）。
 #
-# 参考: doc/25-as-db-命令シーケンスデモ.md
-#       doc/14-adb-デバッガー-使い方.md
+# 注: db はプロンプトを一切出さない（起動しても無音で入力待ち）。
 
 wait @
 send rkunix\r
@@ -21,7 +29,7 @@ expect login:
 send root\r
 expect #
 
-# アセンブリソース作成
+# ループ加算プログラムを作成してアセンブル (docs/25 §3.1)
 send cat >loop.s\r
 send start:\r
 send  mov $1000,r0\r
@@ -33,14 +41,13 @@ send  sys 1\r
 send \004
 expect #
 
-# アセンブル
 timeout 100000000
 send as loop.s\r
 expect #
 
-# db を起動 — $q で終了してシェルへ戻ること
-# (ptrace/T-bit 未実装のため :r/:s/:c は使用不可)
+# db で逆アセンブル (docs/25 §3.2)
 timeout 200000000
 send db a.out\r
-send $q\r
+send 0,6?\r
+send %\r
 expect #
