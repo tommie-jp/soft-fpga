@@ -154,4 +154,4 @@ Logic Analyzer で `istate` を並べると、「`f1→c1→d1→d4→e1` と進
 
 - [`vendor/cpus-pdp11/rtl/pdp11.v`](../../vendor/cpus-pdp11/rtl/pdp11.v) — istate 定義（`parameter` ブロック）・状態遷移コメント
 - [`examples/09-pdp11/cxx/harness.cpp`](../../examples/09-pdp11/cxx/harness.cpp) — `gpr_snap` / ring の信号レイアウト
-- 関連: [52-メモリマップ.md](52-メモリマップ.md) / [56-MMU-unix-v6-での使われ方.md](56-MMU-unix-v6-での使われ方.md) / [21-バスサイクル実例.md](21-バスサイクル実例.md)
+- 関連: [52-メモリマップ.md](?doc=52-メモリマップ.md) / [56-MMU-unix-v6-での使われ方.md](?doc=56-MMU-unix-v6-での使われ方.md) / [21-バスサイクル実例.md](?doc=21-バスサイクル実例.md)

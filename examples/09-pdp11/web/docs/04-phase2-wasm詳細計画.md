@@ -582,8 +582,8 @@ assign obs_pc       = top_inst.pc;
 
 ## 参考
 
-- [Phase 1 詳細計画](./03-phase1-詳細計画.md)
-- [WASM 実装計画概要](./02-wasm実装計画.md)
+- [Phase 1 詳細計画](?doc=03-phase1-詳細計画.md)
+- [WASM 実装計画概要](?doc=02-wasm実装計画.md)
 - `examples/06-8080/cxx/harness.cpp` — CP/M WASM ハーネスの参考実装
 - `scripts/build-wasm-06.sh` — 8080 WASM ビルドスクリプトの参考実装
 - `vendor/cpus-pdp11/rtl/tt_regs.v` — TTY レジスタ（tto_data_wr のタイミング）

@@ -156,6 +156,6 @@ Thu Jan  1 00:00:00 1970
 
 ## 11. 参考
 
-- [10-unix-v6-コマンドリファレンス.md](10-unix-v6-コマンドリファレンス.md) — 個別コマンド詳細
-- [06-unix-v6-demo-commands.md](06-unix-v6-demo-commands.md) — デモシナリオ
+- [10-unix-v6-コマンドリファレンス.md](?doc=10-unix-v6-コマンドリファレンス.md) — 個別コマンド詳細
+- [06-unix-v6-demo-commands.md](?doc=06-unix-v6-demo-commands.md) — デモシナリオ
 - [Unix V6 sh(1) マニュアル（TUHS）](https://www.tuhs.org/cgi-bin/utree.pl?act=get&file=V6/usr/man/man1/sh.1)

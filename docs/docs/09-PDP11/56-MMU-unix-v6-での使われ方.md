@@ -66,7 +66,7 @@ V6 最大の MMU 活用ポイント。各プロセスの **per-process データ
 - スタックを踏み越えると **セグメンテーションフォルト（page-length abort, ベクタ 0o250）** が発生。
 - `trap.c` がこれを受け、`grow()` でスタックを下方拡張してから命令を再実行する。
 - → 本プロジェクトの cc バグ調査でも重要だった「expand-down スタック拡張」はこれ
-  （[41-cc-コンパイル-バグ調査.md](41-cc-コンパイル-バグ調査.md) 参照）。
+  （[41-cc-コンパイル-バグ調査.md](?doc=41-cc-コンパイル-バグ調査.md) 参照）。
 
 ---
 
@@ -204,4 +204,4 @@ MMU が動く瞬間は限られ、そこが明快。
 - [UNIX V6 memory layout — Computer History Wiki](https://gunkies.org/wiki/UNIX_V6_memory_layout)
 - [UNIX V6 internals — Computer History Wiki](https://gunkies.org/wiki/UNIX_V6_internals)
 - Lions' Commentary on UNIX 6th Edition — `estabur`/`sureg`（main.c）, `swtch`/`retu`（slp.c, m40.s）, `grow`（trap.c）
-- 関連: [52-メモリマップ.md](52-メモリマップ.md) / [55-MMU-タイミングと実機比較.md](55-MMU-タイミングと実機比較.md) / [41-cc-コンパイル-バグ調査.md](41-cc-コンパイル-バグ調査.md)
+- 関連: [52-メモリマップ.md](?doc=52-メモリマップ.md) / [55-MMU-タイミングと実機比較.md](?doc=55-MMU-タイミングと実機比較.md) / [41-cc-コンパイル-バグ調査.md](?doc=41-cc-コンパイル-バグ調査.md)

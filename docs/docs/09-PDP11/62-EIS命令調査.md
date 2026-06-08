@@ -119,8 +119,8 @@ MUL/DIV はサイクル数が既存命令より多いため、`step_n()` の上�
 
 ## 5. 参考
 
-- [22-全命令タイミング図.md](22-全命令タイミング図.md) — 既存 A〜K カテゴリのタイミング図一覧
-- [61-残作業リスト.md](61-残作業リスト.md) — 残作業 #5 の詳細
+- [22-全命令タイミング図.md](?doc=22-全命令タイミング図.md) — 既存 A〜K カテゴリのタイミング図一覧
+- [61-残作業リスト.md](?doc=61-残作業リスト.md) — 残作業 #5 の詳細
 - `vendor/cpus-pdp11/verif/test_mul.v` — mul1616 単体テスト
 - `vendor/cpus-pdp11/verif/test_div.v` — div3216 単体テスト
 - `vendor/cpus-pdp11/verif/test_shift.v` — shift32 単体テスト

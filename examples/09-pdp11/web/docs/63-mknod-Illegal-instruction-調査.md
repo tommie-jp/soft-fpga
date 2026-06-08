@@ -86,5 +86,5 @@ verilator --cc --no-timing --top-module test_top_wasm \
 
 ## 6. 参考
 
-- [10-unix-v6-コマンドリファレンス.md](10-unix-v6-コマンドリファレンス.md)
+- [10-unix-v6-コマンドリファレンス.md](?doc=10-unix-v6-コマンドリファレンス.md)
 - `/usr/sys/ken/trap.c`（ディスクイメージ内のカーネルソース）

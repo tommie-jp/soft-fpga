@@ -511,7 +511,7 @@ Phase 3 のコアは **Step 1〜4**。MMU パネル（Step 5）は Phase 4 に�
 
 ## 10. 参考
 
-- [Phase 2 詳細計画](./04-phase2-wasm詳細計画.md)
+- [Phase 2 詳細計画](?doc=04-phase2-wasm詳細計画.md)
 - `examples/06-8080/web/js/rtlscope-la.js` — 流用する LA ライブラリ
 - `examples/06-8080/web/js/sft-8080-la-defs.js` — 信号定義の参考
 - `vendor/cpus-pdp11/rtl/pdp11.v` — CPU マイクロステート定数
