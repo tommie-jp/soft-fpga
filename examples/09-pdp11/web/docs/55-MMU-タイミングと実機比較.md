@@ -1,4 +1,4 @@
-# 55. MMU ON/OFF と命令タイミング — 実機 vs 本プロジェクト RTL <a class="qr-link" href="../../../docs/09-PDP11/55-MMU-タイミングと実機比較-QR.png">QR</a>
+# 55. MMU ON/OFF と命令タイミング — 実機 vs 本プロジェクト RTL <a class="qr-link" href="../../../docs/09-PDP11/55-QR.png">QR</a>
 
 PDP-11 で **MMU（メモリ管理）の有効/無効が命令タイミング（クロック数・バスサイクル波形）を変えるか**を調べた記録。
 結論はモデル依存で、本プロジェクトの RTL がどの実機挙動に相当するかも整理する。

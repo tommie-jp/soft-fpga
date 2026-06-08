@@ -1,4 +1,4 @@
-# 07. Unix V6 / PDP-11 の歴史的価値 <a class="qr-link" href="../../../docs/09-PDP11/07-unix-v6-歴史的価値-QR.png">QR</a>
+# 07. Unix V6 / PDP-11 の歴史的価値 <a class="qr-link" href="../../../docs/09-PDP11/07-QR.png">QR</a>
 
 ## 1. Unix V6 とは
 
