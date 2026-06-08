@@ -145,6 +145,14 @@
   SftDocViewer.prototype._bindHash = function () {
     var self = this;
     function _open() {
+      // ?doc= クエリパラメータを優先（iOS カメラアプリは # を削るため）
+      var qp = new URLSearchParams(window.location.search).get('doc');
+      if (qp) {
+        try { qp = decodeURIComponent(qp); } catch (e) {}
+        self.openDoc(qp);
+        return;
+      }
+      // フォールバック: URL ハッシュ
       var hash = window.location.hash.slice(1);
       if (!hash) return;
       try { hash = decodeURIComponent(hash); } catch (e) {}
