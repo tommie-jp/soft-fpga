@@ -180,6 +180,16 @@ if [[ "$SKIP_TIMING_SS" == false ]]; then
                 "$(basename "$_latest")" "$(ls "$_img_dir"/*.png 2>/dev/null | wc -l)"
         fi
     fi
+
+    # 古い timing-* ディレクトリを削除（直近 3 つのみ保持）
+    for _ss_dir in "${SCRIPT_DIR}/test/ss/8080" "${SCRIPT_DIR}/test/ss/pdp11"; do
+        [[ -d "$_ss_dir" ]] || continue
+        mapfile -t _old_runs < <(ls -d "$_ss_dir/timing-"*/ 2>/dev/null | sort -r | tail -n +4)
+        for _d in "${_old_runs[@]}"; do
+            rm -rf "$_d"
+            printf "  ${YELLOW}削除${RESET}  %s/%s\n" "$(basename "$_ss_dir")" "$(basename "$_d")"
+        done
+    done
     echo ""
 fi
 
