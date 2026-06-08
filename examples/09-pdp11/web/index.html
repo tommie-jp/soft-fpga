@@ -472,7 +472,7 @@
   </div>
 </div>
 
-<h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.0 2026/06/08 14:46</span></h2>
+<h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.0 2026/06/08 15:29</span></h2>
 <p style="font-size:12px;color:#777;margin:0 0 5px;"><a href="https://github.com/lisper/cpus-pdp11" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">cpus-pdp11</a> (Brad Parker RTL) → <a href="https://www.veripool.org/verilator/" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Verilator</a> → <a href="https://en.wikipedia.org/wiki/WebAssembly" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">WASM</a> &nbsp;|&nbsp; <a href="https://en.wikipedia.org/wiki/History_of_Unix" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Unix V6</a> + custom RK11 BIOS</p>
 
 <!-- docs パネル -->
@@ -581,7 +581,7 @@
       <button class="ctrl-btn" data-ch="26">^Z</button>
       <button class="ctrl-btn" data-ch="27">ESC</button>
       <button class="ctrl-btn" data-ch="9">TAB</button>
-      <button class="ctrl-btn" data-ch="127">BS</button>
+      <button class="ctrl-btn" data-ch="35">BS</button>
       <span id="macro-status"></span>
       <button id="btn-macro-stop" class="ctrl-btn" style="display:none;color:#f66;">&#x25A0;STOP</button>
     </div>
@@ -1950,7 +1950,7 @@ term.onData(function(data) {
           var hist = histIdx >= 0 ? inputHistory[histIdx] : '';
           // 現在の入力行をクリアして履歴文字列を送出
           for (var bk = 0; bk < _inputBuf.length; bk++) {
-            worker.postMessage({ type: 'key', ch: 0x08 });
+            worker.postMessage({ type: 'key', ch: 0x23 }); // Unix V6 CERASE = '#'
           }
           _inputBuf = hist;
           for (var hc = 0; hc < hist.length; hc++) {
@@ -1972,7 +1972,7 @@ term.onData(function(data) {
       if (_inputBuf.startsWith('!')) {
         // ホストコマンド: 入力をバックスペースで消去して Unix V6 には CR のみ
         for (var bk2 = 0; bk2 < _inputBuf.length; bk2++)
-          worker.postMessage({ type: 'key', ch: 0x08 });
+          worker.postMessage({ type: 'key', ch: 0x23 }); // Unix V6 CERASE = '#'
         var hostCmd = _inputBuf.slice(1);
         _inputBuf = '';
         worker.postMessage({ type: 'key', ch: 0x0D });
@@ -1987,7 +1987,10 @@ term.onData(function(data) {
     } else {
       _inputBuf = '';
     }
-    worker.postMessage({ type: 'key', ch: code });
+    // Backspace (0x7F) と Ctrl-H (0x08) は Unix V6 の CERASE = '#' (0x23) に変換。
+    // Unix V6 では DEL (0x7F) は CINTR（割り込み）なので文字消去にならない。
+    var sendCode = (code === 0x7F || code === 0x08) ? 0x23 : code;
+    worker.postMessage({ type: 'key', ch: sendCode });
   }
 });
 
