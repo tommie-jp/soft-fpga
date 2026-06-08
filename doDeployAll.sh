@@ -30,7 +30,7 @@ set -euo pipefail
 
 usage() {
     cat <<'EOF'
-使い方: doDeployAll.sh [-y] [--no-build] [--no-timing-ss] [--no-gallery] [--no-deploy] [--no-check] [--no-gallery-check]
+使い方: doDeployAll.sh [-y] [--no-build] [--no-timing-ss] [--no-gallery] [--no-deploy] [--no-check] [--no-gallery-check] [--no-qr-check]
 
 examples/06-8080 と 09-pdp11 をビルドして GitHub Pages にデプロイする。
 
@@ -48,6 +48,7 @@ examples/06-8080 と 09-pdp11 をビルドして GitHub Pages にデプロイす
      test/ss/8080・pdp11/index.html が参照する PNG を GitHub Pages で確認
   7. scripts/check-pdp11-links.py            PDP-11 ローカルリンクチェック（デプロイ前）
      index.html・sim-worker.js・sft-pdp11-docs.js の参照ファイル存在確認と一貫性検証
+  8. QR PNG 存在確認                          docs/09-PDP11/XX-QR.png が GitHub Pages で HTTP 200 か確認
 
 前提条件:
   - git remote "origin" が設定済みで push 権限があること
@@ -66,6 +67,7 @@ examples/06-8080 と 09-pdp11 をビルドして GitHub Pages にデプロイす
   --no-check             ステップ5 デプロイ確認をスキップ
   --no-gallery-check     ステップ6 ギャラリーリンクチェックをスキップ
   --no-pdp11-links       ステップ7 PDP-11 ローカルリンクチェックをスキップ
+  --no-qr-check          ステップ8 QR PNG 存在確認をスキップ
   -h, --help             このヘルプを表示して終了
 
 使用例:
@@ -88,6 +90,7 @@ SKIP_DEPLOY=false
 SKIP_CHECK=false
 SKIP_GALLERY_CHECK=false
 SKIP_PDP11_LINKS=false
+SKIP_QR_CHECK=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -100,6 +103,7 @@ while [[ $# -gt 0 ]]; do
         --no-check)          SKIP_CHECK=true;         shift ;;
         --no-gallery-check)  SKIP_GALLERY_CHECK=true;  shift ;;
         --no-pdp11-links)    SKIP_PDP11_LINKS=true;    shift ;;
+        --no-qr-check)       SKIP_QR_CHECK=true;       shift ;;
         *) echo "不明なオプション: $1" >&2; usage >&2; exit 1 ;;
     esac
 done
@@ -139,9 +143,9 @@ fi
 step_header() {
     local num="$1" label="$2" skipped="$3"
     if [[ "$skipped" == true ]]; then
-        printf "${CYAN}[%s/7]${RESET} %s → ${YELLOW}スキップ${RESET}\n\n" "$num" "$label"
+        printf "${CYAN}[%s/8]${RESET} %s → ${YELLOW}スキップ${RESET}\n\n" "$num" "$label"
     else
-        printf "${CYAN}[%s/7]${RESET} %s\n\n" "$num" "$label"
+        printf "${CYAN}[%s/8]${RESET} %s\n\n" "$num" "$label"
     fi
 }
 
@@ -273,6 +277,44 @@ if [[ "$SKIP_PDP11_LINKS" == false ]]; then
         exit 1
     else
         printf "${GREEN}✓ PDP-11 リンクチェック 完了${RESET}\n"
+    fi
+    echo ""
+fi
+
+# ---------------------------------------------------------------------------
+# ステップ 8: QR PNG 存在確認
+# ---------------------------------------------------------------------------
+step_header 8 "QR PNG 存在確認 (docs/09-PDP11/XX-QR.png @ GitHub Pages)" "$SKIP_QR_CHECK"
+if [[ "$SKIP_QR_CHECK" == false ]]; then
+    QR_BASE="${PAGES_BASE}/docs/09-PDP11"
+    qr_fail=0
+    qr_ok=0
+    qr_missing=()
+
+    for png in "${SCRIPT_DIR}/docs/09-PDP11/"*-QR.png; do
+        fname="$(basename "$png")"
+        url="${QR_BASE}/${fname}"
+        status=$(curl -o /dev/null -s -w "%{http_code}" --max-time 10 "$url")
+        if [[ "$status" == "200" ]]; then
+            (( qr_ok++ )) || true
+        else
+            qr_missing+=("$fname (HTTP $status)")
+            (( qr_fail++ )) || true
+        fi
+    done
+
+    if [[ $qr_fail -eq 0 ]]; then
+        printf "  ${GREEN}✓${RESET}  全 %d 件 HTTP 200\n" "$qr_ok"
+        echo ""
+        printf "${GREEN}✓ QR PNG 存在確認 完了${RESET}\n"
+    else
+        printf "  ${RED}✗${RESET}  %d / %d 件が 404 または エラー:\n" "$qr_fail" "$(( qr_ok + qr_fail ))"
+        for m in "${qr_missing[@]}"; do
+            printf "       %s\n" "$m"
+        done
+        echo ""
+        printf "${RED}✗ QR PNG が GitHub Pages に存在しません。${RESET}\n"
+        exit 1
     fi
     echo ""
 fi
