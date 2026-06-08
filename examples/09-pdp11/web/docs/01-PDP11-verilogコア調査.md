@@ -1,4 +1,4 @@
-# PDP-11 Verilog 実装の調査メモ
+# PDP-11 Verilog 実装の調査メモ <a class="qr-link" href="docs/01-PDP11-verilogコア調査-QR.png">QR</a>
 
 rtlscope（Verilator → C++ → Emscripten/WASM パイプライン）への組み込み検討資料。
 
