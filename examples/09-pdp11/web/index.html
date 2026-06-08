@@ -103,6 +103,31 @@
     .la-smpl-label { font-size:10px; color:#668; white-space:nowrap; user-select:none; }
     #la-toggles { padding:4px 8px; border-bottom:1px solid #bbc;
                   display:flex; flex-wrap:wrap; gap:4px; background:#d8d8e8; font-size:11px; }
+    .sig-tog {
+      display:inline-flex; align-items:center; gap:4px;
+      padding:2px 7px 2px 5px; border-radius:10px;
+      border:1px solid rgba(0,0,0,.15);
+      cursor:pointer; font-size:11px; user-select:none;
+      color:#fff; white-space:nowrap;
+    }
+    .sig-tog:not(.on) { color:#444; background:#d0d0e2 !important; }
+    .sig-tog input[type=checkbox] { display:none; }
+    .sig-tog .sw-track {
+      display:inline-block; width:22px; height:12px;
+      border-radius:6px; position:relative; flex-shrink:0;
+      background:rgba(0,0,0,.22);
+    }
+    .sig-tog.on .sw-track { background:rgba(255,255,255,.35); }
+    .sig-tog .sw-track::after {
+      content:''; position:absolute; top:2px; left:2px;
+      width:8px; height:8px; border-radius:50%;
+      background:rgba(0,0,0,.35);
+      transition:transform .12s, background .12s;
+    }
+    .sig-tog.on .sw-track::after {
+      transform:translateX(10px);
+      background:rgba(255,255,255,.9);
+    }
     canvas#la { display:block; width:100%; background:#f5f5f5; }
 
     /* ── ローディングオーバーレイ ── */
@@ -231,7 +256,6 @@
     .la-nav button { background:#c8c8d8; color:#446; border:1px solid #aab;
                      padding:1px 7px; cursor:pointer; font-size:11px; }
     .la-nav button:hover { background:#b8b8c8; }
-    #la-pos-lbl { font-size:10px; color:#558; margin-left:4px; }
 
     /* ── LA Freeze バッジ ── */
     #frozen-badge { font-size:10px; color:#f84; }
@@ -255,14 +279,6 @@
     .modal-btns button { padding:3px 14px; }
     button.flash { background:#664 !important; }
 
-    /* ── LA Fill/Hatch チェックボックス ── */
-    .la-fill-label, .la-hatch-label {
-      display:inline-flex; align-items:center; gap:3px;
-      font-size:11px; font-family:monospace; padding:2px 6px;
-      border:1px solid #aab; border-radius:2px; background:#d0d0e0;
-      color:#446; cursor:pointer; user-select:none;
-    }
-    .la-fill-label input, .la-hatch-label input { cursor:pointer; margin:0; accent-color:#446; }
 
     /* ── LA ズームセレクト ── */
     #la-zoom-sel {
@@ -472,7 +488,7 @@
   </div>
 </div>
 
-<h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.0 2026/06/08 19:30</span></h2>
+<h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.0 2026/06/08 20:09</span></h2>
 <p style="font-size:12px;color:#777;margin:0 0 5px;"><a href="https://github.com/lisper/cpus-pdp11" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">cpus-pdp11</a> (Brad Parker RTL) → <a href="https://www.veripool.org/verilator/" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Verilator</a> → <a href="https://en.wikipedia.org/wiki/WebAssembly" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">WASM</a> &nbsp;|&nbsp; <a href="https://en.wikipedia.org/wiki/History_of_Unix" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Unix V6</a> + custom RK11 BIOS</p>
 
 <!-- docs パネル -->
@@ -732,24 +748,23 @@
       <option value="8">64x</option>
     </select>
     <button class="la-zoom-btn" id="la-zoom-in">+</button>
-    <label class="la-fill-label" title="信号レーン塗りつぶし ON/OFF">
-      <input type="checkbox" id="la-fill-chk" checked> Fill
+    <label class="sig-tog on" id="la-fill-lbl" style="background:#446;" title="信号レーン塗りつぶし ON/OFF">
+      <input type="checkbox" id="la-fill-chk" checked><span class="sw-track"></span> Fill
     </label>
-    <label class="la-hatch-label" title="ハッチパターン ON/OFF">
-      <input type="checkbox" id="la-hatch-chk" checked> Hatch
+    <label class="sig-tog on" id="la-hatch-lbl" style="background:#446;" title="ハッチパターン ON/OFF">
+      <input type="checkbox" id="la-hatch-chk" checked><span class="sw-track"></span> Hatch
     </label>
     <button class="la-zoom-btn" id="btn-la-freeze">Freeze</button>
     <span id="frozen-badge" style="display:none;">FROZEN</span>
   </div>
   <div id="la-toggles"></div>
   <div class="la-nav">
-    <button id="la-nav-start">&#171;</button>
-    <button id="la-nav-prev">&#8249;</button>
-    <button id="la-nav-next">&#8250;</button>
-    <button id="la-nav-end">&#187;</button>
+    <button id="la-nav-ll">&#171;</button>
+    <button id="la-nav-l">&#8249;</button>
+    <button id="la-nav-r">&#8250;</button>
+    <button id="la-nav-rr">&#187;</button>
     <button id="btn-step" title="1ステップ実行（Freeze 中のみ有効）">▶ Step</button>
     <button id="btn-goto-trig" title="トリガー発火位置へジャンプ">⊙Trig</button>
-    <span id="la-pos-lbl"></span>
     <a id="la-ss-link" href="../../../test/ss/pdp11/index.html" target="_blank"
        rel="noopener" title="PDP-11 全命令タイミング図">&#x1F4F7; SS</a>
   </div>
@@ -878,16 +893,23 @@ la._updateCanvas();
   // ズームボタン
   var btnOut = document.getElementById('la-zoom-out');
   var btnIn  = document.getElementById('la-zoom-in');
+  var LA_ZOOM_MAX_IDX = 8;
   function updateZoomLbl() {
     if (lbl) lbl.textContent = la.zoomLabel || (la._zoom + 'x');
+  }
+  function updateZoomButtons() {
+    if (btnOut) btnOut.disabled = (la._zoomIdx <= 0);
+    if (btnIn)  btnIn.disabled  = (la._zoomIdx >= LA_ZOOM_MAX_IDX);
   }
   if (btnOut) btnOut.addEventListener('click', function() {
     updateZoomLbl();
     _syncZoomSel();
+    updateZoomButtons();
   });
   if (btnIn) btnIn.addEventListener('click', function() {
     updateZoomLbl();
     _syncZoomSel();
+    updateZoomButtons();
   });
   // ズームセレクト (#8)
   var zoomSel = document.getElementById('la-zoom-sel');
@@ -902,17 +924,27 @@ la._updateCanvas();
   if (zoomSel) {
     zoomSel.addEventListener('change', function() {
       updateZoomLbl();
+      updateZoomButtons();
     });
     _syncZoomSel();
   }
+  updateZoomButtons();
 })();
 
 // ── Fill / Hatch チェックボックス (#7) ───────────────────────────────────
 (function() {
   var fillChk  = document.getElementById('la-fill-chk');
   var hatchChk = document.getElementById('la-hatch-chk');
-  if (fillChk)  fillChk.addEventListener('change',  function() { la.setFillEnabled(this.checked); });
-  if (hatchChk) hatchChk.addEventListener('change', function() { la.setHatchEnabled(this.checked); });
+  var fillLbl  = document.getElementById('la-fill-lbl');
+  var hatchLbl = document.getElementById('la-hatch-lbl');
+  if (fillChk) fillChk.addEventListener('change', function() {
+    la.setFillEnabled(this.checked);
+    if (fillLbl) { fillLbl.className = 'sig-tog' + (this.checked ? ' on' : ''); fillLbl.style.background = this.checked ? '#446' : ''; }
+  });
+  if (hatchChk) hatchChk.addEventListener('change', function() {
+    la.setHatchEnabled(this.checked);
+    if (hatchLbl) { hatchLbl.className = 'sig-tog' + (this.checked ? ' on' : ''); hatchLbl.style.background = this.checked ? '#446' : ''; }
+  });
 })();
 
 // ── Step / ⊙Trig (#9 / #10) ──────────────────────────────────────────────
@@ -2169,47 +2201,6 @@ document.getElementById('btn-la-freeze').addEventListener('click', function() {
   } else {
     worker.postMessage({ type: 'unfreeze' });
   }
-});
-
-// ── LA ページナビゲーション ───────────────────────────────────────────────
-// la.scrollTo(offset) が存在すればそれを利用し、なければ _viewStart を直接操作する
-function _laScrollTo(offset) {
-  if (la.scrollTo) {
-    la.scrollTo(offset);
-  } else if (la._viewStart !== undefined) {
-    la._viewStart = offset;
-    la._updateCanvas();
-  }
-  _updateLANav();
-}
-
-function _laGetViewStart() {
-  return la._viewStart !== undefined ? la._viewStart : 0;
-}
-
-function _laGetPageSize() {
-  // 1 ページ分のサンプル数: 表示幅 / (サンプル幅 × ズーム)
-  // 概算: ring buffer サイズの 1/8 程度
-  return la._pageSize || Math.floor(_ringSize / 8) || 128;
-}
-
-function _updateLANav() {
-  var lbl = document.getElementById('la-pos-lbl');
-  if (lbl) lbl.textContent = 'pos:' + _laGetViewStart();
-}
-
-document.getElementById('la-nav-start').addEventListener('click', function() {
-  _laScrollTo(0);
-});
-document.getElementById('la-nav-prev').addEventListener('click', function() {
-  _laScrollTo(Math.max(0, _laGetViewStart() - _laGetPageSize()));
-});
-document.getElementById('la-nav-next').addEventListener('click', function() {
-  _laScrollTo(_laGetViewStart() + _laGetPageSize());
-});
-document.getElementById('la-nav-end').addEventListener('click', function() {
-  // ring buffer の末尾付近へ
-  _laScrollTo(Math.max(0, _ringSize - _laGetPageSize()));
 });
 
 // ── FS パネルのリフレッシュ・アップロード ────────────────────────────────
