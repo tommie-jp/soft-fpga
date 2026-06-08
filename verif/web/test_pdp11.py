@@ -65,7 +65,10 @@ def booted_page(browser, base_url: str) -> Page:
     """Wasm ロード → Boot → login: まで進めたページをモジュール内で共有する。"""
     ctx = browser.new_context()
     page = ctx.new_page()
-    page.goto(base_url)
+    # autoboot=0 にしてボタンが有効化された状態で待機できるようにする
+    # （デフォルト autoboot では _onDiskReady → _maybeAutoBoot が同一フレームで
+    #   enabled→disabled するため Playwright が捕捉できない）
+    page.goto(base_url + "?autoboot=0")
     # WASM ロード完了（Boot ボタンが有効化される）+ xterm 準備
     page.wait_for_function(
         "() => { const b=document.getElementById('btn-boot'); return b && !b.disabled; }",

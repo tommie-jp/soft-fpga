@@ -236,17 +236,14 @@ class TestLogicAnalyzer:
             f"ズームセレクタの選択肢が少なすぎる: {opt_count}"
 
     def test_freeze_and_add_all_signals(self, loaded_page: Page) -> None:
-        """Freeze → ＋ボタンで全信号を追加 → #la-toggles にチップ表示 → キャンバス描画確認。
+        """Freeze → 全信号チップを ON → #la-toggles のONチップ数確認 → キャンバス描画確認。
 
         手順:
           1. Freeze ボタンを押して波形を固定する
-          2. #la-toggles 内の ＋ ボタンをクリックしてピッカーを開く
-          3. ピッカーが表示されていることを確認
-          4. 未選択の全信号チェックボックスを一括チェック
-          5. ピッカーを閉じる
-          6. #la-toggles の ON チップ数が全信号数と一致することを確認
-          7. キャンバスに描画ピクセルがあることを確認
-          8. Thaw して元の状態に戻す
+          2. #la-toggles の未チェック信号チップを全て ON にする（常時全表示チップバー UI）
+          3. #la-toggles の ON チップ数が全信号数以上であることを確認
+          4. キャンバスに描画ピクセルがあることを確認
+          5. Thaw して元の状態に戻す
         """
         freeze_btn = loaded_page.locator("#btn-freeze")
 
@@ -258,51 +255,34 @@ class TestLogicAnalyzer:
         assert "Thaw" in (freeze_btn.text_content() or ""), \
             "Freeze ボタンをクリックしても Thaw 表示にならない"
 
-        # 2. #la-toggles 内の ＋ ボタンをクリックしてピッカーを開く
-        add_btn = loaded_page.locator("#la-toggles button").last
-        add_btn.click()
-        time.sleep(0.3)
-
-        # 3. ピッカーが表示されていることを確認
-        picker = loaded_page.locator("[id='_la_picker_la-toggles']")
-        assert picker.is_visible(), "＋ クリックで信号ピッカーが開かない"
-
-        # 4. 未選択の全信号チェックボックスを一括チェック（evaluate 内で変更イベントを発火）
+        # 2. 未チェックの信号チップを全て ON にする（change イベントを dispatch）
         added_count = loaded_page.evaluate("""() => {
-            var picker = document.getElementById('_la_picker_la-toggles');
-            if (!picker) return 0;
             var count = 0;
-            picker.querySelectorAll('input[data-pid]').forEach(function(cb) {
-                if (!cb.checked) {
-                    cb.checked = true;
-                    cb.dispatchEvent(new Event('change', { bubbles: true }));
-                    count++;
-                }
-            });
+            document.querySelectorAll('#la-toggles label.sig-tog input[type=checkbox]')
+                .forEach(function(cb) {
+                    if (!cb.checked) {
+                        cb.checked = true;
+                        cb.dispatchEvent(new Event('change', { bubbles: true }));
+                        count++;
+                    }
+                });
             return count;
         }""")
-        assert added_count > 0, "追加できる信号が 1 つもない（既に全信号が ON の可能性あり）"
-
-        # 5. ピッカーを閉じる（display:none で非表示にする）
-        loaded_page.evaluate(
-            "var p = document.getElementById('_la_picker_la-toggles');"
-            " if (p) p.style.display = 'none';"
-        )
         time.sleep(0.3)
 
-        # 6. #la-toggles の ON チップ数が全信号数以上であることを確認
+        # 3. #la-toggles の ON チップ数が全信号数以上であることを確認
         active_count = loaded_page.evaluate(
             "document.querySelectorAll('#la-toggles .sig-tog.on').length"
         )
-        total_signals = loaded_page.evaluate(
-            "typeof LA_SIGNALS_ALL !== 'undefined' ? LA_SIGNALS_ALL.length : 0"
+        total_chips = loaded_page.evaluate(
+            "document.querySelectorAll('#la-toggles label.sig-tog').length"
         )
-        assert total_signals > 0, "LA_SIGNALS_ALL が参照できない（JS グローバルが未定義）"
-        assert active_count >= total_signals, (
-            f"全信号チップが #la-toggles に表示されていない: ON={active_count} / 全 {total_signals}"
+        assert total_chips > 0, "#la-toggles に信号チップが存在しない"
+        assert active_count >= total_chips, (
+            f"全信号チップが ON になっていない: ON={active_count} / 全 {total_chips}"
         )
 
-        # 7. キャンバスに描画ピクセルがある（alpha > 0 のピクセルを探す）
+        # 4. キャンバスに描画ピクセルがある（alpha > 0 のピクセルを探す）
         has_pixels = loaded_page.evaluate("""() => {
             var c = document.getElementById('la');
             if (!c) return false;
@@ -316,7 +296,7 @@ class TestLogicAnalyzer:
         }""")
         assert has_pixels, "全信号追加後もキャンバスに描画ピクセルがない"
 
-        # 8. Thaw して元の状態に戻す
+        # 5. Thaw して元の状態に戻す
         if "Thaw" in (freeze_btn.text_content() or ""):
             freeze_btn.click()
             time.sleep(0.2)
