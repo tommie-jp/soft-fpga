@@ -79,4 +79,4 @@ MMU 変換は組合せ論理で、CPU を止める wait/stall を出さない。
 - [Performance discussion — pidp-11 group](https://groups.google.com/g/pidp-11/c/tKPO2VjzxCE)
 - [PDP-11/45 Memory Management Reference Manual (DEC-11-HGKTCB-D)](https://www.bitsavers.org/www.computer.museum.uq.edu.au/pdf/DEC-11-HGKTCB-D%20PDP-1145%20Memory%20Management%20Reference%20Manual.pdf)
 - [KT11-C Memory Management Unit — Computer History Wiki](http://gunkies.org/wiki/KT11-C_Memory_Management_Unit)
-- 関連: [40-cpu-テスト計画.md](40-cpu-テスト計画.md) / [21-バスサイクル実例.md](21-バスサイクル実例.md)
+- 関連: [40-cpu-テスト計画.md](?doc=40-cpu-テスト計画.md) / [21-バスサイクル実例.md](?doc=21-バスサイクル実例.md)

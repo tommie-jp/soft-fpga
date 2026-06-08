@@ -49,6 +49,7 @@ examples/06-8080 と 09-pdp11 をビルドして GitHub Pages にデプロイす
   7. scripts/check-pdp11-links.py            PDP-11 ローカルリンクチェック（デプロイ前）
      index.html・sim-worker.js・sft-pdp11-docs.js の参照ファイル存在確認と一貫性検証
   8. QR PNG 存在確認                          docs/09-PDP11/XX-QR.png が GitHub Pages で HTTP 200 か確認
+  9. scripts/check-md-links.py               docs/09-PDP11/*.md 内リンク切れチェック（デプロイ後 HTTP）
 
 前提条件:
   - git remote "origin" が設定済みで push 権限があること
@@ -68,6 +69,7 @@ examples/06-8080 と 09-pdp11 をビルドして GitHub Pages にデプロイす
   --no-gallery-check     ステップ6 ギャラリーリンクチェックをスキップ
   --no-pdp11-links       ステップ7 PDP-11 ローカルリンクチェックをスキップ
   --no-qr-check          ステップ8 QR PNG 存在確認をスキップ
+  --no-md-links          ステップ9 MD リンク切れチェックをスキップ
   -h, --help             このヘルプを表示して終了
 
 使用例:
@@ -91,6 +93,7 @@ SKIP_CHECK=false
 SKIP_GALLERY_CHECK=false
 SKIP_PDP11_LINKS=false
 SKIP_QR_CHECK=false
+SKIP_MD_LINKS=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -104,6 +107,7 @@ while [[ $# -gt 0 ]]; do
         --no-gallery-check)  SKIP_GALLERY_CHECK=true;  shift ;;
         --no-pdp11-links)    SKIP_PDP11_LINKS=true;    shift ;;
         --no-qr-check)       SKIP_QR_CHECK=true;       shift ;;
+        --no-md-links)       SKIP_MD_LINKS=true;       shift ;;
         *) echo "不明なオプション: $1" >&2; usage >&2; exit 1 ;;
     esac
 done
@@ -143,9 +147,9 @@ fi
 step_header() {
     local num="$1" label="$2" skipped="$3"
     if [[ "$skipped" == true ]]; then
-        printf "${CYAN}[%s/8]${RESET} %s → ${YELLOW}スキップ${RESET}\n\n" "$num" "$label"
+        printf "${CYAN}[%s/9]${RESET} %s → ${YELLOW}スキップ${RESET}\n\n" "$num" "$label"
     else
-        printf "${CYAN}[%s/8]${RESET} %s\n\n" "$num" "$label"
+        printf "${CYAN}[%s/9]${RESET} %s\n\n" "$num" "$label"
     fi
 }
 
@@ -325,6 +329,28 @@ if [[ "$SKIP_QR_CHECK" == false ]]; then
         echo ""
         printf "${RED}✗ QR PNG が GitHub Pages に存在しません。${RESET}\n"
         exit 1
+    fi
+    echo ""
+fi
+
+# ---------------------------------------------------------------------------
+# ステップ 9: MD リンク切れチェック
+# ---------------------------------------------------------------------------
+step_header 9 "MD リンク切れチェック (scripts/check-md-links.py)" "$SKIP_MD_LINKS"
+if [[ "$SKIP_MD_LINKS" == false ]]; then
+    set +e
+    python3 "${SCRIPT_DIR}/scripts/check-md-links.py" \
+        --docs-dir "${SCRIPT_DIR}/docs/09-PDP11" \
+        --web-base "${PAGES_BASE}/examples/09-pdp11/web/" 2>&1 | sed 's/^/  /'
+    ml_exit=${PIPESTATUS[0]}
+    set -e
+
+    echo ""
+    if [[ $ml_exit -ne 0 ]]; then
+        printf "${RED}✗ MD リンクに問題があります。${RESET}\n"
+        exit 1
+    else
+        printf "${GREEN}✓ MD リンクチェック 完了${RESET}\n"
     fi
     echo ""
 fi

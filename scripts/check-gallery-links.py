@@ -23,6 +23,7 @@ Exit codes:
 
 import re
 import sys
+import time
 import urllib.error
 import urllib.request
 from urllib.parse import urljoin, urlparse
@@ -56,20 +57,30 @@ def extract_links(html, page_url, base_host):
     return links
 
 
-def check_url(url):
-    """HTTP ステータスコードを返す。HEAD が 405 なら GET で再試行。"""
-    for method in ("HEAD", "GET"):
-        try:
-            req = urllib.request.Request(url, method=method, headers=HEADERS)
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                return resp.status
-        except urllib.error.HTTPError as e:
-            if method == "HEAD" and e.code == 405:
-                continue
-            return e.code
-        except Exception:
-            return 0
-    return 0
+def check_url(url, retries=3, retry_delay=5):
+    """HTTP ステータスコードを返す。HEAD が 405 なら GET で再試行。
+    200 以外のとき retries 回まで retry_delay 秒待ってリトライする（CDN 伝播遅延対策）。"""
+    for attempt in range(retries):
+        for method in ("HEAD", "GET"):
+            try:
+                req = urllib.request.Request(url, method=method, headers=HEADERS)
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    return resp.status
+            except urllib.error.HTTPError as e:
+                if method == "HEAD" and e.code == 405:
+                    continue
+                code = e.code
+                break
+            except Exception:
+                code = 0
+                break
+        else:
+            code = 0
+        if code == 200:
+            return 200
+        if attempt < retries - 1:
+            time.sleep(retry_delay)
+    return code
 
 
 def main():
