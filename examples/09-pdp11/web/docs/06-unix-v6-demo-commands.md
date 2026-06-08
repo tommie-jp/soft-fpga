@@ -1,4 +1,4 @@
-# 06. Unix V6 デモコマンド集 <a class="qr-link" href="docs/06-unix-v6-demo-commands-QR.png">QR</a>
+# 06. Unix V6 デモコマンド集 <a class="qr-link" href="../../../docs/09-PDP11/06-unix-v6-demo-commands-QR.png">QR</a>
 
 ## ブート直後（定番の確認）
 

@@ -1,4 +1,4 @@
-# Phase 1 詳細計画 — Verilator ネイティブで Unix V6 ブート確認 <a class="qr-link" href="docs/03-phase1-詳細計画-QR.png">QR</a>
+# Phase 1 詳細計画 — Verilator ネイティブで Unix V6 ブート確認 <a class="qr-link" href="../../../docs/09-PDP11/03-phase1-詳細計画-QR.png">QR</a>
 
 ## 1. ゴールと完了定義
 

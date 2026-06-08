@@ -1,4 +1,4 @@
-# 62. EIS 命令（MUL/DIV/ASH/ASHC）調査 <a class="qr-link" href="docs/62-EIS命令調査-QR.png">QR</a>
+# 62. EIS 命令（MUL/DIV/ASH/ASHC）調査 <a class="qr-link" href="../../../docs/09-PDP11/62-EIS命令調査-QR.png">QR</a>
 
 2026-06-06 調査。残作業 #5（EIS タイミング図）の前提調査。
 
