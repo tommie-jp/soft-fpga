@@ -309,284 +309,156 @@
     var el = document.getElementById(self._togglesId);
     if (!el) return;
 
-    // 古いピッカーを破棄（buildToggles 再呼び出し対応）
-    var pickerId = '_la_picker_' + self._togglesId;
-    var oldPicker = document.getElementById(pickerId);
-    if (oldPicker) oldPicker.parentNode.removeChild(oldPicker);
+    // 既存コンテンツを破棄（再呼び出し対応）
+    while (el.firstChild) el.removeChild(el.firstChild);
 
-    // ── グループ色マップ: signal.id → group color ──
+    // グループ色マップ: signal.id → group color
     var sigGroupColor = {};
     self._groups.forEach(function(grp) {
       var gc = grp.color || '#666';
       grp.ids.forEach(function(id) { sigGroupColor[id] = gc; });
     });
 
-    // ── ピッカードロップダウン (body に fixed 配置) ──
-    var picker = document.createElement('div');
-    picker.id = pickerId;
-    picker.style.cssText =
-      'display:none;position:fixed;z-index:600;' +
-      'background:#fff;border:1px solid #bbb;border-radius:4px;' +
-      'box-shadow:0 4px 14px rgba(0,0,0,.22);' +
-      'padding:6px 10px 8px;max-width:460px;min-width:180px;';
-    picker.addEventListener('click', function(e) { e.stopPropagation(); });
-    document.body.appendChild(picker);
+    // 折りたたみ状態
+    var colKey = self._prefix + 'chips_collapsed';
+    var collapsed = localStorage.getItem(colKey) === '1';
 
-    function closePicker() { picker.style.display = 'none'; }
-    document.addEventListener('click', closePicker);
+    // 折りたたみトグルボタン（左端）
+    var colBtn = document.createElement('button');
+    colBtn.style.cssText =
+      'font-size:13px;padding:1px 6px;line-height:1.5;cursor:pointer;' +
+      'border:1px solid #aaa;border-radius:10px;background:#e8e8e8;color:#555;' +
+      'flex-shrink:0;font-family:monospace;';
+    colBtn.title = 'チップバーを折りたたむ / 展開する';
+    el.appendChild(colBtn);
 
-    function positionPicker() {
-      var rect = el.getBoundingClientRect();
-      picker.style.top  = (rect.bottom + 4) + 'px';
-      picker.style.left = rect.left + 'px';
-      // 右端はみ出し補正（次フレームで幅確定後に調整）
-      requestAnimationFrame(function() {
-        var pw = picker.offsetWidth;
-        var vw = window.innerWidth;
-        var left = parseFloat(picker.style.left);
-        if (left + pw > vw - 8) picker.style.left = Math.max(4, vw - pw - 8) + 'px';
-      });
+    // チップ群コンテナ
+    var chipsDiv = document.createElement('div');
+    chipsDiv.style.cssText = 'display:contents;';
+    el.appendChild(chipsDiv);
+
+    function applyCollapsed(c) {
+      collapsed = c;
+      localStorage.setItem(colKey, c ? '1' : '0');
+      chipsDiv.style.display = c ? 'none' : 'contents';
+      colBtn.textContent = c ? '▸' : '▾';
     }
+    applyCollapsed(collapsed);
 
-    // ピッカー内チェックボックスを id で更新
-    function updatePickerCheck(id, checked) {
-      var cb = picker.querySelector('input[data-pid="' + id + '"]');
-      if (!cb) return;
-      var gc = sigGroupColor[id] || '#666';
-      cb.checked = checked;
-      cb.parentElement.className = 'sig-tog' + (checked ? ' on' : '');
-      cb.parentElement.style.background = checked ? gc : '';
-    }
-
-    // ── ピッカー先頭: Marker セクション ──
-    (function() {
-      var mhdr = document.createElement('div');
-      mhdr.style.cssText =
-        'font-size:10px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;' +
-        'color:#666;margin-bottom:4px;';
-      mhdr.textContent = 'Marker';
-      picker.appendChild(mhdr);
-
-      var mRow = document.createElement('div');
-      mRow.style.cssText =
-        'display:flex;align-items:center;gap:4px;' +
-        'padding-bottom:7px;margin-bottom:4px;border-bottom:1px solid #eee;';
-      picker.appendChild(mRow);
-
-      // マーカーボタン生成ヘルパー（ピッカー内に埋め込む）
-      function _mkMarkerBtn(label, colorOn, getOn, setOn, getSamp, setSamp) {
-        var btn = document.createElement('button');
-        btn.textContent = label;
-        var baseStyle = 'font-size:11px;font-weight:bold;padding:1px 8px;line-height:1.5;' +
-                        'border:1px solid #aaa;cursor:pointer;font-family:monospace;' +
-                        'min-width:28px;text-align:center;border-radius:3px;';
-        function _apply() {
-          if (getOn()) {
-            btn.style.cssText = baseStyle + 'background:' + colorOn +
-                                ';color:#fff;border-color:' + colorOn + ';';
-          } else {
-            btn.style.cssText = baseStyle + 'background:#e8e8e8;color:#888;';
-          }
-        }
-        btn._refreshStyle = _apply;
-        _apply();
-        btn.addEventListener('click', function() {
-          var next = !getOn();
-          if (next && getSamp) {
-            // ON のたびにビュー中央へ配置（再 ON も含む）
-            setSamp(self._lastStartSamp + Math.floor(self._lastSamplesInView / 2));
-          }
-          setOn(next);
-          // Freeze 中 かつ ON にしたとき: マーカー位置をビュー中央へパン
-          // 実行中は panOverride をセットしない（ライブ追従を維持）
-          if (next && self._frozen && getSamp && getSamp() !== null) {
-            var samp = getSamp();
-            var head = self._lastHead >>> 0;
-            var sv   = self._lastSamplesInView;
-            self._pan = Math.max(0, head - samp - Math.floor(sv / 2));
-            self._panOverride = true;
-          }
-          self._schedDraw();
-          _apply();
-        });
-        return btn;
-      }
-
-      var btnA = _mkMarkerBtn('A', '#0064e6',
-        function() { return self._markerAOn; },
-        function(v) { self._markerAOn = v; },
-        function() { return self._markerA; },
-        function(s) { self._markerA = s; });
-      self._markerBtnApply.A = function() { btnA._refreshStyle(); };
-      mRow.appendChild(btnA);
-
-      var btnB = _mkMarkerBtn('B', '#e07800',
-        function() { return self._markerBOn; },
-        function(v) { self._markerBOn = v; },
-        function() { return self._markerB; },
-        function(s) { self._markerB = s; });
-      self._markerBtnApply.B = function() { btnB._refreshStyle(); };
-      mRow.appendChild(btnB);
-
-      var btnC = _mkMarkerBtn('C', '#00a050',
-        function() { return self._markerCOn; },
-        function(v) { self._markerCOn = v; },
-        function() { return self._markerC; },
-        function(s) { self._markerC = s; });
-      self._markerBtnApply.C = function() { btnC._refreshStyle(); };
-      mRow.appendChild(btnC);
-
-      var trigBtn = _mkMarkerBtn('Trig', '#cc0000',
-        function() { return self._trigOn; },
-        function(v) { self._trigOn = v; },
-        null, null);
-      self._trigBtnApply = function() { if (trigBtn._refreshStyle) trigBtn._refreshStyle(); };
-      mRow.appendChild(trigBtn);
-    })();
-
-    // ── All ON / All OFF ──
-    if (self._groups.length > 0) {
-      var allRow = document.createElement('div');
-      allRow.style.cssText =
-        'display:flex;gap:4px;padding-bottom:7px;margin-bottom:4px;border-bottom:1px solid #eee;';
-      var mkAllBtn = function(label, targetOn) {
-        var btn = document.createElement('button');
-        btn.textContent = label;
-        btn.style.cssText =
-          'font-size:10px;padding:1px 8px;line-height:1.5;border:1px solid #aaa;' +
-          'cursor:pointer;background:#e8e8e8;color:#444;font-family:monospace;border-radius:3px;';
-        btn.addEventListener('click', function() {
-          self._signals.forEach(function(s) {
-            self._sigVisible[s.id] = targetOn;
-            localStorage.setItem(self._prefix + 'sig_' + s.id, targetOn ? '1' : '0');
-            updatePickerCheck(s.id, targetOn);
-          });
-          self._updateCanvas();
-          rebuildActiveBar();
-        });
-        return btn;
-      };
-      allRow.appendChild(mkAllBtn('All ON',  true));
-      allRow.appendChild(mkAllBtn('All OFF', false));
-      picker.appendChild(allRow);
-    }
-
-    // ── ピッカー内容を構築（グループ別） ──
-    self._groups.forEach(function(grp, gi) {
-      var gc = grp.color || '#666';
-
-      var ghdr = document.createElement('div');
-      ghdr.style.cssText =
-        'font-size:10px;font-weight:bold;letter-spacing:.08em;text-transform:uppercase;' +
-        'color:' + gc + ';margin-top:' + (gi > 0 ? '6px' : '0') + ';margin-bottom:3px;';
-      ghdr.textContent = grp.label;
-      picker.appendChild(ghdr);
-
-      var gRow = document.createElement('div');
-      gRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:3px;';
-
-      self._sigOrder.forEach(function(id) {
-        if (grp.ids.indexOf(id) < 0) return;
-        var s = null;
-        for (var i = 0; i < self._signals.length; i++) {
-          if (self._signals[i].id === id) { s = self._signals[i]; break; }
-        }
-        if (!s) return;
-
-        var isOn = !!self._sigVisible[s.id];
-        var lbl = document.createElement('label');
-        lbl.className = 'sig-tog' + (isOn ? ' on' : '');
-        lbl.style.background = isOn ? gc : '';
-        if (s.tip) lbl.title = s.tip;
-        lbl.innerHTML = '<input type="checkbox" data-pid="' + s.id + '"' +
-                        (isOn ? ' checked' : '') + '> ' + s.label;
-
-        lbl.querySelector('input').addEventListener('change', (function(sig, l, groupColor) {
-          return function() {
-            self._sigVisible[sig.id] = this.checked;
-            localStorage.setItem(self._prefix + 'sig_' + sig.id, this.checked ? '1' : '0');
-            l.className = 'sig-tog' + (this.checked ? ' on' : '');
-            l.style.background = this.checked ? groupColor : '';
-            self._updateCanvas();
-            rebuildActiveBar();
-          };
-        })(s, lbl, gc));
-
-        gRow.appendChild(lbl);
-      });
-
-      picker.appendChild(gRow);
+    colBtn.addEventListener('click', function() {
+      applyCollapsed(!collapsed);
     });
 
-    // ── アクティブバーを再描画するヘルパー ──
-    function rebuildActiveBar() {
-      el.innerHTML = '';
-
-      // デコードレーンチップ
-      if (self._cbDec) {
-        var decLabel = self._cbDec.label || 'DEC';
-        var decChip = document.createElement('label');
-        decChip.className = 'sig-tog' + (self._showDec ? ' on' : '');
-        decChip.style.background   = self._showDec ? '#445566' : '';
-        decChip.style.borderRadius = '10px';
-        decChip.title = 'マシンサイクルデコードレーンの表示切替';
-        decChip.innerHTML = '<input type="checkbox"' + (self._showDec ? ' checked' : '') + '> ' + decLabel;
-        decChip.querySelector('input').addEventListener('change', function() {
-          self._showDec = this.checked;
-          localStorage.setItem(self._prefix + 'decode_lane', this.checked ? '1' : '0');
-          decChip.className = 'sig-tog' + (this.checked ? ' on' : '');
-          decChip.style.background = this.checked ? '#445566' : '';
-          self._updateCanvas();
-        });
-        el.appendChild(decChip);
+    // マーカーチップ生成ヘルパー
+    function mkMarkerChip(label, colorOn, getOn, setOn, getSamp, setSamp) {
+      var lbl = document.createElement('label');
+      function applyStyle() {
+        var on = getOn();
+        lbl.className = 'sig-tog' + (on ? ' on' : '');
+        lbl.style.background = on ? colorOn : '';
       }
-
-      // 表示中の信号チップ（visible のみ、グループ色を使用）
-      self._sigOrder.forEach(function(id) {
-        if (!self._sigVisible[id]) return;
-        var s = null;
-        for (var i = 0; i < self._signals.length; i++) {
-          if (self._signals[i].id === id) { s = self._signals[i]; break; }
+      lbl.title = 'マーカー ' + label + ' ON/OFF';
+      lbl.innerHTML = '<input type="checkbox"' + (getOn() ? ' checked' : '') +
+                      '><span class="sw-track"></span> ' + label;
+      var cb = lbl.querySelector('input');
+      cb.addEventListener('change', function() {
+        var next = this.checked;
+        if (next && setSamp) {
+          setSamp(self._lastStartSamp + Math.floor(self._lastSamplesInView / 2));
         }
-        if (!s) return;
-        var gc = sigGroupColor[id] || s.color || '#666';
-        var chip = document.createElement('label');
-        chip.className = 'sig-tog on';
-        chip.style.background = gc;
-        chip.title = (s.tip ? s.tip.split('\n')[0] : s.label) + '\nクリックで非表示';
-        chip.innerHTML = '<input type="checkbox" checked> ' + s.label;
-        chip.querySelector('input').addEventListener('change', function() {
-          self._sigVisible[s.id] = false;
-          localStorage.setItem(self._prefix + 'sig_' + s.id, '0');
-          self._updateCanvas();
-          rebuildActiveBar();
-          updatePickerCheck(s.id, false);
-        });
-        el.appendChild(chip);
-      });
-
-      // ＋ 追加ボタン
-      var addBtn = document.createElement('button');
-      addBtn.textContent = '＋';
-      addBtn.title = '信号を追加 / 削除';
-      addBtn.style.cssText =
-        'font-size:12px;padding:1px 8px;line-height:1.6;' +
-        'border:1px solid #aaa;cursor:pointer;background:#e8e8e8;color:#444;' +
-        'font-family:monospace;border-radius:10px;flex-shrink:0;';
-      addBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        var isOpen = picker.style.display !== 'none';
-        closePicker();
-        if (!isOpen) {
-          positionPicker();
-          picker.style.display = '';
+        setOn(next);
+        if (next && self._frozen && getSamp && getSamp() !== null) {
+          var samp = getSamp();
+          var sv   = self._lastSamplesInView;
+          self._pan = Math.max(0, (self._lastHead >>> 0) - samp - Math.floor(sv / 2));
+          self._panOverride = true;
         }
+        applyStyle();
+        self._schedDraw();
       });
-      el.appendChild(addBtn);
+      applyStyle();
+      return { lbl: lbl, refresh: applyStyle };
     }
 
-    // 初回アクティブバー描画
-    rebuildActiveBar();
+    // マーカーチップ: A, B, C, Trig
+    var mA = mkMarkerChip('A', '#0064e6',
+      function() { return self._markerAOn; },
+      function(v) { self._markerAOn = v; },
+      function() { return self._markerA; },
+      function(s) { self._markerA = s; });
+    self._markerBtnApply.A = mA.refresh;
+    chipsDiv.appendChild(mA.lbl);
+
+    var mB = mkMarkerChip('B', '#e07800',
+      function() { return self._markerBOn; },
+      function(v) { self._markerBOn = v; },
+      function() { return self._markerB; },
+      function(s) { self._markerB = s; });
+    self._markerBtnApply.B = mB.refresh;
+    chipsDiv.appendChild(mB.lbl);
+
+    var mC = mkMarkerChip('C', '#00a050',
+      function() { return self._markerCOn; },
+      function(v) { self._markerCOn = v; },
+      function() { return self._markerC; },
+      function(s) { self._markerC = s; });
+    self._markerBtnApply.C = mC.refresh;
+    chipsDiv.appendChild(mC.lbl);
+
+    var mTrig = mkMarkerChip('Trig', '#cc0000',
+      function() { return self._trigOn; },
+      function(v) { self._trigOn = v; },
+      null, null);
+    self._trigBtnApply = mTrig.refresh;
+    chipsDiv.appendChild(mTrig.lbl);
+
+    // デコードレーンチップ
+    if (self._cbDec) {
+      var decLabel = self._cbDec.label || 'DEC';
+      var decChip = document.createElement('label');
+      decChip.className = 'sig-tog' + (self._showDec ? ' on' : '');
+      decChip.style.background = self._showDec ? '#445566' : '';
+      decChip.title = 'マシンサイクルデコードレーンの表示切替';
+      decChip.innerHTML = '<input type="checkbox"' + (self._showDec ? ' checked' : '') +
+                          '><span class="sw-track"></span> ' + decLabel;
+      var decCb = decChip.querySelector('input');
+      decCb.addEventListener('change', function() {
+        self._showDec = this.checked;
+        localStorage.setItem(self._prefix + 'decode_lane', this.checked ? '1' : '0');
+        decChip.className = 'sig-tog' + (this.checked ? ' on' : '');
+        decChip.style.background = this.checked ? '#445566' : '';
+        self._updateCanvas();
+      });
+      chipsDiv.appendChild(decChip);
+    }
+
+    // 全信号チップ（常に全表示、in-place トグル）
+    self._sigOrder.forEach(function(id) {
+      var s = null;
+      for (var i = 0; i < self._signals.length; i++) {
+        if (self._signals[i].id === id) { s = self._signals[i]; break; }
+      }
+      if (!s) return;
+      var gc = sigGroupColor[id] || s.color || '#666';
+      var isOn = !!self._sigVisible[s.id];
+      var chip = document.createElement('label');
+      chip.className = 'sig-tog' + (isOn ? ' on' : '');
+      chip.style.background = isOn ? gc : '';
+      if (s.tip) chip.title = s.tip;
+      chip.innerHTML = '<input type="checkbox"' + (isOn ? ' checked' : '') +
+                       '><span class="sw-track"></span> ' + s.label;
+      var chipCb = chip.querySelector('input');
+      chipCb.addEventListener('change', (function(sig, c, groupColor) {
+        return function() {
+          self._sigVisible[sig.id] = this.checked;
+          localStorage.setItem(self._prefix + 'sig_' + sig.id, this.checked ? '1' : '0');
+          c.className = 'sig-tog' + (this.checked ? ' on' : '');
+          c.style.background = this.checked ? groupColor : '';
+          self._updateCanvas();
+        };
+      })(s, chip, gc));
+      chipsDiv.appendChild(chip);
+    });
   };
 
   // ==================== LA OFF 表示 ====================
