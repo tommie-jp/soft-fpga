@@ -25,8 +25,9 @@ var ringBase      = 0;
 var gprBase16     = 0;
 var mmuBase32     = 0;
 var running       = false;
-var stepsPerFrame = 200000;
-var lastRingHead  = 0;
+var stepsPerFrame  = 200000;
+var _lastEffSteps  = 200000;  // _sendRing が steps フィールドに使う実効値
+var lastRingHead   = 0;
 var mmuFrameCnt   = 0;
 
 // Speed が setSpeed メッセージで固定されているかどうか
@@ -143,6 +144,7 @@ function simLoop() {
   // 式トリガー有効時: 1フレームで ring が複数周するとトリガーサンプルが上書きされて検出漏れになる。
   // RING_SIZE-1 に制限し ring を 1 周以内に収め、前フレーム末尾サンプルも保持（エッジ検出用）。
   var _effSteps = (_exprEval && stepsPerFrame > RING_SIZE - 1) ? (RING_SIZE - 1) : stepsPerFrame;
+  _lastEffSteps = _effSteps;
   Module._step_n(_effSteps);
 
   // TTY 出力
@@ -215,8 +217,10 @@ function simLoop() {
   mmuFrameCnt++;
   if ((mmuFrameCnt & 15) === 0) _sendMMU();
 
-  // フレームレート自動調整（setSpeed で固定された場合はスキップ）
-  if (!_speedFixed) {
+  // フレームレート自動調整（setSpeed で固定の場合、または式トリガーで _effSteps が上書き中はスキップ）
+  // 式トリガー有効時は _effSteps が RING_SIZE-1 に固定されるため elapsed が常に短くなり
+  // stepsPerFrame が 2M 上限まで膨れ上がるのを防ぐ。
+  if (!_speedFixed && !_exprEval) {
     var elapsed = Date.now() - t0;
     if (elapsed < 8  && stepsPerFrame < 2000000) stepsPerFrame = Math.min(stepsPerFrame * 1.2 | 0, 2000000);
     if (elapsed > 22 && stepsPerFrame > 50000)   stepsPerFrame = Math.max(stepsPerFrame * 0.8 | 0, 50000);
@@ -246,7 +250,7 @@ function _sendRing() {
   var u16  = Module.HEAPU16;
   var gpr  = Array.from(u16.slice(gprBase16, gprBase16 + 7));
 
-  postMessage({ type: 'ring', head: head, snap: snap.buffer, gpr: gpr, steps: stepsPerFrame }, [snap.buffer]);
+  postMessage({ type: 'ring', head: head, snap: snap.buffer, gpr: gpr, steps: _lastEffSteps }, [snap.buffer]);
   lastRingHead = head;
 }
 
@@ -580,18 +584,17 @@ self.onmessage = function (e) {
       break;
 
     case 'key':
-      if (diskReady) keyQueue.push(d.ch);
+      keyQueue.push(d.ch);  // diskReady を待たず先行入力バッファとして機能
       break;
 
     case 'send_str':
-      if (diskReady) {
-        for (var si = 0; si < d.str.length; si++) keyQueue.push(d.str.charCodeAt(si));
-      }
+      for (var si = 0; si < d.str.length; si++) keyQueue.push(d.str.charCodeAt(si));
       break;
 
     case 'reset':
       running = false;
       macroSegments = []; macroSegIdx = 0; macroExpect = null;
+      keyQueue = [];  // リセット時に先行入力バッファをクリア
       if (diskReady) {
         Module._sim_init();
         lastRingHead = 0;

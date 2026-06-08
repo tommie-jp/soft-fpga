@@ -472,7 +472,7 @@
   </div>
 </div>
 
-<h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.0 2026/06/08 15:29</span></h2>
+<h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.0 2026/06/08 16:15</span></h2>
 <p style="font-size:12px;color:#777;margin:0 0 5px;"><a href="https://github.com/lisper/cpus-pdp11" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">cpus-pdp11</a> (Brad Parker RTL) → <a href="https://www.veripool.org/verilator/" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Verilator</a> → <a href="https://en.wikipedia.org/wiki/WebAssembly" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">WASM</a> &nbsp;|&nbsp; <a href="https://en.wikipedia.org/wiki/History_of_Unix" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Unix V6</a> + custom RK11 BIOS</p>
 
 <!-- docs パネル -->
@@ -1074,6 +1074,7 @@ document.getElementById('btn-mmu-toggle').addEventListener('click', function() {
 var worker = new Worker('sim-worker.js');
 var simStarted  = false;
 var simPaused   = false;
+var _preQueue   = [];  // simStarted 前の先行入力バッファ
 var diskBuffer  = null;
 var _workerReady = false;
 
@@ -1150,6 +1151,11 @@ worker.onmessage = function(e) {
       document.getElementById('btn-reset').disabled = false;
       document.getElementById('btn-pause').disabled = false;
       simStarted = true; simPaused = false;
+      // simStarted 前に積んだ先行入力をフラッシュ
+      for (var _pqi = 0; _pqi < _preQueue.length; _pqi++) {
+        worker.postMessage({ type: 'key', ch: _preQueue[_pqi] });
+      }
+      _preQueue = [];
       _updateTrigButtons();
       document.getElementById('btn-pause').textContent = 'Pause';
       document.getElementById('boot-progress').classList.add('show');
@@ -1189,7 +1195,7 @@ worker.onmessage = function(e) {
       checkBootTTY(s);
       break;
 
-    case 'ring':
+    case 'ring': {
       var snap  = new Uint32Array(d.snap);
       var count = snap.length / _ringWords;
       var prevHead = (d.head - count) >>> 0;
@@ -1205,6 +1211,7 @@ worker.onmessage = function(e) {
       //   式トリガー (type 7): f1 アンカリングを適用しない。発火サンプル自体を T=0 にする。
       //     fireHead = _xabs + 1（発火サンプルの 1 つ後ろ）なので、T=0 = fireHead - 1 = _xabs。
       var _trigForUpdate;
+      var _didTrigRender = false;
       if (_pendingTrigHead) {
         var _anchorHead = (_pendingTrigFireHead >= 0) ? _pendingTrigFireHead : d.head;
         if (_pendingTrigType === 7) {
@@ -1213,19 +1220,32 @@ worker.onmessage = function(e) {
         } else {
           _trigForUpdate = pdp11TrigAnchorF1(localRing, _anchorHead, _ringSize, _ringWords);
         }
-        _laFreezeHead  = d.head;   // 発火時の head を固定: 以後の ring フレームでドリフトしない
-        _updateTrigButtons();      // Resume を有効化
+        _laFreezeHead = d.head;   // 発火時の head を固定: 以後の ring フレームでドリフトしない
+        _updateTrigButtons();     // Resume を有効化
+        // トリガー発火: フリーズビューを即座に描画する
+        la.update(_laFreezeHead, localRing, true, _trigForUpdate);
+        updateRegs(snap, d.gpr);
+        _didTrigRender = true;
       }
       _pendingTrigHead     = false;
       _pendingTrigFireHead = -1;
       _pendingTrigType     = 0;
-      // フリーズ中は head を固定する（Wasm が完全に停止するまでに届く追加フレームでビューがずれるのを防ぐ）
-      var _laHead = (_laFreezeHead >= 0) ? _laFreezeHead : d.head;
-      la.update(_laHead, localRing, _laFreezeHead >= 0, _trigForUpdate);
-      updateRegs(snap, d.gpr);
+
+      // 描画バッファ更新（rAF 描画で使用）
+      _latestRingHead = d.head;
+      _latestGpr      = d.gpr;
+      _latestSnap     = snap;
+
+      // 通常時: rAF に委ねて 60fps にスロットル（トリガー発火時は既に即描画済み）
+      if (!_didTrigRender) {
+        _laDirty = true;
+        _scheduleRafRender();
+      }
+
       _ringCount++; if (d.steps) _lastSteps = d.steps;
       _updateCycleInfo();
       break;
+    }
 
     case 'gpr':
       updateGPRDisplay(d.gpr);
@@ -1566,6 +1586,29 @@ _termUI.setupCopyBtn('btn-copy');
   });
   num.addEventListener('change', applySpeed);
 })();
+
+// ── LA canvas 描画スロットル（rAF 60fps）────────────────────────────────
+// ring メッセージは式トリガー有効時に 700+ 回/秒届くことがある。
+// la.update()（canvas 描画）は rAF に委ねて 60fps に間引く。
+// トリガー発火時のみ即座に描画する（フリーズビューの確実な表示のため）。
+var _laDirty        = false;
+var _rafId          = null;
+var _latestRingHead = 0;
+var _latestGpr      = null;
+var _latestSnap     = null;
+
+function _scheduleRafRender() {
+  if (!_rafId) _rafId = requestAnimationFrame(_rafRender);
+}
+
+function _rafRender() {
+  _rafId = null;
+  if (!_laDirty) return;
+  _laDirty = false;
+  var head = (_laFreezeHead >= 0) ? _laFreezeHead : _latestRingHead;
+  la.update(head, localRing, _laFreezeHead >= 0, undefined);
+  if (_latestSnap && _latestSnap.length >= _ringWords) updateRegs(_latestSnap, _latestGpr);
+}
 
 // ── cycle-info 更新 (H) ───────────────────────────────────────────────────
 // 実機比較の基準クロック: 本 RTL は CLR reg = 5 tick で、これが実機の CLR
@@ -1934,10 +1977,19 @@ function _executeHostCmd(cmd) {
 
 // ── キーボード入力（! コマンド + 履歴 対応）──────────────────────────────
 term.onData(function(data) {
-  if (!simStarted) return;
   for (var i = 0; i < data.length; i++) {
     var ch   = data[i];
     var code = ch.charCodeAt(0);
+
+    // simStarted 前は先行入力バッファに積む（ESC シーケンスは除外）
+    if (!simStarted) {
+      if (code >= 0x20 && code < 0x80) {
+        _preQueue.push((code === 0x7F || code === 0x08) ? 0x23 : code);
+      } else if (code === 0x0D) {
+        _preQueue.push(0x0D);
+      }
+      continue;
+    }
 
     // ESC シーケンス（矢印キー）の検出: ESC [ A (上), ESC [ B (下)
     if (ch === '\x1b' && i + 2 < data.length && data[i+1] === '[') {
