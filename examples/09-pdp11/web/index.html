@@ -82,6 +82,10 @@
                         font-size:11px; padding:2px 4px; flex:1; }
     .trig-hit { color:#f84; font-size:11px; display:none; margin-top:2px; }
     .trig-hit.show { display:block; }
+    /* CodeMirror 式トリガーエディタ */
+    #trig-expr-cm { flex:1; min-width:0; }
+    #trig-expr-cm .cm-editor { width:100%; }
+    #trig-expr-cm .cm-scroller { overflow:hidden; }
 
     /* ── Logic Analyzer（rtlscope-la.js はライトテーマ描画） ── */
     .la-section { background:#dde; border:1px solid #aab; box-sizing:border-box; }
@@ -92,8 +96,38 @@
                    padding:2px 8px; cursor:pointer; font-size:11px; }
     .la-zoom-btn:hover { background:#b8b8c8; }
     #la-zoom-label { font-size:11px; color:#558; min-width:28px; text-align:center; }
+    .la-smpl-wrap { display:inline-flex; align-items:center; gap:2px;
+                    border:1px solid #aab; background:#c8c8d8; padding:0 4px; }
+    #la-sample-sel { background:transparent; color:#446; border:none;
+                     padding:2px 0; font-size:11px; cursor:pointer; }
+    .la-smpl-label { font-size:10px; color:#668; white-space:nowrap; user-select:none; }
     #la-toggles { padding:4px 8px; border-bottom:1px solid #bbc;
-                  display:flex; flex-wrap:wrap; gap:4px; background:#d8d8e8; }
+                  display:flex; flex-wrap:wrap; gap:4px; background:#d8d8e8; font-size:11px; }
+    .sig-tog {
+      display:inline-flex; align-items:center; gap:4px;
+      padding:2px 7px 2px 5px; border-radius:10px;
+      border:1px solid rgba(0,0,0,.15);
+      cursor:pointer; font-size:11px; user-select:none;
+      color:#fff; white-space:nowrap;
+    }
+    .sig-tog:not(.on) { color:#444; background:#d0d0e2 !important; }
+    .sig-tog input[type=checkbox] { display:none; }
+    .sig-tog .sw-track {
+      display:inline-block; width:22px; height:12px;
+      border-radius:6px; position:relative; flex-shrink:0;
+      background:rgba(0,0,0,.22);
+    }
+    .sig-tog.on .sw-track { background:rgba(255,255,255,.35); }
+    .sig-tog .sw-track::after {
+      content:''; position:absolute; top:2px; left:2px;
+      width:8px; height:8px; border-radius:50%;
+      background:rgba(0,0,0,.35);
+      transition:transform .12s, background .12s;
+    }
+    .sig-tog.on .sw-track::after {
+      transform:translateX(10px);
+      background:rgba(255,255,255,.9);
+    }
     canvas#la { display:block; width:100%; background:#f5f5f5; }
 
     /* ── ローディングオーバーレイ ── */
@@ -218,11 +252,10 @@
 
     /* ── LA ナビゲーション ── */
     .la-nav { display:flex; gap:3px; align-items:center; padding:3px 6px;
-              background:#d8d8e8; border-top:1px solid #bbc; }
+              background:#d8d8e8; border-bottom:1px solid #bbc; }
     .la-nav button { background:#c8c8d8; color:#446; border:1px solid #aab;
                      padding:1px 7px; cursor:pointer; font-size:11px; }
     .la-nav button:hover { background:#b8b8c8; }
-    #la-pos-lbl { font-size:10px; color:#558; margin-left:4px; }
 
     /* ── LA Freeze バッジ ── */
     #frozen-badge { font-size:10px; color:#f84; }
@@ -246,14 +279,6 @@
     .modal-btns button { padding:3px 14px; }
     button.flash { background:#664 !important; }
 
-    /* ── LA Fill/Hatch チェックボックス ── */
-    .la-fill-label, .la-hatch-label {
-      display:inline-flex; align-items:center; gap:3px;
-      font-size:11px; font-family:monospace; padding:2px 6px;
-      border:1px solid #aab; border-radius:2px; background:#d0d0e0;
-      color:#446; cursor:pointer; user-select:none;
-    }
-    .la-fill-label input, .la-hatch-label input { cursor:pointer; margin:0; accent-color:#446; }
 
     /* ── LA ズームセレクト ── */
     #la-zoom-sel {
@@ -572,7 +597,7 @@
       <button class="ctrl-btn" data-ch="26">^Z</button>
       <button class="ctrl-btn" data-ch="27">ESC</button>
       <button class="ctrl-btn" data-ch="9">TAB</button>
-      <button class="ctrl-btn" data-ch="127">BS</button>
+      <button class="ctrl-btn" data-ch="35">BS</button>
       <span id="macro-status"></span>
       <button id="btn-macro-stop" class="ctrl-btn" style="display:none;color:#f66;">&#x25A0;STOP</button>
     </div>
@@ -669,6 +694,7 @@
       <option value="3">I/O ページアクセス</option>
       <option value="4">TRAP 発生</option>
       <option value="5">バスエラー</option>
+      <option value="7">式 (Expr)</option>
     </select>
   </div>
   <div class="trig-row" id="trig-pc-row">
@@ -682,10 +708,20 @@
     <label title="フェッチ時のバスデータ＝命令語(8進)。db の逆アセンブルで命令語を確認して入力">DATA(8)</label>
     <input type="text" id="trig-data" placeholder="例: 060001" maxlength="8">
   </div>
+  <div class="trig-row" id="trig-expr-row" style="display:none;">
+    <label style="width:auto;flex-shrink:0;">式</label>
+    <div id="trig-expr-cm"></div>
+  </div>
+  <div class="trig-row" id="trig-expr-hist-row" style="display:none;">
+    <label style="width:auto;flex-shrink:0;visibility:hidden;">式</label>
+    <select id="trig-expr-hist" style="flex:1;">
+      <option value="" disabled selected>— 履歴 —</option>
+    </select>
+  </div>
   <div class="trig-row">
-    <button id="btn-trig-set">Set</button>
-    <button id="btn-trig-clear">Clear</button>
-    <button id="btn-trig-resume">Resume</button>
+    <button id="btn-trig-set"    disabled>Set</button>
+    <button id="btn-trig-clear"  disabled>Clear</button>
+    <button id="btn-trig-resume" disabled>Resume</button>
   </div>
   <div class="trig-hit" id="trig-hit">⏸ Triggered!</div>
 </div>
@@ -695,6 +731,10 @@
   <div class="la-header">
     <h3>Logic Analyzer</h3>
     <button class="la-zoom-btn" id="btn-la-toggle" title="LA ON/OFF — OFFにするとリングバッファ書き込みをスキップして速度向上">LA ON</button>
+    <span class="la-smpl-wrap" title="サンプリング間隔&#10;4tick/smpl: 高速・デフォルト（Unix V6）&#10;1tick/smpl: 式トリガー使用時に自動切替・取りこぼし防止"><span class="la-smpl-label">Smpl:</span><select id="la-sample-sel">
+      <option value="3">4tick/smpl</option>
+      <option value="0">1tick/smpl</option>
+    </select></span>
     <button class="la-zoom-btn" id="la-zoom-out">−</button>
     <select id="la-zoom-sel" title="ズーム倍率">
       <option value="0">1/4x</option>
@@ -708,28 +748,27 @@
       <option value="8">64x</option>
     </select>
     <button class="la-zoom-btn" id="la-zoom-in">+</button>
-    <label class="la-fill-label" title="信号レーン塗りつぶし ON/OFF">
-      <input type="checkbox" id="la-fill-chk" checked> Fill
+    <label class="sig-tog on" id="la-fill-lbl" style="background:#446;" title="信号レーン塗りつぶし ON/OFF">
+      <input type="checkbox" id="la-fill-chk" checked><span class="sw-track"></span> Fill
     </label>
-    <label class="la-hatch-label" title="ハッチパターン ON/OFF">
-      <input type="checkbox" id="la-hatch-chk" checked> Hatch
+    <label class="sig-tog on" id="la-hatch-lbl" style="background:#446;" title="ハッチパターン ON/OFF">
+      <input type="checkbox" id="la-hatch-chk" checked><span class="sw-track"></span> Hatch
     </label>
     <button class="la-zoom-btn" id="btn-la-freeze">Freeze</button>
     <span id="frozen-badge" style="display:none;">FROZEN</span>
   </div>
   <div id="la-toggles"></div>
-  <canvas id="la"></canvas>
   <div class="la-nav">
-    <button id="la-nav-start">&#171;</button>
-    <button id="la-nav-prev">&#8249;</button>
-    <button id="la-nav-next">&#8250;</button>
-    <button id="la-nav-end">&#187;</button>
+    <button id="la-nav-ll">&#171;</button>
+    <button id="la-nav-l">&#8249;</button>
+    <button id="la-nav-r">&#8250;</button>
+    <button id="la-nav-rr">&#187;</button>
     <button id="btn-step" title="1ステップ実行（Freeze 中のみ有効）">▶ Step</button>
     <button id="btn-goto-trig" title="トリガー発火位置へジャンプ">⊙Trig</button>
-    <span id="la-pos-lbl"></span>
     <a id="la-ss-link" href="../../../test/ss/pdp11/index.html" target="_blank"
        rel="noopener" title="PDP-11 全命令タイミング図">&#x1F4F7; SS</a>
   </div>
+  <canvas id="la"></canvas>
 </div>
 
 <p id="copyright">&copy; 2026 <a href="https://github.com/tommie-jp" target="_blank" rel="noopener">tommie.jp</a>
@@ -778,6 +817,8 @@
 <script src="../../../js/monaco-wasm-editor.js"></script>
 <script src="js/rtlscope-la.js"></script>
 <script src="js/sft-pdp11-la-defs.js"></script>
+<script src="js/trigger-expr.js"></script>
+<script src="js/trigger-expr-compiler.js"></script>
 <script src="../../../js/sft-doc-viewer.js"></script>
 <script src="js/sft-pdp11-docs.js"></script>
 <script src="../../../js/sft-xterm-util.js"></script>
@@ -852,20 +893,23 @@ la._updateCanvas();
   // ズームボタン
   var btnOut = document.getElementById('la-zoom-out');
   var btnIn  = document.getElementById('la-zoom-in');
+  var LA_ZOOM_MAX_IDX = 8;
   function updateZoomLbl() {
     if (lbl) lbl.textContent = la.zoomLabel || (la._zoom + 'x');
   }
+  function updateZoomButtons() {
+    if (btnOut) btnOut.disabled = (la._zoomIdx <= 0);
+    if (btnIn)  btnIn.disabled  = (la._zoomIdx >= LA_ZOOM_MAX_IDX);
+  }
   if (btnOut) btnOut.addEventListener('click', function() {
-    if (la.zoomOut) la.zoomOut();
-    else if (la._zoom > 1) { la._zoom = Math.max(1, la._zoom >>> 1); la._updateCanvas(); }
     updateZoomLbl();
     _syncZoomSel();
+    updateZoomButtons();
   });
   if (btnIn) btnIn.addEventListener('click', function() {
-    if (la.zoomIn) la.zoomIn();
-    else { la._zoom = Math.min(64, la._zoom << 1); la._updateCanvas(); }
     updateZoomLbl();
     _syncZoomSel();
+    updateZoomButtons();
   });
   // ズームセレクト (#8)
   var zoomSel = document.getElementById('la-zoom-sel');
@@ -879,19 +923,28 @@ la._updateCanvas();
   }
   if (zoomSel) {
     zoomSel.addEventListener('change', function() {
-      la.setZoom(parseInt(this.value, 10));
       updateZoomLbl();
+      updateZoomButtons();
     });
     _syncZoomSel();
   }
+  updateZoomButtons();
 })();
 
 // ── Fill / Hatch チェックボックス (#7) ───────────────────────────────────
 (function() {
   var fillChk  = document.getElementById('la-fill-chk');
   var hatchChk = document.getElementById('la-hatch-chk');
-  if (fillChk)  fillChk.addEventListener('change',  function() { la.setFillEnabled(this.checked); });
-  if (hatchChk) hatchChk.addEventListener('change', function() { la.setHatchEnabled(this.checked); });
+  var fillLbl  = document.getElementById('la-fill-lbl');
+  var hatchLbl = document.getElementById('la-hatch-lbl');
+  if (fillChk) fillChk.addEventListener('change', function() {
+    la.setFillEnabled(this.checked);
+    if (fillLbl) { fillLbl.className = 'sig-tog' + (this.checked ? ' on' : ''); fillLbl.style.background = this.checked ? '#446' : ''; }
+  });
+  if (hatchChk) hatchChk.addEventListener('change', function() {
+    la.setHatchEnabled(this.checked);
+    if (hatchLbl) { hatchLbl.className = 'sig-tog' + (this.checked ? ' on' : ''); hatchLbl.style.background = this.checked ? '#446' : ''; }
+  });
 })();
 
 // ── Step / ⊙Trig (#9 / #10) ──────────────────────────────────────────────
@@ -910,6 +963,13 @@ document.getElementById('btn-la-toggle').addEventListener('click', function() {
   this.textContent = _laOn ? 'LA ON' : 'LA OFF';
   this.style.color = _laOn ? '' : '#f84';
 });
+
+// ── サンプリングレート変更 ────────────────────────────────────────────────
+function _applySampleRate() {
+  var mask = parseInt(document.getElementById('la-sample-sel').value, 10);
+  worker.postMessage({ type: 'set_ring_tick_mask', mask: mask });
+}
+document.getElementById('la-sample-sel').addEventListener('change', _applySampleRate);
 
 // ── KBD バー bindLayoutBar (E) ────────────────────────────────────────────
 _jp106.bindLayoutBar(document.querySelectorAll('input[name="kbd-layout"]'));
@@ -1041,6 +1101,7 @@ document.getElementById('btn-mmu-toggle').addEventListener('click', function() {
 var worker = new Worker('sim-worker.js');
 var simStarted  = false;
 var simPaused   = false;
+var _preQueue   = [];  // simStarted 前の先行入力バッファ
 var diskBuffer  = null;
 var _workerReady = false;
 
@@ -1063,6 +1124,43 @@ var _ringSize  = 4096;
 var _ringWords = RING_WORDS_PDP11;
 var _pendingTrigHead     = false;
 var _pendingTrigFireHead = -1;
+var _pendingTrigType     = 0;
+var _laFreezeHead        = -1;     // トリガー発火後: head を固定してビュードリフトを防ぐ
+var _trigArmed           = false;  // Set 成功後 true、Clear で false
+
+// ── トリガーボタン有効/無効 ───────────────────────────────────────────────
+function _updateTrigButtons() {
+  document.getElementById('btn-trig-set').disabled    = !simStarted;
+  document.getElementById('btn-trig-clear').disabled  = !simStarted || (!_trigArmed && _laFreezeHead < 0);
+  document.getElementById('btn-trig-resume').disabled = _laFreezeHead < 0;
+}
+
+// ── 式トリガー履歴（localStorage、最大 10 件）──────────────────────────
+var _EXPR_HIST_KEY = 'pdp11_expr_hist';
+function _loadExprHistory() {
+  try { return JSON.parse(localStorage.getItem(_EXPR_HIST_KEY) || '[]'); } catch(e) { return []; }
+}
+function _saveExprHistory(expr) {
+  if (!expr) return;
+  var h = _loadExprHistory().filter(function(e) { return e !== expr; });
+  h.unshift(expr);
+  if (h.length > 10) h.length = 10;
+  try { localStorage.setItem(_EXPR_HIST_KEY, JSON.stringify(h)); } catch(e) {}
+}
+function _renderExprHistory() {
+  var sel = document.getElementById('trig-expr-hist');
+  if (!sel) return;
+  var h = _loadExprHistory();
+  sel.innerHTML = '<option value="" disabled selected>— 履歴 —</option>';
+  h.forEach(function(expr) {
+    var opt = document.createElement('option');
+    opt.value = expr; opt.textContent = expr;
+    sel.appendChild(opt);
+  });
+  var row = document.getElementById('trig-expr-hist-row');
+  if (row) row.style.display = (h.length > 0) ? '' : 'none';
+  sel.value = '';
+}
 
 worker.onmessage = function(e) {
   var d = e.data;
@@ -1080,11 +1178,19 @@ worker.onmessage = function(e) {
       document.getElementById('btn-reset').disabled = false;
       document.getElementById('btn-pause').disabled = false;
       simStarted = true; simPaused = false;
+      // simStarted 前に積んだ先行入力をフラッシュ
+      for (var _pqi = 0; _pqi < _preQueue.length; _pqi++) {
+        worker.postMessage({ type: 'key', ch: _preQueue[_pqi] });
+      }
+      _preQueue = [];
+      _updateTrigButtons();
       document.getElementById('btn-pause').textContent = 'Pause';
       document.getElementById('boot-progress').classList.add('show');
       document.getElementById('mmu-panel').classList.add('show');
       document.getElementById('btn-save-disk').disabled = false;
       resetBootProgress();
+      // sim_init() が ring_tick_mask=3u にリセットするため UI の選択を再適用する
+      _applySampleRate();
       // FS パネルの初回取得（ディスクロード後）
       setTimeout(function() { _requestFSList(); _requestWasmFSList(); }, 500);
       break;
@@ -1098,6 +1204,9 @@ worker.onmessage = function(e) {
     case 'resumed':
       setStatus('Running');
       simPaused = false;
+      _laFreezeHead = -1;   // フリーズ解除: live 追従に戻す
+      _trigArmed = false;
+      _updateTrigButtons();
       document.getElementById('btn-pause').textContent = 'Pause';
       break;
 
@@ -1113,7 +1222,7 @@ worker.onmessage = function(e) {
       checkBootTTY(s);
       break;
 
-    case 'ring':
+    case 'ring': {
       var snap  = new Uint32Array(d.snap);
       var count = snap.length / _ringWords;
       var prevHead = (d.head - count) >>> 0;
@@ -1123,20 +1232,47 @@ worker.onmessage = function(e) {
           localRing[idx * _ringWords + w] = snap[i * _ringWords + w];
         }
       }
-      // トリガー T=0 は istate=f1 の立ち上がり（フェッチ開始）に吸着させる。
-      // ポストトリガー収集後: fireHead（発火時 ring_head）起点で f1 を探す。
+      // 式トリガーは Worker の Wasm ネイティブ評価に移管済み（'triggered' で通知される）
+      // トリガー T=0 の決定:
+      //   PC/Fetch 等のハードウェアトリガー: istate=f1 の立ち上がり（フェッチ開始）に吸着
+      //   式トリガー (type 7): f1 アンカリングを適用しない。発火サンプル自体を T=0 にする。
+      //     fireHead = _xabs + 1（発火サンプルの 1 つ後ろ）なので、T=0 = fireHead - 1 = _xabs。
       var _trigForUpdate;
+      var _didTrigRender = false;
       if (_pendingTrigHead) {
         var _anchorHead = (_pendingTrigFireHead >= 0) ? _pendingTrigFireHead : d.head;
-        _trigForUpdate = pdp11TrigAnchorF1(localRing, _anchorHead, _ringSize, _ringWords);
+        if (_pendingTrigType === 7) {
+          // 式トリガー: 発火サンプル（fireHead - 1）をそのまま T=0 にする
+          _trigForUpdate = (_pendingTrigFireHead >= 0) ? ((_pendingTrigFireHead - 1) >>> 0) : (_anchorHead >>> 0);
+        } else {
+          _trigForUpdate = pdp11TrigAnchorF1(localRing, _anchorHead, _ringSize, _ringWords);
+        }
+        _laFreezeHead = d.head;   // 発火時の head を固定: 以後の ring フレームでドリフトしない
+        _updateTrigButtons();     // Resume を有効化
+        // トリガー発火: フリーズビューを即座に描画する
+        la.update(_laFreezeHead, localRing, true, _trigForUpdate);
+        updateRegs(snap, d.gpr);
+        _didTrigRender = true;
       }
       _pendingTrigHead     = false;
       _pendingTrigFireHead = -1;
-      la.update(d.head, localRing, undefined, _trigForUpdate);
-      updateRegs(snap, d.gpr);
+      _pendingTrigType     = 0;
+
+      // 描画バッファ更新（rAF 描画で使用）
+      _latestRingHead = d.head;
+      _latestGpr      = d.gpr;
+      _latestSnap     = snap;
+
+      // 通常時: rAF に委ねて 60fps にスロットル（トリガー発火時は既に即描画済み）
+      if (!_didTrigRender) {
+        _laDirty = true;
+        _scheduleRafRender();
+      }
+
       _ringCount++; if (d.steps) _lastSteps = d.steps;
       _updateCycleInfo();
       break;
+    }
 
     case 'gpr':
       updateGPRDisplay(d.gpr);
@@ -1150,6 +1286,7 @@ worker.onmessage = function(e) {
       onTriggered(d.pc, d.trigType);
       _pendingTrigHead     = true;
       _pendingTrigFireHead = (d.fireHead !== undefined && d.fireHead >= 0) ? (d.fireHead >>> 0) : -1;
+      _pendingTrigType     = d.trigType | 0;
       break;
 
     case 'bare_ready':
@@ -1444,6 +1581,7 @@ document.getElementById('btn-reset-disk').addEventListener('click', function() {
 });
 
 document.getElementById('btn-pause').addEventListener('click', function() {
+  if (simPaused) _laFreezeHead = -1;   // 再開時はフリーズ解除
   worker.postMessage({ type: simPaused ? 'resume' : 'pause' });
 });
 
@@ -1475,6 +1613,29 @@ _termUI.setupCopyBtn('btn-copy');
   });
   num.addEventListener('change', applySpeed);
 })();
+
+// ── LA canvas 描画スロットル（rAF 60fps）────────────────────────────────
+// ring メッセージは式トリガー有効時に 700+ 回/秒届くことがある。
+// la.update()（canvas 描画）は rAF に委ねて 60fps に間引く。
+// トリガー発火時のみ即座に描画する（フリーズビューの確実な表示のため）。
+var _laDirty        = false;
+var _rafId          = null;
+var _latestRingHead = 0;
+var _latestGpr      = null;
+var _latestSnap     = null;
+
+function _scheduleRafRender() {
+  if (!_rafId) _rafId = requestAnimationFrame(_rafRender);
+}
+
+function _rafRender() {
+  _rafId = null;
+  if (!_laDirty) return;
+  _laDirty = false;
+  var head = (_laFreezeHead >= 0) ? _laFreezeHead : _latestRingHead;
+  la.update(head, localRing, _laFreezeHead >= 0, undefined);
+  if (_latestSnap && _latestSnap.length >= _ringWords) updateRegs(_latestSnap, _latestGpr);
+}
 
 // ── cycle-info 更新 (H) ───────────────────────────────────────────────────
 // 実機比較の基準クロック: 本 RTL は CLR reg = 5 tick で、これが実機の CLR
@@ -1843,10 +2004,19 @@ function _executeHostCmd(cmd) {
 
 // ── キーボード入力（! コマンド + 履歴 対応）──────────────────────────────
 term.onData(function(data) {
-  if (!simStarted) return;
   for (var i = 0; i < data.length; i++) {
     var ch   = data[i];
     var code = ch.charCodeAt(0);
+
+    // simStarted 前は先行入力バッファに積む（ESC シーケンスは除外）
+    if (!simStarted) {
+      if (code >= 0x20 && code < 0x80) {
+        _preQueue.push((code === 0x7F || code === 0x08) ? 0x23 : code);
+      } else if (code === 0x0D) {
+        _preQueue.push(0x0D);
+      }
+      continue;
+    }
 
     // ESC シーケンス（矢印キー）の検出: ESC [ A (上), ESC [ B (下)
     if (ch === '\x1b' && i + 2 < data.length && data[i+1] === '[') {
@@ -1859,7 +2029,7 @@ term.onData(function(data) {
           var hist = histIdx >= 0 ? inputHistory[histIdx] : '';
           // 現在の入力行をクリアして履歴文字列を送出
           for (var bk = 0; bk < _inputBuf.length; bk++) {
-            worker.postMessage({ type: 'key', ch: 0x08 });
+            worker.postMessage({ type: 'key', ch: 0x23 }); // Unix V6 CERASE = '#'
           }
           _inputBuf = hist;
           for (var hc = 0; hc < hist.length; hc++) {
@@ -1881,7 +2051,7 @@ term.onData(function(data) {
       if (_inputBuf.startsWith('!')) {
         // ホストコマンド: 入力をバックスペースで消去して Unix V6 には CR のみ
         for (var bk2 = 0; bk2 < _inputBuf.length; bk2++)
-          worker.postMessage({ type: 'key', ch: 0x08 });
+          worker.postMessage({ type: 'key', ch: 0x23 }); // Unix V6 CERASE = '#'
         var hostCmd = _inputBuf.slice(1);
         _inputBuf = '';
         worker.postMessage({ type: 'key', ch: 0x0D });
@@ -1896,7 +2066,10 @@ term.onData(function(data) {
     } else {
       _inputBuf = '';
     }
-    worker.postMessage({ type: 'key', ch: code });
+    // Backspace (0x7F) と Ctrl-H (0x08) は Unix V6 の CERASE = '#' (0x23) に変換。
+    // Unix V6 では DEL (0x7F) は CINTR（割り込み）なので文字消去にならない。
+    var sendCode = (code === 0x7F || code === 0x08) ? 0x23 : code;
+    worker.postMessage({ type: 'key', ch: sendCode });
   }
 });
 
@@ -2030,47 +2203,6 @@ document.getElementById('btn-la-freeze').addEventListener('click', function() {
   }
 });
 
-// ── LA ページナビゲーション ───────────────────────────────────────────────
-// la.scrollTo(offset) が存在すればそれを利用し、なければ _viewStart を直接操作する
-function _laScrollTo(offset) {
-  if (la.scrollTo) {
-    la.scrollTo(offset);
-  } else if (la._viewStart !== undefined) {
-    la._viewStart = offset;
-    la._updateCanvas();
-  }
-  _updateLANav();
-}
-
-function _laGetViewStart() {
-  return la._viewStart !== undefined ? la._viewStart : 0;
-}
-
-function _laGetPageSize() {
-  // 1 ページ分のサンプル数: 表示幅 / (サンプル幅 × ズーム)
-  // 概算: ring buffer サイズの 1/8 程度
-  return la._pageSize || Math.floor(_ringSize / 8) || 128;
-}
-
-function _updateLANav() {
-  var lbl = document.getElementById('la-pos-lbl');
-  if (lbl) lbl.textContent = 'pos:' + _laGetViewStart();
-}
-
-document.getElementById('la-nav-start').addEventListener('click', function() {
-  _laScrollTo(0);
-});
-document.getElementById('la-nav-prev').addEventListener('click', function() {
-  _laScrollTo(Math.max(0, _laGetViewStart() - _laGetPageSize()));
-});
-document.getElementById('la-nav-next').addEventListener('click', function() {
-  _laScrollTo(_laGetViewStart() + _laGetPageSize());
-});
-document.getElementById('la-nav-end').addEventListener('click', function() {
-  // ring buffer の末尾付近へ
-  _laScrollTo(Math.max(0, _ringSize - _laGetPageSize()));
-});
-
 // ── FS パネルのリフレッシュ・アップロード ────────────────────────────────
 document.getElementById('btn-fs-refresh').addEventListener('click', function() {
   if (simStarted) _requestFSList();
@@ -2103,7 +2235,7 @@ window._pdp11TriggeredPC  = null;
 window._pdp11BareReady    = false;
 window._pdp11BareStepped  = false;
 
-var _TRIG_LABELS = { 1: 'PC', 2: 'Fetch', 3: 'I/O', 4: 'TRAP', 5: 'BUSERR', 6: 'PC+Data' };
+var _TRIG_LABELS = { 1: 'PC', 2: 'Fetch', 3: 'I/O', 4: 'TRAP', 5: 'BUSERR', 6: 'PC+Data', 7: 'Expr' };
 
 function onTriggered(pc, trigType) {
   simPaused = true;
@@ -2158,12 +2290,59 @@ document.getElementById('trig-type').addEventListener('change', function() {
     (v === '1' || v === '6') ? '' : 'none';
   document.getElementById('trig-data-row').style.display =
     (v === '6') ? '' : 'none';
+  document.getElementById('trig-expr-row').style.display =
+    (v === '7') ? '' : 'none';
+  if (v === '7') {
+    if (window._initTrigExprCM) window._initTrigExprCM();
+    _renderExprHistory();
+  } else {
+    document.getElementById('trig-expr-hist-row').style.display = 'none';
+    if (window._trigExprView) {
+      // Expr 非選択: CM を destroy してメインスレッドへの影響をゼロにする
+      window._exprSavedContent = window._trigExprView.state.doc.toString();
+      window._trigExprView.destroy();
+      window._trigExprView = null;
+    }
+  }
 });
 
 document.getElementById('btn-trig-set').addEventListener('click', function() {
   var trigType = parseInt(document.getElementById('trig-type').value, 10);
   var trigVal  = 0;
   var lbl      = '?';
+  _laFreezeHead = -1;   // 前回のフリーズを解除して live 追従に戻す
+  _trigArmed = false;   // 設定中はいったんリセット（成功時に再 set）
+  if (trigType === 7) {
+    var exprStr = (window._trigExprView ? window._trigExprView.state.doc.toString() : '').trim();
+    if (!exprStr) return;
+    var ast;
+    try {
+      ast = _trigParse(exprStr);
+    } catch(e) {
+      alert('式パースエラー: ' + e.message);
+      return;
+    }
+    var wasmBytes;
+    try {
+      wasmBytes = trigCompileToWasm(ast);
+    } catch(e) {
+      alert('式コンパイルエラー: ' + e.message + '\n\n数値比較を使用してください（例: VA == 06 の代わりに VA == 6）');
+      return;
+    }
+    // ring_tick_mask = 0（毎 tick サンプリング）に自動切り替え
+    document.getElementById('la-sample-sel').value = '0';
+    worker.postMessage({ type: 'set_ring_tick_mask', mask: 0 });
+    // Wasm バイナリを Worker に送り、同期インスタンス化させる
+    var bytesCopy = new Uint8Array(wasmBytes).buffer;  // transferable コピー
+    worker.postMessage({ type: 'set_expr_trigger', wasmBytes: bytesCopy }, [bytesCopy]);
+    _saveExprHistory(exprStr);
+    _renderExprHistory();
+    _trigArmed = true;
+    _updateTrigButtons();
+    setStatus('Trigger set (Wasm): ' + exprStr);
+    hideTrigHit();
+    return;
+  }
   if (trigType === 1) {
     var raw = document.getElementById('trig-pc').value.trim();
     if (!raw) return;
@@ -2188,12 +2367,17 @@ document.getElementById('btn-trig-set').addEventListener('click', function() {
     lbl = _l[trigType] || '?';
   }
   worker.postMessage({ type: 'set_trigger', trigType: trigType, val: trigVal });
+  _trigArmed = true;
+  _updateTrigButtons();
   setStatus('Trigger set: ' + lbl);
   hideTrigHit();
 });
 
 document.getElementById('btn-trig-clear').addEventListener('click', function() {
+  _laFreezeHead = -1;
+  _trigArmed = false;
   worker.postMessage({ type: 'clear_trigger' });
+  _updateTrigButtons();
   hideTrigHit();
   setStatus(simPaused ? 'Paused' : 'Running');
 });
@@ -2201,7 +2385,23 @@ document.getElementById('btn-trig-clear').addEventListener('click', function() {
 document.getElementById('btn-trig-resume').addEventListener('click', function() {
   hideTrigHit();
   worker.postMessage({ type: 'resume' });
+  // ボタン状態は 'resumed' メッセージ受信時に更新される
 });
+
+// ── 式トリガー 履歴セレクト ────────────────────────────────────────────
+document.getElementById('trig-expr-hist').addEventListener('change', function() {
+  var v = this.value;
+  if (!v) return;
+  if (window._trigExprView) {
+    var view = window._trigExprView;
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: v } });
+  } else {
+    window._exprSavedContent = v;  // CM 未初期化: 次回 open 時に復元
+  }
+  this.value = '';  // リセット（同じ項目を再選択可能にする）
+});
+
+// ── 式トリガー パーサ / エバリュエータ → js/trigger-expr.js
 
 // ── Debug パネル (#12) ────────────────────────────────────────────────────
 var _trapLog  = [];
@@ -2356,6 +2556,131 @@ function updateRegs(snap, gpr) {
       });
   });
 })();
+</script>
+
+<!-- ── 式トリガー: CodeMirror 6 エディタ ───────────────────────────────── -->
+<script type="module">
+// CodeMirror は「式(Expr)」選択時に初めてロード（遅延初期化）
+// ページロード時にモジュールをダウンロードしないことで xterm 入力への影響を排除する
+window._initTrigExprCM = async function() {
+  if (window._trigExprView) return;
+
+  const [
+    { EditorView, keymap, placeholder: cmPlaceholder },
+    { EditorState },
+    { history, defaultKeymap, historyKeymap },
+    { javascript },
+    { autocompletion, completionKeymap, closeBrackets, closeBracketsKeymap },
+  ] = await Promise.all([
+    import('https://esm.sh/@codemirror/view@6'),
+    import('https://esm.sh/@codemirror/state@6'),
+    import('https://esm.sh/@codemirror/commands@6'),
+    import('https://esm.sh/@codemirror/lang-javascript@6'),
+    import('https://esm.sh/@codemirror/autocomplete@6'),
+  ]);
+
+  // ── 補完候補 ──────────────────────────────────────────────────────────
+  const SIG_COMPLETIONS = [
+    'PC', 'RD', 'WR', 'ISN', 'istate', 'Mode', 'VA', 'Addr', 'Data', 'Byte',
+    'PSW', 'Pri', 'TRAP', 'HALT', 'INT', 'Vec', 'IPL', 'RK',
+    'BUSERR', 'NXM', 'TBUS', 'TABORT', 'TODD',
+    'R0', 'R1', 'R2', 'R3', 'R4', 'R5', 'SP', 'M1', 'Cycle',
+  ].map(s => ({ label: s, type: 'variable', detail: 'signal' }));
+
+  const EDGE_COMPLETIONS = [
+    { label: 'rising',  type: 'keyword', detail: '0→1' },
+    { label: 'falling', type: 'keyword', detail: '1→0' },
+    { label: 'edge',    type: 'keyword', detail: '変化' },
+  ];
+
+  const STR_BY_SIG = {
+    istate: ['H1','F1','C1','S1','S2','S3','S4','D1','D2','D3','D4',
+             'E1','W1','O1','O2','O3','P1','T0','T1','T2','T3','T4','I1'],
+    mode:   ['KERNEL','SUPER','USER'],
+    cm:     ['KERNEL','SUPER','USER'],
+    cycle:  ['FETCH','MEM_RD','MEM_WR','IO_RD','IO_WR','TRAP'],
+    cyc:    ['FETCH','MEM_RD','MEM_WR','IO_RD','IO_WR','TRAP'],
+    cyle:   ['FETCH','MEM_RD','MEM_WR','IO_RD','IO_WR','TRAP'],
+  };
+  const ALL_STR_VALS = [...new Set(Object.values(STR_BY_SIG).flat())];
+
+  function trigCompletion(context) {
+    const text = context.state.doc.sliceString(0, context.pos);
+    const dotM = text.match(/\w+\.(\w*)$/);
+    if (dotM) {
+      return { from: context.pos - dotM[1].length, options: EDGE_COMPLETIONS };
+    }
+    const strM = text.match(/(\w+)\s*[!=]=\s*"([^"]*)$/);
+    if (strM) {
+      const vals = STR_BY_SIG[strM[1].toLowerCase()] || ALL_STR_VALS;
+      return {
+        from: context.pos - strM[2].length,
+        options: vals.map(v => ({ label: v, type: 'text', apply: v + '"' })),
+      };
+    }
+    const word = context.matchBefore(/\w*/);
+    if (!word || (word.from === word.to && !context.explicit)) return null;
+    return { from: word.from, options: SIG_COMPLETIONS };
+  }
+
+  // ── ダークテーマ ───────────────────────────────────────────────────────
+  const darkTheme = EditorView.theme({
+    '&': { background: '#222', border: '1px solid #444', width: '100%' },
+    '.cm-content': {
+      color: '#cf9', padding: '2px 6px',
+      fontFamily: 'monospace', fontSize: '12px',
+      caretColor: '#cf9', minHeight: '22px',
+    },
+    '.cm-line': { padding: '0' },
+    '&.cm-focused': { outline: 'none', borderColor: '#88a' },
+    '.cm-selectionBackground': { background: '#334 !important' },
+    '&.cm-focused .cm-selectionBackground': { background: '#446 !important' },
+    '.cm-cursor': { borderLeftColor: '#cf9' },
+    '.cm-placeholder': { color: '#555' },
+    '.cm-tooltip': { background: '#1a1a2a', border: '1px solid #556', color: '#ccc' },
+    '.cm-tooltip.cm-tooltip-autocomplete > ul > li': {
+      padding: '2px 10px', fontFamily: 'monospace', fontSize: '12px',
+    },
+    '.cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected]': {
+      background: '#334', color: '#cf9',
+    },
+    '.cm-completionMatchedText': { color: '#ff9', textDecoration: 'none', fontWeight: 'bold' },
+  }, { dark: true });
+
+  const singleLine = EditorState.transactionFilter.of(tr =>
+    tr.newDoc.lines > 1 ? [] : tr
+  );
+
+  // ── エディタ構築（destroy 後の再作成でも内容を復元）────────────────────
+  const container = document.getElementById('trig-expr-cm');
+  if (!container) return;
+
+  const view = new EditorView({
+    state: EditorState.create({
+      doc: window._exprSavedContent || '',  // 前回の入力内容を復元
+      extensions: [
+        history(),
+        javascript(),
+        autocompletion({ override: [trigCompletion] }),
+        closeBrackets(),
+        keymap.of([
+          { key: 'Enter', run: () => { document.getElementById('btn-trig-set').click(); return true; } },
+          ...defaultKeymap,
+          ...historyKeymap,
+          ...completionKeymap,
+          ...closeBracketsKeymap,
+        ]),
+        cmPlaceholder('例: PC == 04014 && RD == 1   RD.rising   ISN == "MOV R3,-(SP)"'),
+        darkTheme,
+        singleLine,
+      ],
+    }),
+    parent: container,
+  });
+
+  window._trigExprView = view;
+  // view.focus() は意図的に呼ばない: xterm からフォーカスを奪わないため
+};
 </script>
 </body>
 </html>
