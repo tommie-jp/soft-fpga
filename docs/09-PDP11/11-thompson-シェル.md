@@ -1,4 +1,4 @@
-# 11. Thompson シェル 使い方
+# 11. Thompson シェル 使い方 <a class="qr-link" href="docs/11-thompson-シェル-QR.png">QR</a>
 
 Unix V6 の `/bin/sh` は Ken Thompson が書いた最初期のシェル。
 Bourne シェル（V7）や bash よりシンプルで、覚えやすい。

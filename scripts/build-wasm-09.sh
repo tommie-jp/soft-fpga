@@ -107,8 +107,9 @@ echo "  web/js/: rtlscope-la.js sft-pdp11-la-defs.js sft-pdp11-docs.js"
 # docs/09-PDP11/*.md がソース（git 管理）。web/docs/ は gitignore 除外のため
 # ビルド時に同期する。
 mkdir -p "$EXAMPLE/web/docs"
-cp "$ROOT/docs/09-PDP11/"*.md "$EXAMPLE/web/docs/"
-echo "  web/docs/: $(ls "$ROOT/docs/09-PDP11/"*.md | wc -l) .md files"
+cp "$ROOT/docs/09-PDP11/"*.md  "$EXAMPLE/web/docs/"
+cp "$ROOT/docs/09-PDP11/"*.png "$EXAMPLE/web/docs/" 2>/dev/null || true
+echo "  web/docs/: $(ls "$ROOT/docs/09-PDP11/"*.md | wc -l) .md files, $(ls "$ROOT/docs/09-PDP11/"*.png 2>/dev/null | wc -l) .png files"
 
 # ── テストビルド: Node.js ES Module（Vitest 用、ディスク埋め込み） ──────────
 # MODULARIZE=1 + EXPORT_ES6=1 + ENVIRONMENT=node で sim-test.mjs を生成する。

@@ -1,4 +1,4 @@
-# 09. Unix V6 ファイルシステム構成
+# 09. Unix V6 ファイルシステム構成 <a class="qr-link" href="docs/09-unix-v6-ファイルシステム-QR.png">QR</a>
 
 ## 1. ディレクトリ階層
 

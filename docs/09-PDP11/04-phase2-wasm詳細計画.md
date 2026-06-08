@@ -1,4 +1,4 @@
-# Phase 2 詳細計画 — PDP-11 / Unix V6 WebAssembly 化
+# Phase 2 詳細計画 — PDP-11 / Unix V6 WebAssembly 化 <a class="qr-link" href="docs/04-phase2-wasm詳細計画-QR.png">QR</a>
 
 ## 1. ゴールと完了定義
 

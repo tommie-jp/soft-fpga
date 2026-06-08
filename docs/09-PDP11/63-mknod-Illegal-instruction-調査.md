@@ -1,4 +1,4 @@
-# 63. /etc/mknod の Illegal instruction 調査
+# 63. /etc/mknod の Illegal instruction 調査 <a class="qr-link" href="docs/63-mknod-Illegal-instruction-調査-QR.png">QR</a>
 
 2026-06-07 調査。`ps` を動かすための `/dev` ノード作成を V6 内から試みた際、
 `/etc/mknod` が引数なしでもクラッシュした問題の根本原因。
