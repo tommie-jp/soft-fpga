@@ -1,0 +1,45 @@
+@startuml 04-ab-bus-timing
+' hoglet67/cpu_65c02 の AB レジスタ出力タイミング
+' 例: LDA #$42  ($FF00: A9, $FF01: 42)  2 サイクル命令
+skinparam backgroundColor white
+
+binary  "clk"      as clk
+concise "AB[15:0]" as ab
+concise "DI[7:0]"  as di
+binary  "SYNC"     as sync
+binary  "WE"       as we
+
+@0
+clk  is low
+ab   is "$FFFE"
+di   is "$FF"
+sync is low
+we   is low
+
+@10
+clk  is high
+ab   is "$FF00"
+sync is high
+
+@30
+clk  is low
+di   is "$A9"
+
+@50
+clk  is high
+ab   is "$FF01"
+sync is low
+
+@70
+clk  is low
+di   is "$42"
+
+@90
+clk  is high
+ab   is "$FF02"
+sync is high
+
+@110
+clk  is low
+
+@enduml

@@ -1,0 +1,39 @@
+@startuml 04-step-sequence
+' harness.cpp step() 1 クロックの処理フロー
+skinparam backgroundColor white
+skinparam defaultFontColor #222222
+skinparam ArrowColor #444444
+skinparam sequenceArrowThickness 1.5
+skinparam sequenceParticipant underline
+
+participant "harness\n(step)" as h
+participant "Verilator\ncpu_65c02" as v
+participant "memory\n(RAM/ROM/PIA)" as m
+participant "ring buffer" as r
+
+h -> v : clk = 0, eval()\n[negedge]
+v --> h : AB は前 posedge の値を保持
+
+h -> m : memory_read(AB)
+m --> h : DI
+
+h -> v : DI をセット後\nclk = 1, eval()\n[posedge]
+note right of v
+  CPU 内部:
+  AB ← 次アドレス
+  DI サンプル
+  SYNC 更新
+end note
+
+v --> h
+
+alt WE == 1
+    h -> m : memory_write(AB, DO)
+    note right of m
+      DSP ($D012) なら\n文字キューへ
+    end note
+end
+
+h -> r : サンプル書き込み\n(AB/DB/WE/SYNC/A/X/Y/SP)
+
+@enduml

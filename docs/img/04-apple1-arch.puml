@@ -1,0 +1,47 @@
+@startuml 04-apple1-arch
+skinparam backgroundColor white
+skinparam defaultFontColor #222222
+skinparam ArrowColor #444444
+skinparam componentStyle rectangle
+skinparam component {
+    BackgroundColor #f5f5f5
+    BorderColor #555555
+}
+
+package "Verilog RTL" #EEF4FF {
+    package "hoglet/" #DDEEFF {
+        component [cpu_65c02.v] as cpu
+        component [ALU.v] as alu
+    }
+    component [apple1_top.v] as top
+    top --> cpu : clk / reset\nAB / DI / DO\nWE / SYNC
+    cpu ..> alu
+}
+
+package "C++ Harness (harness.cpp)" #FFF8EE {
+    component [RAM / ROM\n$0000-$FFFF] as ram
+    component [PIA エミュ\nKBD $D010\nDSP $D012] as pia
+    component [ring buffer\n2x uint32 / sample] as ring
+}
+
+package "Web レイヤ" #EEFFEE {
+    component [Web Worker\n(sim.wasm)] as worker
+    component [xterm.js\n40x24] as xterm
+    component [Logic Analyzer\n(Canvas)] as la
+    component [Register Panel] as rp
+}
+
+top --> ram : AB / WE / DO
+ram --> top : DI
+pia --> top : DI (KBD)
+top --> pia : WE (DSP 出力)
+top --> ring : posedge ごとに\nサンプリング
+
+worker --> top : step()\nstep_instruction()
+ring --> worker : TypedArray ビュー
+worker --> xterm : postMessage(char)
+xterm --> worker : postMessage(key)
+ring --> la : バスサイクル表示
+worker --> rp : get_pc() / get_a()\nget_x() / get_y() ...
+
+@enduml
