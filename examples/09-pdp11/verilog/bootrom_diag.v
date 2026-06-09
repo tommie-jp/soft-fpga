@@ -10,12 +10,15 @@
 
 module bootrom(clk, reset, iopage_addr, data_in, data_out, decode,
 	       iopage_rd, iopage_wr, iopage_byte_op);
-   
+
+   // 読み出し専用 ROM のため clk/reset/data_in/iopage_wr は意図的に未使用
+   /* verilator lint_off UNUSEDSIGNAL */
    input clk;
    input reset;
    input [12:0] iopage_addr;
    input [15:0] data_in;
    input 	iopage_rd, iopage_wr, iopage_byte_op;
+   /* verilator lint_on UNUSEDSIGNAL */
    output [15:0] data_out;
    output 	 decode;
 

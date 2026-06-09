@@ -3,6 +3,11 @@
 //
 // TX: ld_tx_req/ld_tx_ack ハンドシェイクで文字を受け取り dpi_tty_putc を呼ぶ
 // RX: 毎クロック dpi_tty_getc をポーリングして rx_data/rx_empty を制御する
+//
+// lint 抑止: 実 UART とのピン互換スタブのため txclk/rxclk 等は意図的に未使用。
+// BLKSEQ は DPI 呼び出しまわりの一時変数で意図的なブロッキング代入。
+/* verilator lint_off UNUSEDSIGNAL */
+/* verilator lint_off BLKSEQ */
 
 module fake_uart(clk, reset,
                  txclk, ld_tx_req, ld_tx_ack, tx_data, tx_enable, tx_out, tx_empty,

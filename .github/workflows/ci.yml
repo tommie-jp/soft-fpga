@@ -29,8 +29,42 @@ jobs:
             dir=$(dirname "$v")
             # サブモジュール依存があるトップは単体 lint 不可のためスキップ
             #   04-6502: hoglet (verilog-6502) / 06-8080: vm80a
+            #   09-pdp11 test_top_wasm*: vendor/cpus-pdp11/rtl の include 前提
             [[ "$v" == *"/04-6502/"* || "$v" == *"/06-8080/"* ]] && continue
+            [[ "$v" == *"/test_top_wasm"* ]] && continue
             verilator --lint-only -Wall -Wno-DECLFILENAME -I"$dir" "$v"
           done
 
-  # build-firmware は Pico SDK 実装が揃ってから有効化予定（現在は compose.yml に firmware サービスなし）
+  # JS 単体テスト（純 JS + コミット済み sim-test.wasm のみで動く軽量チェック）
+  test-js:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: examples/09-pdp11/tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: examples/09-pdp11/tests/package-lock.json
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Vitest (trigger / v6fs / signals)
+        run: npx vitest run
+
+  # Markdown lint（docs/ 全体）
+  lint-md:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: markdownlint
+        run: npx --yes markdownlint-cli 'docs/**/*.md'
