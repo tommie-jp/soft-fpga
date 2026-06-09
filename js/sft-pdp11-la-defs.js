@@ -494,6 +494,11 @@ var PDP11_LA_CONFIG = {
 
   decodeLane: {
     label: 'Cycle',
+    getValue: function(heapu32, ringSize, ringWords, samp) {
+      var b = ((samp >>> 0) & (ringSize - 1)) * ringWords;
+      var d = _decodeBusCycle(heapu32[b], heapu32[b + 1], heapu32[b + 2]);
+      return d ? d.short : null;
+    },
     render: function(ctx, p) {
       // p: { heapu32, ringSize, ringWords, startSamp, samples, laZoom, sigX, decY, decH }
       var RW = p.ringWords;
