@@ -90,6 +90,8 @@
 
     // ---- 派生定数 ----
     self._VIEW_W = self._LA_W - self._LABEL_W;
+    self._valColsW = 0;  // 値カラム合計幅（_draw で更新）
+    self._valColW  = c.valColW || 44;  // 値カラム1本の幅
 
     // ---- 状態変数 ----
     self._zoomIdx      = 2;   // 初期: 1x
@@ -279,7 +281,7 @@
       this._pan = Math.max(0, trigOffset - Math.floor(samplesInView / 2));
       return;
     }
-    var trigViewSamp = Math.round((fracX * this._LA_W - this._LABEL_W) / this._zoom);
+    var trigViewSamp = Math.round((fracX * this._LA_W - (this._LABEL_W + (this._valColsW || 0))) / this._zoom);
     this._pan = Math.max(0, trigOffset - (samplesInView - 1 - trigViewSamp));
   };
 
@@ -601,15 +603,16 @@
     // lx: canvas 論理座標 X → 'A' | 'B' | 'C' | null
     function _nearMarker(lx, snap) {
       snap = snap || 7;
+      var _effLW = self._LABEL_W + (self._valColsW || 0);
       function mxOf(samp) {
         if (samp === null) return null;
         var off = samp - self._lastStartSamp;
-        return self._LABEL_W - (self._lastSubPx || 0) + off * self._zoom;
+        return _effLW - (self._lastSubPx || 0) + off * self._zoom;
       }
       var mxA = mxOf(self._markerA), mxB = mxOf(self._markerB), mxC = mxOf(self._markerC);
-      if (mxA !== null && mxA >= self._LABEL_W && Math.abs(lx - mxA) <= snap) return 'A';
-      if (mxB !== null && mxB >= self._LABEL_W && Math.abs(lx - mxB) <= snap) return 'B';
-      if (mxC !== null && mxC >= self._LABEL_W && Math.abs(lx - mxC) <= snap) return 'C';
+      if (mxA !== null && mxA >= _effLW && Math.abs(lx - mxA) <= snap) return 'A';
+      if (mxB !== null && mxB >= _effLW && Math.abs(lx - mxB) <= snap) return 'B';
+      if (mxC !== null && mxC >= _effLW && Math.abs(lx - mxC) <= snap) return 'C';
       return null;
     }
 
@@ -622,7 +625,8 @@
       var lx   = e.clientX - rect.left;
       var ly   = e.clientY - rect.top;
       // マーカードラッグ判定（波形エリアのみ）
-      if (lx >= self._LABEL_W) {
+      var _mdEffLW = self._LABEL_W + (self._valColsW || 0);
+      if (lx >= _mdEffLW) {
         var near = _nearMarker(lx);
         if (near) { self._markerDrag = near; return; }
       }
@@ -636,7 +640,7 @@
           self._tDragIdx = tidx;
           self._tDragY   = ly;
         }
-      } else {
+      } else if (lx >= _mdEffLW) {
         laDragX    = e.clientX;
         laDragPan0 = self._pan;
       }
@@ -649,8 +653,9 @@
       var ly   = e.clientY - rect.top;
 
       // マーカードラッグ中
+      var _mmEffLW = self._LABEL_W + (self._valColsW || 0);
       if (self._markerDrag) {
-        var vxM = lx - self._LABEL_W + (self._lastSubPx || 0);
+        var vxM = lx - _mmEffLW + (self._lastSubPx || 0);
         var sampM = self._lastStartSamp + Math.floor(vxM / self._zoom);
         if      (self._markerDrag === 'A') self._markerA = sampM;
         else if (self._markerDrag === 'B') self._markerB = sampM;
@@ -660,10 +665,11 @@
         return;
       }
 
-      var nearM = lx >= self._LABEL_W ? _nearMarker(lx) : null;
-      self._cursorViewX = self._tDragIdx !== null ? -1 : Math.max(-1, lx - self._LABEL_W);
+      var nearM = lx >= _mmEffLW ? _nearMarker(lx) : null;
+      self._cursorViewX = self._tDragIdx !== null ? -1 : Math.max(-1, lx - _mmEffLW);
       canvas.style.cursor = self._tDragIdx !== null ? 'grabbing'
                           : lx < self._LABEL_W      ? 'grab'
+                          : lx < _mmEffLW           ? 'default'
                           : nearM                    ? 'col-resize'
                           :                           '';
 
@@ -724,13 +730,14 @@
     // lx: canvas 論理 x 座標
 
     // バッジ固定 x（OFF 時や ビュー外のフォールバック位置、_draw の _fixedX と同一）
-    function _markerFixedX(idx) { return self._LABEL_W + [14, 36, 58, 88][idx]; }
+    function _markerFixedX(idx) { return self._LABEL_W + (self._valColsW || 0) + [14, 36, 58, 88][idx]; }
 
     // samp が null or ビュー外なら固定バッジ位置を返す
     function _markerDisplayX(samp, fixedX) {
       if (samp === null) return fixedX;
-      var mx = self._LABEL_W - (self._lastSubPx || 0) + (samp - self._lastStartSamp) * self._zoom;
-      return (mx >= self._LABEL_W - 14 && mx <= self._LA_W + 14) ? mx : fixedX;
+      var _effLW2 = self._LABEL_W + (self._valColsW || 0);
+      var mx = _effLW2 - (self._lastSubPx || 0) + (samp - self._lastStartSamp) * self._zoom;
+      return (mx >= _effLW2 - 14 && mx <= self._LA_W + 14) ? mx : fixedX;
     }
 
     // samp をビュー中央になるよう pan を調整する
@@ -823,7 +830,8 @@
         var tx = (e.touches[0].clientX - sc.rect.left) * sc.x;  // canvas logical px
         var ty = (e.touches[0].clientY - sc.rect.top)  * sc.y;
         // マーカードラッグ判定（タッチは SNAP を広く取る）
-        if (tx >= self._LABEL_W) {
+        var _tsEffLW = self._LABEL_W + (self._valColsW || 0);
+        if (tx >= _tsEffLW) {
           var nearT = _nearMarker(tx, 14);
           if (nearT) {
             self._markerDrag  = nearT;
@@ -873,7 +881,7 @@
         if (e.cancelable) e.preventDefault();
         var scMD = _touchScale();
         var txMD = (e.touches[0].clientX - scMD.rect.left) * scMD.x;
-        var vxMD = txMD - self._LABEL_W + (self._lastSubPx || 0);
+        var vxMD = txMD - (self._LABEL_W + (self._valColsW || 0)) + (self._lastSubPx || 0);
         var sampMD = self._lastStartSamp + Math.floor(vxMD / self._zoom);
         if      (self._markerDrag === 'A') self._markerA = sampMD;
         else if (self._markerDrag === 'B') self._markerB = sampMD;
@@ -937,7 +945,7 @@
     var RW          = self._RW;
     var LA_W        = self._LA_W;
     var LABEL_W     = self._LABEL_W;
-    var VIEW_W      = self._VIEW_W;
+    var VIEW_W      = self._VIEW_W;  // この後 EFF_LW 計算後に上書きされる
     var TRACK_H     = self._TRACK_H;
     var TIME_RULER_H  = self._TIME_RULER_H;
     var MARKER_LANE_H = self._MARKER_LANE_H;
@@ -948,6 +956,25 @@
     // cbCurExtra は削除（値はラベル右に表示するため不要）
     var laH         = self._laH;
     var laZoom      = self._zoom;
+
+    // ── 値カラム定義 ──
+    var VAL_COL_W = 44;
+    var hasTrigVC = self._trigOn && self._trigHead >= 0;
+    var _valCols = [];
+    _valCols.push({label:'Cur',  color:'#664400', bg:'rgba(255,255,160,0.35)', samp:-1});
+    if (self._markerAOn && self._markerA !== null)
+      _valCols.push({label:'A',    color:'#0064e6', bg:'rgba(0,100,230,0.08)',   samp:(self._markerA >>> 0)});
+    if (self._markerBOn && self._markerB !== null)
+      _valCols.push({label:'B',    color:'#e07800', bg:'rgba(224,120,0,0.08)',   samp:(self._markerB >>> 0)});
+    if (self._markerCOn && self._markerC !== null)
+      _valCols.push({label:'C',    color:'#00a050', bg:'rgba(0,160,80,0.08)',    samp:(self._markerC >>> 0)});
+    if (hasTrigVC)
+      _valCols.push({label:'TRIG', color:'#dc0000', bg:'rgba(220,0,0,0.06)',     samp:(self._trigHead >>> 0)});
+    var _valColsW = _valCols.length * VAL_COL_W;
+    self._valColsW = _valColsW;
+    var EFF_LW = LABEL_W + _valColsW;
+    // VIEW_W を値カラム分だけ縮小（波形領域）
+    VIEW_W = LA_W - EFF_LW;
 
     self._lastHead = head;
     ctx.setTransform(self._dpr, 0, 0, self._dpr, 0, 0);
@@ -969,12 +996,32 @@
 
     // ── 信号エリア外枠 + ラベル縦区切り ──
     ctx.strokeStyle = '#aaa'; ctx.lineWidth = 1;
-    // 波形表示エリアを囲む矩形（ラベル幅より右）
-    ctx.strokeRect(LABEL_W + 0.5, sigY + 0.5, VIEW_W - 1, sigH - 1);
-    // ラベルエリア | 波形エリア の縦区切り（タイムルーラも貫く）
+    // 波形表示エリアを囲む矩形（EFF_LW より右）
+    ctx.strokeRect(EFF_LW + 0.5, sigY + 0.5, VIEW_W - 1, sigH - 1);
+    // ラベルエリア | 値カラム の縦区切り（タイムルーラも貫く）
     ctx.beginPath();
     ctx.moveTo(LABEL_W + 0.5, 0); ctx.lineTo(LABEL_W + 0.5, laH);
     ctx.stroke();
+
+    // ── 値カラム背景・縦区切り・ヘッダー ──
+    _valCols.forEach(function(vc, ci) {
+      var cx = LABEL_W + ci * VAL_COL_W;
+      // 背景
+      ctx.fillStyle = vc.bg;
+      ctx.fillRect(cx, sigY, VAL_COL_W, sigH);
+      // 縦区切り線
+      ctx.strokeStyle = '#bbc'; ctx.lineWidth = 0.5; ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(cx + VAL_COL_W - 0.5, 0); ctx.lineTo(cx + VAL_COL_W - 0.5, laH); ctx.stroke();
+      // T ルーラー行にカラムラベル
+      ctx.fillStyle = vc.color;
+      ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
+      ctx.fillText(vc.label, cx + VAL_COL_W / 2, TIME_RULER_H - 3);
+    });
+    // EFF_LW の縦区切り（波形との境界）
+    if (_valColsW > 0) {
+      ctx.strokeStyle = '#aaa'; ctx.lineWidth = 1; ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(EFF_LW + 0.5, 0); ctx.lineTo(EFF_LW + 0.5, laH); ctx.stroke();
+    }
 
     // ── ズーム / パン計算 ──
     // pan は float（ドット単位スムーズスクロール）で管理する。
@@ -991,7 +1038,7 @@
     // extraSamp=1 のとき startSamp が 1 サンプル手前(=laZoom px)にずれるため
     // (1 - panFrac)*laZoom で補正することで連続したスムーズスクロールになる。
     var subPx    = extraSamp * (1 - panFrac) * laZoom;
-    var SIG_X    = LABEL_W - subPx;           // 信号描画開始 x（LABEL_W から左にずれる）
+    var SIG_X    = EFF_LW - subPx;             // 信号描画開始 x（EFF_LW から左にずれる）
     self._lastSubPx = subPx;                  // イベントハンドラ用に保存
     var samples   = Math.min(samplesInView + extraSamp, totalAvail - panInt);
     var startSamp = (head >>> 0) - panInt - samples;
@@ -1011,6 +1058,9 @@
       }
       if (_labelValOff < 0) _labelValOff = samples - 1;
     }
+
+    // Cursor カラムの samp を確定（_labelValOff に連動）
+    if (_labelValOff >= 0) _valCols[0].samp = startSamp + _labelValOff;
 
     // ── ラベルプレパス（クリップなし）──
     // デコードレーンラベル（ラベルエリア: x < LABEL_W）
@@ -1056,6 +1106,33 @@
           ctx.fillText(_fmtStr, LABEL_W - 2, _yb + tH * 0.88);
         }
       }
+
+      // 値カラムに各信号の値を描画
+      _valCols.forEach(function(vc, ci) {
+        var cx = LABEL_W + ci * VAL_COL_W;
+        var cvSamp = vc.samp;
+        var cvAvail = cvSamp >= 0 && ((head >>> 0) - (cvSamp >>> 0)) <= (ringSize - 1);
+        ctx.font = '9px monospace'; ctx.textAlign = 'center';
+        if (!cvAvail) {
+          ctx.fillStyle = 'rgba(0,0,0,0.25)';
+          ctx.fillText('---', cx + VAL_COL_W / 2, _yb + tH * 0.7);
+          return;
+        }
+        var _ri  = ((cvSamp >>> 0) & (ringSize - 1)) * RW;
+        var _gw  = heapu32[_ri + (_sig.word || 0)];
+        var _MASK = _sig.width < 32 ? ((1 << _sig.width) - 1) : 0xFFFFFFFF;
+        var _v   = (_gw >> _sig.bit) & _MASK;
+        var _vtxt;
+        if (_sig.type === 'bit') {
+          _vtxt = String(_v);
+        } else if (_sig.fmt && cbFmt[_sig.fmt]) {
+          _vtxt = cbFmt[_sig.fmt](_v);
+        } else {
+          _vtxt = _v.toString(16).toUpperCase().padStart(_sig.width > 8 ? 4 : 2, '0');
+        }
+        ctx.fillStyle = vc.color;
+        ctx.fillText(_vtxt, cx + VAL_COL_W / 2, _yb + tH * 0.7);
+      });
     }
 
     // MARKER_LANE 区切り線 + 「Marker」固定テキスト（クリップなし）
@@ -1065,12 +1142,22 @@
     ctx.fillStyle = '#666'; ctx.font = '9px monospace'; ctx.textAlign = 'left';
     ctx.fillText('Marker', 2, mlaneY + MARKER_LANE_H - 5);
 
-    // ── 信号コンテンツ（クリップ: LABEL_W ～ LA_W）──
+    // 値カラムのマーカーレーンバッジ
+    _valCols.forEach(function(vc, ci) {
+      var cx = LABEL_W + ci * VAL_COL_W;
+      ctx.fillStyle = vc.color;
+      ctx.fillRect(cx + 2, mlaneY + 2, VAL_COL_W - 4, MARKER_LANE_H - 4);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
+      ctx.fillText(vc.label, cx + VAL_COL_W / 2, mlaneY + MARKER_LANE_H - 4);
+    });
+
+    // ── 信号コンテンツ（クリップ: EFF_LW ～ LA_W）──
     // SIG_X = LABEL_W - subPx でサブピクセル精度のスムーズスクロールを実現する。
     // LABEL_W 左側にはみ出た描画はクリップで自動的に非表示になる。
     ctx.save();
     ctx.beginPath();
-    ctx.rect(LABEL_W, 0, VIEW_W, laH);
+    ctx.rect(EFF_LW, 0, VIEW_W, laH);
     ctx.clip();
 
     // ── デコードレーン描画 ──
@@ -1086,7 +1173,7 @@
         laZoom:     laZoom,
         decY:       decY,
         decH:       decH,
-        labelW:     LABEL_W,
+        labelW:     EFF_LW,
         sigX:       SIG_X,
         laW:        LA_W
       });
@@ -1359,7 +1446,7 @@
     // ── MARKER_LANE バッジ + マーカー縦線 ──
     // ON のときのみバッジを表示（OFF のときは Marker レーンに表示しない）
     // [3] は Trig 用固定位置。A/B/C の固定位置は後で動的計算する。
-    var _fixedX = [0, 0, 0, LABEL_W + 88];
+    var _fixedX = [0, 0, 0, EFF_LW + 88];  // [3] は Trig 用フォールバック（実際は動的配置で上書き）
     function drawMarker(mLabel, mSamp, isOn, mLineColor, mBadgeColor, fixedX) {
       if (!isOn) return;  // OFF のときはバッジ非表示
       var hasSamp = mSamp !== null;
@@ -1371,14 +1458,14 @@
       // 縦線・バッジとも信号領域（x >= LABEL_W）のみに表示
       ctx.save();
       ctx.beginPath();
-      ctx.rect(LABEL_W, 0, LA_W - LABEL_W, laH);
+      ctx.rect(EFF_LW, 0, LA_W - EFF_LW, laH);
       ctx.clip();
 
       // ── 縦線: 範囲外は端にクランプして常に表示 ──
       if (hasSamp) {
         var lineX = inView ? mx
-                  : (mx < LABEL_W ? LABEL_W    // 左（過去）はみ出し → 左端
-                                  : LA_W - 1); // 右（未来）はみ出し → 右端
+                  : (mx < EFF_LW ? EFF_LW      // 左（過去）はみ出し → 左端
+                                 : LA_W - 1);  // 右（未来）はみ出し → 右端
         ctx.strokeStyle = mLineColor;
         ctx.lineWidth   = inView ? 2.5 : 1.5;
         ctx.setLineDash(inView ? [6, 4] : [2, 5]);
@@ -1404,7 +1491,7 @@
       var offA = self._markerA - startSamp, offB = self._markerB - startSamp;
       var xL = SIG_X + Math.max(0, Math.min(offA, offB)) * laZoom;
       var xR = SIG_X + Math.min(samples, Math.max(offA, offB)) * laZoom;
-      if (xR > xL && xR > LABEL_W && xL < LA_W) {
+      if (xR > xL && xR > EFF_LW && xL < LA_W) {
         ctx.fillStyle = 'rgba(120,120,255,0.07)';
         ctx.fillRect(xL, sigY, xR - xL, sigH);
       }
@@ -1413,8 +1500,8 @@
       ctx.font = '11px monospace'; ctx.textAlign = 'left';
       var dw = ctx.measureText(diffStr).width;
       ctx.fillStyle = 'rgba(215,215,245,0.93)';
-      ctx.fillRect(LABEL_W + 2, sigY + sigH - 15, dw + 6, 14);
-      ctx.fillStyle = '#224'; ctx.fillText(diffStr, LABEL_W + 5, sigY + sigH - 4);
+      ctx.fillRect(EFF_LW + 2, sigY + sigH - 15, dw + 6, 14);
+      ctx.fillStyle = '#224'; ctx.fillText(diffStr, EFF_LW + 5, sigY + sigH - 4);
     }
 
     // ── トラックドラッグ ビジュアル ──
@@ -1431,10 +1518,10 @@
       var iy = sigY + insertAt * tH;
       ctx.save();
       ctx.strokeStyle = 'rgba(40,80,220,0.85)'; ctx.lineWidth = 2; ctx.setLineDash([]);
-      ctx.beginPath(); ctx.moveTo(LABEL_W, iy); ctx.lineTo(LA_W, iy); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(EFF_LW, iy); ctx.lineTo(LA_W, iy); ctx.stroke();
       ctx.fillStyle = 'rgba(40,80,220,0.85)';
       ctx.beginPath();
-      ctx.moveTo(LABEL_W, iy); ctx.lineTo(LABEL_W + 8, iy - 4); ctx.lineTo(LABEL_W + 8, iy + 4);
+      ctx.moveTo(EFF_LW, iy); ctx.lineTo(EFF_LW + 8, iy - 4); ctx.lineTo(EFF_LW + 8, iy + 4);
       ctx.closePath(); ctx.fill();
       ctx.restore();
     }
@@ -1464,8 +1551,8 @@
       var firstTick = Math.ceil(startSamp / tickSamp) * tickSamp;
 
       ctx.strokeStyle = '#999'; ctx.lineWidth = 0.5;
-      ctx.beginPath(); ctx.moveTo(LABEL_W, sigY);        ctx.lineTo(LA_W, sigY);        ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(LABEL_W, sigY + sigH); ctx.lineTo(LA_W, sigY + sigH); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(EFF_LW, sigY);        ctx.lineTo(LA_W, sigY);        ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(EFF_LW, sigY + sigH); ctx.lineTo(LA_W, sigY + sigH); ctx.stroke();
 
       ctx.font = '10px monospace'; ctx.textAlign = 'center';
 
@@ -1524,14 +1611,14 @@
         m._inView   = off >= 0 && off < samples;
         m._showAtPos = mx >= SIG_X - (m.halfW + 2) && mx <= LA_W + (m.halfW + 2);
         if (!m._showAtPos) {
-          if (mx < LABEL_W) leftOut.push(m);
-          else              rightOut.push(m);
+          if (mx < EFF_LW) leftOut.push(m);
+          else             rightOut.push(m);
         }
       });
 
-      // 左寄せ: samp 昇順（古い順）で LABEL_W の右端から右へ、幅を考慮して並べる
+      // 左寄せ: samp 昇順（古い順）で EFF_LW の右端から右へ、幅を考慮して並べる
       leftOut.sort(function(a, b) { return a.samp - b.samp; });
-      var lCursor = LABEL_W;
+      var lCursor = EFF_LW;
       leftOut.forEach(function(m) {
         lCursor   += m.halfW;
         m._fixedX  = lCursor;
@@ -1555,7 +1642,7 @@
       // ── 描画 ──
       _mkrs.forEach(function(m) {
         if (!m.on || m.samp === null) return;
-        var fxFallback = m._mx < LABEL_W ? LABEL_W + m.halfW : LA_W - m.halfW;
+        var fxFallback = m._mx < EFF_LW ? EFF_LW + m.halfW : LA_W - m.halfW;
         var fixedX = m._fixedX !== undefined ? m._fixedX : fxFallback;
 
         if (m.idx < 3) {
@@ -1566,10 +1653,10 @@
           var TBW = m.halfW * 2, TBH = MARKER_LANE_H;
           var fireX = m._showAtPos ? m._mx : fixedX;
           var lineX = m._inView  ? m._mx
-                    : (m._mx < LABEL_W ? LABEL_W : LA_W - 1);
+                    : (m._mx < EFF_LW ? EFF_LW : LA_W - 1);
           ctx.save();
           ctx.beginPath();
-          ctx.rect(LABEL_W, 0, LA_W - LABEL_W, laH);
+          ctx.rect(EFF_LW, 0, LA_W - EFF_LW, laH);
           ctx.clip();
           // 縦線
           ctx.strokeStyle = 'rgba(220,0,0,0.85)';
@@ -1591,7 +1678,7 @@
 
     // ── カーソル（縦破線のみ）──
     if (self._cursorViewX >= 0 && self._cursorViewX <= VIEW_W && samples > 0) {
-      var cursorX = LABEL_W + self._cursorViewX;
+      var cursorX = EFF_LW + self._cursorViewX;
       ctx.save();
       ctx.strokeStyle = 'rgba(200,80,0,0.8)'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
       ctx.beginPath(); ctx.moveTo(cursorX, sigY); ctx.lineTo(cursorX, sigY + sigH); ctx.stroke();
