@@ -89,7 +89,8 @@ def main() -> int:
     section("1. index.html — <script src> / <link href> ローカルファイル")
     for attr_val in re.findall(r'(?:src|href)=["\']([^"\']+)["\']', html):
         if attr_val.startswith("http") or attr_val.startswith("#") or \
-           attr_val.startswith("javascript") or attr_val.startswith("data:"):
+           attr_val.startswith("javascript") or attr_val.startswith("data:") or \
+           attr_val.startswith("?"):   # ?doc= 等のクエリパラメータはファイルパスではない
             continue
         if not check_file(web_root, attr_val):
             errors += 1
