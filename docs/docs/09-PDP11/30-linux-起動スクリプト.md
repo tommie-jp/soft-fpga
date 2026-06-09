@@ -1,4 +1,4 @@
-# 30. Linux 起動スクリプト（doPDP11-unix-v6.sh） <a class="qr-link" href="../../../docs/09-PDP11/30-QR.png">QR</a>
+# 30. Linux 起動スクリプト（doPDP11-unix-v6.sh） <a class="qr-link" href="../../../docs/09-PDP11/img/30-QR.png">QR</a>
 
 ## 1. 概要
 

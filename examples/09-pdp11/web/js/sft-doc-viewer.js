@@ -36,7 +36,11 @@
     // 画像はペイン幅に収める（縦横比維持）
     '#doc-content img{max-width:100%;height:auto}' +
     '#doc-content h1{font-size:18px;color:#1a2e78;border-bottom:2px solid #5a7acc;' +
-      'padding-bottom:6px;margin-top:0}' +
+      'padding-bottom:6px;margin-top:0;' +
+      'display:flex;justify-content:space-between;align-items:baseline}' +
+    '#doc-content .qr-link{font-size:11px;color:#8899cc;text-decoration:none;' +
+      'flex-shrink:0;margin-left:10px;font-weight:normal}' +
+    '#doc-content .qr-link:hover{color:#5a7acc;text-decoration:underline}' +
     '#doc-content h2{font-size:15px;color:#1a4896;border-bottom:1px solid #8aaad8;' +
       'padding-bottom:3px;margin-top:20px;font-weight:700}' +
     '#doc-content h3{font-size:13px;color:#1a5c30;margin-top:14px;font-weight:700}' +
@@ -81,6 +85,7 @@
   //   idNext    : 'doc-next',     // 次へボタンの id
   //   idClose   : 'doc-close',    // 閉じるボタンの id
   //   idSelect  : 'doc-select',   // ドロップダウン <select> の id
+  //   useHash   : false,          // true = ?doc=filename.md でドキュメントを開く（iOS 対応）
   // }
   function SftDocViewer(list, opts) {
     opts = opts || {};
@@ -93,10 +98,12 @@
     this._idNext    = opts.idNext    || 'doc-next';
     this._idClose   = opts.idClose   || 'doc-close';
     this._idSelect  = opts.idSelect  || 'doc-select';
+    this._useHash   = !!opts.useHash;
     this._idx = -1;
     _injectCSS();
     this._populateSelect();
     this._bindListeners();
+    if (this._useHash) this._bindHash();
   }
 
   SftDocViewer.prototype._el = function (id) {
@@ -135,6 +142,30 @@
     });
   };
 
+  SftDocViewer.prototype._bindHash = function () {
+    var self = this;
+    function _open() {
+      // ?doc= クエリパラメータを優先（iOS カメラアプリは # を削るため）
+      var qp = new URLSearchParams(window.location.search).get('doc');
+      if (qp) {
+        try { qp = decodeURIComponent(qp); } catch (e) {}
+        self.openDoc(qp);
+        return;
+      }
+      // フォールバック: URL ハッシュ
+      var hash = window.location.hash.slice(1);
+      if (!hash) return;
+      try { hash = decodeURIComponent(hash); } catch (e) {}
+      self.openDoc(hash);
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', _open);
+    } else {
+      _open();
+    }
+    window.addEventListener('hashchange', _open);
+  };
+
   SftDocViewer.prototype.openDoc = function (file) {
     var self = this;
     var idx = -1;
@@ -142,6 +173,9 @@
       if (this.list[i].file === file) { idx = i; break; }
     }
     this._idx = idx;
+    if (this._useHash && file) {
+      history.replaceState(null, '', '?doc=' + encodeURIComponent(file));
+    }
 
     var prev = this._el(this._idPrev);
     var next = this._el(this._idNext);
@@ -169,6 +203,10 @@
           .replace(/<\/table>/g, '</table></div>');
         var content = self._el(self._idContent);
         content.innerHTML = html;
+        content.querySelectorAll('a').forEach(function (a) {
+          a.setAttribute('target', '_blank');
+          a.setAttribute('rel', 'noopener');
+        });
         content.scrollTop = 0;
         var modal = self._el(self._idModal);
         if (modal) modal.style.display = 'flex';

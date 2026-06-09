@@ -85,7 +85,7 @@
   //   idNext    : 'doc-next',     // 次へボタンの id
   //   idClose   : 'doc-close',    // 閉じるボタンの id
   //   idSelect  : 'doc-select',   // ドロップダウン <select> の id
-  //   useHash   : false,          // true = URL ハッシュ (#filename.md) でドキュメントを開く
+  //   useHash   : false,          // true = ?doc=filename.md でドキュメントを開く（iOS 対応）
   // }
   function SftDocViewer(list, opts) {
     opts = opts || {};
@@ -174,7 +174,7 @@
     }
     this._idx = idx;
     if (this._useHash && file) {
-      history.replaceState(null, '', '#' + encodeURIComponent(file));
+      history.replaceState(null, '', '?doc=' + encodeURIComponent(file));
     }
 
     var prev = this._el(this._idPrev);

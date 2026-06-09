@@ -22,5 +22,5 @@ var DOC_LIST = [
   { file: '53-参考資料.md',                     label: '53 参考資料' },
 ];
 
-var _docViewer = new SftDocViewer(DOC_LIST, { docsPath: 'docs/' });
+var _docViewer = new SftDocViewer(DOC_LIST, { docsPath: 'docs/', useHash: true });
 function openDoc(file) { _docViewer.openDoc(file); }
