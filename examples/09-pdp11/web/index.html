@@ -71,17 +71,29 @@
     .mmu-pa   { color:#666; font-size:9px; }
 
     /* ── PC トリガーパネル ── */
-    .trig-panel { background:#1a1e1a; border:1px solid #3a4a3a; padding:6px 10px;
-                  font-size:12px; margin-top:8px; box-sizing:border-box; }
-    .trig-panel h3 { margin:0 0 4px; font-size:12px; color:#6a8a6a; }
+    .trig-panel { background:#dde; border:none; border-top:1px solid #aab;
+                  border-bottom:1px solid #aab; padding:4px 8px;
+                  font-size:12px; box-sizing:border-box; }
+    .trig-panel h3 { margin:0 0 4px; font-size:12px; color:#446; display:inline; }
+    #btn-trig-collapse { font-size:9px; padding:1px 4px; line-height:1;
+                         background:#c8c8d8; color:#446; border:1px solid #aab;
+                         cursor:pointer; transition:transform 0.15s; }
+    .trig-panel.collapsed #btn-trig-collapse { transform:rotate(-90deg); }
+    #trig-body { overflow:hidden; transition:height 0.2s ease; }
     .trig-row { display:flex; gap:6px; align-items:center; margin-bottom:4px; }
-    .trig-row label { color:#888; font-size:11px; width:40px; }
-    .trig-row input[type=text] { background:#222; border:1px solid #444; color:#cf9;
+    .trig-row label { color:#446; font-size:11px; width:40px; }
+    .trig-row input[type=text] { background:#eef; border:1px solid #aab; color:#224;
                                   padding:2px 6px; font-size:12px; font-family:monospace;
                                   width:90px; }
-    .trig-row select { background:#222; border:1px solid #444; color:#aaa;
+    .trig-row select { background:#eef; border:1px solid #aab; color:#446;
                         font-size:11px; padding:2px 4px; flex:1; }
-    .trig-hit { color:#f84; font-size:11px; display:none; margin-top:2px; }
+    .trig-row button { background:#c8c8d8; color:#446; border:1px solid #aab;
+                       font-size:11px; padding:1px 8px; cursor:pointer; }
+    .trig-row button:hover { background:#b8b8c8; }
+    button#btn-trig-set { font-family:inherit; }
+    button#btn-trig-set.on { background:#e84 !important; }
+    button#btn-trig-set.on .sw-track { background:rgba(255,255,255,.4); }
+    .trig-hit { color:#c40; font-size:11px; display:none; margin-top:2px; }
     .trig-hit.show { display:block; }
     /* CodeMirror 式トリガーエディタ */
     #trig-expr-cm { flex:1; min-width:0; }
@@ -89,6 +101,9 @@
     #trig-expr-cm .cm-scroller { overflow:hidden; }
 
     /* ── Logic Analyzer（rtlscope-la.js はライトテーマ描画） ── */
+    #btn-la-collapse { font-size:9px; padding:1px 4px; line-height:1; transition:transform 0.15s; }
+    .la-section.collapsed #btn-la-collapse { transform:rotate(-90deg); }
+    #la-body { overflow:hidden; transition:height 0.2s ease; }
     .la-section { background:#dde; border:1px solid #aab; box-sizing:border-box; }
     .la-header { display:flex; align-items:center; gap:6px; padding:4px 8px;
                  border-bottom:1px solid #bbc; flex-wrap:wrap; background:#d0d0e0; }
@@ -206,12 +221,21 @@
     /* #doc-content スタイルは sft-doc-viewer.js が注入 */
 
     /* ── FS パネル ── */
-    #fs-panel { background:#1a1a14; border:1px solid #3a3a28; padding:5px 8px;
+    #fs-panel { background:#1a1a14; border:1px solid #3a3a28; padding:5px 8px 0;
                 font-size:11px; margin-top:5px; }
     #fs-hdr { display:flex; align-items:center; gap:5px; font-size:11px;
               color:#8a8a5a; margin-bottom:4px; flex-wrap:wrap; }
     #fs-hdr button { padding:1px 6px; font-size:10px; }
-    #fs-list { max-height:200px; overflow-y:auto; }
+    #btn-fs-collapse { font-size:9px; padding:1px 4px; line-height:1; transition:transform 0.15s; }
+    #fs-panel.collapsed #btn-fs-collapse { transform:rotate(-90deg); }
+    #fs-body { overflow:hidden; transition:height 0.2s ease; }
+    #fs-list { height:200px; overflow-y:auto; }
+    #fs-resizer { height:5px; background:#2a2a1e; border-top:1px solid #3a3a28;
+                  cursor:ns-resize; user-select:none; }
+    #fs-resizer:hover, #fs-resizer.dragging { background:#4a4a2e; }
+    #fs-status { min-height:22px; padding:3px 8px; font-size:11px; color:#ccc;
+                 background:#1a1a14; border:1px solid #3a3a28; border-top:none;
+                 white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     /* jstree ダークテーマ上書き */
     #fs-list .jstree-default-dark { background:transparent; }
     #fs-list .jstree-default-dark .jstree-anchor { color:#cc9; font-size:10px; height:18px; line-height:18px; }
@@ -222,28 +246,22 @@
     #fs-list .jstree-default-dark .jstree-wholerow-hovered { background:#22221a; }
     #fs-list .jstree-default-dark .jstree-wholerow-clicked { background:#2e2e1e; }
     #fs-list .jst-sz { color:#666; font-size:9px; margin-left:4px; }
+    #fs-list .jst-mt { color:#555; font-size:9px; margin-left:4px; }
 
-    /* ── WASM FS パネル ── */
-    #wasm-panel { background:#141420; border:1px solid #28283a; padding:5px 8px;
-                  font-size:11px; margin-top:5px; }
-    #wasm-hdr   { display:flex; align-items:center; gap:5px; font-size:11px;
-                  color:#7a8a9a; margin-bottom:4px; flex-wrap:wrap; }
-    #wasm-hdr button { padding:1px 6px; font-size:10px; }
-    #wasm-drop-hint { font-size:10px; color:#446; }
-    #wasm-list { max-height:140px; overflow-y:auto; }
-    #wasm-list table { width:100%; border-collapse:collapse; }
-    #wasm-list tr { cursor:default; }
-    #wasm-list tr:hover td { background:#1a1a28; }
-    #wasm-list td { padding:1px 4px; font-size:10px; color:#aaa; border-bottom:1px solid #222233; }
-    #wasm-list td.wf-name { color:#9cf; }
-    #wasm-list td.wf-size { color:#666; text-align:right; width:52px; }
-    #wasm-list td.wf-acts { width:118px; text-align:right; white-space:nowrap; }
-    .wf-btn { padding:0 4px; font-size:9px; background:#222233; border:1px solid #444;
-              color:#aaa; cursor:pointer; margin-left:2px; border-radius:2px; }
-    .wf-btn:hover { background:#333355; }
-    .wf-del:hover { background:#332222; color:#f88; }
-    .wf-lf { color:#566; }                                   /* OFF: 無変換 */
-    .wf-lf.on { color:#0f0; border-color:#0a0; background:#0a3a0a; } /* ON: LF 変換 */
+    /* LF トグルボタン */
+    #btn-lf-toggle { color:#0f0; border-color:#0a0; background:#0a3a0a; }
+    #btn-lf-toggle.lf-off { color:#566; border-color:#334; background:transparent; }
+    /* ファイルドラッグ時の全画面オーバーレイ */
+    #file-drop-overlay {
+      display:none; position:fixed; inset:0; z-index:9999;
+      background:rgba(0,50,120,0.75); color:#fff;
+      align-items:center; justify-content:center; flex-direction:column;
+      font-size:22px; font-weight:bold; pointer-events:none;
+      border:4px dashed #9cf;
+    }
+    #file-drop-overlay.active { display:flex; }
+    #file-drop-overlay small { font-size:13px; margin-top:8px; color:#adf; font-weight:normal; }
+    #drop-overlay-dir { color:#9cf; }
 
     /* ── Speed / Font / Theme セレクタ ── */
     .toolbar select { background:#333; color:#ccc; border:1px solid #555;
@@ -256,7 +274,7 @@
 
     /* ── LA ナビゲーション ── */
     .la-nav { display:flex; gap:3px; align-items:center; padding:3px 6px;
-              background:#d8d8e8; border-bottom:1px solid #bbc; }
+              background:#d8d8e8; border-bottom:1px solid #bbc; flex-wrap:wrap; }
     .la-nav button { background:#c8c8d8; color:#446; border:1px solid #aab;
                      padding:1px 7px; cursor:pointer; font-size:11px; }
     .la-nav button:hover { background:#b8b8c8; }
@@ -475,6 +493,13 @@
 </head>
 <body>
 
+<!-- ファイルドラッグ検出時の全画面オーバーレイ -->
+<div id="file-drop-overlay">
+  &#x1F4C2; V6 FS: <span id="drop-overlay-dir">/tmp</span>
+  <small>ファイルをここでリリースするとアップロードされます</small>
+</div>
+<input id="v6-upload-input" type="file" multiple style="display:none;">
+
 <div id="overlay">
   <div id="overlay-msg">Unix V6 ディスクイメージを読み込み中...</div>
   <progress id="overlay-progress" max="100" value="0"></progress>
@@ -601,25 +626,23 @@
     <!-- Unix V6 FS パネル -->
     <div id="fs-panel">
       <div id="fs-hdr">
+        <button id="btn-fs-collapse" title="折りたたむ / 展開する">&#x25BC;</button>
         V6 Filesystem
         <button id="btn-fs-refresh">&#x21BA;</button>
         <button id="btn-fs-dl" title="選択ファイルをダウンロード" disabled>&#x2193; DL</button>
+        <button id="btn-fs-edit" title="選択ファイルをエディタで開く" disabled>&#x270F;</button>
+        <button id="btn-lf-toggle" title="LF 変換 ON: ドロップ時に CRLF/CR → LF">LF</button>
         <button id="btn-save-disk" title="現在のディスクを IndexedDB に保存" disabled>&#x1F4BE; Save</button>
+        <button id="btn-export-disk" title="ディスクイメージをエクスポート">&#x1F4E4; Export</button>
+        <button id="btn-fs-delete" title="選択ファイルを削除" disabled>&#x1F5D1;</button>
         <button id="btn-reset-disk" title="サーバーの元のディスクイメージに戻す" style="display:none;">Reset</button>
       </div>
-      <div id="fs-list"></div>
-    </div>
-
-    <!-- WASM FS パネル（アップロード済みスクリプト） -->
-    <div id="wasm-panel">
-      <div id="wasm-hdr">
-        <span>WASM FS</span>
-        <button id="btn-fs-upload" title="スクリプトをアップロード">&#x2191; Upload</button>
-        <input id="fs-upload-input" type="file" style="display:none">
-        <span id="wasm-drop-hint">&#x2190; Drop</span>
+      <div id="fs-body">
+        <div id="fs-list"></div>
+        <div id="fs-resizer"></div>
       </div>
-      <div id="wasm-list"></div>
     </div>
+    <div id="fs-status"></div>
   </div>
 
   <!-- 右: レジスタ + MMU + トリガー + LA -->
@@ -674,93 +697,91 @@
   </div>
 </div>
 
-<!-- Trigger: 全幅 -->
-<div class="trig-panel">
-  <h3>Trigger</h3>
-  <div class="trig-row">
-    <label>種別</label>
-    <select id="trig-type">
-      <option value="7" selected>式 (Expr)</option>
-      <option value="1">PC 値一致</option>
-      <option value="6">PC + データ一致</option>
-      <option value="2">Fetch (istate=f1)</option>
-      <option value="3">I/O ページアクセス</option>
-      <option value="4">TRAP 発生</option>
-      <option value="5">バスエラー</option>
-    </select>
-  </div>
-  <div class="trig-row" id="trig-pc-row">
-    <label>PC(8)</label>
-    <input type="text" id="trig-pc" placeholder="例: 4014" maxlength="8">
-    <select id="trig-preset">
-      <option value="">— 既知アドレス —</option>
-    </select>
-  </div>
-  <div class="trig-row" id="trig-data-row" style="display:none;">
-    <label title="フェッチ時のバスデータ＝命令語(8進)。db の逆アセンブルで命令語を確認して入力">DATA(8)</label>
-    <input type="text" id="trig-data" placeholder="例: 060001" maxlength="8">
-  </div>
-  <div class="trig-row" id="trig-expr-row" style="display:none;">
-    <label style="width:auto;flex-shrink:0;">式</label>
-    <div id="trig-expr-cm"></div>
-  </div>
-  <div class="trig-row" id="trig-expr-hist-row" style="display:none;">
-    <label style="width:auto;flex-shrink:0;visibility:hidden;">式</label>
-    <select id="trig-expr-hist" style="flex:1;">
-      <option value="" disabled selected>— 履歴 —</option>
-    </select>
-  </div>
-  <div class="trig-row">
-    <button id="btn-trig-set"    disabled>Set</button>
-    <button id="btn-trig-clear"  disabled>Clear</button>
-    <button id="btn-trig-resume" disabled>Resume</button>
-  </div>
-  <div class="trig-hit" id="trig-hit">⏸ Triggered!</div>
-</div>
-
 <!-- Logic Analyzer: 全幅 -->
 <div class="la-section">
   <div class="la-header">
+    <button id="btn-la-collapse" class="la-zoom-btn" title="折りたたむ / 展開する">&#x25BC;</button>
     <h3>Logic Analyzer</h3>
-    <button class="la-zoom-btn" id="btn-la-toggle" title="LA ON/OFF — OFFにするとリングバッファ書き込みをスキップして速度向上">LA ON</button>
-    <span class="la-smpl-wrap" title="サンプリング間隔&#10;4tick/smpl: 高速・デフォルト（Unix V6）&#10;1tick/smpl: 式トリガー使用時に自動切替・取りこぼし防止"><span class="la-smpl-label">Smpl:</span><select id="la-sample-sel">
-      <option value="3">4tick/smpl</option>
-      <option value="0">1tick/smpl</option>
-    </select></span>
-    <button class="la-zoom-btn" id="la-zoom-out">−</button>
-    <select id="la-zoom-sel" title="ズーム倍率">
-      <option value="0">1/4x</option>
-      <option value="1">1/2x</option>
-      <option value="2">1x</option>
-      <option value="3">2x</option>
-      <option value="4">4x</option>
-      <option value="5" selected>8x</option>
-      <option value="6">16x</option>
-      <option value="7">32x</option>
-      <option value="8">64x</option>
-    </select>
-    <button class="la-zoom-btn" id="la-zoom-in">+</button>
-    <label class="sig-tog on" id="la-fill-lbl" style="background:#446;" title="信号レーン塗りつぶし ON/OFF">
-      <input type="checkbox" id="la-fill-chk" checked><span class="sw-track"></span> Fill
-    </label>
-    <label class="sig-tog on" id="la-hatch-lbl" style="background:#446;" title="ハッチパターン ON/OFF">
-      <input type="checkbox" id="la-hatch-chk" checked><span class="sw-track"></span> Hatch
-    </label>
-    <button class="la-zoom-btn" id="btn-la-freeze">Freeze</button>
-    <span id="frozen-badge" style="display:none;">FROZEN</span>
   </div>
-  <div id="la-toggles"></div>
-  <div class="la-nav">
-    <button id="la-nav-ll">&#171;</button>
-    <button id="la-nav-l">&#8249;</button>
-    <button id="la-nav-r">&#8250;</button>
-    <button id="la-nav-rr">&#187;</button>
-    <button id="btn-step" title="1ステップ実行（Freeze 中のみ有効）">▶ Step</button>
-    <button id="btn-goto-trig" title="トリガー発火位置へジャンプ">⊙Trig</button>
-    <a id="la-ss-link" href="../../../test/ss/pdp11/index.html" target="_blank"
-       rel="noopener" title="PDP-11 全命令タイミング図">&#x1F4F7; SS</a>
+  <div id="la-body">
+    <div id="la-toggles"></div>
+    <div class="trig-panel">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+        <button id="btn-trig-collapse">&#x25BC;</button>
+        <h3>Trigger</h3>
+        <select id="trig-type" style="flex:1;background:#eef;border:1px solid #aab;color:#446;font-size:11px;padding:2px 4px;">
+          <option value="7" selected>式 (Expr)</option>
+          <option value="1">PC 値一致</option>
+          <option value="6">PC + データ一致</option>
+          <option value="2">Fetch (istate=f1)</option>
+          <option value="3">I/O ページアクセス</option>
+          <option value="4">TRAP 発生</option>
+          <option value="5">バスエラー</option>
+        </select>
+      </div>
+      <div id="trig-body">
+        <div class="trig-row" id="trig-pc-row" style="display:none;">
+          <label>PC(8)</label>
+          <input type="text" id="trig-pc" placeholder="例: 4014" maxlength="8">
+          <select id="trig-preset">
+            <option value="">— 既知アドレス —</option>
+          </select>
+        </div>
+        <div class="trig-row" id="trig-data-row" style="display:none;">
+          <label title="フェッチ時のバスデータ＝命令語(8進)。db の逆アセンブルで命令語を確認して入力">DATA(8)</label>
+          <input type="text" id="trig-data" placeholder="例: 060001" maxlength="8">
+        </div>
+        <div class="trig-row" id="trig-expr-row" style="display:none;">
+          <label style="width:auto;flex-shrink:0;">式</label>
+          <div id="trig-expr-cm" style="flex:1;min-width:0;"></div>
+          <select id="trig-expr-hist" title="履歴" style="max-width:90px;background:#eef;border:1px solid #aab;color:#446;font-size:11px;padding:2px 2px;">
+            <option value="" disabled selected>— 履歴 —</option>
+          </select>
+        </div>
+        <div class="trig-row">
+          <button id="btn-trig-set" class="sig-tog" disabled><span class="sw-track"></span> Set</button>
+          <button id="btn-trig-resume" disabled>Resume</button>
+        </div>
+        <div class="trig-hit" id="trig-hit">⏸ Triggered!</div>
+      </div>
+    </div>
+    <div class="la-nav">
+      <button id="la-nav-ll">&#171;</button>
+      <button id="la-nav-l">&#8249;</button>
+      <button id="la-nav-r">&#8250;</button>
+      <button id="la-nav-rr">&#187;</button>
+      <button id="btn-step" title="1ステップ実行（Freeze 中のみ有効）">▶ Step</button>
+      <button id="btn-goto-trig" title="トリガー発火位置へジャンプ">⊙Trig</button>
+      <span class="la-smpl-wrap" title="サンプリング間隔&#10;4tick/smpl: 高速・デフォルト（Unix V6）&#10;1tick/smpl: 式トリガー使用時に自動切替・取りこぼし防止"><span class="la-smpl-label">Smpl:</span><select id="la-sample-sel">
+        <option value="3">4tick/smpl</option>
+        <option value="0">1tick/smpl</option>
+      </select></span>
+      <button class="la-zoom-btn" id="la-zoom-out">−</button>
+      <select id="la-zoom-sel" title="ズーム倍率">
+        <option value="0">1/4x</option>
+        <option value="1">1/2x</option>
+        <option value="2">1x</option>
+        <option value="3">2x</option>
+        <option value="4">4x</option>
+        <option value="5" selected>8x</option>
+        <option value="6">16x</option>
+        <option value="7">32x</option>
+        <option value="8">64x</option>
+      </select>
+      <button class="la-zoom-btn" id="la-zoom-in">+</button>
+      <label class="sig-tog on" id="la-fill-lbl" style="background:#446;" title="信号レーン塗りつぶし ON/OFF">
+        <input type="checkbox" id="la-fill-chk" checked><span class="sw-track"></span> Fill
+      </label>
+      <label class="sig-tog on" id="la-hatch-lbl" style="background:#446;" title="ハッチパターン ON/OFF">
+        <input type="checkbox" id="la-hatch-chk" checked><span class="sw-track"></span> Hatch
+      </label>
+      <button class="la-zoom-btn" id="btn-la-freeze">Freeze</button>
+      <span id="frozen-badge" style="display:none;">FROZEN</span>
+      <a id="la-ss-link" href="../../../test/ss/pdp11/index.html" target="_blank"
+         rel="noopener" title="PDP-11 全命令タイミング図">&#x1F4F7; SS</a>
+    </div>
+    <canvas id="la"></canvas>
   </div>
-  <canvas id="la"></canvas>
 </div>
 
 <p id="copyright">&copy; 2026 <a href="https://github.com/tommie-jp" target="_blank" rel="noopener">tommie.jp</a>
@@ -784,7 +805,7 @@
     <div id="editor-cm"></div>
     <div id="editor-footer">
       <input id="editor-fname" type="text" value="hello.c" placeholder="ファイル名（例: hello.c）">
-      <button id="editor-send">cat &gt; ファイル</button>
+      <button id="editor-send">&#x1F4BE; Save</button>
       <button id="editor-cancel">Cancel</button>
     </div>
   </div>
@@ -804,7 +825,7 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jstree@3.3.16/dist/jstree.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
@@ -895,15 +916,18 @@ la._updateCanvas();
     if (btnOut) btnOut.disabled = (la._zoomIdx <= 0);
     if (btnIn)  btnIn.disabled  = (la._zoomIdx >= LA_ZOOM_MAX_IDX);
   }
+  function _laForceRedraw() { _laDirty = true; _scheduleRafRender(); }
   if (btnOut) btnOut.addEventListener('click', function() {
     updateZoomLbl();
     _syncZoomSel();
     updateZoomButtons();
+    _laForceRedraw();
   });
   if (btnIn) btnIn.addEventListener('click', function() {
     updateZoomLbl();
     _syncZoomSel();
     updateZoomButtons();
+    _laForceRedraw();
   });
   // ズームセレクト (#8)
   var zoomSel = document.getElementById('la-zoom-sel');
@@ -919,6 +943,7 @@ la._updateCanvas();
     zoomSel.addEventListener('change', function() {
       updateZoomLbl();
       updateZoomButtons();
+      _laForceRedraw();
     });
     _syncZoomSel();
   }
@@ -934,10 +959,12 @@ la._updateCanvas();
   if (fillChk) fillChk.addEventListener('change', function() {
     la.setFillEnabled(this.checked);
     if (fillLbl) { fillLbl.className = 'sig-tog' + (this.checked ? ' on' : ''); fillLbl.style.background = this.checked ? '#446' : ''; }
+    _laDirty = true; _scheduleRafRender();
   });
   if (hatchChk) hatchChk.addEventListener('change', function() {
     la.setHatchEnabled(this.checked);
     if (hatchLbl) { hatchLbl.className = 'sig-tog' + (this.checked ? ' on' : ''); hatchLbl.style.background = this.checked ? '#446' : ''; }
+    _laDirty = true; _scheduleRafRender();
   });
 })();
 
@@ -946,17 +973,9 @@ document.getElementById('btn-step').addEventListener('click', function() {
   if (laFrozen) worker.postMessage({ type: 'step', n: 300 });
 });
 document.getElementById('btn-goto-trig').addEventListener('click', function() {
-  if (la.gotoTrig) la.gotoTrig(0.3);
+  if (la.gotoTrig) { la.gotoTrig(0.3); _laDirty = true; _scheduleRafRender(); }
 });
 
-// ── LA ON/OFF (A) ─────────────────────────────────────────────────────────
-var _laOn = true;
-document.getElementById('btn-la-toggle').addEventListener('click', function() {
-  _laOn = !_laOn;
-  worker.postMessage({ type: 'setLA', enabled: _laOn });
-  this.textContent = _laOn ? 'LA ON' : 'LA OFF';
-  this.style.color = _laOn ? '' : '#f84';
-});
 
 // ── サンプリングレート変更 ────────────────────────────────────────────────
 function _applySampleRate() {
@@ -1124,8 +1143,10 @@ var _trigArmed           = false;  // Set 成功後 true、Clear で false
 
 // ── トリガーボタン有効/無効 ───────────────────────────────────────────────
 function _updateTrigButtons() {
-  document.getElementById('btn-trig-set').disabled    = !simStarted;
-  document.getElementById('btn-trig-clear').disabled  = !simStarted || (!_trigArmed && _laFreezeHead < 0);
+  var btnSet  = document.getElementById('btn-trig-set');
+  var isActive = _trigArmed || _laFreezeHead >= 0;
+  btnSet.disabled = !simStarted;
+  btnSet.classList.toggle('on', isActive);
   document.getElementById('btn-trig-resume').disabled = _laFreezeHead < 0;
 }
 
@@ -1134,13 +1155,13 @@ var _EXPR_HIST_KEY      = 'pdp11_expr_hist';
 var _EXPR_HIST_DEFAULTS = [
   'VA == 06 && Mode == "USER" && ISN==0o60001',
 ];
-function _loadExprHistory() {
+window._loadExprHistory = function _loadExprHistory() {
   try {
     var h = JSON.parse(localStorage.getItem(_EXPR_HIST_KEY) || '[]');
     if (!Array.isArray(h) || h.length === 0) return _EXPR_HIST_DEFAULTS.slice();
     return h;
   } catch(e) { return _EXPR_HIST_DEFAULTS.slice(); }
-}
+};
 function _saveExprHistory(expr) {
   if (!expr) return;
   var h = _loadExprHistory().filter(function(e) { return e !== expr; });
@@ -1148,20 +1169,18 @@ function _saveExprHistory(expr) {
   if (h.length > 10) h.length = 10;
   try { localStorage.setItem(_EXPR_HIST_KEY, JSON.stringify(h)); } catch(e) {}
 }
-function _renderExprHistory() {
+window._renderExprHistory = function _renderExprHistory() {
   var sel = document.getElementById('trig-expr-hist');
   if (!sel) return;
-  var h = _loadExprHistory();
+  var h = window._loadExprHistory();
   sel.innerHTML = '<option value="" disabled selected>— 履歴 —</option>';
   h.forEach(function(expr) {
     var opt = document.createElement('option');
     opt.value = expr; opt.textContent = expr;
     sel.appendChild(opt);
   });
-  var row = document.getElementById('trig-expr-hist-row');
-  if (row) row.style.display = (h.length > 0) ? '' : 'none';
   sel.value = '';
-}
+};
 
 worker.onmessage = function(e) {
   var d = e.data;
@@ -1193,7 +1212,7 @@ worker.onmessage = function(e) {
       // sim_init() が ring_tick_mask=3u にリセットするため UI の選択を再適用する
       _applySampleRate();
       // FS パネルの初回取得（ディスクロード後）
-      setTimeout(function() { _requestFSList(); _requestWasmFSList(); }, 500);
+      setTimeout(function() { _requestFSList(); }, 500);
       break;
 
     case 'paused':
@@ -1362,25 +1381,51 @@ worker.onmessage = function(e) {
       term.write('\r\n[FS Error] ' + (d.msg || '') + '\r\n');
       break;
 
-    case 'v6WriteFileDone':
+    case 'v6WriteFileDone': {
       term.write('\r\n[Editor] ' + d.path + ' (inode ' + d.ino + ')\r\n');
+      setFsStatus(d.path + ' 書き込み完了');
+      if (simStarted) {
+        var _v6FsEl = document.getElementById('fs-list');
+        if (_v6FsEl) {
+          var _wDir = d.path.replace(/\/[^\/]+$/, '') || '/';
+          $(_v6FsEl).one('refresh.jstree', function() {
+            var _jt = $(this).jstree(true);
+            var _root = _jt.get_node('#');
+            if (_root && _root.children) {
+              _root.children.forEach(function(cId) {
+                var _c = _jt.get_node(cId);
+                if (_c && _c.data && _c.data.path === _wDir) _jt.open_node(_c);
+              });
+            }
+          });
+          $(_v6FsEl).jstree(true).refresh();
+        }
+      }
       break;
+    }
 
     case 'v6WriteFileError':
       term.write('\r\n[Editor Error] ' + (d.error || '不明なエラー') + '\r\n');
+      setFsStatus('エラー: ' + (d.error || '書き込み失敗'));
       break;
 
     // ── FS エントリ（listFS 応答）──────────────────────────────────────
     case 'fsEntries':
-      if (d.requestId === 'panel') {
-        _renderFSPanel(d.entries);
+      if (d.requestId && _jstreeCallbacks[d.requestId]) {
+        // jstree データ関数コールバック（初回ロード or 遅延ロード）
+        var _cbInfo = _jstreeCallbacks[d.requestId];
+        delete _jstreeCallbacks[d.requestId];
+        var _cbEl = document.getElementById('fs-list');
+        if (_cbEl && typeof $ !== 'undefined') {
+          _cbInfo.cb.call($(_cbEl).jstree(true), _buildJstreeChildNodes(d.entries));
+        }
       } else if (d.requestId === 'tty') {
         // !ls コマンド → ターミナルに表示（サイズ付き）
-        var ents2 = (d.entries || []).slice().sort(function(a, b) { return a.path.localeCompare(b.path); });
+        var ents2 = (d.entries || []).slice().sort(function(a, b) { return a.name.localeCompare(b.name); });
         var lines2 = ents2.map(function(e) {
           var flag = e.isDir ? 'd' : '-';
           var sz   = e.isDir ? '' : String(e.size).padStart(7) + ' B';
-          return flag + ' ' + e.path.padEnd(26) + sz;
+          return flag + ' ' + e.name.padEnd(20) + sz;
         });
         term.write('\r\n' + (lines2.length ? lines2.join('\r\n') : '(empty)') + '\r\n');
       }
@@ -1402,51 +1447,81 @@ worker.onmessage = function(e) {
         a.href = url; a.download = fname;
         a.click();
         URL.revokeObjectURL(url);
+      } else if (d.requestId === 'edit') {
+        // ✏ Edit → バイナリ判定（先頭 512 バイトにヌルバイトがあればバイナリ）
+        var bytes3  = new Uint8Array(d.data);
+        var scanLen = Math.min(bytes3.length, 512);
+        var isBin   = false;
+        for (var bi = 0; bi < scanLen; bi++) { if (bytes3[bi] === 0) { isBin = true; break; } }
+        if (isBin) {
+          alert(d.path + '\nバイナリファイルはテキストエディタで開けません。');
+        } else {
+          var text3 = new TextDecoder('utf-8', { fatal: false }).decode(bytes3);
+          openEditorWithContent(d.path, text3);
+        }
       }
       break;
 
     // ── writeFS 完了 ────────────────────────────────────────────────────
     case 'fsWritten':
       if (simStarted) _requestFSList();
-      _requestWasmFSList();
       break;
 
     // ── deleteFS 完了 ───────────────────────────────────────────────────
     case 'fsDeleted':
       term.write('\r\nDeleted: ' + (d.name || '') + '\r\n');
-      _requestWasmFSList();
       break;
 
-    // ── WASM FS 一覧 ────────────────────────────────────────────────────
-    case 'wasmFSEntries':
-      _renderWasmFSPanel(d.entries);
-      break;
-
-    // ── WASM FS ファイルダウンロード ────────────────────────────────────
-    case 'wasmFSFile': {
-      if (d.requestId && d.requestId.indexOf('v6copy:') === 0) {
-        var vcName = d.requestId.slice('v6copy:'.length);
-        var vcBuf  = d.data instanceof ArrayBuffer ? d.data
-                   : d.data.buffer.slice(d.data.byteOffset, d.data.byteOffset + d.data.byteLength);
-        // V6 as/ed は CR を garbage 文字として扱う。ファイル毎の LF トグルが ON の
-        // ときだけ CRLF/CR を LF に正規化する（既定はテキスト拡張子で ON）。
-        if (_lfFlagFor(vcName)) vcBuf = _normalizeNewlinesToLF(vcBuf);
-        worker.postMessage({ type: 'v6WriteFile', requestId: 'wasmCopy',
-                             path: '/tmp/' + vcName, content: vcBuf }, [vcBuf]);
-      } else {
-        var wblob = new Blob([d.data]);
-        var wurl  = URL.createObjectURL(wblob);
-        var wa    = document.createElement('a');
-        wa.href = wurl; wa.download = d.name;
-        wa.click();
-        URL.revokeObjectURL(wurl);
+    // ── V6 FS ファイル操作完了 / エラー ─────────────────────────────────
+    case 'v6OpDone': {
+      var _fsEl = document.getElementById('fs-list');
+      if (d.op === 'remove' && _fsSelNodeId && _fsEl) {
+        $(_fsEl).jstree(true).delete_node(_fsSelNodeId);
+        _fsSelPath = null; _fsSelNodeId = null;
+        var _bDl   = document.getElementById('btn-fs-dl');
+        var _bEdit = document.getElementById('btn-fs-edit');
+        var _bDel  = document.getElementById('btn-fs-delete');
+        if (_bDl)   _bDl.disabled   = true;
+        if (_bEdit) _bEdit.disabled = true;
+        if (_bDel)  _bDel.disabled  = true;
+      } else if (d.op === 'move' && _fsEl) {
+        // ノードの data.path が旧パスのままなので refresh して再同期
+        $(_fsEl).jstree(true).refresh();
       }
+      break;
+    }
+    case 'v6OpError':
+      console.error('[V6 FS]', d.msg);
+      if (d.op === 'move') {
+        var _fsEl2 = document.getElementById('fs-list');
+        if (_fsEl2) $(_fsEl2).jstree(true).refresh();
+      }
+      break;
+
+    // ── ディスクエクスポート ─────────────────────────────────────────────
+    case 'diskData': {
+      var dblob = new Blob([d.data]);
+      var durl  = URL.createObjectURL(dblob);
+      var da    = document.createElement('a');
+      da.href = durl; da.download = 'unix_v6_rk05.dsk';
+      da.click();
+      URL.revokeObjectURL(durl);
+      setFsStatus('ディスクイメージをエクスポートしました (unix_v6_rk05.dsk)');
       break;
     }
   }
 };
 
 function setStatus(msg) { document.getElementById('status').textContent = msg; }
+
+var _fsStatusTimer = null;
+function setFsStatus(msg) {
+  var el = document.getElementById('fs-status');
+  if (!el) return;
+  el.textContent = msg;
+  clearTimeout(_fsStatusTimer);
+  _fsStatusTimer = setTimeout(function() { el.textContent = ''; }, 5000);
+}
 
 function startSim() {
   setStatus('Initializing...');
@@ -1574,11 +1649,13 @@ document.getElementById('btn-save-disk').addEventListener('click', function() {
 
 document.getElementById('btn-reset-disk').addEventListener('click', function() {
   if (!confirm('IndexedDB の保存済みディスクを削除してサーバーから再ロードしますか？')) return;
+  setFsStatus('保存済みディスクを削除中...');
   idbDeleteDisk().then(function() {
     _idbHasSave = false;
     document.getElementById('btn-reset-disk').style.display = 'none';
     setStatus('Deleted — ページをリロードしてください');
-  }).catch(function(e) { console.error(e); });
+    setFsStatus('保存済みディスクを削除しました — ページをリロードしてください');
+  }).catch(function(e) { console.error(e); setFsStatus('削除失敗: ' + e.message); });
 });
 
 document.getElementById('btn-pause').addEventListener('click', function() {
@@ -1722,43 +1799,19 @@ function _flashBtn(id) {
 }
 
 // ── FS 操作補助 ────────────────────────────────────────────────────────────
-var _fsEntries    = [];
-var _fsTreeInited = false;
-var _fsSelPath    = null;
+var _jstreeCallbacks = {};  // reqId → { cb: jstree コールバック }
+var _jstreeReqCount  = 0;
+var _fsTreeInited    = false;
+var _fsSelPath       = null;  // 選択ファイルの V6 パス
+var _fsSelNodeId     = null;  // 選択ノードの jstree ID
+var _fsSelDir        = '/tmp'; // ドロップ先ディレクトリ（デフォルト /tmp）
 
 function _requestFSList() {
-  worker.postMessage({ type: 'listFS', requestId: 'panel' });
+  _renderFSPanel();
 }
 
-function _requestWasmFSList() {
-  if (!simStarted) return;
-  worker.postMessage({ type: 'listWasmFS', requestId: 'wasm' });
-}
-
-// 改行正規化の対象とみなすテキストファイル拡張子。
-var _TEXT_EXTENSIONS = [
-  's', 'c', 'h', 'txt', 'asm', 'p', 'f', 'b',
-  'sh', 'mk', 'md', 'cfg', 'conf', 'ini', 'log'
-];
-
-// ファイル名がテキスト拡張子なら true。拡張子なしは安全側でテキスト扱い。
-function _isTextFilename(name) {
-  var base = String(name).replace(/.*\//, '');
-  var dot  = base.lastIndexOf('.');
-  if (dot <= 0) return true;          // 拡張子なし（Makefile 等）→ テキスト扱い
-  var ext = base.slice(dot + 1).toLowerCase();
-  return _TEXT_EXTENSIONS.indexOf(ext) !== -1;
-}
-
-// ファイル毎の LF 変換 ON/OFF をユーザ操作で上書きした値（未設定なら拡張子既定）。
-var _lfFlags = {};
-
-// →V6 時に LF 変換するか。ユーザ設定があればそれを、無ければ拡張子で既定を返す。
-function _lfFlagFor(name) {
-  return Object.prototype.hasOwnProperty.call(_lfFlags, name)
-       ? _lfFlags[name]
-       : _isTextFilename(name);
-}
+// ドロップ時に CRLF/CR → LF 変換するか（グローバルトグル）
+var _lfConvert = true;
 
 // CRLF/CR を LF に正規化した ArrayBuffer を返す（CR が無ければ buf をそのまま）。
 function _normalizeNewlinesToLF(buf) {
@@ -1783,124 +1836,96 @@ function _normalizeNewlinesToLF(buf) {
   return out.buffer.slice(0, n);
 }
 
-function _renderWasmFSPanel(entries) {
-  var el = document.getElementById('wasm-list');
-  if (!el) return;
-  if (!entries || !entries.length) {
-    el.innerHTML = '<span style="color:#446;font-size:10px;padding:2px 4px;display:block;">（ファイルなし）</span>';
-    return;
-  }
-  var sorted = entries.slice().sort(function(a, b) { return a.name.localeCompare(b.name); });
-  var rows = '';
-  for (var i = 0; i < sorted.length; i++) {
-    var e   = sorted[i];
-    var esc = e.name.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
-    rows += '<tr data-name="' + esc + '">' +
-      '<td class="wf-name">' + esc + '</td>' +
-      '<td class="wf-size">' + e.size + 'B</td>' +
-      '<td class="wf-acts">' +
-        '<button class="wf-btn wf-lf' + (_lfFlagFor(e.name) ? ' on' : '') + '"' +
-                ' title="→V6 時に CRLF/CR を LF へ変換">LF</button>' +
-        '<button class="wf-btn wf-v6"  title="V6 /tmp/ にコピー">&rarr;V6</button>' +
-        '<button class="wf-btn wf-run" title="スクリプトとして実行">&#x25B6;</button>' +
-        '<button class="wf-btn wf-dl"  title="ダウンロード">&#x2193;</button>' +
-        '<button class="wf-btn wf-del" title="削除">&#x2715;</button>' +
-      '</td></tr>';
-  }
-  el.innerHTML = '<table style="width:100%;border-collapse:collapse;">' + rows + '</table>';
-  el.querySelectorAll('tr').forEach(function(tr) {
-    var name = tr.dataset.name;
-    tr.querySelector('.wf-lf').addEventListener('click', (function(n) {
-      return function(ev) {
-        ev.stopPropagation();
-        _lfFlags[n] = !_lfFlagFor(n);          // 既定値からトグル
-        this.classList.toggle('on', _lfFlags[n]);
-      };
-    })(name));
-    tr.querySelector('.wf-v6').addEventListener('click', (function(n) {
-      return function(ev) {
-        ev.stopPropagation();
-        if (!simStarted) return;
-        worker.postMessage({ type: 'readWasmFS', requestId: 'v6copy:' + n, name: n });
-      };
-    })(name));
-    tr.querySelector('.wf-run').addEventListener('click', function(ev) {
-      ev.stopPropagation(); _executeHostCmd('script ' + name);
-    });
-    tr.querySelector('.wf-dl').addEventListener('click', function(ev) {
-      ev.stopPropagation();
-      worker.postMessage({ type: 'readWasmFS', requestId: 'download', name: name });
-    });
-    tr.querySelector('.wf-del').addEventListener('click', function(ev) {
-      ev.stopPropagation();
-      worker.postMessage({ type: 'deleteFS', requestId: 'tty', name: name });
-    });
+
+// jstree データ関数から返す子ノード配列を組み立てる（ディレクトリは children:true で遅延ロード）
+function _buildJstreeChildNodes(entries) {
+  return (entries || []).slice().sort(function(a, b) {
+    if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  }).map(function(e) {
+    var label = e.name;
+    if (!e.isDir) {
+      if (e.size) label += ' <span class="jst-sz">' + e.size + 'B</span>';
+      if (e.mtime) {
+        var dt = new Date(e.mtime * 1000);
+        var mm = ('0' + (dt.getMonth() + 1)).slice(-2);
+        var dd = ('0' + dt.getDate()).slice(-2);
+        var hh = ('0' + dt.getHours()).slice(-2);
+        var mi = ('0' + dt.getMinutes()).slice(-2);
+        label += ' <span class="jst-mt">' + mm + '/' + dd + ' ' + hh + ':' + mi + '</span>';
+      }
+    }
+    return {
+      text:     label,
+      icon:     e.isDir ? 'jstree-folder' : 'jstree-file',
+      children: !!e.isDir,
+      data:     { path: e.path, isDir: e.isDir }
+    };
   });
 }
 
-function _buildJstreeNodes(entries) {
-  var ROOT = '__v6root__';
-  var nodes = [{ id: ROOT, parent: '#', text: '/', icon: 'jstree-folder',
-                 state: { opened: true } }];
-  var pathToId = { '/': ROOT };
-
-  var ents = entries.filter(function(e) { return e.path !== '/'; })
-                    .sort(function(a, b) {
-                      if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
-                      return a.path.localeCompare(b.path);
-                    });
-
-  ents.forEach(function(e, i) {
-    var path  = e.path;
-    var slash = path.lastIndexOf('/');
-    var name  = path.slice(slash + 1);
-    var par   = slash > 0 ? path.slice(0, slash) : '/';
-    var pid   = pathToId[par] || ROOT;
-    var id    = 'n' + i;
-    pathToId[path] = id;
-
-    var label = name;
-    if (!e.isDir && e.size) label += ' <span class="jst-sz">' + e.size + 'B</span>';
-
-    nodes.push({ id: id, parent: pid,
-                 text: label,
-                 icon: e.isDir ? 'jstree-folder' : 'jstree-file',
-                 data: { path: path, isDir: e.isDir } });
-  });
-  return nodes;
-}
-
-function _renderFSPanel(entries) {
-  _fsEntries = entries || [];
+function _renderFSPanel() {
   var el = document.getElementById('fs-list');
   if (!el || typeof $ === 'undefined') return;
 
-  var nodes = _buildJstreeNodes(_fsEntries);
-
   if (_fsTreeInited) {
-    $(el).jstree(true).settings.core.data = nodes;
     $(el).jstree(true).refresh();
-  } else {
-    _fsTreeInited = true;
-    $(el).jstree({
-      core: { data: nodes, check_callback: false, multiple: false,
-              themes: { name: 'default-dark', dots: true, icons: true } },
-      plugins: ['wholerow']
-    }).on('select_node.jstree', function(ev, d) {
-      var nd = d.node;
-      if (!nd.data) return;
-      _fsSelPath = nd.data.isDir ? null : nd.data.path;
-      var btn = document.getElementById('btn-fs-dl');
-      if (btn) btn.disabled = !_fsSelPath;
-      if (_fsSelPath) {
-        if (/\.(sh|script|scr)$/i.test(_fsSelPath)) {
-          _executeHostCmd('script ' + _fsSelPath.replace(/.*\//, ''));
-        } else {
-          _executeHostCmd('type ' + _fsSelPath);
-        }
-      }
-    });
+    return;
   }
+
+  _fsTreeInited = true;
+  $(el).jstree({
+    core: {
+      data: function(node, cb) {
+        if (!simStarted) { cb.call($(el).jstree(true), []); return; }
+        var path = (node.id === '#') ? '/' : (node.data ? node.data.path : '/');
+        var reqId = 'jt_' + (_jstreeReqCount++);
+        _jstreeCallbacks[reqId] = { cb: cb };
+        worker.postMessage({ type: 'listFS', requestId: reqId, path: path });
+      },
+      // move_node 検証: 移動先はディレクトリのみ許可
+      check_callback: function(op, node, parent) {
+        if (op !== 'move_node') return true;
+        if (!parent || parent.id === '#') return false;
+        return !!(parent.data && parent.data.isDir);
+      },
+      multiple: false,
+      themes: { name: 'default-dark', dots: true, icons: true }
+    },
+    plugins: ['wholerow', 'dnd']
+  }).on('select_node.jstree', function(ev, d) {
+    var nd = d.node;
+    if (!nd.data) return;
+    var isFile   = !nd.data.isDir;
+    _fsSelPath   = isFile ? nd.data.path : null;
+    _fsSelNodeId = isFile ? nd.id        : null;
+    // ドロップ先: ファイル選択 → 親ディレクトリ、ディレクトリ選択 → そのディレクトリ
+    _fsSelDir    = nd.data.isDir ? nd.data.path
+                 : (nd.data.path.replace(/\/[^\/]+$/, '') || '/');
+    var dirEl = document.getElementById('drop-overlay-dir');
+    if (dirEl) dirEl.textContent = _fsSelDir;
+    var btnDl   = document.getElementById('btn-fs-dl');
+    var btnEdit = document.getElementById('btn-fs-edit');
+    var btnDel  = document.getElementById('btn-fs-delete');
+    if (btnDl)   btnDl.disabled   = !isFile;
+    if (btnEdit) btnEdit.disabled = !isFile;
+    if (btnDel)  btnDel.disabled  = !isFile;
+  }).on('deselect_node.jstree', function() {
+    _fsSelPath = null; _fsSelNodeId = null;
+    var btnDl   = document.getElementById('btn-fs-dl');
+    var btnEdit = document.getElementById('btn-fs-edit');
+    var btnDel  = document.getElementById('btn-fs-delete');
+    if (btnDl)   btnDl.disabled   = true;
+    if (btnEdit) btnEdit.disabled = true;
+    if (btnDel)  btnDel.disabled  = true;
+  }).on('move_node.jstree', function(ev, data) {
+    var nd     = data.node;
+    var srcPath = nd.data && nd.data.path;
+    var newPar  = $(el).jstree(true).get_node(data.parent);
+    var dstDir  = newPar && newPar.data && newPar.data.path;
+    if (!srcPath || !dstDir || !simStarted) { $(el).jstree(true).refresh(); return; }
+    worker.postMessage({ type: 'moveV6File', srcPath: srcPath, dstDir: dstDir });
+  });
 }
 
 // DL ボタン
@@ -1908,36 +1933,99 @@ function _renderFSPanel(entries) {
   var btn = document.getElementById('btn-fs-dl');
   if (!btn) return;
   btn.addEventListener('click', function() {
-    if (_fsSelPath) _executeHostCmd('get ' + _fsSelPath);
+    if (_fsSelPath) { setFsStatus('ダウンロード: ' + _fsSelPath); _executeHostCmd('get ' + _fsSelPath); }
   });
 })();
 
-// WASM FS Drag & Drop
+// 編集ボタン
 (function() {
-  var panel = document.getElementById('wasm-panel');
-  var hint  = document.getElementById('wasm-drop-hint');
-  if (!panel) return;
-  panel.addEventListener('dragover', function(e) {
-    e.preventDefault(); e.dataTransfer.dropEffect = 'copy';
-    panel.style.outline = '2px dashed #9cf';
+  var btn = document.getElementById('btn-fs-edit');
+  if (!btn) return;
+  btn.addEventListener('click', function() {
+    if (!_fsSelPath || !simStarted) return;
+    setFsStatus('エディタで開く: ' + _fsSelPath);
+    worker.postMessage({ type: 'readFS', requestId: 'edit', path: _fsSelPath });
   });
-  panel.addEventListener('dragleave', function(e) {
-    if (!panel.contains(e.relatedTarget)) panel.style.outline = '';
+})();
+
+// 削除ボタン
+(function() {
+  var btn = document.getElementById('btn-fs-delete');
+  if (!btn) return;
+  btn.addEventListener('click', function() {
+    if (!_fsSelPath || !simStarted) return;
+    if (!confirm('削除しますか？\n' + _fsSelPath)) return;
+    setFsStatus('削除: ' + _fsSelPath);
+    worker.postMessage({ type: 'removeV6File', path: _fsSelPath });
   });
-  panel.addEventListener('drop', function(e) {
-    e.preventDefault(); panel.style.outline = '';
-    var files = e.dataTransfer.files;
-    if (!files.length || !simStarted) return;
+})();
+
+// V6 FS Drag & Drop
+// ファイルドラッグを全画面オーバーレイで可視化し、ページ上どこへでもドロップ可能にする。
+(function() {
+  var overlay = document.getElementById('file-drop-overlay');
+
+  function _hasFiles(e) {
+    var t = e.dataTransfer && e.dataTransfer.types;
+    if (!t) return false;
+    // 'Files' (Web 標準) または 'text/uri-list' (Linux XDnD) を受け付ける
+    return Array.prototype.some.call(t, function(x) {
+      return x === 'Files' || x === 'text/uri-list';
+    });
+  }
+
+  function _showOverlay()  { if (overlay) overlay.classList.add('active'); }
+  function _hideOverlay()  { if (overlay) overlay.classList.remove('active'); }
+
+  function _uploadFiles(files) {
+    if (!files || !files.length) return;
+    if (!simStarted) { setFsStatus('シミュレーション未開始のためアップロード不可'); return; }
+    var dir = _fsSelDir || '/tmp';
     Array.from(files).forEach(function(file) {
       var reader = new FileReader();
       reader.onload = function(ev) {
-        worker.postMessage({ type: 'writeFS', name: file.name, data: ev.target.result },
-                           [ev.target.result]);
-        if (hint) { hint.textContent = file.name + ' …'; setTimeout(function() { hint.textContent = '← Drop'; }, 2000); }
+        var buf = ev.target.result;
+        if (_lfConvert) buf = _normalizeNewlinesToLF(buf);
+        var path = dir + '/' + file.name;
+        worker.postMessage({ type: 'v6WriteFile', requestId: 'dropWrite',
+                             path: path, content: buf }, [buf]);
       };
       reader.readAsArrayBuffer(file);
     });
-  });
+  }
+
+  // dragenter でオーバーレイを表示（dragover より素早く反応する）
+  window.addEventListener('dragenter', function(e) {
+    if (!_hasFiles(e)) return;
+    e.preventDefault();
+    _showOverlay();
+  }, true);
+
+  // dragover で都度 preventDefault（ブラウザのデフォルト動作を抑止）
+  window.addEventListener('dragover', function(e) {
+    if (!_hasFiles(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    _showOverlay();
+  }, true);
+
+  // ウィンドウ外へ出たらオーバーレイを消す
+  window.addEventListener('dragleave', function(e) {
+    if (e.relatedTarget === null) _hideOverlay();
+  }, true);
+
+  // ドロップ処理
+  window.addEventListener('drop', function(e) {
+    if (!_hasFiles(e)) return;
+    e.preventDefault();
+    _hideOverlay();
+    if (e.dataTransfer.files.length > 0) {
+      _uploadFiles(e.dataTransfer.files);
+    } else {
+      // Linux XDnD では files が空で text/uri-list だけ来る場合がある
+      setFsStatus('ドロップ受信: files オブジェクトが空（XDnD）— ブラウザ制限のためアップロード不可');
+    }
+  }, true);
 })();
 
 // ── ホストコマンド（! プレフィックス）────────────────────────────────────
@@ -1993,7 +2081,7 @@ function _executeHostCmd(cmd) {
     if (!parts[1]) { term.write('\r\nUsage: !rm <name>\r\n'); }
     else { worker.postMessage({ type: 'deleteFS', requestId: 'tty', name: parts[1] }); }
   } else if (verb === 'upload') {
-    document.getElementById('fs-upload-input').click();
+    document.getElementById('v6-upload-input').click();
   } else {
     term.write('\r\n?' + verb + '  (try !help)\r\n');
   }
@@ -2076,7 +2164,8 @@ function openPasteModal() { _termUI.showPasteDialog(); }
 _termUI.setupPasteBtn('btn-paste');
 
 // ── Monaco エディタ ───────────────────────────────────────────────────────
-var _wasmEd = null;
+var _wasmEd    = null;
+var _fsEditPath = null;  // V6 FS から開いた場合の元パス（null = /tmp/ 書き込み）
 if (typeof MonacoWasmEditor !== 'undefined') MonacoWasmEditor.preload();
 
 function _getEditorValue() {
@@ -2106,8 +2195,37 @@ function openEditorModal() {
 }
 
 function closeEditorModal() {
+  if (_fsEditPath) {
+    // V6 FS 編集モードを抜けるときはファイル名をバセネームに戻す
+    document.getElementById('editor-fname').value = _fsEditPath.replace(/.*\//, '');
+  }
+  _fsEditPath = null;
   document.getElementById('editor-modal').style.display = 'none';
   term.focus();
+}
+
+// V6 FS からファイルを読み込んでエディタを開く
+function openEditorWithContent(path, content) {
+  _fsEditPath = path;
+  var fname = path.replace(/.*\//, '');
+  document.getElementById('editor-fname').value = path;   // フルパスを表示
+  document.getElementById('editor-filename-lbl').textContent = fname;
+  var modal = document.getElementById('editor-modal');
+  modal.style.display = 'flex';
+  if (typeof MonacoWasmEditor !== 'undefined') {
+    if (!_wasmEd) {
+      _wasmEd = new MonacoWasmEditor({
+        container: '#editor-cm',
+        theme: 'vs-dark',
+        fontSize: 13,
+        asciiOnly: false,
+      });
+    }
+    _wasmEd.open(fname, content).then(function() {
+      _wasmEd.attachJP106(window._jp106);
+      _applyEditorLineNum();
+    });
+  }
 }
 
 // 行番号トグル
@@ -2138,10 +2256,10 @@ document.getElementById('editor-send').addEventListener('click', function() {
   if (!simStarted) return;
   var fname   = (document.getElementById('editor-fname').value.trim() || 'out.c');
   var content = _getEditorValue();
-  closeEditorModal();
+  // _fsEditPath があれば元の V6 パスに上書き、なければ /tmp/<fname>
+  var path    = _fsEditPath || ('/tmp/' + fname);
+  closeEditorModal();  // _fsEditPath をクリアする前に path を確定済み
 
-  // TTY を使わず V6 FS に直接書き込む（/tmp/<fname>）
-  var path         = '/tmp/' + fname;
   var contentBytes = new TextEncoder().encode(content);
   var buf          = contentBytes.buffer.slice(0);
   worker.postMessage({ type: 'v6WriteFile', requestId: 'editorSend',
@@ -2200,26 +2318,135 @@ document.getElementById('btn-la-freeze').addEventListener('click', function() {
   }
 });
 
+// ── V6 FS パネル折りたたみ ───────────────────────────────────────────────
+(function() {
+  var btn    = document.getElementById('btn-fs-collapse');
+  var panel  = document.getElementById('fs-panel');
+  var body   = document.getElementById('fs-body');
+  var status = document.getElementById('fs-status');
+  if (!btn || !panel || !body) return;
+
+  btn.addEventListener('click', function() {
+    var collapsed = panel.classList.toggle('collapsed');
+    if (collapsed) {
+      body.style.height   = body.offsetHeight + 'px'; // 現在値を固定してから
+      requestAnimationFrame(function() { body.style.height = '0'; });
+      if (status) status.style.display = 'none';
+    } else {
+      var fsList = document.getElementById('fs-list');
+      var target = (fsList ? fsList.offsetHeight : 200) +
+                   (document.getElementById('fs-resizer') ? 5 : 0);
+      body.style.height = target + 'px';
+      body.addEventListener('transitionend', function onEnd() {
+        body.removeEventListener('transitionend', onEnd);
+        body.style.height = '';   // auto に戻して resize が効くように
+      });
+      if (status) status.style.display = '';
+    }
+  });
+})();
+
+// ── Logic Analyzer 折りたたみ ────────────────────────────────────────────
+(function() {
+  var btn   = document.getElementById('btn-la-collapse');
+  var sect  = btn && btn.closest('.la-section');
+  var body  = document.getElementById('la-body');
+  if (!btn || !sect || !body) return;
+
+  btn.addEventListener('click', function() {
+    var collapsed = sect.classList.toggle('collapsed');
+    if (collapsed) {
+      body.style.height = body.offsetHeight + 'px';
+      requestAnimationFrame(function() { body.style.height = '0'; });
+    } else {
+      body.style.height = body.scrollHeight + 'px';
+      body.addEventListener('transitionend', function onEnd() {
+        body.removeEventListener('transitionend', onEnd);
+        body.style.height = '';
+      });
+    }
+  });
+})();
+
+// ── Trigger 折りたたみ ───────────────────────────────────────────────────
+(function() {
+  var btn   = document.getElementById('btn-trig-collapse');
+  var panel = btn && btn.closest('.trig-panel');
+  var body  = document.getElementById('trig-body');
+  if (!btn || !panel || !body) return;
+
+  btn.addEventListener('click', function() {
+    var collapsed = panel.classList.toggle('collapsed');
+    if (collapsed) {
+      body.style.height = body.offsetHeight + 'px';
+      requestAnimationFrame(function() { body.style.height = '0'; });
+    } else {
+      body.style.height = body.scrollHeight + 'px';
+      body.addEventListener('transitionend', function onEnd() {
+        body.removeEventListener('transitionend', onEnd);
+        body.style.height = '';
+      });
+    }
+  });
+})();
+
+// ── V6 FS ツリーの高さリサイズ ───────────────────────────────────────────
+(function() {
+  var resizer  = document.getElementById('fs-resizer');
+  var fsList   = document.getElementById('fs-list');
+  if (!resizer || !fsList) return;
+
+  var startY   = 0;
+  var startH   = 0;
+  var MIN_H    = 60;
+  var MAX_H    = 800;
+
+  resizer.addEventListener('mousedown', function(e) {
+    e.preventDefault();
+    startY = e.clientY;
+    startH = fsList.offsetHeight;
+    resizer.classList.add('dragging');
+
+    function onMove(e) {
+      var h = Math.min(MAX_H, Math.max(MIN_H, startH + e.clientY - startY));
+      fsList.style.height = h + 'px';
+    }
+    function onUp() {
+      resizer.classList.remove('dragging');
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+})();
+
 // ── FS パネルのリフレッシュ・アップロード ────────────────────────────────
 document.getElementById('btn-fs-refresh').addEventListener('click', function() {
-  if (simStarted) _requestFSList();
+  if (!simStarted) return;
+  setFsStatus('ツリーを更新中...');
+  var el = document.getElementById('fs-list');
+  if (el && _fsTreeInited) {
+    $(el).jstree(true).refresh();
+  } else {
+    _renderFSPanel();
+  }
 });
 
-document.getElementById('btn-fs-upload').addEventListener('click', function() {
-  document.getElementById('fs-upload-input').click();
+document.getElementById('btn-lf-toggle').addEventListener('click', function() {
+  _lfConvert = !_lfConvert;
+  this.classList.toggle('lf-off', !_lfConvert);
+  setFsStatus('LF 変換: ' + (_lfConvert ? 'ON（CRLF/CR → LF）' : 'OFF'));
 });
 
-document.getElementById('fs-upload-input').addEventListener('change', function() {
-  var files = this.files;
-  if (!files || files.length === 0) return;
-  var file = files[0];
-  var reader = new FileReader();
-  reader.onload = function(ev) {
-    worker.postMessage({ type: 'writeFS', name: file.name, data: ev.target.result },
-                       [ev.target.result]);
-    _flashBtn('btn-fs-upload');
-  };
-  reader.readAsArrayBuffer(file);
+document.getElementById('btn-export-disk').addEventListener('click', function() {
+  if (!simStarted) return;
+  setFsStatus('ディスクイメージをエクスポート中...');
+  worker.postMessage({ type: 'getDisk' });
+});
+
+document.getElementById('v6-upload-input').addEventListener('change', function() {
+  _uploadFiles(this.files);
   this.value = '';  // 同じファイルを再選択できるようにリセット
 });
 
@@ -2292,11 +2519,9 @@ _trigTypeEl.addEventListener('change', function() {
     (v === '7') ? '' : 'none';
   if (v === '7') {
     if (window._initTrigExprCM) window._initTrigExprCM();
-    _renderExprHistory();
+    if (window._renderExprHistory) window._renderExprHistory();
   } else {
-    document.getElementById('trig-expr-hist-row').style.display = 'none';
     if (window._trigExprView) {
-      // Expr 非選択: CM を destroy してメインスレッドへの影響をゼロにする
       window._exprSavedContent = window._trigExprView.state.doc.toString();
       window._trigExprView.destroy();
       window._trigExprView = null;
@@ -2304,13 +2529,36 @@ _trigTypeEl.addEventListener('change', function() {
   }
 });
 _trigTypeEl.dispatchEvent(new Event('change')); // デフォルト種別(Expr)の UI 初期化
+window._renderExprHistory(); // 初期化時に履歴セレクトを描画
 
+// ── 式トリガー 履歴セレクト ────────────────────────────────────────────
+document.getElementById('trig-expr-hist').addEventListener('change', function() {
+  var v = this.value;
+  if (!v) return;
+  if (window._trigExprView) {
+    var view = window._trigExprView;
+    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: v } });
+  } else {
+    window._exprSavedContent = v;
+  }
+  this.value = '';
+});
+
+function _doClearTrigger() {
+  _laFreezeHead = -1;
+  _trigArmed = false;
+  worker.postMessage({ type: 'clear_trigger' });
+  _updateTrigButtons();
+  hideTrigHit();
+  setStatus(simPaused ? 'Paused' : 'Running');
+}
 document.getElementById('btn-trig-set').addEventListener('click', function() {
+  if (_trigArmed || _laFreezeHead >= 0) { _doClearTrigger(); return; }
   var trigType = parseInt(document.getElementById('trig-type').value, 10);
   var trigVal  = 0;
   var lbl      = '?';
-  _laFreezeHead = -1;   // 前回のフリーズを解除して live 追従に戻す
-  _trigArmed = false;   // 設定中はいったんリセット（成功時に再 set）
+  _laFreezeHead = -1;
+  _trigArmed = false;
   if (trigType === 7) {
     var exprStr = (window._trigExprView ? window._trigExprView.state.doc.toString() : '').trim();
     if (!exprStr) return;
@@ -2335,7 +2583,7 @@ document.getElementById('btn-trig-set').addEventListener('click', function() {
     var bytesCopy = new Uint8Array(wasmBytes).buffer;  // transferable コピー
     worker.postMessage({ type: 'set_expr_trigger', wasmBytes: bytesCopy }, [bytesCopy]);
     _saveExprHistory(exprStr);
-    _renderExprHistory();
+    window._renderExprHistory();
     _trigArmed = true;
     _updateTrigButtons();
     setStatus('Trigger set (Wasm): ' + exprStr);
@@ -2372,14 +2620,6 @@ document.getElementById('btn-trig-set').addEventListener('click', function() {
   hideTrigHit();
 });
 
-document.getElementById('btn-trig-clear').addEventListener('click', function() {
-  _laFreezeHead = -1;
-  _trigArmed = false;
-  worker.postMessage({ type: 'clear_trigger' });
-  _updateTrigButtons();
-  hideTrigHit();
-  setStatus(simPaused ? 'Paused' : 'Running');
-});
 
 document.getElementById('btn-trig-resume').addEventListener('click', function() {
   hideTrigHit();
@@ -2387,18 +2627,6 @@ document.getElementById('btn-trig-resume').addEventListener('click', function() 
   // ボタン状態は 'resumed' メッセージ受信時に更新される
 });
 
-// ── 式トリガー 履歴セレクト ────────────────────────────────────────────
-document.getElementById('trig-expr-hist').addEventListener('change', function() {
-  var v = this.value;
-  if (!v) return;
-  if (window._trigExprView) {
-    var view = window._trigExprView;
-    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: v } });
-  } else {
-    window._exprSavedContent = v;  // CM 未初期化: 次回 open 時に復元
-  }
-  this.value = '';  // リセット（同じ項目を再選択可能にする）
-});
 
 // ── 式トリガー パーサ / エバリュエータ → js/trigger-expr.js
 
@@ -2557,10 +2785,8 @@ function updateRegs(snap, gpr) {
 })();
 </script>
 
-<!-- ── 式トリガー: CodeMirror 6 エディタ ───────────────────────────────── -->
+<!-- ── 式トリガー: CodeMirror 6 エディタ（遅延ロード） ──────────────── -->
 <script type="module">
-// CodeMirror は「式(Expr)」選択時に初めてロード（遅延初期化）
-// ページロード時にモジュールをダウンロードしないことで xterm 入力への影響を排除する
 window._initTrigExprCM = async function() {
   if (window._trigExprView) return;
 
@@ -2578,7 +2804,6 @@ window._initTrigExprCM = async function() {
     import('https://esm.sh/@codemirror/autocomplete@6'),
   ]);
 
-  // ── 補完候補 ──────────────────────────────────────────────────────────
   const SIG_COMPLETIONS = [
     'PC', 'RD', 'WR', 'ISN', 'istate', 'Mode', 'VA', 'Addr', 'Data', 'Byte',
     'PSW', 'Pri', 'TRAP', 'HALT', 'INT', 'Vec', 'IPL', 'RK',
@@ -2618,11 +2843,18 @@ window._initTrigExprCM = async function() {
       };
     }
     const word = context.matchBefore(/\w*/);
-    if (!word || (word.from === word.to && !context.explicit)) return null;
+    // フィールドが空（または明示起動）なら履歴候補を返す
+    if (!word || (word.from === word.to && !context.explicit)) {
+      if (context.explicit) {
+        const hist = (window._loadExprHistory ? window._loadExprHistory() : [])
+          .map((e, i) => ({ label: e, type: 'text', detail: '履歴' + (i + 1) }));
+        return hist.length ? { from: context.pos, options: hist } : null;
+      }
+      return null;
+    }
     return { from: word.from, options: SIG_COMPLETIONS };
   }
 
-  // ── ダークテーマ ───────────────────────────────────────────────────────
   const darkTheme = EditorView.theme({
     '&': { background: '#222', border: '1px solid #444', width: '100%' },
     '.cm-content': {
@@ -2650,13 +2882,12 @@ window._initTrigExprCM = async function() {
     tr.newDoc.lines > 1 ? [] : tr
   );
 
-  // ── エディタ構築（destroy 後の再作成でも内容を復元）────────────────────
   const container = document.getElementById('trig-expr-cm');
   if (!container) return;
 
   const view = new EditorView({
     state: EditorState.create({
-      doc: window._exprSavedContent || '',  // 前回の入力内容を復元
+      doc: window._exprSavedContent || '',
       extensions: [
         history(),
         javascript(),
@@ -2669,7 +2900,7 @@ window._initTrigExprCM = async function() {
           ...completionKeymap,
           ...closeBracketsKeymap,
         ]),
-        cmPlaceholder('例: PC == 04014 && RD == 1   RD.rising   ISN == "MOV R3,-(SP)"'),
+        cmPlaceholder('例: VA == 6 && Mode == "USER"  — Ctrl+Space で履歴'),
         darkTheme,
         singleLine,
       ],
@@ -2678,8 +2909,12 @@ window._initTrigExprCM = async function() {
   });
 
   window._trigExprView = view;
-  // view.focus() は意図的に呼ばない: xterm からフォーカスを奪わないため
 };
+
+// ページロード時に Expr がデフォルト選択済みなら即座に CM を初期化
+if (document.getElementById('trig-type')?.value === '7') {
+  window._initTrigExprCM();
+}
 </script>
 </body>
 </html>
