@@ -114,6 +114,10 @@ done
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# ── ログ設定 ──────────────────────────────────────────────────────────────────
+mkdir -p "${SCRIPT_DIR}/logs"
+LOG="${SCRIPT_DIR}/logs/doDeployAll-$(date +%Y-%m-%d-%H%M).log"
+
 # ── 定数 ─────────────────────────────────────────────────────────────────────
 PAGES_BASE="https://tommie-jp.github.io/soft-fpga"
 GALLERY_8080_HTML="${SCRIPT_DIR}/test/ss/8080/index.html"
@@ -127,6 +131,24 @@ CYAN='\033[0;36m'
 RED='\033[0;31m'
 YELLOW='\033[0;33m'
 RESET='\033[0m'
+
+exec > >(tee "$LOG") 2>&1
+echo "ログ出力先: $LOG"
+echo ""
+
+# 古いログを削除（直近 3 世代のみ保持）
+mapfile -t _old_logs < <(ls -t "${SCRIPT_DIR}/logs/doDeployAll-"*.log 2>/dev/null | tail -n +4)
+for _f in "${_old_logs[@]}"; do rm -f "$_f"; done
+
+trap '
+  _exit=$?
+  echo ""
+  if [[ $_exit -eq 0 ]]; then
+    printf "  0件のエラー、ログ：%s\n" "$LOG"
+  else
+    printf "  ${RED}1件のエラー、ログ：%s${RESET}\n" "$LOG"
+  fi
+' EXIT
 
 echo "======================================================================"
 echo " デプロイ: examples/06-8080 → GitHub Pages"
