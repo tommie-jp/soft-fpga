@@ -252,11 +252,15 @@ function _sendRing() {
 
   var count = (head - lastRingHead) >>> 0;
   if (count > RING_SIZE) count = RING_SIZE;
+  // 打ち切り時は「最新 RING_SIZE 件 = [head-count, head)」を読む。
+  // lastRingHead 起点で読むと、UI 側の絶対位置 (head-count+i) と
+  // スロットがずれて localRing 全体が回転するバグになる。
+  var startAbs = (head - count) >>> 0;
 
   var snap = new Uint32Array(count * RING_WORDS);
   var u32  = Module.HEAPU32;
   for (var i = 0; i < count; i++) {
-    var src = ringBase + ((lastRingHead + i) >>> 0) % RING_SIZE * RING_WORDS;
+    var src = ringBase + ((startAbs + i) >>> 0) % RING_SIZE * RING_WORDS;
     for (var w = 0; w < RING_WORDS; w++) {
       snap[i * RING_WORDS + w] = u32[src + w];
     }

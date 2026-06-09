@@ -159,10 +159,12 @@ class TestSimAPI:
             assert sid in sigs, f"getSignals() に {sid} が無い"
 
     def test_trigger_fires_on_trap(self, booted_page: Page) -> None:
-        """TRAP トリガー発火 → trigHead 確定 → readSample を確認する。
+        """TRAP トリガーが発火して trigHead が確定する。
 
         # プロンプト状態でコマンドを送ると sys call (TRAP) が発生して
-        確実に発火する。
+        確実に発火する。trapped は 1 tick パルスのためサンプルへの記録は
+        保証されない（トリガー評価は毎 tick・記録は間引き）。サンプル内容の
+        検証は決定的な test_pc_trigger_reads_sample で行う。
         """
         booted_page.evaluate("() => sim.clearTrigger()")
         booted_page.evaluate("() => sim.setTrigger({type:'trap'})")
@@ -170,18 +172,28 @@ class TestSimAPI:
         booted_page.evaluate("() => sim.sendString('echo x\\n')")
         result = booted_page.evaluate("() => sim.waitTrigger(20000)")
         assert result["trigHead"] >= 0, f"trigHead が不正: {result}"
+        assert booted_page.evaluate("() => sim.trigFired") is True
 
-        fired = booted_page.evaluate("() => sim.trigFired")
-        assert fired is True
+    def test_pc_trigger_reads_sample(self, booted_page: Page) -> None:
+        """PC トリガー発火 → readSample で発火条件のバスサイクルを確認する。
 
-        # T=0 付近 ±16 サンプルに trapped=1 が存在する（f1 アンカリングで
-        # 発火サンプルと T=0 がずれるため範囲スキャンする）
-        has_trap = booted_page.evaluate(
-            """() => { for (let off = -16; off <= 16; off++) {
-                         if (sim.readSample('trapped', off) === 1) return true; }
+        PC=0o15670 は getty/login のキー入力待ちループでアイドル中も常時
+        実行される。VA はバスサイクル中保持されるため間引きサンプリングでも
+        ring に残る（RD ストローブは短く間引かれ得るので条件にしない）。
+        """
+        booted_page.evaluate("() => { sim.clearTrigger(); sim.run(); }")
+        booted_page.wait_for_function("() => !sim.isPaused", timeout=10_000)
+        booted_page.evaluate("() => sim.setTrigger({type:'pc', pc:0o15670})")
+        result = booted_page.evaluate("() => sim.waitTrigger(20000)")
+        assert result["trigHead"] >= 0
+
+        # T=0 付近 ±32 サンプルに発火条件の VA==0o15670 が存在する
+        found = booted_page.evaluate(
+            """() => { for (let off = -32; off <= 32; off++) {
+                         if (sim.readSample('addr_v', off) === 0o15670) return true; }
                        return false; }"""
         )
-        assert has_trap, "T=0 ±16 サンプルに trapped=1 が見つからない"
+        assert found, "T=0 ±32 サンプルに VA==0o15670 が見つからない"
 
     def test_resume_after_trigger(self, booted_page: Page) -> None:
         """トリガー発火後に clearTrigger + run で実行再開できる。"""

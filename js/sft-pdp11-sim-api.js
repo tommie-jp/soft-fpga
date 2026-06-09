@@ -172,6 +172,15 @@ Object.assign(window.sim, {
     worker.postMessage({ type: 'set_mem_probe', addr: addr >>> 0 });
   },
 
+  /**
+   * ring buffer のサンプリング間隔を設定する。
+   * mask=3: 4tick/smpl（デフォルト・高速）、mask=0: 1tick/smpl（取りこぼしなし）。
+   * 短パルス信号（trapped 等）をサンプルで確実に観測したい場合は 0 にする。
+   */
+  setSampleMask: function(mask) {
+    worker.postMessage({ type: 'set_ring_tick_mask', mask: mask >>> 0 });
+  },
+
   // ── レジスタ / ring buffer 読み取り ──────────────────────────────────
 
   /**
