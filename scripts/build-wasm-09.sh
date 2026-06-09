@@ -94,14 +94,8 @@ echo "=== Done ==="
 echo "  $EXAMPLE/web/sim.js"
 echo "  $EXAMPLE/web/sim.wasm"
 
-# ── web/js/ の生成 ──────────────────────────────────────────────────────────
-# index.html は js/rtlscope-la.js など web/js/ 相対パスで参照する。
-# gitignore 除外のためローカルにしか存在しないので、ビルド時に共有 js/ から生成する。
-mkdir -p "$EXAMPLE/web/js"
-cp "$ROOT/js/rtlscope-la.js"         "$EXAMPLE/web/js/"
-cp "$ROOT/js/sft-pdp11-la-defs.js"   "$EXAMPLE/web/js/"
-cp "$ROOT/js/sft-pdp11-docs.js"      "$EXAMPLE/web/js/"
-echo "  web/js/: rtlscope-la.js sft-pdp11-la-defs.js sft-pdp11-docs.js"
+# NOTE: web/js/ の生成は廃止した。index.html は ../../../js/ を直接参照する
+# （8080 版と同方式）。docs/09-PDP11/62-構造改善メモ.md 参照。
 
 # ── web/docs/ へ Markdown ドキュメントをコピー ──────────────────────────────
 # docs/09-PDP11/*.md がソース（git 管理）。web/docs/ は gitignore 除外のため

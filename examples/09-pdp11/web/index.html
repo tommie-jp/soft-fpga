@@ -830,12 +830,12 @@
 <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
 <script src="../../../js/monaco-wasm-editor.js"></script>
-<script src="js/rtlscope-la.js"></script>
-<script src="js/sft-pdp11-la-defs.js"></script>
-<script src="js/trigger-expr.js"></script>
-<script src="js/trigger-expr-compiler.js"></script>
+<script src="../../../js/rtlscope-la.js"></script>
+<script src="../../../js/sft-pdp11-la-defs.js"></script>
+<script src="../../../js/trigger-expr.js"></script>
+<script src="../../../js/trigger-expr-compiler.js"></script>
 <script src="../../../js/sft-doc-viewer.js"></script>
-<script src="js/sft-pdp11-docs.js"></script>
+<script src="../../../js/sft-pdp11-docs.js"></script>
 <script src="../../../js/sft-xterm-util.js"></script>
 <script src="../../../js/xterm-jp106.js"></script>
 <script>
@@ -2753,9 +2753,9 @@ function updateRegs(snap, gpr) {
   var FILES = [
     { lbl: 'WASM',   src: 'sim.wasm',              desc: 'Verilog RTL → Verilator → Emscripten' },
     { lbl: 'worker', src: 'sim-worker.js',          desc: 'WASM シミュレーション Web Worker' },
-    { lbl: 'LA',     src: 'js/rtlscope-la.js',      desc: 'Logic Analyzer ライブラリ (RTLScopeLA)' },
-    { lbl: 'la-def', src: 'js/sft-pdp11-la-defs.js',desc: 'PDP-11 LA シグナル定義' },
-    { lbl: 'docs',   src: 'js/sft-pdp11-docs.js',   desc: 'ドキュメントリスト' },
+    { lbl: 'LA',     src: '../../../js/rtlscope-la.js',      desc: 'Logic Analyzer ライブラリ (RTLScopeLA)' },
+    { lbl: 'la-def', src: '../../../js/sft-pdp11-la-defs.js',desc: 'PDP-11 LA シグナル定義' },
+    { lbl: 'docs',   src: '../../../js/sft-pdp11-docs.js',   desc: 'ドキュメントリスト' },
   ];
   function _fmtDate(s) {
     if (!s) return '?';

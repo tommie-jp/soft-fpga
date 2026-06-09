@@ -7,20 +7,20 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const webJsDir  = join(__dirname, '../../../web/js');
+const jsDir  = join(__dirname, '../../../../../js');
 
 const ctx = createContext({});
 
 runInContext(
-  readFileSync(join(webJsDir, 'sft-pdp11-la-defs.js'), 'utf8'),
+  readFileSync(join(jsDir, 'sft-pdp11-la-defs.js'), 'utf8'),
   ctx, { filename: 'sft-pdp11-la-defs.js' }
 );
 runInContext(
-  readFileSync(join(webJsDir, 'trigger-expr.js'), 'utf8'),
+  readFileSync(join(jsDir, 'trigger-expr.js'), 'utf8'),
   ctx, { filename: 'trigger-expr.js' }
 );
 runInContext(
-  readFileSync(join(webJsDir, 'trigger-expr-compiler.js'), 'utf8'),
+  readFileSync(join(jsDir, 'trigger-expr-compiler.js'), 'utf8'),
   ctx, { filename: 'trigger-expr-compiler.js' }
 );
 
