@@ -51,6 +51,19 @@ var diskReady = false;
 // ── ディスクバッファ保持（Unix V6 FS 読み取り用）──────────────────────────
 var diskData = null;  // Uint8Array（V6 FS パース用にコピーを保持）
 
+// WASM 側の最新ディスクを diskData に同期する。
+// Unix カーネルはブロックを /disk0.rk に直接書くため、listFS 前に必ず呼ぶ。
+function v6SyncDiskFromFS() {
+  if (!diskReady) return;
+  try { diskData = Module.FS.readFile('/disk0.rk'); } catch (e) {}
+}
+
+// diskData への変更（remove/move）を WASM 側の /disk0.rk に書き戻す。
+function v6FlushDiskToFS() {
+  if (!diskReady || !diskData) return;
+  try { Module.FS.writeFile('/disk0.rk', diskData); } catch (e) {}
+}
+
 // ── マクロ（!script）状態 ──────────────────────────────────────────────────
 // セグメント配列で管理: chars / sleep / expect の 3 種類
 //   {type:'chars',  data:Uint8Array, pos:0}
@@ -303,8 +316,10 @@ function v6ReadInode(disk, ino) {
   // i_addr[8]: offset 8 から 8 つの 16-bit ブロック番号 (LE)
   var addr  = [];
   for (var i = 0; i < 8; i++) addr.push(dv.getUint16(8 + i * 2, true));
+  // atime: offset 24-27 (4 bytes LE)、mtime: offset 28-31 (4 bytes LE)
+  var mtime = dv.getUint32(28, true);
 
-  return { mode: mode, nlink: nlink, uid: uid, size: size, addr: addr };
+  return { mode: mode, nlink: nlink, uid: uid, size: size, addr: addr, mtime: mtime };
 }
 
 // ディレクトリ inode を読んでエントリ配列を返す
@@ -552,6 +567,68 @@ function v6DskWriteFile(disk, path, contentBytes) {
   return { ino: newIno, path: '/tmp/' + fname };
 }
 
+// ── 汎用ディレクトリ操作 ──────────────────────────────────────────────────────
+
+// 任意ディレクトリのエントリを名前で検索。戻り値: { off, ino } or null
+function v6DirFindEntry(disk, dirInoNum, name) {
+  var dirIno = v6ReadInode(disk, dirInoNum);
+  var total  = Math.floor(dirIno.size / 16);
+  var count  = 0;
+  for (var bi = 0; bi < 8 && count < total; bi++) {
+    var blkNum = dirIno.addr[bi];
+    if (!blkNum) { count += 32; continue; }
+    var blkBase   = blkNum * V6_BLOCK_SIZE;
+    var inBlock   = Math.min(32, total - count);
+    for (var ei = 0; ei < inBlock; ei++) {
+      var off  = blkBase + ei * 16;
+      var eIno = disk[off] | (disk[off + 1] << 8);
+      if (eIno !== 0) {
+        var eName = '';
+        for (var ni = 0; ni < 14; ni++) {
+          var c = disk[off + 2 + ni]; if (c === 0) break;
+          eName += String.fromCharCode(c);
+        }
+        if (eName === name) return { off: off, ino: eIno };
+      }
+      count++;
+    }
+  }
+  return null;
+}
+
+// 任意ディレクトリのエントリを削除（ino を 0 に）。戻り値: boolean
+function v6DirRemoveEntry(disk, dirInoNum, name) {
+  var entry = v6DirFindEntry(disk, dirInoNum, name);
+  if (!entry) return false;
+  disk[entry.off]     = 0;
+  disk[entry.off + 1] = 0;
+  return true;
+}
+
+// 任意ディレクトリの空きスロット (ino=0) にエントリを追加。戻り値: boolean
+function v6DirAddEntry(disk, dirInoNum, name, newIno) {
+  var dirIno = v6ReadInode(disk, dirInoNum);
+  var total  = Math.floor(dirIno.size / 16);
+  var count  = 0;
+  for (var bi = 0; bi < 8 && count < total; bi++) {
+    var blkNum = dirIno.addr[bi];
+    if (!blkNum) { count += 32; continue; }
+    var blkBase = blkNum * V6_BLOCK_SIZE;
+    var inBlock = Math.min(32, total - count);
+    for (var ei = 0; ei < inBlock; ei++) {
+      var off  = blkBase + ei * 16;
+      if ((disk[off] | (disk[off + 1] << 8)) === 0) {
+        v6DskWrU16(disk, off, newIno);
+        for (var ni = 0; ni < 14; ni++)
+          disk[off + 2 + ni] = ni < name.length ? name.charCodeAt(ni) & 0x7F : 0;
+        return true;
+      }
+      count++;
+    }
+  }
+  return false;
+}
+
 // / を再帰的にリストして {name,path,ino,size,isDir,mode} の配列を返す
 function v6RecurseDir(disk, dirIno, dirPath, results, depth) {
   if (depth <= 0) return;
@@ -770,23 +847,46 @@ self.onmessage = function (e) {
     // ── Unix V6 FS 操作 ──────────────────────────────────────────────────
     // V6 ディスクイメージを直接パースして再帰的にリストを返す
     case 'listFS': {
+      v6SyncDiskFromFS();  // WASM 側の最新ディスクを取得してから読む
       if (!diskData) {
         postMessage({ type: 'fsError', requestId: d.requestId, msg: 'ディスクが未ロードです' });
         break;
       }
+      var lsPath = d.path || '/';
       var results = [];
       try {
-        v6RecurseDir(diskData, V6_ROOT_INODE, '/', results, 3);
+        var lsIno = lsPath === '/' ? V6_ROOT_INODE : v6FindPath(diskData, lsPath);
+        if (lsIno < 0) throw new Error('パスが見つかりません: ' + lsPath);
+        var lsDirIno = v6ReadInode(diskData, lsIno);
+        if (!(lsDirIno.mode & 0x4000)) throw new Error('ディレクトリではありません: ' + lsPath);
+        var lsEntries = v6ListDir(diskData, lsDirIno);
+        for (var lei = 0; lei < lsEntries.length; lei++) {
+          var le = lsEntries[lei];
+          if (le.name === '.' || le.name === '..') continue;
+          var leChild = lsPath === '/' ? '/' + le.name : lsPath + '/' + le.name;
+          var leIno   = v6ReadInode(diskData, le.ino);
+          var leIsDir = !!(leIno.mode & 0x4000);
+          results.push({
+            name:  le.name,
+            path:  leChild,
+            ino:   le.ino,
+            size:  leIno.size,
+            isDir: leIsDir,
+            mode:  leIno.mode,
+            mtime: leIno.mtime
+          });
+        }
       } catch (err) {
         postMessage({ type: 'fsError', requestId: d.requestId, msg: 'listFS 失敗: ' + err.message });
         break;
       }
-      postMessage({ type: 'fsEntries', requestId: d.requestId, entries: results });
+      postMessage({ type: 'fsEntries', requestId: d.requestId, entries: results, path: lsPath });
       break;
     }
 
     // V6 ディスクからファイル内容を読み出して返す
     case 'readFS': {
+      v6SyncDiskFromFS();
       if (!diskData) {
         postMessage({ type: 'fsError', requestId: d.requestId, msg: 'ディスクが未ロードです' });
         break;
@@ -800,6 +900,61 @@ self.onmessage = function (e) {
         postMessage({ type: 'fsFile', requestId: d.requestId, path: d.path, data: buf }, [buf]);
       } catch (err) {
         postMessage({ type: 'fsError', requestId: d.requestId, msg: 'readFS 失敗: ' + err.message });
+      }
+      break;
+    }
+
+    // V6 FS ファイル削除（ディレクトリエントリを ino=0 にして nlink を減らす）
+    case 'removeV6File': {
+      if (!diskData) { postMessage({ type: 'v6OpError', op: 'remove', msg: 'ディスク未ロード' }); break; }
+      try {
+        var rmPath  = d.path;
+        var rmParts = rmPath.split('/').filter(function(p) { return p.length > 0; });
+        if (rmParts.length === 0) throw new Error('無効なパス');
+        var rmName   = rmParts[rmParts.length - 1];
+        var rmDirPth = rmParts.length === 1 ? '/' : ('/' + rmParts.slice(0, -1).join('/'));
+        var rmDirIno = rmDirPth === '/' ? V6_ROOT_INODE : v6FindPath(diskData, rmDirPth);
+        if (rmDirIno < 0) throw new Error('ディレクトリが見つかりません: ' + rmDirPth);
+        var rmEnt = v6DirFindEntry(diskData, rmDirIno, rmName);
+        if (!rmEnt) throw new Error('ファイルが見つかりません: ' + rmPath);
+        var rmIno = v6ReadInode(diskData, rmEnt.ino);
+        v6DskWriteInode(diskData, rmEnt.ino, {
+          mode: rmIno.mode, nlink: Math.max(0, rmIno.nlink - 1),
+          uid: rmIno.uid, gid: 0, size: rmIno.size, addr: rmIno.addr
+        });
+        v6DirRemoveEntry(diskData, rmDirIno, rmName);
+        v6FlushDiskToFS();  // WASM 側にも反映
+        postMessage({ type: 'v6OpDone', op: 'remove', path: rmPath });
+      } catch (e) {
+        postMessage({ type: 'v6OpError', op: 'remove', msg: e.message });
+      }
+      break;
+    }
+
+    // V6 FS ファイル移動（ディレクトリエントリを移動先に再登録）
+    case 'moveV6File': {
+      if (!diskData) { postMessage({ type: 'v6OpError', op: 'move', msg: 'ディスク未ロード' }); break; }
+      try {
+        var mvSrc    = d.srcPath;
+        var mvDst    = d.dstDir;
+        var mvParts  = mvSrc.split('/').filter(function(p) { return p.length > 0; });
+        var mvFname  = mvParts[mvParts.length - 1];
+        var mvSrcDir = mvParts.length === 1 ? '/' : ('/' + mvParts.slice(0, -1).join('/'));
+        var mvSrcIno = mvSrcDir === '/' ? V6_ROOT_INODE : v6FindPath(diskData, mvSrcDir);
+        if (mvSrcIno < 0) throw new Error('移動元ディレクトリが見つかりません: ' + mvSrcDir);
+        var mvDstIno = mvDst === '/' ? V6_ROOT_INODE : v6FindPath(diskData, mvDst);
+        if (mvDstIno < 0) throw new Error('移動先ディレクトリが見つかりません: ' + mvDst);
+        var mvEnt = v6DirFindEntry(diskData, mvSrcIno, mvFname);
+        if (!mvEnt) throw new Error('ファイルが見つかりません: ' + mvSrc);
+        if (v6DirFindEntry(diskData, mvDstIno, mvFname))
+          throw new Error('移動先に同名ファイルがあります: ' + mvDst + '/' + mvFname);
+        if (!v6DirAddEntry(diskData, mvDstIno, mvFname, mvEnt.ino))
+          throw new Error('移動先に空きディレクトリエントリがありません: ' + mvDst);
+        v6DirRemoveEntry(diskData, mvSrcIno, mvFname);
+        v6FlushDiskToFS();  // WASM 側にも反映
+        postMessage({ type: 'v6OpDone', op: 'move', srcPath: mvSrc, dstDir: mvDst });
+      } catch (e) {
+        postMessage({ type: 'v6OpError', op: 'move', msg: e.message });
       }
       break;
     }

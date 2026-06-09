@@ -222,6 +222,7 @@
     #fs-list .jstree-default-dark .jstree-wholerow-hovered { background:#22221a; }
     #fs-list .jstree-default-dark .jstree-wholerow-clicked { background:#2e2e1e; }
     #fs-list .jst-sz { color:#666; font-size:9px; margin-left:4px; }
+    #fs-list .jst-mt { color:#555; font-size:9px; margin-left:4px; }
 
     /* ── WASM FS パネル ── */
     #wasm-panel { background:#141420; border:1px solid #28283a; padding:5px 8px;
@@ -230,6 +231,16 @@
                   color:#7a8a9a; margin-bottom:4px; flex-wrap:wrap; }
     #wasm-hdr button { padding:1px 6px; font-size:10px; }
     #wasm-drop-hint { font-size:10px; color:#446; }
+    /* ファイルドラッグ時の全画面オーバーレイ */
+    #file-drop-overlay {
+      display:none; position:fixed; inset:0; z-index:9999;
+      background:rgba(0,50,120,0.75); color:#fff;
+      align-items:center; justify-content:center; flex-direction:column;
+      font-size:22px; font-weight:bold; pointer-events:none;
+      border:4px dashed #9cf;
+    }
+    #file-drop-overlay.active { display:flex; }
+    #file-drop-overlay small { font-size:13px; margin-top:8px; color:#adf; font-weight:normal; }
     #wasm-list { max-height:140px; overflow-y:auto; }
     #wasm-list table { width:100%; border-collapse:collapse; }
     #wasm-list tr { cursor:default; }
@@ -475,6 +486,12 @@
 </head>
 <body>
 
+<!-- ファイルドラッグ検出時の全画面オーバーレイ -->
+<div id="file-drop-overlay">
+  &#x1F4C2; WASM FS にドロップ
+  <small>ファイルをここでリリースするとアップロードされます</small>
+</div>
+
 <div id="overlay">
   <div id="overlay-msg">Unix V6 ディスクイメージを読み込み中...</div>
   <progress id="overlay-progress" max="100" value="0"></progress>
@@ -484,7 +501,7 @@
   </div>
 </div>
 
-<h2><a href="https://tommie-jp.github.io/soft-fpga/" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.0 2026/06/09 16:49</span></h2>
+<h2><a href="https://tommie-jp.github.io/soft-fpga/" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.0 2026/06/09 18:26</span></h2>
 <p style="font-size:12px;color:#777;margin:0 0 5px;"><a href="https://github.com/lisper/cpus-pdp11" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">cpus-pdp11</a> (Brad Parker RTL) → <a href="https://www.veripool.org/verilator/" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Verilator</a> → <a href="https://en.wikipedia.org/wiki/WebAssembly" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">WASM</a> &nbsp;|&nbsp; <a href="https://en.wikipedia.org/wiki/History_of_Unix" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Unix V6</a> + custom RK11 BIOS</p>
 
 <!-- docs パネル -->
@@ -605,6 +622,7 @@
         <button id="btn-fs-refresh">&#x21BA;</button>
         <button id="btn-fs-dl" title="選択ファイルをダウンロード" disabled>&#x2193; DL</button>
         <button id="btn-save-disk" title="現在のディスクを IndexedDB に保存" disabled>&#x1F4BE; Save</button>
+        <button id="btn-fs-delete" title="選択ファイルを削除" disabled>&#x1F5D1;</button>
         <button id="btn-reset-disk" title="サーバーの元のディスクイメージに戻す" style="display:none;">Reset</button>
       </div>
       <div id="fs-list"></div>
@@ -804,7 +822,7 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jstree@3.3.16/dist/jstree.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
@@ -1372,15 +1390,21 @@ worker.onmessage = function(e) {
 
     // ── FS エントリ（listFS 応答）──────────────────────────────────────
     case 'fsEntries':
-      if (d.requestId === 'panel') {
-        _renderFSPanel(d.entries);
+      if (d.requestId && _jstreeCallbacks[d.requestId]) {
+        // jstree データ関数コールバック（初回ロード or 遅延ロード）
+        var _cbInfo = _jstreeCallbacks[d.requestId];
+        delete _jstreeCallbacks[d.requestId];
+        var _cbEl = document.getElementById('fs-list');
+        if (_cbEl && typeof $ !== 'undefined') {
+          _cbInfo.cb.call($(_cbEl).jstree(true), _buildJstreeChildNodes(d.entries));
+        }
       } else if (d.requestId === 'tty') {
         // !ls コマンド → ターミナルに表示（サイズ付き）
-        var ents2 = (d.entries || []).slice().sort(function(a, b) { return a.path.localeCompare(b.path); });
+        var ents2 = (d.entries || []).slice().sort(function(a, b) { return a.name.localeCompare(b.name); });
         var lines2 = ents2.map(function(e) {
           var flag = e.isDir ? 'd' : '-';
           var sz   = e.isDir ? '' : String(e.size).padStart(7) + ' B';
-          return flag + ' ' + e.path.padEnd(26) + sz;
+          return flag + ' ' + e.name.padEnd(20) + sz;
         });
         term.write('\r\n' + (lines2.length ? lines2.join('\r\n') : '(empty)') + '\r\n');
       }
@@ -1415,6 +1439,30 @@ worker.onmessage = function(e) {
     case 'fsDeleted':
       term.write('\r\nDeleted: ' + (d.name || '') + '\r\n');
       _requestWasmFSList();
+      break;
+
+    // ── V6 FS ファイル操作完了 / エラー ─────────────────────────────────
+    case 'v6OpDone': {
+      var _fsEl = document.getElementById('fs-list');
+      if (d.op === 'remove' && _fsSelNodeId && _fsEl) {
+        $(_fsEl).jstree(true).delete_node(_fsSelNodeId);
+        _fsSelPath = null; _fsSelNodeId = null;
+        var _bDl  = document.getElementById('btn-fs-dl');
+        var _bDel = document.getElementById('btn-fs-delete');
+        if (_bDl)  _bDl.disabled  = true;
+        if (_bDel) _bDel.disabled = true;
+      } else if (d.op === 'move' && _fsEl) {
+        // ノードの data.path が旧パスのままなので refresh して再同期
+        $(_fsEl).jstree(true).refresh();
+      }
+      break;
+    }
+    case 'v6OpError':
+      console.error('[V6 FS]', d.msg);
+      if (d.op === 'move') {
+        var _fsEl2 = document.getElementById('fs-list');
+        if (_fsEl2) $(_fsEl2).jstree(true).refresh();
+      }
       break;
 
     // ── WASM FS 一覧 ────────────────────────────────────────────────────
@@ -1722,12 +1770,14 @@ function _flashBtn(id) {
 }
 
 // ── FS 操作補助 ────────────────────────────────────────────────────────────
-var _fsEntries    = [];
-var _fsTreeInited = false;
-var _fsSelPath    = null;
+var _jstreeCallbacks = {};  // reqId → { cb: jstree コールバック }
+var _jstreeReqCount  = 0;
+var _fsTreeInited    = false;
+var _fsSelPath       = null;  // 選択ファイルの V6 パス
+var _fsSelNodeId     = null;  // 選択ノードの jstree ID
 
 function _requestFSList() {
-  worker.postMessage({ type: 'listFS', requestId: 'panel' });
+  _renderFSPanel();
 }
 
 function _requestWasmFSList() {
@@ -1838,69 +1888,86 @@ function _renderWasmFSPanel(entries) {
   });
 }
 
-function _buildJstreeNodes(entries) {
-  var ROOT = '__v6root__';
-  var nodes = [{ id: ROOT, parent: '#', text: '/', icon: 'jstree-folder',
-                 state: { opened: true } }];
-  var pathToId = { '/': ROOT };
-
-  var ents = entries.filter(function(e) { return e.path !== '/'; })
-                    .sort(function(a, b) {
-                      if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
-                      return a.path.localeCompare(b.path);
-                    });
-
-  ents.forEach(function(e, i) {
-    var path  = e.path;
-    var slash = path.lastIndexOf('/');
-    var name  = path.slice(slash + 1);
-    var par   = slash > 0 ? path.slice(0, slash) : '/';
-    var pid   = pathToId[par] || ROOT;
-    var id    = 'n' + i;
-    pathToId[path] = id;
-
-    var label = name;
-    if (!e.isDir && e.size) label += ' <span class="jst-sz">' + e.size + 'B</span>';
-
-    nodes.push({ id: id, parent: pid,
-                 text: label,
-                 icon: e.isDir ? 'jstree-folder' : 'jstree-file',
-                 data: { path: path, isDir: e.isDir } });
+// jstree データ関数から返す子ノード配列を組み立てる（ディレクトリは children:true で遅延ロード）
+function _buildJstreeChildNodes(entries) {
+  return (entries || []).slice().sort(function(a, b) {
+    if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  }).map(function(e) {
+    var label = e.name;
+    if (!e.isDir) {
+      if (e.size) label += ' <span class="jst-sz">' + e.size + 'B</span>';
+      if (e.mtime) {
+        var dt = new Date(e.mtime * 1000);
+        var mm = ('0' + (dt.getMonth() + 1)).slice(-2);
+        var dd = ('0' + dt.getDate()).slice(-2);
+        var hh = ('0' + dt.getHours()).slice(-2);
+        var mi = ('0' + dt.getMinutes()).slice(-2);
+        label += ' <span class="jst-mt">' + mm + '/' + dd + ' ' + hh + ':' + mi + '</span>';
+      }
+    }
+    return {
+      text:     label,
+      icon:     e.isDir ? 'jstree-folder' : 'jstree-file',
+      children: !!e.isDir,
+      data:     { path: e.path, isDir: e.isDir }
+    };
   });
-  return nodes;
 }
 
-function _renderFSPanel(entries) {
-  _fsEntries = entries || [];
+function _renderFSPanel() {
   var el = document.getElementById('fs-list');
   if (!el || typeof $ === 'undefined') return;
 
-  var nodes = _buildJstreeNodes(_fsEntries);
-
   if (_fsTreeInited) {
-    $(el).jstree(true).settings.core.data = nodes;
     $(el).jstree(true).refresh();
-  } else {
-    _fsTreeInited = true;
-    $(el).jstree({
-      core: { data: nodes, check_callback: false, multiple: false,
-              themes: { name: 'default-dark', dots: true, icons: true } },
-      plugins: ['wholerow']
-    }).on('select_node.jstree', function(ev, d) {
-      var nd = d.node;
-      if (!nd.data) return;
-      _fsSelPath = nd.data.isDir ? null : nd.data.path;
-      var btn = document.getElementById('btn-fs-dl');
-      if (btn) btn.disabled = !_fsSelPath;
-      if (_fsSelPath) {
-        if (/\.(sh|script|scr)$/i.test(_fsSelPath)) {
-          _executeHostCmd('script ' + _fsSelPath.replace(/.*\//, ''));
-        } else {
-          _executeHostCmd('type ' + _fsSelPath);
-        }
-      }
-    });
+    return;
   }
+
+  _fsTreeInited = true;
+  $(el).jstree({
+    core: {
+      data: function(node, cb) {
+        if (!simStarted) { cb.call($(el).jstree(true), []); return; }
+        var path = (node.id === '#') ? '/' : (node.data ? node.data.path : '/');
+        var reqId = 'jt_' + (_jstreeReqCount++);
+        _jstreeCallbacks[reqId] = { cb: cb };
+        worker.postMessage({ type: 'listFS', requestId: reqId, path: path });
+      },
+      // move_node 検証: 移動先はディレクトリのみ許可
+      check_callback: function(op, node, parent) {
+        if (op !== 'move_node') return true;
+        if (!parent || parent.id === '#') return false;
+        return !!(parent.data && parent.data.isDir);
+      },
+      multiple: false,
+      themes: { name: 'default-dark', dots: true, icons: true }
+    },
+    plugins: ['wholerow', 'dnd']
+  }).on('select_node.jstree', function(ev, d) {
+    var nd = d.node;
+    if (!nd.data) return;
+    var isFile   = !nd.data.isDir;
+    _fsSelPath   = isFile ? nd.data.path : null;
+    _fsSelNodeId = isFile ? nd.id        : null;
+    var btnDl  = document.getElementById('btn-fs-dl');
+    var btnDel = document.getElementById('btn-fs-delete');
+    if (btnDl)  btnDl.disabled  = !isFile;
+    if (btnDel) btnDel.disabled = !isFile;
+  }).on('deselect_node.jstree', function() {
+    _fsSelPath = null; _fsSelNodeId = null;
+    var btnDl  = document.getElementById('btn-fs-dl');
+    var btnDel = document.getElementById('btn-fs-delete');
+    if (btnDl)  btnDl.disabled  = true;
+    if (btnDel) btnDel.disabled = true;
+  }).on('move_node.jstree', function(ev, data) {
+    var nd     = data.node;
+    var srcPath = nd.data && nd.data.path;
+    var newPar  = $(el).jstree(true).get_node(data.parent);
+    var dstDir  = newPar && newPar.data && newPar.data.path;
+    if (!srcPath || !dstDir || !simStarted) { $(el).jstree(true).refresh(); return; }
+    worker.postMessage({ type: 'moveV6File', srcPath: srcPath, dstDir: dstDir });
+  });
 }
 
 // DL ボタン
@@ -1912,22 +1979,34 @@ function _renderFSPanel(entries) {
   });
 })();
 
-// WASM FS Drag & Drop
+// 削除ボタン
 (function() {
-  var panel = document.getElementById('wasm-panel');
-  var hint  = document.getElementById('wasm-drop-hint');
-  if (!panel) return;
-  panel.addEventListener('dragover', function(e) {
-    e.preventDefault(); e.dataTransfer.dropEffect = 'copy';
-    panel.style.outline = '2px dashed #9cf';
+  var btn = document.getElementById('btn-fs-delete');
+  if (!btn) return;
+  btn.addEventListener('click', function() {
+    if (!_fsSelPath || !simStarted) return;
+    if (!confirm('削除しますか？\n' + _fsSelPath)) return;
+    worker.postMessage({ type: 'removeV6File', path: _fsSelPath });
   });
-  panel.addEventListener('dragleave', function(e) {
-    if (!panel.contains(e.relatedTarget)) panel.style.outline = '';
-  });
-  panel.addEventListener('drop', function(e) {
-    e.preventDefault(); panel.style.outline = '';
-    var files = e.dataTransfer.files;
-    if (!files.length || !simStarted) return;
+})();
+
+// WASM FS Drag & Drop
+// ファイルドラッグを全画面オーバーレイで可視化し、ページ上どこへでもドロップ可能にする。
+(function() {
+  var overlay = document.getElementById('file-drop-overlay');
+  var hint    = document.getElementById('wasm-drop-hint');
+
+  function _hasFiles(e) {
+    var t = e.dataTransfer && e.dataTransfer.types;
+    if (!t) return false;
+    return Array.prototype.some.call(t, function(x) { return x === 'Files'; });
+  }
+
+  function _showOverlay()  { if (overlay) overlay.classList.add('active'); }
+  function _hideOverlay()  { if (overlay) overlay.classList.remove('active'); }
+
+  function _uploadFiles(files) {
+    if (!files || !files.length || !simStarted) return;
     Array.from(files).forEach(function(file) {
       var reader = new FileReader();
       reader.onload = function(ev) {
@@ -1937,7 +2016,35 @@ function _renderFSPanel(entries) {
       };
       reader.readAsArrayBuffer(file);
     });
-  });
+  }
+
+  // dragenter でオーバーレイを表示（dragover より素早く反応する）
+  window.addEventListener('dragenter', function(e) {
+    if (!_hasFiles(e)) return;
+    e.preventDefault();
+    _showOverlay();
+  }, true);
+
+  // dragover で都度 preventDefault（ブラウザのデフォルト動作を抑止）
+  window.addEventListener('dragover', function(e) {
+    if (!_hasFiles(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    _showOverlay();
+  }, true);
+
+  // ウィンドウ外へ出たらオーバーレイを消す
+  window.addEventListener('dragleave', function(e) {
+    if (e.relatedTarget === null) _hideOverlay();
+  }, true);
+
+  // ドロップ処理
+  window.addEventListener('drop', function(e) {
+    if (!_hasFiles(e)) return;
+    e.preventDefault();
+    _hideOverlay();
+    _uploadFiles(e.dataTransfer.files);
+  }, true);
 })();
 
 // ── ホストコマンド（! プレフィックス）────────────────────────────────────
@@ -2202,7 +2309,13 @@ document.getElementById('btn-la-freeze').addEventListener('click', function() {
 
 // ── FS パネルのリフレッシュ・アップロード ────────────────────────────────
 document.getElementById('btn-fs-refresh').addEventListener('click', function() {
-  if (simStarted) _requestFSList();
+  if (!simStarted) return;
+  var el = document.getElementById('fs-list');
+  if (el && _fsTreeInited) {
+    $(el).jstree(true).refresh();
+  } else {
+    _renderFSPanel();
+  }
 });
 
 document.getElementById('btn-fs-upload').addEventListener('click', function() {
