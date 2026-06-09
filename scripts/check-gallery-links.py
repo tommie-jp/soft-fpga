@@ -57,7 +57,7 @@ def extract_links(html, page_url, base_host):
     return links
 
 
-def check_url(url, retries=3, retry_delay=5):
+def check_url(url, retries=6, retry_delay=30):
     """HTTP ステータスコードを返す。HEAD が 405 なら GET で再試行。
     200 以外のとき retries 回まで retry_delay 秒待ってリトライする（CDN 伝播遅延対策）。"""
     for attempt in range(retries):
