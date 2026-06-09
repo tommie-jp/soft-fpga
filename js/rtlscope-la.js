@@ -324,10 +324,12 @@
     var colKey = self._prefix + 'chips_collapsed';
     var collapsed = localStorage.getItem(colKey) === '1';
 
-    // 折りたたみトグルボタン（左端）— #btn-la-collapse と同スタイル
+    // 折りたたみトグルボタン（左端）— #btn-la-collapse と完全同スタイル（インライン）
     var colBtn = document.createElement('button');
-    colBtn.className = 'la-zoom-btn';
-    colBtn.style.cssText = 'flex-shrink:0;font-size:9px;padding:1px 4px;line-height:1;transition:transform 0.15s;';
+    colBtn.style.cssText =
+      'background:#c8c8d8;color:#446;border:1px solid #aab;' +
+      'padding:1px 4px;cursor:pointer;font-size:9px;line-height:1;' +
+      'font-family:monospace;flex-shrink:0;transition:transform 0.15s;';
     colBtn.textContent = '▼';  // ▼
     colBtn.title = 'チップバーを折りたたむ / 展開する';
     el.appendChild(colBtn);
