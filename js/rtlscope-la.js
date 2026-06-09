@@ -230,6 +230,7 @@
       var newStartSamp  = focusSamp - Math.floor(focusViewX / self._zoom);
       self._pan = Math.max(0, (self._lastHead - newStartSamp - newSampInView) | 0);
     }
+    self._schedDraw();
   };
 
   /** フリーズ状態を設定する */

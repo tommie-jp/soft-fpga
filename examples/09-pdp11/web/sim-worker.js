@@ -1116,5 +1116,16 @@ self.onmessage = function (e) {
       }
       break;
     }
+
+    case 'getDisk': {
+      try {
+        var gd = Module.FS.readFile('/disk0.rk');
+        var gdBuf = gd.slice().buffer;
+        postMessage({ type: 'diskData', data: gdBuf }, [gdBuf]);
+      } catch (gderr) {
+        postMessage({ type: 'diskDataError', error: gderr.message });
+      }
+      break;
+    }
   }
 };
