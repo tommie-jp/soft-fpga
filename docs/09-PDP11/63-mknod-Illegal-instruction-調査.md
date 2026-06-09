@@ -1,4 +1,4 @@
-# 63. /etc/mknod の Illegal instruction 調査 <a class="qr-link" href="../../../docs/09-PDP11/63-QR.png">QR</a>
+# 63. /etc/mknod の Illegal instruction 調査 <a class="qr-link" href="../../../docs/09-PDP11/img/63-QR.png">QR</a>
 
 2026-06-07 調査。`ps` を動かすための `/dev` ノード作成を V6 内から試みた際、
 `/etc/mknod` が引数なしでもクラッシュした問題の根本原因。
@@ -86,5 +86,5 @@ verilator --cc --no-timing --top-module test_top_wasm \
 
 ## 6. 参考
 
-- [10-unix-v6-コマンドリファレンス.md](10-unix-v6-コマンドリファレンス.md)
+- [10-unix-v6-コマンドリファレンス.md](?doc=10-unix-v6-コマンドリファレンス.md)
 - `/usr/sys/ken/trap.c`（ディスクイメージ内のカーネルソース）

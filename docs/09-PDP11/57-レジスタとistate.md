@@ -1,4 +1,4 @@
-# 57. PDP-11 レジスタと istate（CPU マイクロシーケンサ） <a class="qr-link" href="../../../docs/09-PDP11/57-QR.png">QR</a>
+# 57. PDP-11 レジスタと istate（CPU マイクロシーケンサ） <a class="qr-link" href="../../../docs/09-PDP11/img/57-QR.png">QR</a>
 
 PDP-11（`cpus-pdp11` コア）のレジスタと、本プロジェクト固有の観測信号 `istate`
 （CPU 内部状態機械）の値の意味をまとめる。レジスタパネル／Logic Analyzer で
@@ -154,4 +154,4 @@ Logic Analyzer で `istate` を並べると、「`f1→c1→d1→d4→e1` と進
 
 - [`vendor/cpus-pdp11/rtl/pdp11.v`](../../vendor/cpus-pdp11/rtl/pdp11.v) — istate 定義（`parameter` ブロック）・状態遷移コメント
 - [`examples/09-pdp11/cxx/harness.cpp`](../../examples/09-pdp11/cxx/harness.cpp) — `gpr_snap` / ring の信号レイアウト
-- 関連: [52-メモリマップ.md](52-メモリマップ.md) / [56-MMU-unix-v6-での使われ方.md](56-MMU-unix-v6-での使われ方.md) / [21-バスサイクル実例.md](21-バスサイクル実例.md)
+- 関連: [52-メモリマップ.md](?doc=52-メモリマップ.md) / [56-MMU-unix-v6-での使われ方.md](?doc=56-MMU-unix-v6-での使われ方.md) / [21-バスサイクル実例.md](?doc=21-バスサイクル実例.md)

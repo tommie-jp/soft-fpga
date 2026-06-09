@@ -1,4 +1,4 @@
-# PDP-11 / Unix V6 WASM 実装計画 <a class="qr-link" href="../../../docs/09-PDP11/02-QR.png">QR</a>
+# PDP-11 / Unix V6 WASM 実装計画 <a class="qr-link" href="../../../docs/09-PDP11/img/02-QR.png">QR</a>
 
 ブラウザ上で Unix V6 がブートする様子を PDP-11 バス信号レベルで観測できる WASM デモを作る。
 Verilator → C++ → Emscripten/WASM パイプラインは 6502/Apple-I（`examples/04-6502`）・8080/CP-M（`examples/06-8080`）と共通。
@@ -353,4 +353,4 @@ Verilator で Unix V6 ブートを通そうとすると `ide.cpp` の PLI 依存
 - [DEC FPGA 実装まとめ](https://www.avanthar.com/healyzh/decemulation/pdp_fpga.html)
 - [TUHS Unix V6 アーカイブ](https://www.tuhs.org/Archive/Distributions/Research/Ken_Thompson_s_Unix_V6/)
 - [Lions' Commentary on Unix 6th Edition](https://en.wikipedia.org/wiki/Lions%27_Commentary_on_Unix_6th_Edition,_with_Source_Code) — ブートシーケンス理解に有用
-- 調査メモ: [`01-PDP11-verilogコア調査.md`](./01-PDP11-verilogコア調査.md)
+- 調査メモ: [`01-PDP11-verilogコア調査.md`](?doc=01-PDP11-verilogコア調査.md)

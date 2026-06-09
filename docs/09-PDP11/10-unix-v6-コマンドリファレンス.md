@@ -1,4 +1,4 @@
-# 10. Unix V6 コマンドリファレンス <a class="qr-link" href="../../../docs/09-PDP11/10-QR.png">QR</a>
+# 10. Unix V6 コマンドリファレンス <a class="qr-link" href="../../../docs/09-PDP11/img/10-QR.png">QR</a>
 
 このシミュレータに収録されている Unix V6（1975）の主要コマンド一覧。
 コマンドの多くは `/bin/` または `/usr/bin/`（ゲームは `/usr/games/`）に存在する。
@@ -63,7 +63,7 @@ Thompson シェル (`/bin/sh`) の組み込みコマンド。
 | `ar` | アーカイブ管理（ライブラリ作成）| `ar tv /lib/libc.a` |
 | `nm` | シンボルテーブル表示 | `nm a.out` |
 | `od` | バイナリを 8 進ダンプ | `od -c a.out` |
-| `db` | 静的デバッガ（逆アセンブル・コアダンプ解析）→ [14 章](14-db-デバッガー-使い方.md) | `db a.out` |
+| `db` | 静的デバッガ（逆アセンブル・コアダンプ解析）→ [14 章](?doc=14-db-デバッガー-使い方.md) | `db a.out` |
 | `cdb` | C 言語用デバッガ | `cdb a.out` |
 
 ### cc の基本的な使い方
@@ -215,6 +215,6 @@ a.out
 
 ## 10. 参考
 
-- [52-メモリマップ.md](52-メモリマップ.md) — Unibus デバイスアドレス一覧
-- [06-unix-v6-demo-commands.md](06-unix-v6-demo-commands.md) — デモシナリオ
+- [52-メモリマップ.md](?doc=52-メモリマップ.md) — Unibus デバイスアドレス一覧
+- [06-unix-v6-demo-commands.md](?doc=06-unix-v6-demo-commands.md) — デモシナリオ
 - [Unix V6 Manual Pages（TUHS）](https://www.tuhs.org/cgi-bin/utree.pl?act=get&file=V6/usr/man)

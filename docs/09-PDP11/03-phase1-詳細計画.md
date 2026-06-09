@@ -1,4 +1,4 @@
-# Phase 1 詳細計画 — Verilator ネイティブで Unix V6 ブート確認 <a class="qr-link" href="../../../docs/09-PDP11/03-QR.png">QR</a>
+# Phase 1 詳細計画 — Verilator ネイティブで Unix V6 ブート確認 <a class="qr-link" href="../../../docs/09-PDP11/img/03-QR.png">QR</a>
 
 ## 1. ゴールと完了定義
 
@@ -606,8 +606,8 @@ VPI がなければ楽観シナリオで進める。
 - [GitHub: lisper/cpus-pdp11](https://github.com/lisper/cpus-pdp11)
 - [wfjm/w11（VHDL 参考実装）](https://github.com/wfjm/w11)
 - [TUHS Unix V6 アーカイブ](https://www.tuhs.org/Archive/Distributions/Research/Ken_Thompson_s_Unix_V6/)
-- [調査メモ](./01-PDP11-verilogコア調査.md)
-- [WASM 実装計画](./02-wasm実装計画.md)
+- [調査メモ](?doc=01-PDP11-verilogコア調査.md)
+- [WASM 実装計画](?doc=02-wasm実装計画.md)
 
 ---
 

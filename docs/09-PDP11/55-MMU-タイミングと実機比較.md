@@ -1,4 +1,4 @@
-# 55. MMU ON/OFF と命令タイミング — 実機 vs 本プロジェクト RTL <a class="qr-link" href="../../../docs/09-PDP11/55-QR.png">QR</a>
+# 55. MMU ON/OFF と命令タイミング — 実機 vs 本プロジェクト RTL <a class="qr-link" href="../../../docs/09-PDP11/img/55-QR.png">QR</a>
 
 PDP-11 で **MMU（メモリ管理）の有効/無効が命令タイミング（クロック数・バスサイクル波形）を変えるか**を調べた記録。
 結論はモデル依存で、本プロジェクトの RTL がどの実機挙動に相当するかも整理する。
@@ -79,4 +79,4 @@ MMU 変換は組合せ論理で、CPU を止める wait/stall を出さない。
 - [Performance discussion — pidp-11 group](https://groups.google.com/g/pidp-11/c/tKPO2VjzxCE)
 - [PDP-11/45 Memory Management Reference Manual (DEC-11-HGKTCB-D)](https://www.bitsavers.org/www.computer.museum.uq.edu.au/pdf/DEC-11-HGKTCB-D%20PDP-1145%20Memory%20Management%20Reference%20Manual.pdf)
 - [KT11-C Memory Management Unit — Computer History Wiki](http://gunkies.org/wiki/KT11-C_Memory_Management_Unit)
-- 関連: [40-cpu-テスト計画.md](40-cpu-テスト計画.md) / [21-バスサイクル実例.md](21-バスサイクル実例.md)
+- 関連: [40-cpu-テスト計画.md](?doc=40-cpu-テスト計画.md) / [21-バスサイクル実例.md](?doc=21-バスサイクル実例.md)
