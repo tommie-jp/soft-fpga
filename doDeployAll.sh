@@ -48,7 +48,7 @@ examples/06-8080 と 09-pdp11 をビルドして GitHub Pages にデプロイす
      test/ss/8080・pdp11/index.html が参照する PNG を GitHub Pages で確認
   7. scripts/check-pdp11-links.py            PDP-11 ローカルリンクチェック（デプロイ前）
      index.html・sim-worker.js・sft-pdp11-docs.js の参照ファイル存在確認と一貫性検証
-  8. QR PNG 存在確認                          docs/09-PDP11/XX-QR.png が GitHub Pages で HTTP 200 か確認
+  8. QR PNG 存在確認                          docs/09-PDP11/img/XX-QR.png が GitHub Pages で HTTP 200 か確認
   9. scripts/check-md-links.py               docs/09-PDP11/*.md 内リンク切れチェック（デプロイ後 HTTP）
 
 前提条件:
@@ -298,14 +298,14 @@ fi
 # ---------------------------------------------------------------------------
 # ステップ 8: QR PNG 存在確認
 # ---------------------------------------------------------------------------
-step_header 8 "QR PNG 存在確認 (docs/09-PDP11/XX-QR.png @ GitHub Pages)" "$SKIP_QR_CHECK"
+step_header 8 "QR PNG 存在確認 (docs/09-PDP11/img/XX-QR.png @ GitHub Pages)" "$SKIP_QR_CHECK"
 if [[ "$SKIP_QR_CHECK" == false ]]; then
-    QR_BASE="${PAGES_BASE}/docs/09-PDP11"
+    QR_BASE="${PAGES_BASE}/docs/09-PDP11/img"
     qr_fail=0
     qr_ok=0
     qr_missing=()
 
-    for png in "${SCRIPT_DIR}/docs/09-PDP11/"*-QR.png; do
+    for png in "${SCRIPT_DIR}/docs/09-PDP11/img/"*-QR.png; do
         fname="$(basename "$png")"
         url="${QR_BASE}/${fname}"
         status=$(curl -o /dev/null -s -w "%{http_code}" --max-time 10 "$url")

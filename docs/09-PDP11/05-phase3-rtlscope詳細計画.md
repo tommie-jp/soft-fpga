@@ -1,4 +1,4 @@
-# Phase 3 詳細計画 — PDP-11 / Unix V6 rtlscope 統合 <a class="qr-link" href="../../../docs/09-PDP11/05-QR.png">QR</a>
+# Phase 3 詳細計画 — PDP-11 / Unix V6 rtlscope 統合 <a class="qr-link" href="../../../docs/09-PDP11/img/05-QR.png">QR</a>
 
 ## 1. ゴールと完了定義
 

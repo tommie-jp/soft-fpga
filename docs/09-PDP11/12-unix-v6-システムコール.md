@@ -1,4 +1,4 @@
-# 12. Unix V6 システムコール参考 <a class="qr-link" href="../../../docs/09-PDP11/12-QR.png">QR</a>
+# 12. Unix V6 システムコール参考 <a class="qr-link" href="../../../docs/09-PDP11/img/12-QR.png">QR</a>
 
 Unix V6（1975）のシステムコール一覧。このシミュレータ上で `as` / C で
 低レベルプログラムを書くとき、また Logic Analyzer でトラップ

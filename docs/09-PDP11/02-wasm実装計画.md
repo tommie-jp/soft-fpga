@@ -1,4 +1,4 @@
-# PDP-11 / Unix V6 WASM 実装計画 <a class="qr-link" href="../../../docs/09-PDP11/02-QR.png">QR</a>
+# PDP-11 / Unix V6 WASM 実装計画 <a class="qr-link" href="../../../docs/09-PDP11/img/02-QR.png">QR</a>
 
 ブラウザ上で Unix V6 がブートする様子を PDP-11 バス信号レベルで観測できる WASM デモを作る。
 Verilator → C++ → Emscripten/WASM パイプラインは 6502/Apple-I（`examples/04-6502`）・8080/CP-M（`examples/06-8080`）と共通。
