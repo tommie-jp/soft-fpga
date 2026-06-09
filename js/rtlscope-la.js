@@ -590,12 +590,17 @@
     var canvas = document.getElementById(self._canvasId);
     if (!canvas) return;
 
-    // ---- ホイールズーム ----
-    // 業界標準: 上スクロール(deltaY < 0) = 拡大、下スクロール(deltaY > 0) = 縮小
-    // (Google Maps / Figma / PulseView / GTKWave と同じ方向)
+    // ---- ホイール操作 ----
+    // Ctrl+ホイール: ズーム（上 = 拡大、下 = 縮小）
+    // ホイール単体 : 水平パン（上 = 過去方向、下 = 現在方向）
     canvas.addEventListener('wheel', function(e) {
       e.preventDefault();
-      self.setZoom(self._zoomIdx + (e.deltaY > 0 ? -1 : 1));
+      if (e.ctrlKey) {
+        self.setZoom(self._zoomIdx + (e.deltaY > 0 ? -1 : 1));
+      } else {
+        var step = Math.max(1, Math.round((self._lastSamplesInView || 20) * 0.15));
+        self._pan = Math.max(0, self._pan + (e.deltaY > 0 ? -step : step));
+      }
       self._schedDraw();
     }, { passive: false });
 
@@ -1006,16 +1011,21 @@
     // ── 値カラム背景・縦区切り・ヘッダー ──
     _valCols.forEach(function(vc, ci) {
       var cx = LABEL_W + ci * VAL_COL_W;
-      // 背景
+      // 背景（信号エリア）
       ctx.fillStyle = vc.bg;
       ctx.fillRect(cx, sigY, VAL_COL_W, sigH);
+      // デコードレーン行にも背景を重ねる
+      if (cbDec) {
+        ctx.fillStyle = vc.bg;
+        ctx.fillRect(cx, TIME_RULER_H, VAL_COL_W, decH);
+      }
       // 縦区切り線
       ctx.strokeStyle = '#bbc'; ctx.lineWidth = 0.5; ctx.setLineDash([]);
       ctx.beginPath(); ctx.moveTo(cx + VAL_COL_W - 0.5, 0); ctx.lineTo(cx + VAL_COL_W - 0.5, laH); ctx.stroke();
-      // T ルーラー行にカラムラベル
+      // T ルーラー行にカラムラベル（上寄せ）
       ctx.fillStyle = vc.color;
       ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
-      ctx.fillText(vc.label, cx + VAL_COL_W / 2, TIME_RULER_H - 3);
+      ctx.fillText(vc.label, cx + VAL_COL_W / 2, 6);
     });
     // EFF_LW の縦区切り（波形との境界）
     if (_valColsW > 0) {
@@ -1062,11 +1072,40 @@
     // Cursor カラムの samp を確定（_labelValOff に連動）
     if (_labelValOff >= 0) _valCols[0].samp = startSamp + _labelValOff;
 
+    // T ルーラー行の値カラムに T 値を表示（ラベルの下）
+    var tBase = (self._trigOn && self._trigHead >= 0)
+                ? (self._trigHead >>> 0) : (head >>> 0);
+    _valCols.forEach(function(vc, ci) {
+      if (vc.samp < 0) return;
+      var cx   = LABEL_W + ci * VAL_COL_W;
+      var tVal = (vc.samp >>> 0) - tBase;
+      var tTxt = tVal === 0 ? '0' : (tVal > 0 ? '+' + tVal : String(tVal));
+      ctx.font = '8px monospace'; ctx.textAlign = 'center'; ctx.fillStyle = vc.color;
+      ctx.fillText(tTxt, cx + VAL_COL_W / 2, TIME_RULER_H - 2);
+    });
+
     // ── ラベルプレパス（クリップなし）──
     // デコードレーンラベル（ラベルエリア: x < LABEL_W）
     if (cbDec && samples > 0) {
       ctx.fillStyle = '#555'; ctx.font = 'bold 12px monospace'; ctx.textAlign = 'left';
       ctx.fillText(cbDec.label || 'DEC', 2, TIME_RULER_H + decH * 0.72);
+      // decode lane の値カラムに Cycle 値を表示
+      if (cbDec.getValue) {
+        _valCols.forEach(function(vc, ci) {
+          if (vc.samp < 0) return;
+          var cx = LABEL_W + ci * VAL_COL_W;
+          var cvAvail = ((head >>> 0) - (vc.samp >>> 0)) <= (ringSize - 1);
+          ctx.font = '9px monospace'; ctx.textAlign = 'center';
+          if (!cvAvail) {
+            ctx.fillStyle = 'rgba(0,0,0,0.25)';
+            ctx.fillText('---', cx + VAL_COL_W / 2, TIME_RULER_H + decH * 0.7);
+          } else {
+            var cycleVal = cbDec.getValue(heapu32, ringSize, RW, vc.samp >>> 0);
+            ctx.fillStyle = cycleVal ? vc.color : 'rgba(0,0,0,0.25)';
+            ctx.fillText(cycleVal || '-', cx + VAL_COL_W / 2, TIME_RULER_H + decH * 0.7);
+          }
+        });
+      }
     }
     // 信号名 + トラック区切り線（全幅）
     for (var t = 0; t < sigs.length; t++) {
@@ -1078,34 +1117,15 @@
       var _lbl = self._numberedLabels
         ? (String(t + 1 + (cbDec ? 1 : 0)).padStart(2, '0') + ' ' + _sig.label) : _sig.label;
       ctx.fillText(_lbl, 3, _yb + tH * 0.65);
-      // 信号値（カーソル/トリガー/最新）を右寄せで表示
-      ctx.font = '9px monospace'; ctx.textAlign = 'right';
-      if (_labelValOff >= 0) {
-        var _ri   = ((startSamp + _labelValOff) & (ringSize - 1)) * RW;
-        var _gw   = heapu32[_ri + (_sig.word || 0)];
-        var _MASK = _sig.width < 32 ? ((1 << _sig.width) - 1) : 0xFFFFFFFF;
-        var _v    = (_gw >> _sig.bit) & _MASK;
-        var _vtxt;
-        if (_sig.type === 'bit') {
-          _vtxt = String(_v);
-        } else if (_sig.fmt && cbFmt[_sig.fmt]) {
-          _vtxt = cbFmt[_sig.fmt](_v);
-        } else {
-          _vtxt = _v.toString(16).toUpperCase().padStart(_sig.width > 8 ? 4 : 2, '0');
-        }
-        ctx.fillStyle = 'rgba(0,40,140,0.82)';
-        ctx.fillText(_vtxt, LABEL_W - 2, _yb + tH * 0.88);
-      } else {
-        var _fmtStr = '';
-        if (_sig.type === 'bit') _fmtStr = 'Bin';
-        else if (_sig.fmt === 'oct') _fmtStr = 'Oct';
-        else if (_sig.fmt === 'dec' || _sig.type === 'dec') _fmtStr = 'Dec';
-        else if (_sig.type === 'hex') _fmtStr = 'Hex';
-        if (_fmtStr) {
-          ctx.fillStyle = 'rgba(0,0,0,0.35)';
-          ctx.fillText(_fmtStr, LABEL_W - 2, _yb + tH * 0.88);
-        }
-      }
+      // 値の形式をラベルエリア右寄せで表示
+      var _fmtStr = '';
+      if (_sig.type === 'bit')                              _fmtStr = 'Bin';
+      else if (_sig.fmt === 'oct')                          _fmtStr = 'Oct';
+      else if (_sig.fmt === 'dec' || _sig.type === 'dec')   _fmtStr = 'Dec';
+      else if (_sig.fmt && cbFmt[_sig.fmt])                 _fmtStr = _sig.fmt;
+      else                                                  _fmtStr = 'Hex';
+      ctx.font = '8px monospace'; ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.fillText(_fmtStr, LABEL_W - 2, _yb + tH * 0.88);
 
       // 値カラムに各信号の値を描画
       _valCols.forEach(function(vc, ci) {
