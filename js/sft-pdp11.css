@@ -1,0 +1,483 @@
+/* sft-pdp11.css — PDP-11 / Unix V6 シミュレータ UI スタイル（index.html から抽出） */
+
+*, *::before, *::after { box-sizing: border-box; }
+body { background:#1a1a1a; color:#ccc; font-family:monospace; margin:0; padding:10px; }
+h2   { margin:0 0 6px; font-size:15px; color:#eee; }
+
+/* ── ツールバー ── */
+.toolbar { display:flex; gap:5px; align-items:center; margin-bottom:6px; flex-wrap:wrap; }
+button { background:#333; color:#ccc; border:1px solid #555; padding:4px 12px;
+         cursor:pointer; font-size:12px; font-family:monospace; }
+button:hover   { background:#444; }
+button:disabled { opacity:0.4; cursor:not-allowed; }
+button.active  { background:#446; border-color:#88a; color:#ccf; }
+#btn-kbd.kbd-jis { background:#6a5a1a; border-color:#caa84a; color:#ffe79a; }
+.status { font-size:11px; color:#888; margin-left:6px; }
+
+/* ── ブート進行インジケータ ── */
+.boot-progress { background:#161e16; border:1px solid #3a5a3a; padding:5px 10px;
+                 font-size:11px; margin-bottom:6px; display:block; }
+.boot-progress h3 { margin:0 0 4px; font-size:11px; color:#6a9a6a; }
+.boot-steps { display:flex; gap:6px; flex-wrap:wrap; }
+.boot-step  { padding:2px 8px; border:1px solid #3a4a3a; color:#555; font-size:10px; border-radius:2px; }
+.boot-step.done    { color:#4f4; border-color:#4a7a4a; background:#1a2a1a; }
+.boot-step.current { color:#ff4; border-color:#8a7a3a; background:#2a2010; }
+
+/* ── レイアウト: 左=ターミナル 右=情報 ── */
+.main { display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap; }
+.col-left { flex:0 0 auto; }
+.col-right { flex:1 1 300px; min-width:300px; }
+
+/* ── ターミナル ── */
+#terminal { border:1px solid #444; display:inline-block; }
+.ctrl-bar { display:flex; gap:4px; margin-top:4px; flex-wrap:wrap; }
+.ctrl-btn { background:#2a2a2a; color:#aaa; border:1px solid #444;
+            padding:3px 9px; cursor:pointer; font-size:11px; }
+.ctrl-btn:hover { background:#333; }
+
+/* ── レジスタ ── */
+.regs { background:#1e1e1e; border:1px solid #444; padding:6px 10px;
+        font-size:12px; margin-bottom:6px; }
+.regs h3 { margin:0 0 4px; font-size:12px; color:#888; }
+.reg-grid { display:grid; grid-template-columns:1fr 1fr; gap:2px 12px; }
+.reg-row  { display:flex; justify-content:space-between; }
+.reg-lbl  { color:#666; }
+.reg-val  { color:#4fc; font-variant-numeric:tabular-nums; }
+.reg-val.user   { color:#68f; }
+.reg-val.trap   { color:#f84; }
+.reg-val.active { color:#ff4; }
+
+/* ── MMU パネル ── */
+.mmu-panel { background:#1e1a22; border:1px solid #443a55; padding:6px 10px;
+             font-size:11px; margin-bottom:6px; display:none; }
+.mmu-panel.show { display:block; }
+.mmu-panel h3 { margin:0 0 4px; font-size:11px; color:#8a7aaa; }
+.mmu-toggle-btn { font-size:10px; padding:1px 6px; margin-left:6px; }
+.mmu-tables { display:flex; gap:10px; flex-wrap:wrap; }
+.mmu-col { flex:1 1 160px; }
+.mmu-col-hdr { color:#7a6a9a; font-size:10px; margin-bottom:2px; }
+.mmu-row { display:flex; gap:4px; font-size:10px; line-height:1.6; }
+.mmu-page { color:#555; width:20px; }
+.mmu-par  { color:#9af; width:54px; font-variant-numeric:tabular-nums; }
+.mmu-pdr  { color:#875; width:36px; font-variant-numeric:tabular-nums; }
+.mmu-pa   { color:#666; font-size:9px; }
+
+/* ── PC トリガーパネル ── */
+.trig-panel { background:#dde; border:none; border-top:1px solid #aab;
+              border-bottom:1px solid #aab; padding:4px 8px;
+              font-size:12px; box-sizing:border-box; }
+.trig-panel h3 { margin:0 0 4px; font-size:12px; color:#446; display:inline; }
+#btn-trig-collapse { font-size:9px; padding:1px 4px; line-height:1;
+                     background:#c8c8d8; color:#446; border:1px solid #aab;
+                     cursor:pointer; transition:transform 0.15s; }
+.trig-panel.collapsed #btn-trig-collapse { transform:rotate(-90deg); }
+#trig-body { overflow:hidden; transition:height 0.2s ease; }
+.trig-row { display:flex; gap:6px; align-items:center; margin-bottom:4px; }
+.trig-row label { color:#446; font-size:11px; width:40px; }
+.trig-row input[type=text] { background:#eef; border:1px solid #aab; color:#224;
+                              padding:2px 6px; font-size:12px; font-family:monospace;
+                              width:90px; }
+.trig-row select { background:#eef; border:1px solid #aab; color:#446;
+                    font-size:11px; padding:2px 4px; flex:1; }
+.trig-row button { background:#c8c8d8; color:#446; border:1px solid #aab;
+                   font-size:11px; padding:1px 8px; cursor:pointer; }
+.trig-row button:hover { background:#b8b8c8; }
+button#btn-trig-set { font-family:inherit; }
+button#btn-trig-set.on { background:#e84 !important; }
+button#btn-trig-set.on .sw-track { background:rgba(255,255,255,.4); }
+.trig-hit { color:#c40; font-size:11px; display:none; margin-top:2px; }
+.trig-hit.show { display:block; }
+/* CodeMirror 式トリガーエディタ */
+#trig-expr-cm { flex:1; min-width:0; }
+#trig-expr-cm .cm-editor { width:100%; }
+#trig-expr-cm .cm-scroller { overflow:hidden; }
+
+/* ── Logic Analyzer（rtlscope-la.js はライトテーマ描画） ── */
+#btn-la-collapse { font-size:9px; padding:1px 4px; line-height:1; transition:transform 0.15s; }
+.la-section.collapsed #btn-la-collapse { transform:rotate(-90deg); }
+#la-body { overflow:hidden; transition:height 0.2s ease; }
+.la-section { background:#dde; border:1px solid #aab; box-sizing:border-box; }
+.la-header { display:flex; align-items:center; gap:6px; padding:4px 8px;
+             border-bottom:1px solid #bbc; flex-wrap:wrap; background:#d0d0e0; }
+.la-header h3 { margin:0; font-size:12px; color:#446; flex:1; }
+.la-zoom-btn { background:#c8c8d8; color:#446; border:1px solid #aab;
+               padding:2px 8px; cursor:pointer; font-size:11px; }
+.la-zoom-btn:hover { background:#b8b8c8; }
+#la-zoom-label { font-size:11px; color:#558; min-width:28px; text-align:center; }
+.la-smpl-wrap { display:inline-flex; align-items:center; gap:2px;
+                border:1px solid #aab; background:#c8c8d8; padding:0 4px; }
+#la-sample-sel { background:transparent; color:#446; border:none;
+                 padding:2px 0; font-size:11px; cursor:pointer; }
+.la-smpl-label { font-size:10px; color:#668; white-space:nowrap; user-select:none; }
+#la-toggles { padding:4px 8px; border-bottom:1px solid #bbc;
+              display:flex; flex-wrap:wrap; gap:4px; background:#d8d8e8; font-size:11px; }
+.sig-tog {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:2px 7px 2px 5px; border-radius:10px;
+  border:1px solid rgba(0,0,0,.15);
+  cursor:pointer; font-size:11px; user-select:none;
+  color:#fff; white-space:nowrap;
+}
+.sig-tog:not(.on) { color:#444; background:#d0d0e2 !important; }
+.sig-tog input[type=checkbox] { display:none; }
+.sig-tog .sw-track {
+  display:inline-block; width:22px; height:12px;
+  border-radius:6px; position:relative; flex-shrink:0;
+  background:rgba(0,0,0,.22);
+}
+.sig-tog.on .sw-track { background:rgba(255,255,255,.35); }
+.sig-tog .sw-track::after {
+  content:''; position:absolute; top:2px; left:2px;
+  width:8px; height:8px; border-radius:50%;
+  background:rgba(0,0,0,.35);
+  transition:transform .12s, background .12s;
+}
+.sig-tog.on .sw-track::after {
+  transform:translateX(10px);
+  background:rgba(255,255,255,.9);
+}
+canvas#la { display:block; width:100%; background:#f5f5f5; }
+
+/* ── ローディングオーバーレイ ── */
+#overlay { position:fixed; inset:0; background:rgba(0,0,0,0.88);
+           display:flex; flex-direction:column; align-items:center;
+           justify-content:center; color:#ddd; font-size:14px; z-index:100; }
+#overlay.hidden { display:none; }
+#overlay progress { margin-top:10px; width:240px; }
+#overlay .hint { margin-top:14px; font-size:11px; color:#777; text-align:center;
+                 line-height:1.8; }
+/* ── docs パネル ── */
+#docs-panel {
+  display:block; overflow-y:auto; max-height:120px;
+  border:1px solid #3a3a3a; border-radius:3px;
+  background:#1e1e1e; margin-bottom:6px;
+}
+#docs-panel .docs-hdr {
+  display:block; font-size:11px; color:#888; font-weight:bold;
+  letter-spacing:.04em; padding:3px 7px; border-bottom:1px solid #333;
+  position:sticky; top:0; background:#252525;
+}
+#docs-panel a {
+  display:block; color:#7ab; text-decoration:none;
+  font-size:12px; padding:2px 8px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  border-bottom:1px solid #252525;
+}
+#docs-panel a:last-child { border-bottom:none; }
+#docs-panel a:hover { background:#2a3040; color:#9cf; }
+#docs-panel .docs-sep {
+  display:block; height:0; border-bottom:1px solid #444; margin:2px 0;
+}
+#docs-panel a.ss-link { color:#888; font-size:12px; }
+#la-ss-link {
+  font-size:12px; padding:1px 6px; line-height:1.4;
+  font-family:monospace; background:#2a2a3a; border:1px solid #556;
+  cursor:pointer; color:#9cf; text-decoration:none;
+  white-space:nowrap; border-radius:2px; margin-left:6px;
+}
+#la-ss-link:hover { background:#3a3a5a; color:#bdf; }
+
+/* ── doc モーダル ── */
+#doc-modal {
+  position:fixed; top:0; left:0; right:0; bottom:0; z-index:1100;
+  display:flex; align-items:flex-start; justify-content:center;
+}
+#doc-overlay {
+  position:fixed; top:0; left:0; right:0; bottom:0;
+  background:rgba(0,0,0,.65);
+}
+#doc-pane {
+  position:relative; width:92%; max-width:820px;
+  height:88dvh; max-height:88dvh; margin-top:3dvh;
+  background:#fff; display:flex; flex-direction:column;
+  box-shadow:0 4px 32px rgba(0,0,0,.6); border:1px solid #999;
+}
+#doc-toolbar {
+  display:flex; align-items:center; gap:4px; padding:5px 8px;
+  border-bottom:1px solid #ccc; background:#f0f0f0; flex-shrink:0;
+}
+#doc-toolbar button {
+  background:#e0e0e0; color:#111; border:1px solid #aaa;
+  padding:2px 8px; cursor:pointer; font-size:12px; white-space:nowrap;
+}
+#doc-toolbar button:hover:not(:disabled) { background:#c8c8c8; }
+#doc-toolbar button:disabled { color:#aaa; cursor:default; }
+#doc-prev, #doc-next {
+  max-width:140px; overflow:hidden; text-overflow:ellipsis; flex-shrink:1;
+}
+#doc-next { text-align:right; }
+#doc-select {
+  flex:1; min-width:0; font-size:12px; border:1px solid #aaa;
+  background:#fff; color:#111; padding:2px 4px; cursor:pointer;
+}
+/* #doc-content スタイルは sft-doc-viewer.js が注入 */
+
+/* ── FS パネル ── */
+#fs-panel { background:#1a1a14; border:1px solid #3a3a28; padding:5px 8px 0;
+            font-size:11px; margin-top:5px; }
+#fs-hdr { display:flex; align-items:center; gap:5px; font-size:11px;
+          color:#8a8a5a; margin-bottom:4px; flex-wrap:wrap; }
+#fs-hdr button { padding:1px 6px; font-size:10px; }
+#btn-fs-collapse { font-size:9px; padding:1px 4px; line-height:1; transition:transform 0.15s; }
+#fs-panel.collapsed #btn-fs-collapse { transform:rotate(-90deg); }
+#fs-body { overflow:hidden; transition:height 0.2s ease; }
+#fs-list { height:200px; overflow-y:auto; }
+#fs-resizer { height:5px; background:#2a2a1e; border-top:1px solid #3a3a28;
+              cursor:ns-resize; user-select:none; }
+#fs-resizer:hover, #fs-resizer.dragging { background:#4a4a2e; }
+#fs-status { min-height:22px; padding:3px 8px; font-size:11px; color:#ccc;
+             background:#1a1a14; border:1px solid #3a3a28; border-top:none;
+             white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* jstree ダークテーマ上書き */
+#fs-list .jstree-default-dark { background:transparent; }
+#fs-list .jstree-default-dark .jstree-anchor { color:#cc9; font-size:10px; height:18px; line-height:18px; }
+#fs-list .jstree-default-dark li.jstree-open > .jstree-anchor,
+#fs-list .jstree-default-dark li.jstree-closed > .jstree-anchor { color:#6ae; }
+#fs-list .jstree-default-dark .jstree-hovered { background:#22221a; box-shadow:none; }
+#fs-list .jstree-default-dark .jstree-clicked { background:#2e2e1e; box-shadow:none; }
+#fs-list .jstree-default-dark .jstree-wholerow-hovered { background:#22221a; }
+#fs-list .jstree-default-dark .jstree-wholerow-clicked { background:#2e2e1e; }
+#fs-list .jst-sz { color:#666; font-size:9px; margin-left:4px; }
+#fs-list .jst-mt { color:#555; font-size:9px; margin-left:4px; }
+
+/* LF トグルボタン */
+#btn-lf-toggle { color:#0f0; border-color:#0a0; background:#0a3a0a; }
+#btn-lf-toggle.lf-off { color:#566; border-color:#334; background:transparent; }
+/* ファイルドラッグ時の全画面オーバーレイ */
+#file-drop-overlay {
+  display:none; position:fixed; inset:0; z-index:9999;
+  background:rgba(0,50,120,0.75); color:#fff;
+  align-items:center; justify-content:center; flex-direction:column;
+  font-size:22px; font-weight:bold; pointer-events:none;
+  border:4px dashed #9cf;
+}
+#file-drop-overlay.active { display:flex; }
+#file-drop-overlay small { font-size:13px; margin-top:8px; color:#adf; font-weight:normal; }
+#drop-overlay-dir { color:#9cf; }
+
+/* ── Speed / Font / Theme セレクタ ── */
+.toolbar select { background:#333; color:#ccc; border:1px solid #555;
+                  padding:3px 6px; font-size:12px; font-family:monospace; cursor:pointer; }
+.toolbar select:hover { background:#444; }
+
+/* ── マクロ（!script）ステータス表示 ── */
+#macro-status { font-size:10px; color:#888; }
+#btn-macro-stop { padding:3px 8px; font-size:11px; }
+
+/* ── LA ナビゲーション ── */
+.la-nav { display:flex; gap:3px; align-items:center; padding:3px 6px;
+          background:#d8d8e8; border-bottom:1px solid #bbc; flex-wrap:wrap; }
+.la-nav button { background:#c8c8d8; color:#446; border:1px solid #aab;
+                 padding:1px 7px; cursor:pointer; font-size:11px; }
+.la-nav button:hover { background:#b8b8c8; }
+
+/* ── LA Freeze バッジ ── */
+#frozen-badge { font-size:10px; color:#f84; }
+
+/* ── ペーストダイアログ / テキストエディタ モーダル ── */
+.modal-ov { position:fixed; inset:0; z-index:9000; background:rgba(0,0,0,.65);
+            display:flex; align-items:center; justify-content:center; }
+.modal-box { background:#1c1c1c; border:1px solid #555; border-radius:4px;
+             padding:14px 16px; min-width:320px; max-width:min(640px,94vw);
+             color:#ccc; box-shadow:0 4px 24px rgba(0,0,0,.6); }
+.modal-box h3 { margin:0 0 8px; font-size:13px; color:#eee; }
+.modal-box p  { margin:0 0 6px; font-size:11px; color:#888; }
+.modal-box textarea { display:block; width:100%; height:180px; box-sizing:border-box;
+                      resize:vertical; background:#111; color:#ddd; border:1px solid #444;
+                      outline:none; font-family:monospace; font-size:12px;
+                      padding:6px; margin-bottom:8px; }
+.modal-fname { display:block; width:100%; box-sizing:border-box; margin-bottom:6px;
+               background:#111; color:#ddd; border:1px solid #444; outline:none;
+               font-family:monospace; font-size:12px; padding:4px 8px; }
+.modal-btns  { display:flex; gap:6px; justify-content:flex-end; }
+.modal-btns button { padding:3px 14px; }
+button.flash { background:#664 !important; }
+
+
+/* ── LA ズームセレクト ── */
+#la-zoom-sel {
+  font-size:11px; padding:1px 2px; font-family:monospace;
+  border:1px solid #aab; background:#d8d8f0; color:#446;
+  cursor:pointer; min-width:44px;
+}
+
+/* ── Debug パネル ── */
+#debug-panel {
+  background:#1a1a1a; border:1px solid #444; font-size:12px;
+  color:#ccc; margin-bottom:6px;
+}
+#debug-panel.hidden { display:none; }
+#dbg-header {
+  display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+  padding:4px 8px; background:#222; border-bottom:1px solid #333;
+}
+#dbg-header .dbg-lbl { font-size:12px; color:#aaa; flex-shrink:0; }
+.dbg-tabs { display:flex; gap:2px; }
+.dbg-tab {
+  padding:2px 8px; font-size:11px; font-family:monospace;
+  background:#1a1a1a; border:1px solid #444; cursor:pointer; color:#888;
+}
+.dbg-tab.active { background:#2a2a2a; font-weight:bold; color:#ccc; }
+.dbg-tab:hover  { background:#222; }
+.dbg-content {
+  padding:3px 6px; min-height:50px; max-height:120px;
+  overflow-y:auto; font-family:monospace; font-size:11px;
+}
+.dbg-row { display:flex; gap:6px; border-bottom:1px solid #222; padding:1px 0; }
+.dbg-pc  { color:#888; width:5em; flex-shrink:0; font-variant-numeric:tabular-nums; }
+.dbg-ev  { color:#f84; }
+.dbg-mod { color:#68f; }
+
+/* ── テーマ カスタムドロップダウン ── */
+#theme-menu { position:relative; display:inline-block; }
+.theme-btn {
+  border:1px solid #555; padding:3px 22px 3px 8px; cursor:pointer;
+  background:#333; font-size:12px; font-family:monospace; color:#ccc;
+  position:relative; white-space:nowrap; user-select:none;
+}
+.theme-btn:hover { background:#444; }
+.theme-arrow { position:absolute; right:5px; top:50%; transform:translateY(-50%); font-size:9px; }
+.theme-list {
+  position:absolute; top:100%; left:0; z-index:600;
+  border:1px solid #666; box-shadow:0 3px 10px rgba(0,0,0,.6);
+  min-width:100%; margin-top:1px;
+}
+.th-item {
+  padding:5px 10px; cursor:pointer; display:flex; align-items:center; gap:5px;
+  white-space:nowrap; font-size:12px; font-family:monospace;
+}
+.th-item:hover { opacity:.8; }
+.th-chk { display:inline-block; width:1em; text-align:center; flex-shrink:0; }
+
+/* ── KBD バー（ターミナル直上） ── */
+#kbd-layout-bar {
+  display:flex; align-items:center; gap:6px;
+  padding:2px 5px 3px; font-size:11px; font-family:monospace;
+  color:#666; border-bottom:1px solid #333; background:#111;
+}
+#kbd-layout-bar label { cursor:pointer; display:flex; align-items:center; gap:3px; }
+#kbd-layout-bar input[type=radio] { margin:0; accent-color:#4fc; }
+#kbd-layout-bar .kbd-sep { color:#444; margin:0 2px; }
+#kbd-layout-bar button {
+  padding:1px 6px; font-size:11px; font-family:monospace; cursor:pointer;
+  border:1px solid #444; border-radius:3px; background:#1a1a1a; color:#aaa;
+}
+#kbd-layout-bar button:hover { background:#222; }
+
+/* ── サイクル情報 ── */
+#cycle-info { font-size:11px; color:#666; margin-left:2px; font-family:monospace; }
+
+/* ── Speed Custom 入力 ── */
+#speed-num { font-size:12px; padding:2px 4px; font-family:monospace;
+             background:#333; color:#ccc; border:1px solid #555; width:90px; }
+
+
+/* ── モバイル対応 ── */
+@media (max-width:600px) {
+  body { padding: max(5px, env(safe-area-inset-top, 5px))
+                  max(0px, env(safe-area-inset-right, 0px))
+                  max(5px, env(safe-area-inset-bottom, 5px))
+                  max(0px, env(safe-area-inset-left, 0px)); }
+  h2 { font-size:13px; overflow-wrap:break-word; line-height:1.5; }
+  .main { display:block; }
+  .col-left { width:100%; overflow-x:auto; }
+  .col-right { width:100%; box-sizing:border-box; margin-top:6px; }
+  .toolbar { flex-wrap:wrap; gap:4px; }
+  #docs-panel { max-height:90px; }
+  #ctrl-zone {
+    position:fixed;
+    bottom: env(safe-area-inset-bottom, 0px);
+    left:0; right:0; z-index:200;
+    background:#1a1a1a; border-top:1px solid #444;
+    padding:4px 5px;
+  }
+  .col-left { padding-bottom:52px; }
+  /* doc モーダル: スマホでは画面いっぱいに使い、本文幅を最大化 */
+  #doc-pane { width:100%; max-width:100%; height:94dvh; max-height:94dvh; margin-top:2dvh; }
+  #doc-prev, #doc-next { max-width:84px; }
+}
+
+/* ── CPU バー（ターミナル直上） ── */
+#cpu-bar {
+  display:flex; align-items:center; gap:5px; flex-wrap:wrap;
+  padding:3px 5px; border-bottom:1px solid #333; background:#111;
+  font-size:11px; font-family:monospace;
+}
+#cpu-bar .cpu-lbl { color:#555; font-weight:bold; font-size:11px; }
+#cpu-bar .r-lbl   { color:#555; }
+#cpu-bar .r-val   { color:#4fc; font-weight:bold; font-variant-numeric:tabular-nums; }
+#cpu-bar .r-val.user { color:#68f; }
+#cpu-bar .r-val.trap { color:#f84; }
+#cpu-bar .r-sep   { color:#333; margin:0 1px; }
+#r-disasm {
+  font-size:11px; color:#8a8; margin-left:4px;
+  white-space:nowrap; overflow:hidden; max-width:18ch; font-family:monospace;
+}
+#r-frozen-badge {
+  display:none; font-size:10px; font-weight:bold; color:#f84;
+  padding:1px 5px; border:1px solid #f84; border-radius:2px; margin-left:4px;
+}
+
+/* ── Monaco エディタ モーダル ── */
+#editor-modal {
+  position:fixed; inset:0; z-index:2000;
+  display:flex; align-items:flex-start; justify-content:center;
+  padding-top:env(safe-area-inset-top, 0px);
+}
+#editor-overlay-ed { position:fixed; inset:0; background:rgba(0,0,0,.6); }
+#editor-pane {
+  position:relative; width:92%; max-width:960px;
+  height:88dvh; max-height:88dvh; margin-top:3dvh;
+  background:#1c1c1c; display:flex; flex-direction:column;
+  box-shadow:0 4px 32px rgba(0,0,0,.7); border:1px solid #555;
+}
+#editor-tb {
+  display:flex; align-items:center; gap:5px; padding:4px 8px;
+  border-bottom:1px solid #444; background:#1a1a1a; flex-shrink:0; flex-wrap:wrap;
+}
+#editor-filename-lbl {
+  font-size:13px; font-weight:bold; color:#ccc; font-family:monospace;
+  flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+#editor-tb button, #editor-tb label {
+  background:#2a2a2a; color:#ccc; border:1px solid #555; padding:2px 8px;
+  cursor:pointer; font-size:12px; font-family:monospace; white-space:nowrap;
+  touch-action:manipulation;
+}
+#editor-tb button:hover, #editor-tb label:hover { background:#333; }
+#editor-linenum.ln-off { opacity:0.45; }
+#editor-cm { flex:1; overflow:hidden; min-height:0; }
+#editor-footer {
+  display:flex; align-items:center; gap:6px; padding:4px 8px;
+  border-top:1px solid #444; background:#1a1a1a; flex-shrink:0; flex-wrap:wrap;
+}
+#editor-footer input {
+  flex:1; min-width:80px; background:#111; color:#ccc; border:1px solid #555;
+  padding:3px 8px; font-family:monospace; font-size:12px; outline:none; box-sizing:border-box;
+}
+#editor-footer button {
+  background:#2a2a2a; color:#ccc; border:1px solid #555; padding:3px 10px;
+  cursor:pointer; font-size:12px; font-family:monospace;
+}
+#editor-footer button:hover { background:#333; }
+@media (max-width:600px) {
+  #editor-pane { width:100%; max-width:100%; height:100dvh; max-height:100dvh; margin-top:0; }
+}
+
+/* ── copyright / file-versions ── */
+#copyright { font-size:12px; color:#555; margin:6px 0 0; }
+#copyright a { color:#666; }
+#file-versions {
+  display: inline-grid;
+  grid-template-columns: auto auto auto;
+  gap: 2px 12px;
+  margin-top: 4px;
+  padding: 3px 8px;
+  border: 1px solid #2a2a2a;
+  border-radius: 3px;
+  font-size: 11px; color: #444; font-family: monospace;
+  vertical-align: top;
+}
+.fv-lbl  { color: #555; font-weight: bold; }
+.fv-file { color: #444; white-space: nowrap; }
+.fv-date { color: #444; white-space: nowrap; text-align: right; }

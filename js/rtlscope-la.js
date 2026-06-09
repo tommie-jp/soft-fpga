@@ -1022,10 +1022,7 @@
       // 縦区切り線
       ctx.strokeStyle = '#bbc'; ctx.lineWidth = 0.5; ctx.setLineDash([]);
       ctx.beginPath(); ctx.moveTo(cx + VAL_COL_W - 0.5, 0); ctx.lineTo(cx + VAL_COL_W - 0.5, laH); ctx.stroke();
-      // T ルーラー行にカラムラベル（上寄せ）
-      ctx.fillStyle = vc.color;
-      ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
-      ctx.fillText(vc.label, cx + VAL_COL_W / 2, 6);
+      // カラムラベルは非表示（T値のみ表示）
     });
     // EFF_LW の縦区切り（波形との境界）
     if (_valColsW > 0) {
@@ -1144,7 +1141,16 @@
         var _v   = (_gw >> _sig.bit) & _MASK;
         var _vtxt;
         if (_sig.type === 'bit') {
-          _vtxt = String(_v);
+          var _prevSamp = ((cvSamp >>> 0) - 1) >>> 0;
+          var _prevAvail = ((head >>> 0) - _prevSamp) <= (ringSize - 1);
+          if (_prevAvail) {
+            var _pv = (heapu32[(_prevSamp & (ringSize - 1)) * RW + (_sig.word || 0)] >> _sig.bit) & 1;
+            if (_pv === 0 && _v === 1)      _vtxt = '↑';  // ↑ Rising
+            else if (_pv === 1 && _v === 0) _vtxt = '↓';  // ↓ Falling
+            else                            _vtxt = String(_v);
+          } else {
+            _vtxt = String(_v);
+          }
         } else if (_sig.fmt && cbFmt[_sig.fmt]) {
           _vtxt = cbFmt[_sig.fmt](_v);
         } else {
