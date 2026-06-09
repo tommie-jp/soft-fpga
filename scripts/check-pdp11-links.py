@@ -67,7 +67,8 @@ def main() -> int:
 
     index_html  = os.path.join(web_root, "index.html")
     worker_js   = os.path.join(web_root, "sim-worker.js")
-    docs_js     = os.path.join(web_root, "js", "sft-pdp11-docs.js")
+    # 共有 js/ はリポジトリルート直下（web からは ../../../js/ で参照）
+    docs_js     = os.path.normpath(os.path.join(web_root, "..", "..", "..", "js", "sft-pdp11-docs.js"))
 
     print(f"  web_root: {web_root}")
 
