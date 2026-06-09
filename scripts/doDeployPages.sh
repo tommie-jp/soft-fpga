@@ -116,7 +116,9 @@ fi
 
 # docs/ をルートの docs/ にコピー（CI の cp -r docs _site/docs と同等）
 # QR PNG の href="../../../docs/XX-QR.png" が gh-pages で解決できるようにする
+# 注: cp -r src dst は dst が既存だと dst/src になるため rm -rf してから実行する
 if [ -d "$ROOT/docs" ]; then
+    rm -rf "$WORKTREE/docs"
     cp -r "$ROOT/docs" "$WORKTREE/docs"
     echo "Copied docs/ → /docs/"
 fi
