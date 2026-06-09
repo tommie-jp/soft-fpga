@@ -680,13 +680,13 @@
   <div class="trig-row">
     <label>種別</label>
     <select id="trig-type">
+      <option value="7" selected>式 (Expr)</option>
       <option value="1">PC 値一致</option>
       <option value="6">PC + データ一致</option>
       <option value="2">Fetch (istate=f1)</option>
       <option value="3">I/O ページアクセス</option>
       <option value="4">TRAP 発生</option>
       <option value="5">バスエラー</option>
-      <option value="7">式 (Expr)</option>
     </select>
   </div>
   <div class="trig-row" id="trig-pc-row">
@@ -1130,9 +1130,16 @@ function _updateTrigButtons() {
 }
 
 // ── 式トリガー履歴（localStorage、最大 10 件）──────────────────────────
-var _EXPR_HIST_KEY = 'pdp11_expr_hist';
+var _EXPR_HIST_KEY      = 'pdp11_expr_hist';
+var _EXPR_HIST_DEFAULTS = [
+  'VA == 06 && Mode == "USER" && ISN==0o60001',
+];
 function _loadExprHistory() {
-  try { return JSON.parse(localStorage.getItem(_EXPR_HIST_KEY) || '[]'); } catch(e) { return []; }
+  try {
+    var h = JSON.parse(localStorage.getItem(_EXPR_HIST_KEY) || '[]');
+    if (!Array.isArray(h) || h.length === 0) return _EXPR_HIST_DEFAULTS.slice();
+    return h;
+  } catch(e) { return _EXPR_HIST_DEFAULTS.slice(); }
 }
 function _saveExprHistory(expr) {
   if (!expr) return;
@@ -2274,7 +2281,8 @@ window.sim.screenshotCanvas = function(selector) {
 
 // trig-type 変更: PC / DATA 入力行の表示切り替え
 // 種別 1(PC) と 6(PC+データ) は VA 入力が必要。6 はさらに DATA 入力も表示する。
-document.getElementById('trig-type').addEventListener('change', function() {
+var _trigTypeEl = document.getElementById('trig-type');
+_trigTypeEl.addEventListener('change', function() {
   var v = this.value;
   document.getElementById('trig-pc-row').style.display =
     (v === '1' || v === '6') ? '' : 'none';
@@ -2295,6 +2303,7 @@ document.getElementById('trig-type').addEventListener('change', function() {
     }
   }
 });
+_trigTypeEl.dispatchEvent(new Event('change')); // デフォルト種別(Expr)の UI 初期化
 
 document.getElementById('btn-trig-set').addEventListener('click', function() {
   var trigType = parseInt(document.getElementById('trig-type').value, 10);
