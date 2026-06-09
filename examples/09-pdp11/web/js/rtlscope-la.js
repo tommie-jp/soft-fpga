@@ -324,17 +324,18 @@
     var colKey = self._prefix + 'chips_collapsed';
     var collapsed = localStorage.getItem(colKey) === '1';
 
-    // 折りたたみトグルボタン（左端）— sig-tog スタイル
+    // 折りたたみトグルボタン（左端）— #btn-la-collapse と同スタイル
     var colBtn = document.createElement('button');
-    colBtn.className = 'sig-tog';
-    colBtn.style.cssText = 'flex-shrink:0;background:#d0d0e2 !important;color:#444;border:none;';
+    colBtn.className = 'la-zoom-btn';
+    colBtn.style.cssText = 'flex-shrink:0;font-size:9px;padding:1px 4px;line-height:1;transition:transform 0.15s;';
+    colBtn.textContent = '▼';  // ▼
     colBtn.title = 'チップバーを折りたたむ / 展開する';
     el.appendChild(colBtn);
 
-    // "Signal" ラベル
+    // "Signal" ラベル（常時表示）
     var sigLabel = document.createElement('span');
     sigLabel.textContent = 'Signal';
-    sigLabel.style.cssText = 'font-size:11px;color:#556;font-weight:bold;flex-shrink:0;align-self:center;';
+    sigLabel.style.cssText = 'font-size:11px;color:#446;font-weight:bold;flex-shrink:0;align-self:center;';
     el.appendChild(sigLabel);
 
     // チップ群コンテナ
@@ -346,8 +347,7 @@
       collapsed = c;
       localStorage.setItem(colKey, c ? '1' : '0');
       chipsDiv.style.display = c ? 'none' : 'contents';
-      sigLabel.style.display = c ? 'none' : '';
-      colBtn.textContent = c ? '▸' : '▾';
+      colBtn.style.transform = c ? 'rotate(-90deg)' : '';
     }
     applyCollapsed(collapsed);
 
