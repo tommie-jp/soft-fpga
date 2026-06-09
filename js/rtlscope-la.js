@@ -324,14 +324,18 @@
     var colKey = self._prefix + 'chips_collapsed';
     var collapsed = localStorage.getItem(colKey) === '1';
 
-    // 折りたたみトグルボタン（左端）
+    // 折りたたみトグルボタン（左端）— sig-tog スタイル
     var colBtn = document.createElement('button');
-    colBtn.style.cssText =
-      'font-size:13px;padding:1px 6px;line-height:1.5;cursor:pointer;' +
-      'border:1px solid #aaa;border-radius:10px;background:#e8e8e8;color:#555;' +
-      'flex-shrink:0;font-family:monospace;';
+    colBtn.className = 'sig-tog';
+    colBtn.style.cssText = 'flex-shrink:0;background:#d0d0e2 !important;color:#444;border:none;';
     colBtn.title = 'チップバーを折りたたむ / 展開する';
     el.appendChild(colBtn);
+
+    // "Signal" ラベル
+    var sigLabel = document.createElement('span');
+    sigLabel.textContent = 'Signal';
+    sigLabel.style.cssText = 'font-size:11px;color:#556;font-weight:bold;flex-shrink:0;align-self:center;';
+    el.appendChild(sigLabel);
 
     // チップ群コンテナ
     var chipsDiv = document.createElement('div');
@@ -342,6 +346,7 @@
       collapsed = c;
       localStorage.setItem(colKey, c ? '1' : '0');
       chipsDiv.style.display = c ? 'none' : 'contents';
+      sigLabel.style.display = c ? 'none' : '';
       colBtn.textContent = c ? '▸' : '▾';
     }
     applyCollapsed(collapsed);
@@ -938,7 +943,7 @@
     var cbFmt       = self._cbFmt;
     var cbBg        = self._cbBg;
     var cbTs        = self._cbTs;
-    var cbCurExtra  = self._cbCurExtra;
+    // cbCurExtra は削除（値はラベル右に表示するため不要）
     var laH         = self._laH;
     var laZoom      = self._zoom;
 
@@ -992,6 +997,19 @@
     self._lastSamplesInView = samplesInView;
     self._lastTotalAvail    = totalAvail;
 
+    // 信号ラベル右に表示する値のサンプルオフセット（カーソル優先 → トリガー → 最新）
+    var _labelValOff = -1;
+    if (samples > 0) {
+      if (self._cursorViewX >= 0 && self._cursorViewX <= VIEW_W) {
+        _labelValOff = Math.max(0, Math.min(
+          Math.floor((self._cursorViewX + subPx) / laZoom), samples - 1));
+      } else if (self._trigOn && self._trigHead >= 0) {
+        var _toff = ((self._trigHead >>> 0) - startSamp) | 0;
+        if (_toff >= 0 && _toff < samples) _labelValOff = _toff;
+      }
+      if (_labelValOff < 0) _labelValOff = samples - 1;
+    }
+
     // ── ラベルプレパス（クリップなし）──
     // デコードレーンラベル（ラベルエリア: x < LABEL_W）
     if (cbDec && samples > 0) {
@@ -1008,16 +1026,33 @@
       var _lbl = self._numberedLabels
         ? (String(t + 1 + (cbDec ? 1 : 0)).padStart(2, '0') + ' ' + _sig.label) : _sig.label;
       ctx.fillText(_lbl, 3, _yb + tH * 0.65);
-      // 表示形式を右寄せで表示
-      var _fmtStr = '';
-      if (_sig.type === 'bit') _fmtStr = 'Bin';
-      else if (_sig.fmt === 'oct') _fmtStr = 'Oct';
-      else if (_sig.fmt === 'dec' || _sig.type === 'dec') _fmtStr = 'Dec';
-      else if (_sig.type === 'hex') _fmtStr = 'Hex';
-      if (_fmtStr) {
-        ctx.font = '9px monospace'; ctx.textAlign = 'right';
-        ctx.fillStyle = 'rgba(0,0,0,0.35)';
-        ctx.fillText(_fmtStr, LABEL_W - 2, _yb + tH * 0.88);
+      // 信号値（カーソル/トリガー/最新）を右寄せで表示
+      ctx.font = '9px monospace'; ctx.textAlign = 'right';
+      if (_labelValOff >= 0) {
+        var _ri   = ((startSamp + _labelValOff) & (ringSize - 1)) * RW;
+        var _gw   = heapu32[_ri + (_sig.word || 0)];
+        var _MASK = _sig.width < 32 ? ((1 << _sig.width) - 1) : 0xFFFFFFFF;
+        var _v    = (_gw >> _sig.bit) & _MASK;
+        var _vtxt;
+        if (_sig.type === 'bit') {
+          _vtxt = String(_v);
+        } else if (_sig.fmt && cbFmt[_sig.fmt]) {
+          _vtxt = cbFmt[_sig.fmt](_v);
+        } else {
+          _vtxt = _v.toString(16).toUpperCase().padStart(_sig.width > 8 ? 4 : 2, '0');
+        }
+        ctx.fillStyle = 'rgba(0,40,140,0.82)';
+        ctx.fillText(_vtxt, LABEL_W - 2, _yb + tH * 0.88);
+      } else {
+        var _fmtStr = '';
+        if (_sig.type === 'bit') _fmtStr = 'Bin';
+        else if (_sig.fmt === 'oct') _fmtStr = 'Oct';
+        else if (_sig.fmt === 'dec' || _sig.type === 'dec') _fmtStr = 'Dec';
+        else if (_sig.type === 'hex') _fmtStr = 'Hex';
+        if (_fmtStr) {
+          ctx.fillStyle = 'rgba(0,0,0,0.35)';
+          ctx.fillText(_fmtStr, LABEL_W - 2, _yb + tH * 0.88);
+        }
       }
     }
 
@@ -1552,44 +1587,13 @@
       });
     })();
 
-    // ── カーソル（縦破線 + 値オーバーレイ、クリップなし）──
+    // ── カーソル（縦破線のみ）──
     if (self._cursorViewX >= 0 && self._cursorViewX <= VIEW_W && samples > 0) {
-      var cursorX   = LABEL_W + self._cursorViewX;
-      // サブピクセルシフトを加味してカーソル位置のサンプルインデックスを補正する
-      var cursorOff = Math.max(0, Math.min(Math.floor((self._cursorViewX + subPx) / laZoom), samples - 1));
+      var cursorX = LABEL_W + self._cursorViewX;
       ctx.save();
       ctx.strokeStyle = 'rgba(200,80,0,0.8)'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
       ctx.beginPath(); ctx.moveTo(cursorX, sigY); ctx.lineTo(cursorX, sigY + sigH); ctx.stroke();
       ctx.restore();
-      var parts = [];
-      var absIdx = startSamp + cursorOff;
-      for (var t2 = 0; t2 < sigs.length; t2++) {
-        var sig2  = sigs[t2], sw2 = sig2.word || 0;
-        var MASK2 = sig2.width < 32 ? ((1 << sig2.width) - 1) : 0xFFFFFFFF;
-        var gw2   = heapu32[((startSamp + cursorOff) & (ringSize - 1)) * RW + sw2];
-        var v2    = (gw2 >> sig2.bit) & MASK2;
-        if (sig2.type === 'bit') {
-          parts.push(sig2.label + '=' + v2);
-        } else if (sig2.fmt && cbFmt[sig2.fmt]) {
-          parts.push(sig2.label + '=' + cbFmt[sig2.fmt](v2));
-        } else {
-          var hpad = sig2.width > 8 ? 4 : 2;
-          parts.push(sig2.label + '=' + v2.toString(16).toUpperCase().padStart(hpad, '0'));
-        }
-      }
-      // カーソル追加情報コールバック
-      if (cbCurExtra) {
-        var extra = cbCurExtra(heapu32, ringSize, RW, absIdx);
-        if (extra) parts.unshift(extra);
-      }
-      var text = parts.join('  ');
-      ctx.font = '11px monospace'; ctx.textAlign = 'left';
-      var tw = ctx.measureText(text).width;
-      var tx = cursorX + 6;
-      if (tx + tw + 4 > LA_W) tx = cursorX - tw - 10;
-      ctx.fillStyle = 'rgba(255,255,200,0.93)';
-      ctx.fillRect(tx - 2, sigY + 1, tw + 6, 16);
-      ctx.fillStyle = '#333'; ctx.fillText(text, tx, sigY + 13);
     }
 
     // ── クロックルーラー T ラベル（ラベルエリア x=2、クリップなし）──
