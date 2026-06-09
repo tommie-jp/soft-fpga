@@ -128,3 +128,71 @@ class TestShell:
         # root でログイン → # プロンプト
         send_paced(booted_page, "root\r")
         assert wait_for(booted_page, "#", CMD_TIMEOUT), "root ログイン後の # プロンプトが出ない"
+
+
+class TestSimAPI:
+    """window.sim (sft-pdp11-sim-api.js) のブラウザ統合テスト。
+
+    TestShell の後に実行され、booted_page は # プロンプト状態を共有する。
+    信号値の正しさは vitest（tests/signals/）に委ね、ここでは API 経由の
+    トリガー機構・サンプル読み取り・レジスタ取得のみを検証する。
+    """
+
+    def test_sim_api_loaded(self, booted_page: Page) -> None:
+        fns = booted_page.evaluate(
+            """() => ['setTrigger','clearTrigger','waitTrigger','readSample',
+                      'getRegs','getSignals','sendString','screenshotCanvas']
+                     .map(f => typeof window.sim[f])"""
+        )
+        assert all(t == "function" for t in fns), f"sim API が欠けている: {fns}"
+
+    def test_get_regs_live(self, booted_page: Page) -> None:
+        regs = booted_page.evaluate("() => sim.getRegs()")
+        assert regs is not None, "getRegs() が null"
+        for key in ("r0", "sp", "pc", "psw", "mode"):
+            assert key in regs, f"getRegs() に {key} が無い"
+        assert 0 <= regs["pc"] <= 0xFFFF
+
+    def test_get_signals(self, booted_page: Page) -> None:
+        sigs = booted_page.evaluate("() => sim.getSignals().map(s => s.id)")
+        for sid in ("pc", "addr_p", "data", "trapped", "istate"):
+            assert sid in sigs, f"getSignals() に {sid} が無い"
+
+    def test_trigger_fires_on_trap(self, booted_page: Page) -> None:
+        """TRAP トリガー発火 → trigHead 確定 → readSample を確認する。
+
+        # プロンプト状態でコマンドを送ると sys call (TRAP) が発生して
+        確実に発火する。
+        """
+        booted_page.evaluate("() => sim.clearTrigger()")
+        booted_page.evaluate("() => sim.setTrigger({type:'trap'})")
+        # syscall を誘発（echo の exec/write が TRAP を出す）
+        booted_page.evaluate("() => sim.sendString('echo x\\n')")
+        result = booted_page.evaluate("() => sim.waitTrigger(20000)")
+        assert result["trigHead"] >= 0, f"trigHead が不正: {result}"
+
+        fired = booted_page.evaluate("() => sim.trigFired")
+        assert fired is True
+
+        # T=0 付近 ±16 サンプルに trapped=1 が存在する（f1 アンカリングで
+        # 発火サンプルと T=0 がずれるため範囲スキャンする）
+        has_trap = booted_page.evaluate(
+            """() => { for (let off = -16; off <= 16; off++) {
+                         if (sim.readSample('trapped', off) === 1) return true; }
+                       return false; }"""
+        )
+        assert has_trap, "T=0 ±16 サンプルに trapped=1 が見つからない"
+
+    def test_resume_after_trigger(self, booted_page: Page) -> None:
+        """トリガー発火後に clearTrigger + run で実行再開できる。"""
+        booted_page.evaluate("() => { sim.clearTrigger(); sim.run(); }")
+        booted_page.wait_for_function(
+            "() => !sim.isPaused", timeout=10_000
+        )
+        # レジスタが更新され続けている（実行再開の確認）
+        pc1 = booted_page.evaluate("() => sim.getRegs().pc")
+        booted_page.wait_for_timeout(500)
+        pc2 = booted_page.evaluate("() => sim.getRegs().pc")
+        running = booted_page.evaluate("() => !sim.isPaused")
+        assert running, "再開後も Paused のまま"
+        assert isinstance(pc1, int) and isinstance(pc2, int)
