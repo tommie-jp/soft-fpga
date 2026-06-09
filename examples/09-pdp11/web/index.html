@@ -6,6 +6,7 @@
   <title>09-PDP-11 / Unix V6 — rtlscope</title>
   <link rel="icon" href="favicon.ico" type="image/x-icon">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jstree@3.3.16/dist/themes/default-dark/style.min.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     body { background:#1a1a1a; color:#ccc; font-family:monospace; margin:0; padding:10px; }
@@ -206,18 +207,21 @@
 
     /* ── FS パネル ── */
     #fs-panel { background:#1a1a14; border:1px solid #3a3a28; padding:5px 8px;
-                font-size:11px; margin-top:5px; max-height:220px; overflow-y:auto; }
+                font-size:11px; margin-top:5px; }
     #fs-hdr { display:flex; align-items:center; gap:5px; font-size:11px;
               color:#8a8a5a; margin-bottom:4px; flex-wrap:wrap; }
     #fs-hdr button { padding:1px 6px; font-size:10px; }
-    #fs-path { font-size:10px; color:#666; margin-bottom:3px; }
-    #fs-list table { width:100%; border-collapse:collapse; }
-    #fs-list tr { cursor:pointer; }
-    #fs-list tr:hover td { background:#22221a; }
-    #fs-list td { padding:1px 4px; font-size:10px; color:#aaa; border-bottom:1px solid #2a2a1a; }
-    #fs-list td.fs-name { color:#cc9; }
-    #fs-list td.fs-dir  { color:#6ae; }
-    #fs-list td.fs-size { color:#666; text-align:right; width:50px; }
+    #fs-list { max-height:200px; overflow-y:auto; }
+    /* jstree ダークテーマ上書き */
+    #fs-list .jstree-default-dark { background:transparent; }
+    #fs-list .jstree-default-dark .jstree-anchor { color:#cc9; font-size:10px; height:18px; line-height:18px; }
+    #fs-list .jstree-default-dark li.jstree-open > .jstree-anchor,
+    #fs-list .jstree-default-dark li.jstree-closed > .jstree-anchor { color:#6ae; }
+    #fs-list .jstree-default-dark .jstree-hovered { background:#22221a; box-shadow:none; }
+    #fs-list .jstree-default-dark .jstree-clicked { background:#2e2e1e; box-shadow:none; }
+    #fs-list .jstree-default-dark .jstree-wholerow-hovered { background:#22221a; }
+    #fs-list .jstree-default-dark .jstree-wholerow-clicked { background:#2e2e1e; }
+    #fs-list .jst-sz { color:#666; font-size:9px; margin-left:4px; }
 
     /* ── WASM FS パネル ── */
     #wasm-panel { background:#141420; border:1px solid #28283a; padding:5px 8px;
@@ -357,14 +361,6 @@
     #speed-num { font-size:12px; padding:2px 4px; font-family:monospace;
                  background:#333; color:#ccc; border:1px solid #555; width:90px; }
 
-    /* ── FS ソートヘッダ ── */
-    #fs-thead { display:flex; font-size:10px; color:#666; padding:1px 4px;
-                border-bottom:1px solid #333; cursor:default; user-select:none;
-                background:#111; }
-    .fs-th { flex:1; padding:1px 2px; cursor:pointer; }
-    .fs-th:hover { color:#aaa; }
-    .fs-th.active { color:#cc9; }
-    .fs-th-sz { flex:0 0 44px; text-align:right; }
 
     /* ── モバイル対応 ── */
     @media (max-width:600px) {
@@ -607,13 +603,9 @@
       <div id="fs-hdr">
         V6 Filesystem
         <button id="btn-fs-refresh">&#x21BA;</button>
+        <button id="btn-fs-dl" title="選択ファイルをダウンロード" disabled>&#x2193; DL</button>
         <button id="btn-save-disk" title="現在のディスクを IndexedDB に保存" disabled>&#x1F4BE; Save</button>
         <button id="btn-reset-disk" title="サーバーの元のディスクイメージに戻す" style="display:none;">Reset</button>
-      </div>
-      <div id="fs-path">/</div>
-      <div id="fs-thead">
-        <span class="fs-th active" data-col="name">Name ↑</span>
-        <span class="fs-th fs-th-sz" data-col="size">Size</span>
       </div>
       <div id="fs-list"></div>
     </div>
@@ -812,6 +804,8 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jstree@3.3.16/dist/jstree.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
 <script src="../../../js/monaco-wasm-editor.js"></script>
@@ -1720,10 +1714,10 @@ function _flashBtn(id) {
   setTimeout(function() { b.classList.remove('flash'); }, 200);
 }
 
-// ── FS 操作補助 (K sort / L drag / M download) ───────────────────────────
-var _fsEntries = [];
-var _fsSortCol = 'name';
-var _fsSortAsc = true;
+// ── FS 操作補助 ────────────────────────────────────────────────────────────
+var _fsEntries    = [];
+var _fsTreeInited = false;
+var _fsSelPath    = null;
 
 function _requestFSList() {
   worker.postMessage({ type: 'listFS', requestId: 'panel' });
@@ -1837,81 +1831,77 @@ function _renderWasmFSPanel(entries) {
   });
 }
 
+function _buildJstreeNodes(entries) {
+  var ROOT = '__v6root__';
+  var nodes = [{ id: ROOT, parent: '#', text: '/', icon: 'jstree-folder',
+                 state: { opened: true } }];
+  var pathToId = { '/': ROOT };
+
+  var ents = entries.filter(function(e) { return e.path !== '/'; })
+                    .sort(function(a, b) {
+                      if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
+                      return a.path.localeCompare(b.path);
+                    });
+
+  ents.forEach(function(e, i) {
+    var path  = e.path;
+    var slash = path.lastIndexOf('/');
+    var name  = path.slice(slash + 1);
+    var par   = slash > 0 ? path.slice(0, slash) : '/';
+    var pid   = pathToId[par] || ROOT;
+    var id    = 'n' + i;
+    pathToId[path] = id;
+
+    var label = name;
+    if (!e.isDir && e.size) label += ' <span class="jst-sz">' + e.size + 'B</span>';
+
+    nodes.push({ id: id, parent: pid,
+                 text: label,
+                 icon: e.isDir ? 'jstree-folder' : 'jstree-file',
+                 data: { path: path, isDir: e.isDir } });
+  });
+  return nodes;
+}
+
 function _renderFSPanel(entries) {
   _fsEntries = entries || [];
-  _sortAndRender();
-}
-
-function _sortAndRender() {
-  var col = _fsSortCol, asc = _fsSortAsc;
-  var sorted = _fsEntries.slice().sort(function(a, b) {
-    var va = col === 'size' ? (a.size || 0) : a.path;
-    var vb = col === 'size' ? (b.size || 0) : b.path;
-    if (va < vb) return asc ? -1 : 1;
-    if (va > vb) return asc ? 1 : -1;
-    return 0;
-  });
-
-  // ヘッダ矢印更新
-  document.querySelectorAll('#fs-thead .fs-th').forEach(function(th) {
-    var c = th.dataset.col;
-    th.classList.toggle('active', c === col);
-    if (c === col) th.textContent = (c === 'name' ? 'Name' : 'Size') + (asc ? ' ↑' : ' ↓');
-    else            th.textContent = (c === 'name' ? 'Name' : 'Size');
-  });
-
   var el = document.getElementById('fs-list');
-  if (!el) return;
-  if (!sorted.length) {
-    el.innerHTML = '<span style="color:#555;font-size:10px;">（エントリなし）</span>';
-    return;
-  }
-  var rows = '';
-  for (var i = 0; i < sorted.length; i++) {
-    var e   = sorted[i];
-    var cls = e.isDir ? 'fs-dir' : 'fs-name';
-    var sz  = e.isDir ? '' : e.size + 'B';
-    var esc = e.path.replace(/"/g,'&quot;');
-    rows += '<tr data-path="' + esc + '" data-dir="' + (e.isDir?'1':'0') + '">' +
-            '<td class="' + cls + '">' + e.path + '</td>' +
-            '<td class="fs-size">' + sz + '</td>' +
-            (e.isDir ? '<td></td>' :
-             '<td style="width:22px;padding:0 2px;"><button class="fs-dl-btn" data-path="' + esc + '" ' +
-             'title="ダウンロード" style="padding:0 4px;font-size:9px;background:#1e1e14;border:1px solid #444;color:#888;cursor:pointer;">↓</button></td>') +
-            '</tr>';
-  }
-  el.innerHTML = '<table style="width:100%;border-collapse:collapse;">' + rows + '</table>';
+  if (!el || typeof $ === 'undefined') return;
 
-  el.querySelectorAll('tr').forEach(function(tr) {
-    tr.addEventListener('click', function(ev) {
-      if (ev.target.classList.contains('fs-dl-btn')) return;
-      var p   = tr.dataset.path;
-      var isD = tr.dataset.dir === '1';
-      if (isD) return;
-      if (/\.(sh|script|scr)$/i.test(p)) {
-        _executeHostCmd('script ' + p.replace(/.*\//, ''));
-      } else {
-        _executeHostCmd('type ' + p);
+  var nodes = _buildJstreeNodes(_fsEntries);
+
+  if (_fsTreeInited) {
+    $(el).jstree(true).settings.core.data = nodes;
+    $(el).jstree(true).refresh();
+  } else {
+    _fsTreeInited = true;
+    $(el).jstree({
+      core: { data: nodes, check_callback: false, multiple: false,
+              themes: { name: 'default-dark', dots: true, icons: true } },
+      plugins: ['wholerow']
+    }).on('select_node.jstree', function(ev, d) {
+      var nd = d.node;
+      if (!nd.data) return;
+      _fsSelPath = nd.data.isDir ? null : nd.data.path;
+      var btn = document.getElementById('btn-fs-dl');
+      if (btn) btn.disabled = !_fsSelPath;
+      if (_fsSelPath) {
+        if (/\.(sh|script|scr)$/i.test(_fsSelPath)) {
+          _executeHostCmd('script ' + _fsSelPath.replace(/.*\//, ''));
+        } else {
+          _executeHostCmd('type ' + _fsSelPath);
+        }
       }
     });
-  });
-  el.querySelectorAll('.fs-dl-btn').forEach(function(btn) {
-    btn.addEventListener('click', function(ev) {
-      ev.stopPropagation();
-      _executeHostCmd('get ' + btn.dataset.path);
-    });
-  });
+  }
 }
 
-// FS ソートヘッダ
+// DL ボタン
 (function() {
-  document.querySelectorAll('#fs-thead .fs-th').forEach(function(th) {
-    th.addEventListener('click', function() {
-      var col = th.dataset.col;
-      if (_fsSortCol === col) { _fsSortAsc = !_fsSortAsc; }
-      else { _fsSortCol = col; _fsSortAsc = true; }
-      _sortAndRender();
-    });
+  var btn = document.getElementById('btn-fs-dl');
+  if (!btn) return;
+  btn.addEventListener('click', function() {
+    if (_fsSelPath) _executeHostCmd('get ' + _fsSelPath);
   });
 })();
 
