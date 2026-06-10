@@ -105,46 +105,132 @@ function updateMMUPanel(snap32) {
   renderCol(uEl, snap32.slice(8, 16), 8);
 }
 
-document.getElementById('btn-mmu-toggle').addEventListener('click', function() {
-  var tables = document.getElementById('mmu-tables');
-  var visible = tables.style.display !== 'none';
-  tables.style.display = visible ? 'none' : '';
-  this.textContent = visible ? 'Show' : 'Hide';
-});
+(function() {
+  var btn   = document.getElementById('btn-mmu-collapse');
+  var panel = btn && btn.closest('.mmu-panel');
+  var body  = document.getElementById('mmu-tables');
+  if (!btn || !panel || !body) return;
 
-// ── Debug パネル (#12) ────────────────────────────────────────────────────
-var _trapLog  = [];
-var _modeLog  = [];
-var _prevMode = -1;
-var _dbgTab   = 'traplog';
+  btn.addEventListener('click', function() {
+    var collapsed = panel.classList.toggle('collapsed');
+    if (collapsed) {
+      body.style.height = body.offsetHeight + 'px';
+      requestAnimationFrame(function() { body.style.height = '0'; });
+    } else {
+      body.style.height = body.scrollHeight + 'px';
+      body.addEventListener('transitionend', function onEnd() {
+        body.removeEventListener('transitionend', onEnd);
+        body.style.height = '';
+      });
+    }
+  });
+})();
+
+// ── CPU Log パネル ────────────────────────────────────────────────────────
+// trap イベントとモード遷移を時系列で統合表示する。
+//   { type:'trap', pc, psw, sys }     — トラップ発生（sys call / bus error 等）
+//   { type:'mode', from, to, pc }     — Kernel ↔ User モード遷移
+
+// Unix V6 システムコール番号 → 名前（番号 = インデックス）
+var _V6SYS = [
+  'indir','exit','fork','read','write','open','close','wait',       // 0-7
+  'creat','link','unlink','exec','chdir','time','mknod','chmod',    // 8-15
+  'chown','break','stat','seek','getpid','mount','umount','setuid', // 16-23
+  'getuid','stime','ptrace',null,'fstat',null,null,'stty',          // 24-31
+  'gtty','access','nice','sleep','sync','kill','switch',null,       // 32-39
+  'setpgrp','dup','pipe','times','profil',null,'setgid','getgid','signal' // 40-48
+];
+
+// obs_word4 = {11'b0, isn[15:0], istate[4:0]} → bits[20:5] = ISN
+// EMT 命令: 0x8800–0x88FF（Unix V6 sys call は EMT n として発行）
+function _decodeSys(word4) {
+  var isn = (word4 >>> 5) & 0xFFFF;
+  if ((isn & 0xFF00) !== 0x8800) return null;   // EMT 以外
+  var n = isn & 0xFF;
+  return { n: n, name: (n < _V6SYS.length && _V6SYS[n]) || null };
+}
+
+var _cpuLog        = [];
+var _prevMode      = -1;
+var _cpuLogEnabled = false;
 
 (function() {
-  document.querySelectorAll('.dbg-tab').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      _dbgTab = btn.dataset.tab;
-      document.querySelectorAll('.dbg-tab').forEach(function(b) { b.classList.remove('active'); });
-      btn.classList.add('active');
-      document.getElementById('tab-traplog').style.display = _dbgTab === 'traplog' ? '' : 'none';
-      document.getElementById('tab-modelog').style.display = _dbgTab === 'modelog' ? '' : 'none';
+  var chk = document.getElementById('btn-cpulog-toggle');
+  if (!chk) return;
+  chk.addEventListener('change', function() {
+    _cpuLogEnabled = chk.checked;
+  });
+})();
+
+(function() {
+  var btn = document.getElementById('btn-cpulog-clear');
+  if (btn) btn.addEventListener('click', function() {
+    _cpuLog.length = 0;
+    _renderCpuLog();
+  });
+})();
+
+(function() {
+  var btn = document.getElementById('btn-cpulog-copy');
+  if (!btn) return;
+  btn.addEventListener('click', function() {
+    var text = _cpuLog.map(function(r) {
+      if (r.type === 'trap') {
+        var s = oct6(r.pc) + '  TRAP';
+        if (r.sys) s += '  sys ' + r.sys.n + (r.sys.name ? ' (' + r.sys.name + ')' : '');
+        return s + '  PSW=' + hex4(r.psw);
+      }
+      return oct6(r.pc) + '  ' + MODE_NAMES[r.from] + ' → ' + MODE_NAMES[r.to];
+    }).join('\n');
+    navigator.clipboard.writeText(text).then(function() {
+      btn.textContent = 'Copied!';
+      setTimeout(function() { btn.textContent = 'Copy'; }, 1200);
     });
   });
 })();
 
-function _renderTrapLog() {
-  var el = document.getElementById('tab-traplog');
-  if (!el) return;
-  el.innerHTML = _trapLog.slice(0, 30).map(function(r) {
-    return '<div class="dbg-row"><span class="dbg-pc">' + oct6(r.pc) + '</span>' +
-           '<span class="dbg-ev">TRAP  PSW=' + hex4(r.psw) + '</span></div>';
-  }).join('');
-}
+(function() {
+  var btn   = document.getElementById('btn-eventlog-collapse');
+  var panel = document.getElementById('debug-panel');
+  var body  = document.getElementById('tab-cpulog');
+  if (!btn || !panel || !body) return;
 
-function _renderModeLog() {
-  var el = document.getElementById('tab-modelog');
+  btn.addEventListener('click', function() {
+    var collapsed = panel.classList.toggle('collapsed');
+    if (collapsed) {
+      body.style.overflow = 'hidden';
+      body.style.height = body.offsetHeight + 'px';
+      requestAnimationFrame(function() { body.style.height = '0'; });
+    } else {
+      body.style.height = body.scrollHeight + 'px';
+      body.addEventListener('transitionend', function onEnd() {
+        body.removeEventListener('transitionend', onEnd);
+        body.style.height = '';
+        body.style.overflow = '';
+      });
+    }
+  });
+})();
+
+function _renderCpuLog() {
+  var el = document.getElementById('tab-cpulog');
   if (!el) return;
-  el.innerHTML = _modeLog.slice(0, 30).map(function(r) {
+  el.innerHTML = _cpuLog.slice(0, 60).map(function(r) {
+    if (r.type === 'trap') {
+      var sysStr = '';
+      if (r.sys) {
+        sysStr = '  <span class="dbg-sys">sys ' + r.sys.n +
+                 (r.sys.name ? ' (' + r.sys.name + ')' : '') + '</span>';
+      }
+      return '<div class="dbg-row"><span class="dbg-pc">' + oct6(r.pc) + '</span>' +
+             '<span class="dbg-trap">TRAP</span>' +
+             sysStr +
+             '<span class="dbg-psw">PSW=' + hex4(r.psw) + '</span></div>';
+    }
+    var toKernel = (r.to === 0);
     return '<div class="dbg-row"><span class="dbg-pc">' + oct6(r.pc) + '</span>' +
-           '<span class="dbg-mod">' + MODE_NAMES[r.from] + ' → ' + MODE_NAMES[r.to] + '</span></div>';
+           '<span class="' + (toKernel ? 'dbg-u2k' : 'dbg-k2u') + '">' +
+           MODE_NAMES[r.from] + ' → ' + MODE_NAMES[r.to] + '</span></div>';
   }).join('');
 }
 
@@ -212,16 +298,38 @@ function updateRegs(snap, gpr) {
 
   if (gpr) updateGPRDisplay(gpr);
 
-  // Debug ログ更新
-  if (trap) {
-    _trapLog.unshift({ pc: pc, psw: psw });
-    if (_trapLog.length > 60) _trapLog.pop();
-    if (_dbgTab === 'traplog') _renderTrapLog();
-  }
-  if (_prevMode !== -1 && mode !== _prevMode) {
-    _modeLog.unshift({ from: _prevMode, to: mode, pc: pc });
-    if (_modeLog.length > 60) _modeLog.pop();
-    if (_dbgTab === 'modelog') _renderModeLog();
+  // CPU Log 更新
+  if (_cpuLogEnabled) {
+    // TRAP は 1〜3 tick のパルスで最終サンプルに入らないことがあるため、
+    // snap の全サンプルをスキャンして取り逃がしを防ぐ。
+    // Mode 遷移は数フレーム続くため最終サンプルで十分。
+    var updated = false;
+    var count = (snap.length / _ringWords) | 0;
+    for (var i = 0; i < count; i++) {
+      var _base = i * _ringWords;
+      if ((snap[_base] >>> 23) & 1) {
+        var _w4 = snap[_base + 4];
+        var _isn = (_w4 >>> 5) & 0xFFFF;
+        console.log('[TRAP] pc=' + oct6(snap[_base+2]&0xFFFF) +
+          ' w4=0x' + _w4.toString(16).padStart(8,'0') +
+          ' isn=0x' + _isn.toString(16).padStart(4,'0'));
+        _cpuLog.unshift({
+          type: 'trap',
+          pc:   snap[_base + 2] & 0xFFFF,
+          psw:  (snap[_base + 1] >>> 16) & 0xFFFF,
+          sys:  _decodeSys(_w4)
+        });
+        updated = true;
+      }
+    }
+    if (_prevMode !== -1 && mode !== _prevMode) {
+      _cpuLog.unshift({ type: 'mode', from: _prevMode, to: mode, pc: pc });
+      updated = true;
+    }
+    if (updated) {
+      if (_cpuLog.length > 120) _cpuLog.length = 120;
+      _renderCpuLog();
+    }
   }
   _prevMode = mode;
 }
