@@ -172,7 +172,7 @@
         <h3>Registers</h3>
       </div>
       <div id="regs-body">
-      <div class="reg-grid">
+      <div class="reg-grid" id="regs-grid">
         <div class="reg-row"><span class="reg-lbl">PC</span>   <span class="reg-val" id="r-pc">------</span></div>
         <div class="reg-row"><span class="reg-lbl">SP</span>   <span class="reg-val" id="r-sp">------</span></div>
         <div class="reg-row"><span class="reg-lbl">PSW</span>  <span class="reg-val" id="r-psw">--------</span></div>
@@ -187,6 +187,7 @@
         <div class="reg-row"><span class="reg-lbl">Data</span> <span class="reg-val" id="r-data">----</span></div>
         <div class="reg-row"><span class="reg-lbl">RK11</span> <span class="reg-val" id="r-rk">----</span></div>
       </div>
+      <div id="regs-resizer"></div>
       </div><!-- /regs-body -->
     </div>
 
@@ -197,12 +198,15 @@
         <h3>MMU — Page Address Registers</h3>
       </div>
       <div class="mmu-tables" id="mmu-tables">
-        <div class="mmu-col" id="mmu-kernel">
-          <div class="mmu-col-hdr">Kernel I-space</div>
+        <div id="mmu-content">
+          <div class="mmu-col" id="mmu-kernel">
+            <div class="mmu-col-hdr">Kernel I-space</div>
+          </div>
+          <div class="mmu-col" id="mmu-user">
+            <div class="mmu-col-hdr">User I-space</div>
+          </div>
         </div>
-        <div class="mmu-col" id="mmu-user">
-          <div class="mmu-col-hdr">User I-space</div>
-        </div>
+        <div id="mmu-resizer"></div>
       </div>
     </div>
 
@@ -218,7 +222,10 @@
         <button id="btn-cpulog-copy" title="全ログをコピー">Copy</button>
         <button id="btn-cpulog-clear" title="ログをクリア">Clear</button>
       </div>
-      <div id="tab-cpulog" class="dbg-content"></div>
+      <div id="cpulog-body">
+        <div id="tab-cpulog" class="dbg-content"></div>
+        <div id="cpulog-resizer"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -365,7 +372,7 @@
 <script src="../../../js/sft-xterm-util.js"></script>
 <script src="../../../js/xterm-jp106.js"></script>
 <script src="../../../js/sft-pdp11-disk.js"></script>
-<script src="../../../js/sft-pdp11-debug-panel.js?v=2"></script>
+<script src="../../../js/sft-pdp11-debug-panel.js?v=3"></script>
 <script src="../../../js/sft-pdp11-fs-panel.js"></script>
 <script src="../../../js/sft-pdp11-worker-bridge.js"></script>
 <script src="../../../js/sft-pdp11-trigger-ui.js"></script>

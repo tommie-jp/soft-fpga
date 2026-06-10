@@ -192,13 +192,12 @@ var _cpuLogEnabled = false;
 (function() {
   var btn   = document.getElementById('btn-eventlog-collapse');
   var panel = document.getElementById('debug-panel');
-  var body  = document.getElementById('tab-cpulog');
+  var body  = document.getElementById('cpulog-body');
   if (!btn || !panel || !body) return;
 
   btn.addEventListener('click', function() {
     var collapsed = panel.classList.toggle('collapsed');
     if (collapsed) {
-      body.style.overflow = 'hidden';
       body.style.height = body.offsetHeight + 'px';
       requestAnimationFrame(function() { body.style.height = '0'; });
     } else {
@@ -206,9 +205,75 @@ var _cpuLogEnabled = false;
       body.addEventListener('transitionend', function onEnd() {
         body.removeEventListener('transitionend', onEnd);
         body.style.height = '';
-        body.style.overflow = '';
       });
     }
+  });
+})();
+
+// ── パネル高さリサイズ（Registers / MMU / Event Log）────────────────────────
+(function() {
+  var resizer = document.getElementById('regs-resizer');
+  var content = document.getElementById('regs-grid');
+  if (!resizer || !content) return;
+  var startY = 0, startH = 0, MIN_H = 40, MAX_H = 600;
+  resizer.addEventListener('mousedown', function(e) {
+    e.preventDefault();
+    startY = e.clientY; startH = content.offsetHeight;
+    resizer.classList.add('dragging');
+    function onMove(e) {
+      content.style.height = Math.min(MAX_H, Math.max(MIN_H, startH + e.clientY - startY)) + 'px';
+    }
+    function onUp() {
+      resizer.classList.remove('dragging');
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+})();
+
+(function() {
+  var resizer = document.getElementById('mmu-resizer');
+  var content = document.getElementById('mmu-content');
+  if (!resizer || !content) return;
+  var startY = 0, startH = 0, MIN_H = 40, MAX_H = 600;
+  resizer.addEventListener('mousedown', function(e) {
+    e.preventDefault();
+    startY = e.clientY; startH = content.offsetHeight;
+    resizer.classList.add('dragging');
+    function onMove(e) {
+      content.style.height = Math.min(MAX_H, Math.max(MIN_H, startH + e.clientY - startY)) + 'px';
+    }
+    function onUp() {
+      resizer.classList.remove('dragging');
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+})();
+
+(function() {
+  var resizer = document.getElementById('cpulog-resizer');
+  var content = document.getElementById('tab-cpulog');
+  if (!resizer || !content) return;
+  var startY = 0, startH = 0, MIN_H = 40, MAX_H = 600;
+  resizer.addEventListener('mousedown', function(e) {
+    e.preventDefault();
+    startY = e.clientY; startH = content.offsetHeight;
+    resizer.classList.add('dragging');
+    function onMove(e) {
+      content.style.height = Math.min(MAX_H, Math.max(MIN_H, startH + e.clientY - startY)) + 'px';
+    }
+    function onUp() {
+      resizer.classList.remove('dragging');
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
   });
 })();
 
