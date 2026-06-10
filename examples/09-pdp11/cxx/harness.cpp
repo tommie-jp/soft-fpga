@@ -104,6 +104,16 @@ static uint32_t ring_tick_mask = 3u;
 extern "C" uint16_t ram_read_word(uint32_t byte_addr);
 static uint32_t mem_probe_addr = 0xFFFFFFFFu;
 
+// trapped の立ち上がりエッジを 1 サンプルだけ記録するラッチ。
+// trapped は trap 処理中（数十 tick）HIGH を維持するため、OR 蓄積では
+// 複数サンプルに重複記録される。立ち上がりエッジのみを使うことで
+// 1 トラップイベント = 1 サンプルの bit23=1 に正規化する。
+// trapped_word4: 立ち上がりエッジ瞬間の OBS_WORD4（ISN を含む）をキャプチャ。
+// sample_ring() 時点では CPU がトラップベクタをフェッチ済みのため ISN が変化している。
+static uint8_t  trapped_latch = 0;
+static uint8_t  trapped_prev  = 0;
+static uint32_t trapped_word4 = 0;
+
 static inline void sample_ring() {
     uint32_t* p = &ring[(ring_head % RING_SIZE) * RING_WORDS];
     p[0] = ((uint32_t)OBS_ADDR_P   & 0x3FFFFu)
@@ -111,7 +121,7 @@ static inline void sample_ring() {
          | ((uint32_t)(OBS_RD      & 1u) << 19)
          | ((uint32_t)(OBS_CPU_CM  & 3u) << 20)
          | ((uint32_t)(OBS_BYTE_OP & 1u) << 22)
-         | ((uint32_t)(OBS_TRAPPED & 1u) << 23)
+         | ((uint32_t)(trapped_latch   ) << 23)
          | ((uint32_t)(OBS_HALTED  & 1u) << 24)
          | ((uint32_t)(OBS_BUS_INT & 1u) << 25)
          | ((uint32_t)(OBS_RK_STATE & 0x1Fu) << 26);
@@ -122,7 +132,10 @@ static inline void sample_ring() {
     p[3] = ((uint32_t)(OBS_INT_VEC  & 0xFFu))
          | ((uint32_t)(OBS_INT_IPL  & 0xFFu) << 8)
          | ((uint32_t)(OBS_EXTRA1   & 0xFFFFu) << 16);
-    p[4] = (uint32_t)OBS_WORD4;
+    // trap サンプルはエッジ瞬間にキャプチャした ISN を使う（sample 時点では CPU が
+    // トラップベクタをフェッチ済みで ISN が上書きされているため）
+    p[4] = trapped_latch ? trapped_word4 : (uint32_t)OBS_WORD4;
+    trapped_latch = 0;  // サンプル済みのためクリア
     // Word5-8: GPR スナップショット（R0-R5, SP）+ M1 メモリプローブ
     p[5] = ((uint32_t)(top->rootp->test_top_wasm__DOT__top__DOT__cpu__DOT__r0) & 0xFFFFu)
          | ((uint32_t)(top->rootp->test_top_wasm__DOT__top__DOT__cpu__DOT__r1) << 16);
@@ -357,9 +370,19 @@ EMSCRIPTEN_KEEPALIVE uint32_t sim_get_ring_tick_mask() {
 }
 
 // ベアメタル: トリガー・HALT 判定なしで n_ticks だけ進める（ポストトリガー用）
+static inline void update_trapped_latch() {
+    uint8_t cur = OBS_TRAPPED & 1u;
+    if (cur && !trapped_prev) {
+        trapped_latch = 1;
+        trapped_word4 = (uint32_t)OBS_WORD4;  // ISN をエッジ瞬間にキャプチャ
+    }
+    trapped_prev = cur;
+}
+
 EMSCRIPTEN_KEEPALIVE void sim_step_bare(int n_ticks) {
     for (int i = 0; i < n_ticks; i++) {
         tick();
+        update_trapped_latch();
         if ((sim_time & ring_tick_mask) == 0) sample_ring();
     }
     if (top) update_gpr();
@@ -370,6 +393,7 @@ EMSCRIPTEN_KEEPALIVE void step_n(int n) {
         // ポストトリガー収集中は HALT を無視して収集を完走させる
         if (OBS_HALTED && g_post_trig_remain == 0) break;
         tick();
+        update_trapped_latch();
         bool sampled = (sim_time & ring_tick_mask) == 0;
         if (sampled) sample_ring();
 

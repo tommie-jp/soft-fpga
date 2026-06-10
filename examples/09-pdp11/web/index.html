@@ -142,7 +142,7 @@
     </div>
 
     <!-- Unix V6 FS パネル -->
-    <div id="fs-panel">
+    <div id="fs-panel" class="collapsed">
       <div id="fs-hdr">
         <button id="btn-fs-collapse" title="折りたたむ / 展開する">&#x25BC;</button>
         V6 Filesystem
@@ -166,8 +166,12 @@
   <!-- 右: レジスタ + MMU + トリガー + LA -->
   <div class="col-right">
     <!-- レジスタパネル -->
-    <div class="regs">
-      <h3>Registers</h3>
+    <div class="regs collapsed">
+      <div class="regs-header">
+        <button id="btn-regs-collapse" title="折りたたむ / 展開する">&#x25BC;</button>
+        <h3>Registers</h3>
+      </div>
+      <div id="regs-body">
       <div class="reg-grid">
         <div class="reg-row"><span class="reg-lbl">PC</span>   <span class="reg-val" id="r-pc">------</span></div>
         <div class="reg-row"><span class="reg-lbl">SP</span>   <span class="reg-val" id="r-sp">------</span></div>
@@ -183,13 +187,15 @@
         <div class="reg-row"><span class="reg-lbl">Data</span> <span class="reg-val" id="r-data">----</span></div>
         <div class="reg-row"><span class="reg-lbl">RK11</span> <span class="reg-val" id="r-rk">----</span></div>
       </div>
+      </div><!-- /regs-body -->
     </div>
 
     <!-- MMU パネル -->
-    <div class="mmu-panel" id="mmu-panel">
-      <h3>MMU — Page Address Registers
-        <button class="mmu-toggle-btn" id="btn-mmu-toggle">Hide</button>
-      </h3>
+    <div class="mmu-panel collapsed" id="mmu-panel">
+      <div class="mmu-header">
+        <button id="btn-mmu-collapse" class="mmu-collapse-btn" title="折りたたむ / 展開する">&#x25BC;</button>
+        <h3>MMU — Page Address Registers</h3>
+      </div>
       <div class="mmu-tables" id="mmu-tables">
         <div class="mmu-col" id="mmu-kernel">
           <div class="mmu-col-hdr">Kernel I-space</div>
@@ -200,23 +206,25 @@
       </div>
     </div>
 
-    <!-- Debug パネル -->
-    <div id="debug-panel">
+    <!-- Event Log パネル -->
+    <div id="debug-panel" class="collapsed">
       <div id="dbg-header">
-        <span class="dbg-lbl">Debug</span>
-        <div class="dbg-tabs">
-          <button class="dbg-tab active" data-tab="traplog">Trap Log</button>
-          <button class="dbg-tab"        data-tab="modelog">Mode Log</button>
-        </div>
+        <button id="btn-eventlog-collapse" title="折りたたむ / 展開する">&#x25BC;</button>
+        <span class="dbg-lbl">Event Log</span>
+        <label class="cpulog-switch" title="イベント収集を開始 / 停止">
+          <input type="checkbox" id="btn-cpulog-toggle">
+          <span class="cpulog-thumb"></span>
+        </label>
+        <button id="btn-cpulog-copy" title="全ログをコピー">Copy</button>
+        <button id="btn-cpulog-clear" title="ログをクリア">Clear</button>
       </div>
-      <div id="tab-traplog" class="dbg-content"></div>
-      <div id="tab-modelog" class="dbg-content" style="display:none;"></div>
+      <div id="tab-cpulog" class="dbg-content"></div>
     </div>
   </div>
 </div>
 
 <!-- Logic Analyzer: 全幅 -->
-<div class="la-section">
+<div class="la-section collapsed">
   <div class="la-header">
     <button id="btn-la-collapse" class="la-zoom-btn" title="折りたたむ / 展開する">&#x25BC;</button>
     <h3>Logic Analyzer</h3>
@@ -357,7 +365,7 @@
 <script src="../../../js/sft-xterm-util.js"></script>
 <script src="../../../js/xterm-jp106.js"></script>
 <script src="../../../js/sft-pdp11-disk.js"></script>
-<script src="../../../js/sft-pdp11-debug-panel.js"></script>
+<script src="../../../js/sft-pdp11-debug-panel.js?v=2"></script>
 <script src="../../../js/sft-pdp11-fs-panel.js"></script>
 <script src="../../../js/sft-pdp11-worker-bridge.js"></script>
 <script src="../../../js/sft-pdp11-trigger-ui.js"></script>
@@ -423,7 +431,7 @@ var la = new RTLScopeLA(Object.assign({}, PDP11_LA_CONFIG, {
 }));
 la.buildToggles();
 
-la._zoom = 8;
+la.setZoom(5); // LA_ZOOM_LEVELS[5] = 8x、_zoomIdx も同期
 la._updateCanvas();
 (function() {
   var lbl = document.getElementById('la-zoom-lbl');
@@ -917,6 +925,28 @@ document.getElementById('btn-la-freeze').addEventListener('click', function() {
 
   btn.addEventListener('click', function() {
     var collapsed = sect.classList.toggle('collapsed');
+    if (collapsed) {
+      body.style.height = body.offsetHeight + 'px';
+      requestAnimationFrame(function() { body.style.height = '0'; });
+    } else {
+      body.style.height = body.scrollHeight + 'px';
+      body.addEventListener('transitionend', function onEnd() {
+        body.removeEventListener('transitionend', onEnd);
+        body.style.height = '';
+      });
+    }
+  });
+})();
+
+// ── Registers 折りたたみ ──────────────────────────────────────────────────
+(function() {
+  var btn   = document.getElementById('btn-regs-collapse');
+  var panel = btn && btn.closest('.regs');
+  var body  = document.getElementById('regs-body');
+  if (!btn || !panel || !body) return;
+
+  btn.addEventListener('click', function() {
+    var collapsed = panel.classList.toggle('collapsed');
     if (collapsed) {
       body.style.height = body.offsetHeight + 'px';
       requestAnimationFrame(function() { body.style.height = '0'; });
