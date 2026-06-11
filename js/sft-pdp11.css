@@ -46,7 +46,12 @@ button.active  { background:#446; border-color:#88a; color:#ccf; }
 .regs.collapsed #btn-regs-collapse { transform:rotate(-90deg); }
 #regs-body { overflow:hidden; transition:height 0.2s ease; }
 .regs.collapsed #regs-body { height:0; }
-.reg-grid { display:grid; grid-template-columns:1fr 1fr; gap:2px 12px; }
+.reg-grid { display:grid; grid-template-columns:1fr 1fr; gap:2px 12px;
+            overflow-y:auto; }
+#regs-grid { height:110px; overflow-y:auto; } /* resizable via #regs-resizer */
+#regs-resizer { height:5px; background:#282828; border-top:1px solid #3a3a2a;
+                cursor:ns-resize; user-select:none; }
+#regs-resizer:hover, #regs-resizer.dragging { background:#444; }
 .reg-row  { display:flex; justify-content:space-between; }
 .reg-lbl  { color:#666; }
 .reg-val  { color:#4fc; font-variant-numeric:tabular-nums; }
@@ -66,7 +71,11 @@ button.active  { background:#446; border-color:#88a; color:#ccf; }
 .mmu-panel.collapsed #btn-mmu-collapse { transform:rotate(-90deg); }
 #mmu-tables { overflow:hidden; transition:height 0.2s ease; }
 .mmu-panel.collapsed #mmu-tables { height:0; }
-.mmu-tables { display:flex; gap:10px; flex-wrap:wrap; }
+.mmu-tables { display:block; }  /* flex を #mmu-content に移動 */
+#mmu-content { display:flex; gap:10px; flex-wrap:wrap; overflow-y:auto; height:128px; }
+#mmu-resizer { height:5px; background:#2e2838; border-top:1px solid #443a55;
+               cursor:ns-resize; user-select:none; }
+#mmu-resizer:hover, #mmu-resizer.dragging { background:#443a55; }
 .mmu-col { flex:1 1 160px; }
 .mmu-col-hdr { color:#7a6a9a; font-size:10px; margin-bottom:2px; }
 .mmu-row { display:flex; gap:4px; font-size:10px; line-height:1.6; }
@@ -330,8 +339,11 @@ button.flash { background:#664 !important; }
 #btn-eventlog-collapse { font-size:9px; padding:1px 4px; line-height:1;
   background:#222; color:#888; border:1px solid #444; cursor:pointer; transition:transform 0.15s; }
 #debug-panel.collapsed #btn-eventlog-collapse { transform:rotate(-90deg); }
-#tab-cpulog { transition:height 0.2s ease; }
-#debug-panel.collapsed #tab-cpulog { height:0; min-height:0; overflow:hidden; }
+#cpulog-body { overflow:hidden; transition:height 0.2s ease; }
+#debug-panel.collapsed #cpulog-body { height:0; }
+#cpulog-resizer { height:5px; background:#1e1e1e; border-top:1px solid #333;
+                  cursor:ns-resize; user-select:none; }
+#cpulog-resizer:hover, #cpulog-resizer.dragging { background:#333; }
 .cpulog-switch { position:relative; display:inline-block; width:28px; height:16px; cursor:pointer; flex-shrink:0; }
 .cpulog-switch input { opacity:0; width:0; height:0; position:absolute; }
 .cpulog-thumb { position:absolute; inset:0; background:#444; border-radius:8px; transition:background 0.2s; }
@@ -339,16 +351,22 @@ button.flash { background:#664 !important; }
   left:2px; top:2px; background:#888; border-radius:50%; transition:transform 0.2s, background 0.2s; }
 .cpulog-switch input:checked + .cpulog-thumb { background:#284428; }
 .cpulog-switch input:checked + .cpulog-thumb::before { transform:translateX(12px); background:#4c4; }
+#cpulog-exec-lbl { font-size:10px; color:#888; cursor:pointer; display:inline-flex;
+                   align-items:center; gap:2px; flex-shrink:0; }
+#cpulog-exec-lbl input { width:11px; height:11px; accent-color:#4c4; cursor:pointer; }
+#cpulog-exec-lbl input:checked ~ span { color:#4c4; }
 #btn-cpulog-copy { margin-left:auto; }
 #btn-cpulog-copy:hover, #btn-cpulog-clear:hover { background:#2a2a2a; color:#ccc; }
 .dbg-content {
-  padding:3px 6px; min-height:50px; max-height:120px;
+  padding:3px 6px; height:120px;
   overflow-y:auto; font-family:monospace; font-size:11px;
 }
 .dbg-row  { display:flex; gap:6px; border-bottom:1px solid #222; padding:1px 0; }
 .dbg-pc   { color:#888; width:5em; flex-shrink:0; font-variant-numeric:tabular-nums; }
 .dbg-trap { color:#f84; }   /* TRAP */
-.dbg-sys  { color:#fca; }   /* sys call 番号・名前 */
+.dbg-sys  { color:#fca; }   /* sys call 名前 */
+.dbg-sys-n{ color:#888; font-size:0.85em; }  /* sys call 番号（副） */
+.dbg-ctx  { color:#a060c0; font-size:0.82em; }  /* UIPAR0 プロセスタグ */
 .dbg-psw  { color:#777; margin-left:auto; }   /* PSW（右寄せ） */
 .dbg-u2k  { color:#68f; }   /* User → Kernel（sys call / 割り込み）*/
 .dbg-k2u  { color:#6c6; }   /* Kernel → User（sys call 返却 / 割り込み復帰）*/

@@ -1,7 +1,7 @@
 'use strict';
 // sft-pdp11-la-defs.js — PDP-11 / Unix V6 Logic Analyzer 信号定義
 //
-// ring buffer ビットレイアウト (RING_WORDS = 9):
+// ring buffer ビットレイアウト (RING_WORDS = 10):
 //  Word0: [17:0]=addr_p [18]=wr [19]=rd [21:20]=cm [22]=byte [23]=trap [24]=halt [25]=int [30:26]=rk
 //  Word1: [15:0]=data [31:16]=psw
 //  Word2: [15:0]=pc [31:16]=addr_v
@@ -11,8 +11,9 @@
 //  Word6: [15:0]=R2 [31:16]=R3
 //  Word7: [15:0]=R4 [31:16]=R5
 //  Word8: [15:0]=SP [31:16]=M1(メモリプローブ値)
+//  Word9: [11:0]=uipar0(User I-space PAR0) [12]=ctx_new(コンテキストスイッチ)
 
-var RING_WORDS_PDP11 = 9;
+var RING_WORDS_PDP11 = 10;
 
 // ── PSW フォーマッター ────────────────────────────────────────────────────
 // 表示例: "KK P6 T.NZVC"
@@ -428,6 +429,15 @@ var LA_SIGNALS_PDP11 = [
     id:'mem_m1', label:'M1', word:8, bit:16, type:'hex', width:16, color:'#507030', on:false,
     fmt:'oct', tip:'メモリプローブ値: sim_set_mem_probe(addr) で指定アドレスの RAM 内容を毎サンプル記録'
   },
+  // === プロセスコンテキスト（Word9） ===
+  {
+    id:'uipar0', label:'UIPAR0', word:9, bit:0, type:'hex', width:12, color:'#8020c0', on:false,
+    fmt:'oct', tip:'User I-space PAR0 — コンテキストスイッチで変化するプロセス識別子（8 進表示）'
+  },
+  {
+    id:'ctx_new', label:'CTX↑', word:9, bit:12, type:'bit', width:1, color:'#c040a0', on:false,
+    tip:'プロセスコンテキスト変化フラグ（UIPAR0 が前サンプルから変わった瞬間 = コンテキストスイッチ）'
+  },
 ];
 
 // ── バスサイクル デコードレーン ──────────────────────────────────────────
@@ -481,6 +491,8 @@ var PDP11_LA_CONFIG = {
       ids: ['rk_state'] },
     { label: 'GPR',       color: '#2848a8',
       ids: ['r0','r1','r2','r3','r4','r5','sp','mem_m1'] },
+    { label: 'Process',   color: '#8020c0',
+      ids: ['uipar0','ctx_new'] },
   ],
 
   formatters: {

@@ -83,6 +83,13 @@ cc hello.c          ← a.out を生成
 
 ### dc — 逆ポーランド電卓
 
+> **⚠️ このディスクイメージの `dc` バイナリは破損しており実行不可**
+>
+> `/bin/dc` はディスク上に存在する（10254 B, mode 0110775）が、
+> `file /bin/dc` が `data` と報告する。a.out magic number が不正なため
+> カーネルの `exec()` が ENOEXEC で失敗し、シェルは `dc: not found` と表示する。
+> 調査中。代替として `expr` による整数演算（例: `expr 355 / 113`）を使うこと。
+
 Thompson が書いた `dc` は Unix V6 を代表するユーティリティ。
 
 ```text
@@ -104,6 +111,10 @@ dc
 
 ### bc — 高水準計算機（dc のフロントエンド）
 
+> **⚠️ `/usr/bin/bc` は exec 失敗（`bc: not found`）— 調査中**
+>
+> `dc` とは独立に `/usr/bin/bc` 自体も実行できない（exec エラー）。
+
 ```text
 bc
   scale=5
@@ -113,14 +124,18 @@ bc
 
 ## 7. ゲーム (`/usr/games/`)
 
-| コマンド | 説明 |
-|---------|------|
-| `wump` | Wumpus（史上初のテキストアドベンチャーゲームの原型）|
-| `ttt` | 三目並べ |
-| `chess` | チェス |
-| `bj` | ブラックジャック |
-| `cubic` | 3D 三目並べ |
-| `moo` | 数当てゲーム（Bulls and Cows）|
+> **⚠️ 一部のゲームは exec 失敗で起動できない — 調査中**
+
+| コマンド | 説明 | 動作 |
+|---------|------|------|
+| `/usr/games/bj` | ブラックジャック | ✓ 動作確認済み |
+| `/usr/games/moo` | 数当てゲーム（Bulls and Cows）| ✓ 動作確認済み |
+| `/usr/games/cubic` | 3D 三目並べ | ✓ 動作確認済み |
+| `/usr/games/wump` | Wumpus（テキストアドベンチャーの原型）| ✗ exec 失敗 |
+| `/usr/games/ttt` | 三目並べ | ✗ exec 失敗 |
+| `/usr/games/chess` | チェス | ✗ exec 失敗 |
+
+ゲームは `/usr/games/` の絶対パスで起動する（root の PATH には含まれない）。
 
 ## 8. ed — 行指向テキストエディタ
 

@@ -23,6 +23,12 @@ ls -l /dev      # デバイス一覧
 
 ## dc — Thompson の逆ポーランド電卓（1970年代そのまま）
 
+> **⚠️ このディスクイメージの `dc` は破損バイナリで実行不可**
+>
+> `/bin/dc` は存在するが `file /bin/dc` が `data` と返す（a.out magic 不正）。
+> `exec()` が ENOEXEC で失敗し `dc: not found` になる。調査中。
+> 代替として `expr` による整数演算（例: `expr 355 / 113`）を使うこと。
+
 ```text
 dc
   2 3 + p
