@@ -48,7 +48,7 @@ button.active  { background:#446; border-color:#88a; color:#ccf; }
 .regs.collapsed #regs-body { height:0; }
 .reg-grid { display:grid; grid-template-columns:1fr 1fr; gap:2px 12px;
             overflow-y:auto; }
-#regs-grid { } /* resizable via #regs-resizer */
+#regs-grid { height:110px; overflow-y:auto; } /* resizable via #regs-resizer */
 #regs-resizer { height:5px; background:#282828; border-top:1px solid #3a3a2a;
                 cursor:ns-resize; user-select:none; }
 #regs-resizer:hover, #regs-resizer.dragging { background:#444; }
@@ -72,7 +72,7 @@ button.active  { background:#446; border-color:#88a; color:#ccf; }
 #mmu-tables { overflow:hidden; transition:height 0.2s ease; }
 .mmu-panel.collapsed #mmu-tables { height:0; }
 .mmu-tables { display:block; }  /* flex を #mmu-content に移動 */
-#mmu-content { display:flex; gap:10px; flex-wrap:wrap; overflow:hidden; }
+#mmu-content { display:flex; gap:10px; flex-wrap:wrap; overflow-y:auto; height:128px; }
 #mmu-resizer { height:5px; background:#2e2838; border-top:1px solid #443a55;
                cursor:ns-resize; user-select:none; }
 #mmu-resizer:hover, #mmu-resizer.dragging { background:#443a55; }
@@ -351,6 +351,10 @@ button.flash { background:#664 !important; }
   left:2px; top:2px; background:#888; border-radius:50%; transition:transform 0.2s, background 0.2s; }
 .cpulog-switch input:checked + .cpulog-thumb { background:#284428; }
 .cpulog-switch input:checked + .cpulog-thumb::before { transform:translateX(12px); background:#4c4; }
+#cpulog-exec-lbl { font-size:10px; color:#888; cursor:pointer; display:inline-flex;
+                   align-items:center; gap:2px; flex-shrink:0; }
+#cpulog-exec-lbl input { width:11px; height:11px; accent-color:#4c4; cursor:pointer; }
+#cpulog-exec-lbl input:checked ~ span { color:#4c4; }
 #btn-cpulog-copy { margin-left:auto; }
 #btn-cpulog-copy:hover, #btn-cpulog-clear:hover { background:#2a2a2a; color:#ccc; }
 .dbg-content {
@@ -360,7 +364,9 @@ button.flash { background:#664 !important; }
 .dbg-row  { display:flex; gap:6px; border-bottom:1px solid #222; padding:1px 0; }
 .dbg-pc   { color:#888; width:5em; flex-shrink:0; font-variant-numeric:tabular-nums; }
 .dbg-trap { color:#f84; }   /* TRAP */
-.dbg-sys  { color:#fca; }   /* sys call 番号・名前 */
+.dbg-sys  { color:#fca; }   /* sys call 名前 */
+.dbg-sys-n{ color:#888; font-size:0.85em; }  /* sys call 番号（副） */
+.dbg-ctx  { color:#a060c0; font-size:0.82em; }  /* UIPAR0 プロセスタグ */
 .dbg-psw  { color:#777; margin-left:auto; }   /* PSW（右寄せ） */
 .dbg-u2k  { color:#68f; }   /* User → Kernel（sys call / 割り込み）*/
 .dbg-k2u  { color:#6c6; }   /* Kernel → User（sys call 返却 / 割り込み復帰）*/

@@ -1,10 +1,10 @@
 // ring.mjs — テスト用 ring buffer ビルダー
-// ring buffer は 9 words/sample（RING_WORDS_PDP11=9）の flat Uint32Array。
-// テストでは 2 サンプル分 (cur=base=0, prev=prevBase=9) を作る。
+// ring buffer は 10 words/sample（RING_WORDS_PDP11=10）の flat Uint32Array。
+// テストでは 2 サンプル分 (cur=base=0, prev=prevBase=10) を作る。
 
-export const WORDS     = 9;   // RING_WORDS_PDP11
+export const WORDS     = 10;  // RING_WORDS_PDP11
 export const BASE      = 0;   // 現サンプルの先頭 word インデックス
-export const PREV_BASE = 9;   // 前サンプルの先頭 word インデックス
+export const PREV_BASE = 10;  // 前サンプルの先頭 word インデックス
 
 // 信号値を Uint32Array にセットする（符号なし 32 ビット演算）
 function setSigField(arr, wordBase, sig, val) {

@@ -117,7 +117,10 @@ function updateMMUPanel(snap32) {
       body.style.height = body.offsetHeight + 'px';
       requestAnimationFrame(function() { body.style.height = '0'; });
     } else {
-      body.style.height = body.scrollHeight + 'px';
+      var mmuContent = document.getElementById('mmu-content');
+      var target = (mmuContent ? mmuContent.offsetHeight : 128) +
+                   (document.getElementById('mmu-resizer') ? 5 : 0);
+      body.style.height = target + 'px';
       body.addEventListener('transitionend', function onEnd() {
         body.removeEventListener('transitionend', onEnd);
         body.style.height = '';
@@ -141,18 +144,34 @@ var _V6SYS = [
   'setpgrp','dup','pipe','times','profil',null,'setgid','getgid','signal' // 40-48
 ];
 
-// obs_word4 = {11'b0, isn[15:0], istate[4:0]} → bits[20:5] = ISN
+// obs_word4 ビットレイアウト:
+//   bits[ 4: 0] istate
+//   bits[20: 5] isn (TRAP 命令本体)
+//   bits[31:24] sys 0 (indir) の .word N（非 indir 時は 0）
 // Unix V6 の sys 命令は TRAP: 0x8900–0x89FF（EMT は 0x8800–0x88FF）
 function _decodeSys(word4) {
   var isn = (word4 >>> 5) & 0xFFFF;
   if ((isn & 0xFF00) !== 0x8900) return null;   // TRAP 以外
   var n = isn & 0xFF;
+  // sys 0 (indir): bits[31:24] に harness が .word N を詰めている。
+  // 名前が引けた場合はそのまま sys N (name) として表示（"0→" 不要）。
+  // 名前が引けない（ユーザー仮想アドレス起因のゴミ読みを含む）は indir にフォールバック。
+  if (n === 0) {
+    var indirect_n = (word4 >>> 24) & 0xFF;
+    if (indirect_n > 0 && indirect_n < _V6SYS.length && _V6SYS[indirect_n]) {
+      return { n: indirect_n, name: _V6SYS[indirect_n] };
+    }
+    return { n: 0, name: 'indir' };
+  }
   return { n: n, name: (n < _V6SYS.length && _V6SYS[n]) || null };
 }
 
-var _cpuLog        = [];
-var _prevMode      = -1;
-var _cpuLogEnabled = false;
+var _cpuLog            = [];
+var _prevMode          = -1;
+var _cpuLogEnabled     = false;
+var _cpuLogExecCapture = false;
+var _lastTrap          = null;  // 直前に記録した trap { pc, psw, w4 } — フレーム間重複除去用
+var _processToken      = -1;    // exec キャプチャ時に確定した UIPAR0 (-1 = フィルタなし)
 
 (function() {
   var chk = document.getElementById('btn-cpulog-toggle');
@@ -163,9 +182,18 @@ var _cpuLogEnabled = false;
 })();
 
 (function() {
+  var chk = document.getElementById('btn-cpulog-exec');
+  if (!chk) return;
+  chk.addEventListener('change', function() {
+    _cpuLogExecCapture = chk.checked;
+  });
+})();
+
+(function() {
   var btn = document.getElementById('btn-cpulog-clear');
   if (btn) btn.addEventListener('click', function() {
     _cpuLog.length = 0;
+    _processToken = -1;
     _renderCpuLog();
   });
 })();
@@ -177,7 +205,8 @@ var _cpuLogEnabled = false;
     var text = _cpuLog.map(function(r) {
       if (r.type === 'trap') {
         var s = oct6(r.pc) + '  TRAP';
-        if (r.sys) s += '  sys ' + r.sys.n + (r.sys.name ? ' (' + r.sys.name + ')' : '');
+        if (r.sys) s += '  ' + (r.sys.name ? r.sys.name + ' (' + r.sys.n + ')' : 'sys ' + r.sys.n);
+        if (_processToken < 0 && r.uipar0 >= 0) s += '  [' + r.uipar0.toString(8) + ']';
         return s + '  PSW=' + hex4(r.psw);
       }
       return oct6(r.pc) + '  ' + MODE_NAMES[r.from] + ' → ' + MODE_NAMES[r.to];
@@ -201,7 +230,10 @@ var _cpuLogEnabled = false;
       body.style.height = body.offsetHeight + 'px';
       requestAnimationFrame(function() { body.style.height = '0'; });
     } else {
-      body.style.height = body.scrollHeight + 'px';
+      var tabCpulog = document.getElementById('tab-cpulog');
+      var target = (tabCpulog ? tabCpulog.offsetHeight : 120) +
+                   (document.getElementById('cpulog-resizer') ? 5 : 0);
+      body.style.height = target + 'px';
       body.addEventListener('transitionend', function onEnd() {
         body.removeEventListener('transitionend', onEnd);
         body.style.height = '';
@@ -213,15 +245,18 @@ var _cpuLogEnabled = false;
 // ── パネル高さリサイズ（Registers / MMU / Event Log）────────────────────────
 (function() {
   var resizer = document.getElementById('regs-resizer');
+  var body    = document.getElementById('regs-body');
   var content = document.getElementById('regs-grid');
-  if (!resizer || !content) return;
-  var startY = 0, startH = 0, MIN_H = 40, MAX_H = 600;
+  if (!resizer || !body || !content) return;
+  var startY = 0, startH = 0, maxH = 0, MIN_H = 40;
   resizer.addEventListener('mousedown', function(e) {
     e.preventDefault();
+    body.style.height = '';  // auto に戻してパネルが追従するようにする
     startY = e.clientY; startH = content.offsetHeight;
+    maxH = content.scrollHeight;  // 全レジスタ表示に必要な自然高さを上限にする
     resizer.classList.add('dragging');
     function onMove(e) {
-      content.style.height = Math.min(MAX_H, Math.max(MIN_H, startH + e.clientY - startY)) + 'px';
+      content.style.height = Math.min(maxH, Math.max(MIN_H, startH + e.clientY - startY)) + 'px';
     }
     function onUp() {
       resizer.classList.remove('dragging');
@@ -235,15 +270,18 @@ var _cpuLogEnabled = false;
 
 (function() {
   var resizer = document.getElementById('mmu-resizer');
+  var body    = document.getElementById('mmu-tables');
   var content = document.getElementById('mmu-content');
-  if (!resizer || !content) return;
-  var startY = 0, startH = 0, MIN_H = 40, MAX_H = 600;
+  if (!resizer || !body || !content) return;
+  var startY = 0, startH = 0, maxH = 0, MIN_H = 40;
   resizer.addEventListener('mousedown', function(e) {
     e.preventDefault();
+    body.style.height = '';  // auto に戻してパネルが追従するようにする
     startY = e.clientY; startH = content.offsetHeight;
+    maxH = content.scrollHeight;  // 全 PAR/PDR 表示に必要な自然高さを上限にする
     resizer.classList.add('dragging');
     function onMove(e) {
-      content.style.height = Math.min(MAX_H, Math.max(MIN_H, startH + e.clientY - startY)) + 'px';
+      content.style.height = Math.min(maxH, Math.max(MIN_H, startH + e.clientY - startY)) + 'px';
     }
     function onUp() {
       resizer.classList.remove('dragging');
@@ -257,11 +295,13 @@ var _cpuLogEnabled = false;
 
 (function() {
   var resizer = document.getElementById('cpulog-resizer');
+  var body    = document.getElementById('cpulog-body');
   var content = document.getElementById('tab-cpulog');
-  if (!resizer || !content) return;
+  if (!resizer || !body || !content) return;
   var startY = 0, startH = 0, MIN_H = 40, MAX_H = 600;
   resizer.addEventListener('mousedown', function(e) {
     e.preventDefault();
+    body.style.height = '';  // auto に戻してパネルが追従するようにする
     startY = e.clientY; startH = content.offsetHeight;
     resizer.classList.add('dragging');
     function onMove(e) {
@@ -284,12 +324,20 @@ function _renderCpuLog() {
     if (r.type === 'trap') {
       var sysStr = '';
       if (r.sys) {
-        sysStr = '  <span class="dbg-sys">sys ' + r.sys.n +
-                 (r.sys.name ? ' (' + r.sys.name + ')' : '') + '</span>';
+        if (r.sys.name) {
+          sysStr = '  <span class="dbg-sys">' + r.sys.name + '</span>' +
+                   '<span class="dbg-sys-n"> (' + r.sys.n + ')</span>';
+        } else {
+          sysStr = '  <span class="dbg-sys">sys ' + r.sys.n + '</span>';
+        }
       }
+      var ctxStr = (_processToken < 0 && r.uipar0 >= 0)
+        ? '<span class="dbg-ctx">' + r.uipar0.toString(8) + '</span>'
+        : '';
       return '<div class="dbg-row"><span class="dbg-pc">' + oct6(r.pc) + '</span>' +
              '<span class="dbg-trap">TRAP</span>' +
              sysStr +
+             ctxStr +
              '<span class="dbg-psw">PSW=' + hex4(r.psw) + '</span></div>';
     }
     var toKernel = (r.to === 0);
@@ -364,7 +412,8 @@ function updateRegs(snap, gpr) {
   if (gpr) updateGPRDisplay(gpr);
 
   // CPU Log 更新
-  if (_cpuLogEnabled) {
+  // exec キャプチャが ON の場合は _cpuLogEnabled が OFF でも exec 検出のためにスキャンする
+  if (_cpuLogEnabled || _cpuLogExecCapture) {
     // TRAP は 1〜3 tick のパルスで最終サンプルに入らないことがあるため、
     // snap の全サンプルをスキャンして取り逃がしを防ぐ。
     // Mode 遷移は数フレーム続くため最終サンプルで十分。
@@ -373,19 +422,55 @@ function updateRegs(snap, gpr) {
     for (var i = 0; i < count; i++) {
       var _base = i * _ringWords;
       if ((snap[_base] >>> 23) & 1) {
-        var _w4 = snap[_base + 4];
-        _cpuLog.unshift({
-          type: 'trap',
-          pc:   snap[_base + 2] & 0xFFFF,
-          psw:  (snap[_base + 1] >>> 16) & 0xFFFF,
-          sys:  _decodeSys(_w4)
-        });
-        updated = true;
+        var _w4  = snap[_base + 4];
+        var _sys = _decodeSys(_w4);
+
+        // exec キャプチャ: sys 11 (exec) を検出したらクリアして収集を自動 START
+        if (_cpuLogExecCapture && _sys && _sys.n === 11) {
+          _cpuLog.length = 0;
+          _lastTrap = null;
+          // Word9 が存在する場合は UIPAR0 をプロセストークンとして記録
+          _processToken = (_base + 9 < snap.length) ? (snap[_base + 9] & 0xFFF) : -1;
+          _cpuLogEnabled = true;
+          var _togEl = document.getElementById('btn-cpulog-toggle');
+          if (_togEl) _togEl.checked = true;
+        }
+
+        if (_cpuLogEnabled) {
+          var _tpc  = snap[_base + 2] & 0xFFFF;
+          var _tpsw = (snap[_base + 1] >>> 16) & 0xFFFF;
+          // 直前と同一 trap はフレーム残留の重複 → スキップ
+          var _isDup = _lastTrap &&
+                       _lastTrap.pc === _tpc &&
+                       _lastTrap.psw === _tpsw &&
+                       _lastTrap.w4 === _w4;
+          if (!_isDup) {
+            _lastTrap = { pc:_tpc, psw:_tpsw, w4:_w4 };
+            var _uipar0 = (_base + 9 < snap.length) ? (snap[_base + 9] & 0xFFF) : -1;
+            // 未解決 indir はノイズ、プロセストークン不一致は別プロセス — いずれも除外
+            var _skip = (_sys && _sys.n === 0 && _sys.name === 'indir')
+                     || (_processToken >= 0 && _uipar0 >= 0 && _uipar0 !== _processToken);
+            if (!_skip) {
+              _cpuLog.unshift({ type:'trap', pc:_tpc, psw:_tpsw, sys:_sys, uipar0:_uipar0 });
+              updated = true;
+            }
+
+            // exec キャプチャ: sys 1 (exit) を検出したら収集を自動 STOP
+            if (_cpuLogExecCapture && _sys && _sys.n === 1) {
+              _cpuLogEnabled = false;
+              _togEl = document.getElementById('btn-cpulog-toggle');
+              if (_togEl) _togEl.checked = false;
+            }
+          }
+        }
       }
     }
-    if (_prevMode !== -1 && mode !== _prevMode) {
-      _cpuLog.unshift({ type: 'mode', from: _prevMode, to: mode, pc: pc });
-      updated = true;
+    if (_cpuLogEnabled && _prevMode !== -1 && mode !== _prevMode) {
+      var _lastUipar0 = (snap.length >= _ringWords) ? (snap[last + 9] & 0xFFF) : -1;
+      if (_processToken < 0 || _lastUipar0 < 0 || _lastUipar0 === _processToken) {
+        _cpuLog.unshift({ type: 'mode', from: _prevMode, to: mode, pc: pc });
+        updated = true;
+      }
     }
     if (updated) {
       if (_cpuLog.length > 120) _cpuLog.length = 120;

@@ -1,10 +1,12 @@
 // harness.cpp — PDP-11 / Unix V6 WASM ハーネス（Phase 4）
 //
 // DPI 実装（dpi_tty_putc / dpi_tty_getc）、step_n、send_key、
-// get_display_char、ring buffer（RING_WORDS=9）、PC トリガー、sim_init、
+// get_display_char、ring buffer（RING_WORDS=10）、PC トリガー、sim_init、
 // GPR snapshot（R0-R5/SP）、MMU PAR/PDR 読み取りを提供する。
 // mem_probe: sim_set_mem_probe(addr) で指定したアドレスの RAM 値を
 //            Word8[31:16] に毎サンプル記録する（LA の M1 信号）。
+// uipar0:    Word9[11:0] に User I-space PAR0 を毎サンプル記録する（プロセス識別）。
+//            Word9[12] は前サンプルから変化した場合に 1（コンテキストスイッチ検出）。
 
 #include "Vtest_top_wasm.h"
 #include "Vtest_top_wasm___024root.h"
@@ -52,7 +54,7 @@ static uint64_t        sim_time = 0;
 #define OBS_EXTRA1   (top->rootp->test_top_wasm__DOT__obs_extra1)
 #define OBS_WORD4    (top->rootp->test_top_wasm__DOT__obs_word4)
 
-// ── ring buffer（RING_WORDS = 9）─────────────────────────────────────────
+// ── ring buffer（RING_WORDS = 10）────────────────────────────────────────
 //
 // Word0 [31:0]:
 //   [17: 0] bus_addr_p  — Unibus 物理アドレス（18 ビット）
@@ -85,13 +87,17 @@ static uint64_t        sim_time = 0;
 // Word4 [31:0]:
 //   [ 4: 0] istate        — CPU マイクロシーケンサ状態
 //   [20: 5] isn           — 現在の命令ワード
-//   [31:21] reserved
+//   [31:21] reserved（trapped 時は bits[31:24] = sys 0 indir の .word N）
 // Word8 [31:0]:
 //   [15: 0] SP            — スタックポインタ
 //   [31:16] M1            — メモリプローブ値（sim_set_mem_probe で指定アドレスの RAM 読み値）
+// Word9 [31:0]:
+//   [11: 0] uipar0        — User I-space PAR0（プロセスコンテキスト識別子）
+//   [12]    ctx_new       — 前サンプルから uipar0 が変化（コンテキストスイッチ）
+//   [31:13] reserved
 
 #define RING_SIZE  4096
-#define RING_WORDS 9
+#define RING_WORDS 10
 
 static uint32_t ring[RING_SIZE * RING_WORDS];
 static uint32_t ring_head = 0;
@@ -110,9 +116,11 @@ static uint32_t mem_probe_addr = 0xFFFFFFFFu;
 // 1 トラップイベント = 1 サンプルの bit23=1 に正規化する。
 // trapped_word4: 立ち上がりエッジ瞬間の OBS_WORD4（ISN を含む）をキャプチャ。
 // sample_ring() 時点では CPU がトラップベクタをフェッチ済みのため ISN が変化している。
-static uint8_t  trapped_latch = 0;
-static uint8_t  trapped_prev  = 0;
-static uint32_t trapped_word4 = 0;
+static uint8_t  trapped_latch      = 0;
+static uint8_t  trapped_prev       = 0;
+static uint32_t trapped_word4      = 0;
+static uint16_t trapped_indirect_n = 0xFFFFu; // sys 0 (indir) の .word N（0xFFFF = 非 indir）
+static uint16_t g_prev_uipar0      = 0xFFFFu; // ctx_new エッジ検出用（0xFFFF = 未初期化）
 
 static inline void sample_ring() {
     uint32_t* p = &ring[(ring_head % RING_SIZE) * RING_WORDS];
@@ -134,7 +142,15 @@ static inline void sample_ring() {
          | ((uint32_t)(OBS_EXTRA1   & 0xFFFFu) << 16);
     // trap サンプルはエッジ瞬間にキャプチャした ISN を使う（sample 時点では CPU が
     // トラップベクタをフェッチ済みで ISN が上書きされているため）
-    p[4] = trapped_latch ? trapped_word4 : (uint32_t)OBS_WORD4;
+    // bits[31:24]: sys 0 (indir) の .word N（非 indir 時は 0）
+    if (trapped_latch) {
+        uint32_t indir = (trapped_indirect_n != 0xFFFFu)
+                         ? ((uint32_t)(trapped_indirect_n & 0xFFu) << 24)
+                         : 0u;
+        p[4] = trapped_word4 | indir;
+    } else {
+        p[4] = (uint32_t)OBS_WORD4;
+    }
     trapped_latch = 0;  // サンプル済みのためクリア
     // Word5-8: GPR スナップショット（R0-R5, SP）+ M1 メモリプローブ
     p[5] = ((uint32_t)(top->rootp->test_top_wasm__DOT__top__DOT__cpu__DOT__r0) & 0xFFFFu)
@@ -147,6 +163,15 @@ static inline void sample_ring() {
          | (mem_probe_addr != 0xFFFFFFFFu
             ? ((uint32_t)ram_read_word(mem_probe_addr) << 16)
             : 0u);
+    {
+        // Word9: User I-space PAR0 をプロセスコンテキスト識別子として記録
+        auto& _ph = top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__par_h;
+        auto& _pl = top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__par_l;
+        uint16_t _uipar0 = (((uint32_t)_ph[48u] << 8) | (uint32_t)_pl[48u]) & 0x0FFFu;
+        uint8_t  _ctx_new = (_uipar0 != g_prev_uipar0) ? 1u : 0u;
+        p[9] = (uint32_t)_uipar0 | ((uint32_t)_ctx_new << 12);
+        g_prev_uipar0 = _uipar0;
+    }
     ring_head++;
 }
 
@@ -375,6 +400,23 @@ static inline void update_trapped_latch() {
     if (cur && !trapped_prev) {
         trapped_latch = 1;
         trapped_word4 = (uint32_t)OBS_WORD4;  // ISN をエッジ瞬間にキャプチャ
+        // TRAP 0 (sys 0 indir): User I-space PAR で仮想→物理変換し .word N を読む。
+        // obs_trapped 立ち上がり時点で obs_cpu_cm がすでに Kernel に切り替わっている
+        // 場合があるため、cm に依存せず TRAP 0 は常にユーザー空間からの呼び出しと
+        // みなして User I-space PAR を使う。
+        uint16_t isn = (trapped_word4 >> 5) & 0xFFFFu;
+        if (isn == 0x8900u) {
+            uint16_t virt_pc = (uint16_t)OBS_PC;
+            uint32_t apf     = (virt_pc >> 13) & 7u;
+            auto& _par_h = top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__par_h;
+            auto& _par_l = top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__par_l;
+            uint32_t par     = (((uint32_t)_par_h[48u + apf] << 8)
+                                | (uint32_t)_par_l[48u + apf]) & 0x0FFFu;
+            uint32_t phys_pc = (par << 6u) + (uint32_t)(virt_pc & 0x1FFFu);
+            trapped_indirect_n = ram_read_word(phys_pc);
+        } else {
+            trapped_indirect_n = 0xFFFFu;
+        }
     }
     trapped_prev = cur;
 }
