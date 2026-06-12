@@ -76,6 +76,6 @@ After power-on, the bootrom reads block 0 of the RK05 disk and waits at the
 
 ## 7. References
 
-- [10-unix-v6-コマンドリファレンス.md](?doc=10-unix-v6-コマンドリファレンス.md) — Command reference
-- [52-メモリマップ.md](?doc=52-メモリマップ.md) — Device register addresses
-- [07-unix-v6-歴史的価値.md](?doc=07-unix-v6-歴史的価値.md) — System overview
+- [10 Unix V6 Command Reference](?doc=10-unix-v6-コマンドリファレンス.md) — Command reference
+- [52 Memory Map](?doc=52-メモリマップ.md) — Device register addresses
+- [07 Unix V6 / PDP-11 History](?doc=07-unix-v6-歴史的価値.md) — System overview

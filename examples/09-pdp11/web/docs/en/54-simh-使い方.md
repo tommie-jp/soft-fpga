@@ -125,6 +125,6 @@ cp examples/09-pdp11/disk/unix_v6_rk05.dsk examples/09-pdp11/web/disk/
 
 ## 8. References
 
-- [41-cc-コンパイル-バグ調査.md](?doc=41-cc-コンパイル-バグ調査.md) — Details on the WASM build cc bug
-- [53-参考資料.md](?doc=53-参考資料.md) — Link to the official SIMH website
+- [41 cc Compile Bug Investigation](?doc=41-cc-コンパイル-バグ調査.md) — Details on the WASM build cc bug
+- [53 References](?doc=53-参考資料.md) — Link to the official SIMH website
 - [SIMH Official Site](http://simh.trailing-edge.com/)

@@ -230,6 +230,6 @@ a.out
 
 ## 10. References
 
-- [52-メモリマップ.md](?doc=52-メモリマップ.md) — Unibus device address list
-- [06-unix-v6-demo-commands.md](?doc=06-unix-v6-demo-commands.md) — Demo scenario
+- [52 Memory Map](?doc=52-メモリマップ.md) — Unibus device address list
+- [06 Demo Commands](?doc=06-unix-v6-demo-commands.md) — Demo scenario
 - [Unix V6 Manual Pages (TUHS)](https://www.tuhs.org/cgi-bin/utree.pl?act=get&file=V6/usr/man)

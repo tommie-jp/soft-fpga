@@ -20,10 +20,10 @@ and display the **instruction bus-cycle sequence diagram**.
 > The key insight of this demo is that a software debugger (instruction level) and a hardware debugger
 > (clock level) **meet in the same virtual address space**.
 
-Related: [14-db-デバッガー-使い方.md](?doc=14-db-デバッガー-使い方.md) /
-[22-全命令タイミング図.md](?doc=22-全命令タイミング図.md) /
-[24-全命令タイミング図-解説.md](?doc=24-全命令タイミング図-解説.md) /
-[20-デバッグパネル-使い方.md](?doc=20-デバッグパネル-使い方.md)
+Related: [14 db Debugger Guide](?doc=14-db-デバッガー-使い方.md) /
+[22 Instruction Timing Diagrams](?doc=22-全命令タイミング図.md) /
+[24 Timing Diagram Case Explanations](?doc=24-全命令タイミング図-解説.md) /
+[20 Debug Panel & Logic Analyzer](?doc=20-デバッグパネル-使い方.md)
 
 ---
 
@@ -319,7 +319,7 @@ When using VA-only `PC value match`, reduce false positives as follows.
   Verify whether V6 `as` accepts `mul` and whether the target kernel requires EIS support.
 - **MMU behavior**: During loop execution the MMU continuously maps User I-space,
   so observing it alongside the GPR and MMU panels is educationally effective
-  ([20-デバッグパネル-使い方.md](?doc=20-デバッグパネル-使い方.md)).
+  ([20 Debug Panel & Logic Analyzer](?doc=20-デバッグパネル-使い方.md)).
 
 ---
 

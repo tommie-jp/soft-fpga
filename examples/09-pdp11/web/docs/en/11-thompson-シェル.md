@@ -156,6 +156,6 @@ Used for conditional evaluation.
 
 ## 11. References
 
-- [10-unix-v6-コマンドリファレンス.md](?doc=10-unix-v6-コマンドリファレンス.md) — individual command details
-- [06-unix-v6-demo-commands.md](?doc=06-unix-v6-demo-commands.md) — demo scenarios
+- [10 Unix V6 Command Reference](?doc=10-unix-v6-コマンドリファレンス.md) — individual command details
+- [06 Demo Commands](?doc=06-unix-v6-demo-commands.md) — demo scenarios
 - [Unix V6 sh(1) manual (TUHS)](https://www.tuhs.org/cgi-bin/utree.pl?act=get&file=V6/usr/man/man1/sh.1)

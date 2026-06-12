@@ -156,7 +156,7 @@ a.out               | prints "hello"
 
 > In this simulator, `db` does not display a prompt, so verify behavior by
 > running `a.out` directly (see
-> [25-as-db-命令シーケンスデモ.md](?doc=25-as-db-命令シーケンスデモ.md) for details).
+> [25 as/db Instruction Sequence Demo](?doc=25-as-db-命令シーケンスデモ.md) for details).
 
 ### 4.1 Disassembly (Machine Code Dump)
 
@@ -208,8 +208,8 @@ Because `sys` instructions assemble to `trap`, they can be captured with the
 - The fetch of trap number `104400+n` is visible, making it possible to
   identify which system call was invoked
 
-For details, see [20-デバッグパネル-使い方.md](?doc=20-デバッグパネル-使い方.md) and
-[21-バスサイクル実例.md](?doc=21-バスサイクル実例.md).
+For details, see [20 Debug Panel & Logic Analyzer](?doc=20-デバッグパネル-使い方.md) and
+[21 LA Bus Cycle Examples](?doc=21-バスサイクル実例.md).
 
 ## 6. References
 
@@ -217,4 +217,4 @@ For details, see [20-デバッグパネル-使い方.md](?doc=20-デバッグパ
 - `/usr/sys/ken/trap.c` — trap handler implementation
 - Unix V6 Manual, Part II (System Calls)
 - Lions' Commentary on UNIX 6th Edition — explanation of the trap mechanism
-- [53-参考資料.md](?doc=53-参考資料.md)
+- [53 References](?doc=53-参考資料.md)
