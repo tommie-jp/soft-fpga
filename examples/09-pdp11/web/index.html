@@ -27,7 +27,7 @@
   </div>
 </div>
 
-<h2><a href="https://tommie-jp.github.io/soft-fpga/" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.0 2026/06/12 17:42</span></h2>
+<h2><a href="https://tommie-jp.github.io/soft-fpga/" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.0 2026/06/12 18:38</span></h2>
 <p style="font-size:12px;color:#777;margin:0 0 5px;"><a href="https://github.com/lisper/cpus-pdp11" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">cpus-pdp11</a> (Brad Parker RTL) → <a href="https://www.veripool.org/verilator/" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Verilator</a> → <a href="https://en.wikipedia.org/wiki/WebAssembly" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">WASM</a> &nbsp;|&nbsp; <a href="https://en.wikipedia.org/wiki/History_of_Unix" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Unix V6</a> + custom RK11 BIOS</p>
 
 <!-- docs パネル -->
@@ -47,9 +47,16 @@
   <a href="?doc=22-%E5%85%A8%E5%91%BD%E4%BB%A4%E3%82%BF%E3%82%A4%E3%83%9F%E3%83%B3%E3%82%B0%E5%9B%B3.md" onclick="openDoc('22-全命令タイミング図.md');return false;">22 Instruction Timing Diagrams (61 cases)</a>
   <a href="?doc=24-%E5%85%A8%E5%91%BD%E4%BB%A4%E3%82%BF%E3%82%A4%E3%83%9F%E3%83%B3%E3%82%B0%E5%9B%B3-%E8%A7%A3%E8%AA%AC.md" onclick="openDoc('24-全命令タイミング図-解説.md');return false;">24 Timing Diagram Case Explanations</a>
   <a href="?doc=25-as-db-%E5%91%BD%E4%BB%A4%E3%82%B7%E3%83%BC%E3%82%B1%E3%83%B3%E3%82%B9%E3%83%87%E3%83%A2.md" onclick="openDoc('25-as-db-命令シーケンスデモ.md');return false;">25 as/db Instruction Sequence Demo</a>
+  <a href="?doc=26-%E5%BC%8F%E3%83%88%E3%83%AA%E3%82%AC%E3%83%BC-%E3%83%AA%E3%83%95%E3%82%A1%E3%83%AC%E3%83%B3%E3%82%B9.md" onclick="openDoc('26-式トリガー-リファレンス.md');return false;">26 Expression Trigger Reference</a>
+  <a href="?doc=30-linux-%E8%B5%B7%E5%8B%95%E3%82%B9%E3%82%AF%E3%83%AA%E3%83%97%E3%83%88.md" onclick="openDoc('30-linux-起動スクリプト.md');return false;">30 Linux Boot Scripts</a>
+  <a href="?doc=31-lcase-%E5%A4%A7%E6%96%87%E5%AD%97%E3%83%A2%E3%83%BC%E3%83%89.md" onclick="openDoc('31-lcase-大文字モード.md');return false;">31 Uppercase Mode (lcase)</a>
+  <a href="?doc=42-as-%E3%82%A2%E3%82%BB%E3%83%B3%E3%83%96%E3%83%A9%E5%88%B6%E7%B4%84.md" onclick="openDoc('42-as-アセンブラ制約.md');return false;">42 as Assembler Constraints</a>
   <a href="?doc=52-%E3%83%A1%E3%83%A2%E3%83%AA%E3%83%9E%E3%83%83%E3%83%97.md" onclick="openDoc('52-メモリマップ.md');return false;">52 Memory Map</a>
   <a href="?doc=53-%E5%8F%82%E8%80%83%E8%B3%87%E6%96%99.md" onclick="openDoc('53-参考資料.md');return false;">53 References</a>
   <a href="?doc=54-simh-%E4%BD%BF%E3%81%84%E6%96%B9.md" onclick="openDoc('54-simh-使い方.md');return false;">54 SIMH Guide (with cc)</a>
+  <a href="?doc=55-MMU-%E3%82%BF%E3%82%A4%E3%83%9F%E3%83%B3%E3%82%B0%E3%81%A8%E5%AE%9F%E6%A9%9F%E6%AF%94%E8%BC%83.md" onclick="openDoc('55-MMU-タイミングと実機比較.md');return false;">55 MMU Timing vs Hardware</a>
+  <a href="?doc=56-MMU-unix-v6-%E3%81%A7%E3%81%AE%E4%BD%BF%E3%82%8F%E3%82%8C%E6%96%B9.md" onclick="openDoc('56-MMU-unix-v6-での使われ方.md');return false;">56 MMU in Unix V6</a>
+  <a href="?doc=57-%E3%83%AC%E3%82%B8%E3%82%B9%E3%82%BF%E3%81%A8istate.md" onclick="openDoc('57-レジスタとistate.md');return false;">57 Registers &amp; istate</a>
   <span class="docs-sep"></span>
   <a class="ss-link" href="../../../test/ss/pdp11/index.html" target="_blank"
      rel="noopener" title="PDP-11 Instruction Timing Diagram Gallery">&#x1F4F7; PDP-11 Timing Diagrams</a>
