@@ -102,7 +102,10 @@
     this._idLangBtn   = opts.idLangBtn   || null;
     this._useHash     = !!opts.useHash;
     this._idx         = -1;
-    try { this._lang = localStorage.getItem('sft-doc-lang') || 'ja'; } catch (e) { this._lang = 'ja'; }
+    try {
+      var _urlLang = new URLSearchParams(window.location.search).get('lang');
+      this._lang = _urlLang || localStorage.getItem('sft-doc-lang') || 'ja';
+    } catch (e) { this._lang = 'ja'; }
     _injectCSS();
     this._populateSelect();
     this._bindListeners();
