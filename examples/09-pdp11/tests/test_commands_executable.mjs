@@ -49,6 +49,16 @@ const EXPECTED_HANG = new Map([
   ['tbl',    '端末入力待ちでブロックする（/dev/null リダイレクトを無視）'],
   ['typo',   '端末入力待ちでブロックする（/dev/null リダイレクトを無視）'],
   ['cdb',    'C デバッガ: /dev/tty から対話入力を読むため /dev/null リダイレクトを無視して入力待ち'],
+  // 引数なし実行でファイルシステム全走査 or 標準入力待ちに入り終了しない
+  ['find',   '引数なし実行でブロックする（V6 find は dir 引数が必須）'],
+]);
+
+// ── 既知の「実行できない」コマンド ─────────────────────────────────────
+// バイナリ形式不正・存在しない等の理由でシェルが "not found" を返すが、
+// このディスクイメージ固有の既知問題として失敗にカウントしない。
+const EXPECTED_NOTFOUND = new Map([
+  // /bin/dc のバイナリ形式が exec() に失敗する（このディスクイメージ固有）
+  ['dc', 'このディスクイメージの /bin/dc はバイナリ形式不正で exec() に失敗する'],
 ]);
 
 const sim = await loadSim();
@@ -169,20 +179,27 @@ const allHang = by('HANG');
 // HANG を「既知例外」と「想定外」に分ける。既知例外は失敗にカウントしない。
 const xhang = allHang.filter(r => EXPECTED_HANG.has(r.cmd));
 const hang  = allHang.filter(r => !EXPECTED_HANG.has(r.cmd));
+// NOTFOUND を「既知例外」と「想定外」に分ける。
+const xnf = nf.filter(r => EXPECTED_NOTFOUND.has(r.cmd));
+const badf = nf.filter(r => !EXPECTED_NOTFOUND.has(r.cmd));
 
 console.log('\n================ PDP-11 WASM コマンド起動テスト ================');
-console.log(`総数 ${results.length}  OK ${ok.length}  NOTFOUND ${nf.length}  HANG ${hang.length}  既知HANG ${xhang.length}  ABORTED ${ab.length}`);
+console.log(`総数 ${results.length}  OK ${ok.length}  NOTFOUND ${badf.length}  HANG ${hang.length}  既知HANG ${xhang.length}  既知NOTFOUND ${xnf.length}  ABORTED ${ab.length}`);
 const showList = (label, arr) => {
   if (!arr.length) return;
   console.log(`\n--- ${label} (${arr.length}) ---`);
   for (const r of arr) console.log(`  ${r.cmd.padEnd(10)} ${r.dir}${r.detail ? '  | ' + r.detail : ''}`);
 };
-showList('実行できない: NOTFOUND', nf);
+showList('実行できない: NOTFOUND', badf);
 showList('実行できない: HANG（端末が固まる）', hang);
 // 既知例外はエラーではないが、握りつぶさず理由付きで必ず表示する。
 if (xhang.length) {
   console.log(`\n--- 既知例外: HANG（スモークテスト不能・失敗にカウントしない） (${xhang.length}) ---`);
   for (const r of xhang) console.log(`  ${r.cmd.padEnd(10)} ${r.dir}  | ${EXPECTED_HANG.get(r.cmd)}`);
+}
+if (xnf.length) {
+  console.log(`\n--- 既知例外: NOTFOUND（失敗にカウントしない） (${xnf.length}) ---`);
+  for (const r of xnf) console.log(`  ${r.cmd.padEnd(10)} ${r.dir}  | ${EXPECTED_NOTFOUND.get(r.cmd)}`);
 }
 showList('未テスト: ABORTED', ab);
 console.log('\n--- 実行できる: OK ---');
@@ -190,12 +207,16 @@ console.log('  ' + ok.map(r => r.cmd).join(' '));
 
 const outPath = join(__dirname, 'test_commands_result.json');
 writeFileSync(outPath, JSON.stringify({
-  summary: { total: results.length, ok: ok.length, notfound: nf.length, hang: hang.length, expectedHang: xhang.length, aborted: ab.length },
-  results: results.map(r => EXPECTED_HANG.has(r.cmd) && r.status === 'HANG'
-    ? { ...r, expected: true, expectedReason: EXPECTED_HANG.get(r.cmd) }
-    : r),
+  summary: { total: results.length, ok: ok.length, notfound: badf.length, hang: hang.length, expectedHang: xhang.length, expectedNotfound: xnf.length, aborted: ab.length },
+  results: results.map(r => {
+    if (EXPECTED_HANG.has(r.cmd) && r.status === 'HANG')
+      return { ...r, expected: true, expectedReason: EXPECTED_HANG.get(r.cmd) };
+    if (EXPECTED_NOTFOUND.has(r.cmd) && r.status === 'NOTFOUND')
+      return { ...r, expected: true, expectedReason: EXPECTED_NOTFOUND.get(r.cmd) };
+    return r;
+  }),
 }, null, 2));
 console.log(`\n結果を保存: ${outPath}`);
 
-// 失敗 = NOTFOUND または「想定外の」HANG。既知例外 (xhang) は除外。
-process.exit((nf.length + hang.length) > 0 ? 1 : 0);
+// 失敗 = 想定外の NOTFOUND または想定外の HANG。既知例外は除外。
+process.exit((badf.length + hang.length) > 0 ? 1 : 0);

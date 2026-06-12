@@ -165,9 +165,9 @@ static inline void sample_ring() {
             : 0u);
     {
         // Word9: User I-space PAR0 をプロセスコンテキスト識別子として記録
-        auto& _ph = top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__par_h;
-        auto& _pl = top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__par_l;
-        uint16_t _uipar0 = (((uint32_t)_ph[48u] << 8) | (uint32_t)_pl[48u]) & 0x0FFFu;
+        // par_h/par_l の直接参照は verilator 最適化で値が固定される問題があるため、
+        // mmu.v で verilator public_flat 宣言した user_i_par0 ワイヤー経由で読む。
+        uint16_t _uipar0 = top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__user_i_par0 & 0x0FFFu;
         uint8_t  _ctx_new = (_uipar0 != g_prev_uipar0) ? 1u : 0u;
         p[9] = (uint32_t)_uipar0 | ((uint32_t)_ctx_new << 12);
         g_prev_uipar0 = _uipar0;
@@ -408,10 +408,18 @@ static inline void update_trapped_latch() {
         if (isn == 0x8900u) {
             uint16_t virt_pc = (uint16_t)OBS_PC;
             uint32_t apf     = (virt_pc >> 13) & 7u;
-            auto& _par_h = top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__par_h;
-            auto& _par_l = top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__par_l;
-            uint32_t par     = (((uint32_t)_par_h[48u + apf] << 8)
-                                | (uint32_t)_par_l[48u + apf]) & 0x0FFFu;
+            uint32_t par;
+            if (apf == 0u) {
+                // par_h[48] は verilator 最適化で定数化される問題があるため、
+                // verilator public_flat 宣言した user_i_par0 ワイヤー経由で取得する。
+                par = top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__user_i_par0
+                      & 0x0FFFu;
+            } else {
+                auto& _par_h = top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__par_h;
+                auto& _par_l = top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__par_l;
+                par = (((uint32_t)_par_h[48u + apf] << 8)
+                       | (uint32_t)_par_l[48u + apf]) & 0x0FFFu;
+            }
             uint32_t phys_pc = (par << 6u) + (uint32_t)(virt_pc & 0x1FFFu);
             trapped_indirect_n = ram_read_word(phys_pc);
         } else {

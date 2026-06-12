@@ -435,7 +435,7 @@ var LA_SIGNALS_PDP11 = [
     fmt:'oct', tip:'User I-space PAR0 — コンテキストスイッチで変化するプロセス識別子（8 進表示）'
   },
   {
-    id:'ctx_new', label:'CTX↑', word:9, bit:12, type:'bit', width:1, color:'#c040a0', on:false,
+    id:'ctx_new', label:'CTX', word:9, bit:12, type:'bit', width:1, color:'#c040a0', on:false,
     tip:'プロセスコンテキスト変化フラグ（UIPAR0 が前サンプルから変わった瞬間 = コンテキストスイッチ）'
   },
 ];

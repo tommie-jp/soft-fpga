@@ -1,0 +1,49 @@
+# 11-syscall-smoke.v6 — V6 Unix システムコール スモークテスト
+#
+# 検証対象（13 コール）:
+#   sync   … shell コマンド
+#   creat / write / close / open / read / unlink
+#   seek / fstat / dup / link / getpid / getuid
+#
+# 設計上の注意:
+#   - access() (sys 33) はこのディスクイメージの /lib/libc.a に入っていない
+#     ため除外する（コンパイル時に _access: Undefined となる）
+#   - /lib/c1 がマルチ関数でクラッシュするため 7 行以内の単一関数のみ
+#   - V6 カーネルの cc 複数回バグを避けるため 1 回のコンパイルで全テスト
+#   - expect P の直後に expect # を置かない: セトル期間中にシェルプロンプトが
+#     g_sc_mark を超え、次の expect # がタイムアウトする
+#
+# 成功条件: 最後の "SMOKE_PASS" が出力されること
+
+wait @
+send rkunix\r
+expect login:
+send root\r
+expect #
+
+timeout 200000000
+
+# ─── sync (sys 36): shell コマンドで検証 ────────────────────────────────
+send sync\r
+expect #
+
+# ─── 残り 12 コール: 1 プログラムで一括検証 ─────────────────────────────
+# creat/write/close/open/read/unlink/seek/fstat/dup/link/getpid/getuid
+send cat >t.c\r
+send main(){int r,fd;char b[40];\r
+send fd=creat("/tmp/t",0644);write(fd,"x",1);close(fd);\r
+send fd=open("/tmp/t",0);seek(fd,0,0);r=read(fd,b,1);close(fd);unlink("/tmp/t");\r
+send fd=open("/etc/passwd",0);if(r!=1||fstat(fd,b)||dup(fd)<=fd){printf("F\\n");return;}\r
+send if(link("/etc/passwd","/tmp/lk")){printf("F\\n");return;}\r
+send unlink("/tmp/lk");close(fd);\r
+send if(getpid()>0&&getuid()==0)printf("P\\n");else printf("F\\n");}\r
+send \004
+expect #
+send cc t.c\r
+expect #
+send a.out\r
+expect P
+
+# ─── 最終マーカー ────────────────────────────────────────────────────────
+send echo SMOKE_PASS\r
+expect SMOKE_PASS

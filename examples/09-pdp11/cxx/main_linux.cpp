@@ -188,7 +188,8 @@ extern "C" int dpi_tty_getc() {
         if (c.type == SC_SEND) {
             if (g_sc_send_pos >= c.arg.size()) {       // 送信完了 → 次へ
                 g_sc_idx++; g_sc_send_pos = 0; g_sc_mark = g_capture_len;
-                g_sc_deadline = 0; return -1;
+                g_sc_deadline = 0;
+                return -1;
             }
             if (sim_time < g_sc_char_next) return -1;  // ペーシング（UART RX ガード合わせ）
             g_sc_char_next = sim_time + SC_CHAR_GAP;
@@ -197,7 +198,9 @@ extern "C" int dpi_tty_getc() {
         // SC_WAIT / SC_EXPECT
         if (g_sc_deadline == 0) g_sc_deadline = sim_time + g_sc_timeout;
         g_capture_buf[g_capture_len] = '\0';
-        if (strstr(g_capture_buf + g_sc_mark, c.arg.c_str())) {   // マッチ
+        // NUL バイトを含む出力でも 'Z' 等を見つけられるよう memmem を使う
+        if (memmem(g_capture_buf + g_sc_mark, g_capture_len - g_sc_mark,
+                   c.arg.c_str(), c.arg.size())) {   // マッチ
             // V6 のプロンプト印字直後は getty/sh が入力待ちに入る前なので少し待つ
             if (g_sc_settle == 0) g_sc_settle = sim_time + SC_SETTLE;
             if (sim_time < g_sc_settle) return -1;

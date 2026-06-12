@@ -172,6 +172,7 @@ var _cpuLogEnabled     = false;
 var _cpuLogExecCapture = false;
 var _lastTrap          = null;  // 直前に記録した trap { pc, psw, w4 } — フレーム間重複除去用
 var _processToken      = -1;    // exec キャプチャ時に確定した UIPAR0 (-1 = フィルタなし)
+var _waitingNewCtx     = false; // exec 後、最初の ctx_new=1 で _processToken を更新する
 
 (function() {
   var chk = document.getElementById('btn-cpulog-toggle');
@@ -193,7 +194,8 @@ var _processToken      = -1;    // exec キャプチャ時に確定した UIPAR0
   var btn = document.getElementById('btn-cpulog-clear');
   if (btn) btn.addEventListener('click', function() {
     _cpuLog.length = 0;
-    _processToken = -1;
+    _processToken  = -1;
+    _waitingNewCtx = false;
     _renderCpuLog();
   });
 })();
@@ -418,22 +420,55 @@ function updateRegs(snap, gpr) {
     // snap の全サンプルをスキャンして取り逃がしを防ぐ。
     // Mode 遷移は数フレーム続くため最終サンプルで十分。
     var updated = false;
+    // _stoppedThisLoop: このバッチ内で exit 停止が起きたフラグ。
+    // 同一バッチ内の後続 fork が exit 直後にクリアするのを防ぐ（次バッチではリセット）。
+    var _stoppedThisLoop = false;
     var count = (snap.length / _ringWords) | 0;
     for (var i = 0; i < count; i++) {
       var _base = i * _ringWords;
+
+      // exec 後の最初の ctx_new=1 で a.out の UIPAR0 を確定する。
+      // _waitingNewCtx が数値のとき = exec を呼んだ子プロセスの UIPAR0。
+      // そこから変化した最初の CTX.rising のみ採用し、
+      // 別プロセスの CTX.rising（同じ UIPAR0 から別 UIPAR0 へ）による誤確定を防ぐ。
+      if (_waitingNewCtx !== false && (_base + 9 < snap.length)) {
+        var _cu = snap[_base + 9] & 0xFFF;
+        if ((snap[_base + 9] >>> 12) & 1) {
+          var _fromUipar0 = (typeof _waitingNewCtx === 'number') ? _waitingNewCtx : -1;
+          if (_fromUipar0 < 0 || _cu !== _fromUipar0) {
+            _processToken  = _cu;
+            _waitingNewCtx = false;
+          }
+        }
+      }
+
       if ((snap[_base] >>> 23) & 1) {
         var _w4  = snap[_base + 4];
         var _sys = _decodeSys(_w4);
 
-        // exec キャプチャ: sys 11 (exec) を検出したらクリアして収集を自動 START
-        if (_cpuLogExecCapture && _sys && _sys.n === 11) {
-          _cpuLog.length = 0;
-          _lastTrap = null;
-          // Word9 が存在する場合は UIPAR0 をプロセストークンとして記録
-          _processToken = (_base + 9 < snap.length) ? (snap[_base + 9] & 0xFFF) : -1;
-          _cpuLogEnabled = true;
-          var _togEl = document.getElementById('btn-cpulog-toggle');
-          if (_togEl) _togEl.checked = true;
+        // exec キャプチャ: sys 11 (exec) または sys 2 (fork) を検出したらクリアして収集を自動 START
+        // exec は sys 0 (indir) 経由で呼ばれる場合に trapped_indirect_n の読み取りが
+        // 失敗すると n=0 のままスキップされる。fork(2) は直接方式で確実に検出できるため
+        // フォールバックとして追加する（fork 後に exec が来れば exec で再クリアされる）。
+        // !_cpuLogEnabled: キャプチャ終了後のみクリアする（キャプチャ中は無視）。
+        // !_stoppedThisLoop: 同一バッチ内で exit 停止直後の fork はクリアしない。
+        if (_cpuLogExecCapture && _sys && (_sys.n === 11 || _sys.n === 2)) {
+          if (!_cpuLogEnabled && !_stoppedThisLoop) {
+            _cpuLog.length = 0;
+            _lastTrap = null;
+            _processToken = -1;
+            if (_sys.n === 11) {
+              // exec: exec を呼んだ子プロセスの UIPAR0 を記録し、CTX.rising 誤採用を防ぐ。
+              var _childUipar0 = (_base + 9 < snap.length) ? (snap[_base + 9] & 0xFFF) : -1;
+              _waitingNewCtx = (_childUipar0 >= 0) ? _childUipar0 : true;
+            } else {
+              // fork フォールバック: _processToken = -1 のままで最初の exit で停止する。
+              _waitingNewCtx = false;
+            }
+            _cpuLogEnabled = true;
+            var _togEl = document.getElementById('btn-cpulog-toggle');
+            if (_togEl) _togEl.checked = true;
+          }
         }
 
         if (_cpuLogEnabled) {
@@ -446,7 +481,7 @@ function updateRegs(snap, gpr) {
                        _lastTrap.w4 === _w4;
           if (!_isDup) {
             _lastTrap = { pc:_tpc, psw:_tpsw, w4:_w4 };
-            var _uipar0 = (_base + 9 < snap.length) ? (snap[_base + 9] & 0xFFF) : -1;
+            var _uipar0  = (_base + 9 < snap.length) ? (snap[_base + 9] & 0xFFF) : -1;
             // 未解決 indir はノイズ、プロセストークン不一致は別プロセス — いずれも除外
             var _skip = (_sys && _sys.n === 0 && _sys.name === 'indir')
                      || (_processToken >= 0 && _uipar0 >= 0 && _uipar0 !== _processToken);
@@ -455,11 +490,18 @@ function updateRegs(snap, gpr) {
               updated = true;
             }
 
-            // exec キャプチャ: sys 1 (exit) を検出したら収集を自動 STOP
-            if (_cpuLogExecCapture && _sys && _sys.n === 1) {
-              _cpuLogEnabled = false;
-              _togEl = document.getElementById('btn-cpulog-toggle');
-              if (_togEl) _togEl.checked = false;
+            // exec キャプチャ: exit を検出したら収集を自動 STOP。
+            // _skip に依存しない（indir スキップ時も停止できるよう _w4[31:24] を参照）。
+            // _processToken が確定済みなら対象プロセスの exit のみで停止。
+            if (_cpuLogExecCapture) {
+              var _exitN = (_sys && _sys.n !== 0) ? _sys.n : ((_w4 >>> 24) & 0xFF);
+              if (_exitN === 1 && (_processToken < 0 || _uipar0 < 0 || _uipar0 === _processToken)) {
+                _cpuLogEnabled = false;
+                _stoppedThisLoop = true;
+                _waitingNewCtx = false;
+                _togEl = document.getElementById('btn-cpulog-toggle');
+                if (_togEl) _togEl.checked = false;
+              }
             }
           }
         }

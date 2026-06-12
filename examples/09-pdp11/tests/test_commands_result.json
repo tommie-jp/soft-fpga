@@ -1,11 +1,12 @@
 {
   "summary": {
     "total": 108,
-    "ok": 5,
+    "ok": 99,
     "notfound": 0,
     "hang": 0,
-    "expectedHang": 1,
-    "aborted": 102
+    "expectedHang": 4,
+    "expectedNotfound": 0,
+    "aborted": 5
   },
   "results": [
     {
@@ -41,592 +42,598 @@
     {
       "dir": "/bin",
       "cmd": "cdb",
-      "status": "HANG",
-      "detail": "cdb </dev/null;echo Qz7K  (session dead)",
-      "expected": true,
-      "expectedReason": "C デバッガ: /dev/tty から対話入力を読むため /dev/null リダイレクトを無視して入力待ち"
+      "status": "OK",
+      "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "chgrp",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "chmod",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "chown",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "clri",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "cmp",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "cp",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "date",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "db",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "dc",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "dcheck",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "dd",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "df",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "dsw",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "du",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "dump",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "echo",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "ed",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "exit",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "fc",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "file",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "goto",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "icheck",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "if",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "kill",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "ld",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "ln",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "login",
-      "status": "ABORTED",
-      "detail": ""
+      "status": "OK",
+      "detail": "spawned login"
     },
     {
       "dir": "/bin",
       "cmd": "ls",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "mail",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "mkdir",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "mv",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "ncheck",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "newgrp",
-      "status": "ABORTED",
-      "detail": ""
+      "status": "HANG",
+      "detail": "newgrp </dev/null;echo Qz7K usage: newgrp groupname # ",
+      "expected": true,
+      "expectedReason": "新シェルを exec するため MARK が届かない（実際は成功）"
     },
     {
       "dir": "/bin",
       "cmd": "nm",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "od",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "opr",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "passwd",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "pr",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "ps",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "restor",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "rew",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "rm",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "rmdir",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "sh",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "size",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "sort",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "strip",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "stty",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "su",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "sum",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "sync",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "time",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "tp",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "tty",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "uniq",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "who",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/bin",
       "cmd": "write",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "ac",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "banner",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "bc",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "bcd",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "cal",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "chk",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "col",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "comm",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "cpall",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "cref",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "crpost",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "crypt",
-      "status": "ABORTED",
-      "detail": ""
+      "status": "HANG",
+      "detail": "crypt </dev/null;echo Qz7K ",
+      "expected": true,
+      "expectedReason": "鍵を /dev/tty から読むため端末入力待ちになる"
     },
     {
       "dir": "/usr/bin",
       "cmd": "diff",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "fed",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "find",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "form",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "grep",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "gsi",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "index",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "m6",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "mesg",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "neqn",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "nice",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "nohup",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "nroff",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "pfe",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "prof",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "ptx",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "pwd",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "quiz",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "roff",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "sa",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "sleep",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "sno",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "split",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "tbl",
-      "status": "ABORTED",
-      "detail": ""
+      "status": "HANG",
+      "detail": "tbl </dev/null;echo Qz7K ",
+      "expected": true,
+      "expectedReason": "端末入力待ちでブロックする（/dev/null リダイレクトを無視）"
     },
     {
       "dir": "/usr/bin",
       "cmd": "tee",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "tmg",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "tr",
-      "status": "ABORTED",
+      "status": "OK",
       "detail": ""
     },
     {
       "dir": "/usr/bin",
       "cmd": "typo",
-      "status": "ABORTED",
-      "detail": ""
+      "status": "HANG",
+      "detail": "typo </dev/null;echo Qz7K  (session dead)",
+      "expected": true,
+      "expectedReason": "端末入力待ちでブロックする（/dev/null リダイレクトを無視）"
     },
     {
       "dir": "/usr/bin",

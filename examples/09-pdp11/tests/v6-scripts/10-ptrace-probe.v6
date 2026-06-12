@@ -1,0 +1,69 @@
+# 10-ptrace-probe.v6 — ptrace / stop() フロー段階的調査
+#
+# 設計判断:
+#   V6 as の制約により cross-seg ref は 1 個のみ ld で解決。
+#   fw.s は wr.s と同じ構造（fork なし、write('A') のみ）で ld の動作を検証。
+#   pr.s も同じ構造で write('n') を出力。
+
+wait @
+send rkunix\r
+expect login:
+send root\r
+expect #
+
+# ---- Step 1: write('Z') ----
+send cat >wr.s\r
+send .globl start\r
+send .text\r
+send start:\r
+send  sys 4\r
+send  .word 1\r
+send  .word ch\r
+send  .word 1\r
+send  sys 1\r
+send .data\r
+send ch: <Z>\r
+send \004
+expect #
+
+timeout 300000000
+send as wr.s; mv a.out wr.o; ld wr.o; a.out\r
+expect Z
+
+# ---- Step 2: write('A') — wr.s と同じ構造 ----
+send cat >fw.s\r
+send .globl start\r
+send .text\r
+send start:\r
+send  sys 4\r
+send  .word 1\r
+send  .word ma\r
+send  .word 1\r
+send  sys 1\r
+send .data\r
+send ma: <A>\r
+send \004
+expect #
+
+timeout 200000000
+send as fw.s; mv a.out fw.o; ld fw.o; a.out\r
+expect A
+
+# ---- Step 3: write('n') ----
+send cat >pr.s\r
+send .globl start\r
+send .text\r
+send start:\r
+send  sys 4\r
+send  .word 1\r
+send  .word mn\r
+send  .word 1\r
+send  sys 1\r
+send .data\r
+send mn: <n>\r
+send \004
+expect #
+
+timeout 200000000
+send as pr.s; mv a.out pr.o; ld pr.o; a.out\r
+expect n
