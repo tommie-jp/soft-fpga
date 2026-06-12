@@ -166,13 +166,14 @@ function _decodeSys(word4) {
   return { n: n, name: (n < _V6SYS.length && _V6SYS[n]) || null };
 }
 
-var _cpuLog            = [];
-var _prevMode          = -1;
-var _cpuLogEnabled     = false;
+var _cpuLog          = [];
+var _prevMode        = -1;
+var _cpuLogEnabled   = false;
 var _cpuLogExecCapture = false;
-var _lastTrap          = null;  // 直前に記録した trap { pc, psw, w4 } — フレーム間重複除去用
-var _processToken      = -1;    // exec キャプチャ時に確定した UIPAR0 (-1 = フィルタなし)
-var _waitingNewCtx     = false; // exec 後、最初の ctx_new=1 で _processToken を更新する
+var _lastTrap        = null;  // 直前に記録した trap { pc, psw, w4 } — フレーム間重複除去用
+var _processToken    = -1;    // exec キャプチャ時に確定した UIPAR0 (-1 = フィルタなし)
+var _waitingNewCtx   = false; // exec 後、最初の ctx_new=1 で _processToken を更新する
+var _pendingUipar0   = -1;    // exec/fork 後、UIPAR0 が変わるまで旧 UIPAR0 の syscall をスキップ
 
 (function() {
   var chk = document.getElementById('btn-cpulog-toggle');
@@ -204,14 +205,20 @@ var _waitingNewCtx     = false; // exec 後、最初の ctx_new=1 で _processTo
   var btn = document.getElementById('btn-cpulog-copy');
   if (!btn) return;
   btn.addEventListener('click', function() {
+    var baseClkC = -1;
+    for (var bi2 = _cpuLog.length - 1; bi2 >= 0; bi2--) {
+      if (_cpuLog[bi2].clk >= 0) { baseClkC = _cpuLog[bi2].clk; break; }
+    }
     var text = _cpuLog.map(function(r) {
+      var timeCol = '';
+      if (r.clk >= 0 && baseClkC >= 0) timeCol = '+' + ((r.clk - baseClkC) >>> 0) + '\t';
       if (r.type === 'trap') {
-        var s = oct6(r.pc) + '  TRAP';
+        var s = timeCol + oct6(r.pc) + '  TRAP';
         if (r.sys) s += '  ' + (r.sys.name ? r.sys.name + ' (' + r.sys.n + ')' : 'sys ' + r.sys.n);
         if (_processToken < 0 && r.uipar0 >= 0) s += '  [' + r.uipar0.toString(8) + ']';
         return s + '  PSW=' + hex4(r.psw);
       }
-      return oct6(r.pc) + '  ' + MODE_NAMES[r.from] + ' → ' + MODE_NAMES[r.to];
+      return timeCol + oct6(r.pc) + '  ' + MODE_NAMES[r.from] + ' → ' + MODE_NAMES[r.to];
     }).join('\n');
     navigator.clipboard.writeText(text).then(function() {
       btn.textContent = 'Copied!';
@@ -322,31 +329,59 @@ var _waitingNewCtx     = false; // exec 後、最初の ctx_new=1 で _processTo
 function _renderCpuLog() {
   var el = document.getElementById('tab-cpulog');
   if (!el) return;
-  el.innerHTML = _cpuLog.slice(0, 60).map(function(r) {
-    if (r.type === 'trap') {
-      var sysStr = '';
-      if (r.sys) {
-        if (r.sys.name) {
-          sysStr = '  <span class="dbg-sys">' + r.sys.name + '</span>' +
-                   '<span class="dbg-sys-n"> (' + r.sys.n + ')</span>';
-        } else {
-          sysStr = '  <span class="dbg-sys">sys ' + r.sys.n + '</span>';
-        }
-      }
-      var ctxStr = (_processToken < 0 && r.uipar0 >= 0)
-        ? '<span class="dbg-ctx">' + r.uipar0.toString(8) + '</span>'
-        : '';
-      return '<div class="dbg-row"><span class="dbg-pc">' + oct6(r.pc) + '</span>' +
-             '<span class="dbg-trap">TRAP</span>' +
-             sysStr +
-             ctxStr +
-             '<span class="dbg-psw">PSW=' + hex4(r.psw) + '</span></div>';
+  var rows = _cpuLog.slice(0, 60);
+  // 最古エントリ（末尾）の clk を基準にして相対時刻を計算する
+  var baseClk = -1;
+  for (var bi = rows.length - 1; bi >= 0; bi--) {
+    if (rows[bi].clk >= 0) { baseClk = rows[bi].clk; break; }
+  }
+  var html = '<table class="dbg-table">' +
+    '<thead><tr class="dbg-head">' +
+    '<th class="dbg-time">+clk</th>' +
+    '<th class="dbg-pc">PC</th>' +
+    '<th class="dbg-trap"></th>' +
+    '<th class="dbg-sys">syscall</th>' +
+    '<th class="dbg-ctx">ctx</th>' +
+    '<th class="dbg-psw">PSW</th>' +
+    '</tr></thead><tbody>';
+  for (var ri = 0; ri < rows.length; ri++) {
+    var r = rows[ri];
+    // 相対時刻列
+    var timeStr = '';
+    if (r.clk >= 0 && baseClk >= 0) {
+      var delta = (r.clk - baseClk) >>> 0;  // 32bit 符号なし差分
+      timeStr = '+' + delta;
     }
-    var toKernel = (r.to === 0);
-    return '<div class="dbg-row"><span class="dbg-pc">' + oct6(r.pc) + '</span>' +
-           '<span class="' + (toKernel ? 'dbg-u2k' : 'dbg-k2u') + '">' +
-           MODE_NAMES[r.from] + ' → ' + MODE_NAMES[r.to] + '</span></div>';
-  }).join('');
+    if (r.type === 'trap') {
+      var sysName = '', sysN = '';
+      if (r.sys) {
+        sysName = r.sys.name || ('sys&nbsp;' + r.sys.n);
+        sysN    = r.sys.name ? '&nbsp;(' + r.sys.n + ')' : '';
+      }
+      var ctxCell = (_processToken < 0 && r.uipar0 >= 0)
+        ? '<td class="dbg-ctx">' + r.uipar0.toString(8) + '</td>'
+        : '<td></td>';
+      html += '<tr class="dbg-row">' +
+              '<td class="dbg-time">' + timeStr + '</td>' +
+              '<td class="dbg-pc">' + oct6(r.pc) + '</td>' +
+              '<td class="dbg-trap">TRAP</td>' +
+              '<td class="dbg-sys">' + sysName + '<span class="dbg-sys-n">' + sysN + '</span></td>' +
+              ctxCell +
+              '<td class="dbg-psw">' + hex4(r.psw) + '</td>' +
+              '</tr>';
+    } else {
+      var toKernel = (r.to === 0);
+      html += '<tr class="dbg-row">' +
+              '<td class="dbg-time">' + timeStr + '</td>' +
+              '<td class="dbg-pc">' + oct6(r.pc) + '</td>' +
+              '<td class="' + (toKernel ? 'dbg-u2k' : 'dbg-k2u') + '" colspan="3">' +
+              MODE_NAMES[r.from] + ' → ' + MODE_NAMES[r.to] + '</td>' +
+              '<td></td>' +
+              '</tr>';
+    }
+  }
+  html += '</tbody></table>';
+  el.innerHTML = html;
 }
 
 // ── レジスタ表示 ──────────────────────────────────────────────────────────
@@ -421,16 +456,13 @@ function updateRegs(snap, gpr) {
     // Mode 遷移は数フレーム続くため最終サンプルで十分。
     var updated = false;
     // _stoppedThisLoop: このバッチ内で exit 停止が起きたフラグ。
-    // 同一バッチ内の後続 fork が exit 直後にクリアするのを防ぐ（次バッチではリセット）。
+    // 同一バッチ内の後続 fork が exit 直後にキャプチャを再開するのを防ぐ（次バッチではリセット）。
     var _stoppedThisLoop = false;
     var count = (snap.length / _ringWords) | 0;
     for (var i = 0; i < count; i++) {
       var _base = i * _ringWords;
 
-      // exec 後の最初の ctx_new=1 で a.out の UIPAR0 を確定する。
-      // _waitingNewCtx が数値のとき = exec を呼んだ子プロセスの UIPAR0。
-      // そこから変化した最初の CTX.rising のみ採用し、
-      // 別プロセスの CTX.rising（同じ UIPAR0 から別 UIPAR0 へ）による誤確定を防ぐ。
+      // _waitingNewCtx は現在常に false（exec capture では _processToken を使わない）。
       if (_waitingNewCtx !== false && (_base + 9 < snap.length)) {
         var _cu = snap[_base + 9] & 0xFFF;
         if ((snap[_base + 9] >>> 12) & 1) {
@@ -446,25 +478,20 @@ function updateRegs(snap, gpr) {
         var _w4  = snap[_base + 4];
         var _sys = _decodeSys(_w4);
 
-        // exec キャプチャ: sys 11 (exec) または sys 2 (fork) を検出したらクリアして収集を自動 START
-        // exec は sys 0 (indir) 経由で呼ばれる場合に trapped_indirect_n の読み取りが
-        // 失敗すると n=0 のままスキップされる。fork(2) は直接方式で確実に検出できるため
-        // フォールバックとして追加する（fork 後に exec が来れば exec で再クリアされる）。
-        // !_cpuLogEnabled: キャプチャ終了後のみクリアする（キャプチャ中は無視）。
-        // !_stoppedThisLoop: 同一バッチ内で exit 停止直後の fork はクリアしない。
+        // exec キャプチャ: sys 11 (exec) または sys 2 (fork) を検出したらクリアして収集を自動 START。
+        // _stoppedThisLoop で同一フレーム内の exit 直後の fork のみ抑制する。
+        // exec が indir 経由で検出できない場合に備え、fork でも必ずキャプチャを開始する。
+        // _pendingUipar0 により exec/fork 前の旧 UIPAR0 の syscall はスキップされる。
         if (_cpuLogExecCapture && _sys && (_sys.n === 11 || _sys.n === 2)) {
           if (!_cpuLogEnabled && !_stoppedThisLoop) {
             _cpuLog.length = 0;
             _lastTrap = null;
             _processToken = -1;
-            if (_sys.n === 11) {
-              // exec: exec を呼んだ子プロセスの UIPAR0 を記録し、CTX.rising 誤採用を防ぐ。
-              var _childUipar0 = (_base + 9 < snap.length) ? (snap[_base + 9] & 0xFFF) : -1;
-              _waitingNewCtx = (_childUipar0 >= 0) ? _childUipar0 : true;
-            } else {
-              // fork フォールバック: _processToken = -1 のままで最初の exit で停止する。
-              _waitingNewCtx = false;
-            }
+            _waitingNewCtx = false;
+            // exec/fork を呼んだプロセスの UIPAR0 を保存。
+            // UIPAR0 が変わるまで（a.out がロードされるまで）その UIPAR0 の syscall をスキップ。
+            _pendingUipar0 = (_base + 9 < snap.length)
+              ? (snap[_base + 9] & 0xFFF) : -1;
             _cpuLogEnabled = true;
             var _togEl = document.getElementById('btn-cpulog-toggle');
             if (_togEl) _togEl.checked = true;
@@ -482,21 +509,29 @@ function updateRegs(snap, gpr) {
           if (!_isDup) {
             _lastTrap = { pc:_tpc, psw:_tpsw, w4:_w4 };
             var _uipar0  = (_base + 9 < snap.length) ? (snap[_base + 9] & 0xFFF) : -1;
-            // 未解決 indir はノイズ、プロセストークン不一致は別プロセス — いずれも除外
+            // exec 後、UIPAR0 が変わったら _processToken を確定（a.out がロード完了したサイン）
+            if (_pendingUipar0 >= 0 && _uipar0 >= 0 && _uipar0 !== _pendingUipar0) {
+              _processToken  = _uipar0;
+              _pendingUipar0 = -1;
+            }
+            // 未解決 indir はノイズ、プロセストークン不一致は別プロセス、
+            // _pendingUipar0 と一致（exec 前の子プロセス）— いずれも除外
             var _skip = (_sys && _sys.n === 0 && _sys.name === 'indir')
-                     || (_processToken >= 0 && _uipar0 >= 0 && _uipar0 !== _processToken);
+                     || (_processToken >= 0 && _uipar0 >= 0 && _uipar0 !== _processToken)
+                     || (_pendingUipar0 >= 0 && _uipar0 >= 0 && _uipar0 === _pendingUipar0);
             if (!_skip) {
-              _cpuLog.unshift({ type:'trap', pc:_tpc, psw:_tpsw, sys:_sys, uipar0:_uipar0 });
+              var _clk = (_base + 10 < snap.length) ? snap[_base + 10] : -1;
+              _cpuLog.unshift({ type:'trap', pc:_tpc, psw:_tpsw, sys:_sys, uipar0:_uipar0, clk:_clk });
               updated = true;
             }
 
             // exec キャプチャ: exit を検出したら収集を自動 STOP。
             // _skip に依存しない（indir スキップ時も停止できるよう _w4[31:24] を参照）。
-            // _processToken が確定済みなら対象プロセスの exit のみで停止。
             if (_cpuLogExecCapture) {
               var _exitN = (_sys && _sys.n !== 0) ? _sys.n : ((_w4 >>> 24) & 0xFF);
-              if (_exitN === 1 && (_processToken < 0 || _uipar0 < 0 || _uipar0 === _processToken)) {
+              if (_exitN === 1) {
                 _cpuLogEnabled = false;
+                _pendingUipar0 = -1;
                 _stoppedThisLoop = true;
                 _waitingNewCtx = false;
                 _togEl = document.getElementById('btn-cpulog-toggle');
@@ -509,8 +544,11 @@ function updateRegs(snap, gpr) {
     }
     if (_cpuLogEnabled && _prevMode !== -1 && mode !== _prevMode) {
       var _lastUipar0 = (snap.length >= _ringWords) ? (snap[last + 9] & 0xFFF) : -1;
-      if (_processToken < 0 || _lastUipar0 < 0 || _lastUipar0 === _processToken) {
-        _cpuLog.unshift({ type: 'mode', from: _prevMode, to: mode, pc: pc });
+      var _modeSkip = (_pendingUipar0 >= 0 && _lastUipar0 >= 0 && _lastUipar0 === _pendingUipar0)
+                   || (_processToken >= 0 && _lastUipar0 >= 0 && _lastUipar0 !== _processToken);
+      if (!_modeSkip) {
+        var _lastClk = (snap.length >= _ringWords) ? snap[last + 10] : -1;
+        _cpuLog.unshift({ type: 'mode', from: _prevMode, to: mode, pc: pc, clk: _lastClk });
         updated = true;
       }
     }

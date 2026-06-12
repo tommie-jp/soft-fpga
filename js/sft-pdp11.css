@@ -238,7 +238,12 @@ canvas#la { display:block; width:100%; background:#f5f5f5; }
   flex:1; min-width:0; font-size:12px; border:1px solid #aaa;
   background:#fff; color:#111; padding:2px 4px; cursor:pointer;
 }
-/* #doc-content スタイルは sft-doc-viewer.js が注入 */
+/* #doc-content styles injected by sft-doc-viewer.js */
+#doc-lang-btn {
+  margin-left:auto; font-weight:bold; letter-spacing:0.5px;
+  background:#d0e4f8; border-color:#88a8cc; color:#1a3a6a;
+}
+#doc-lang-btn:hover:not(:disabled) { background:#b8d4f0; }
 
 /* ── FS パネル ── */
 #fs-panel { background:#1a1a14; border:1px solid #3a3a28; padding:5px 8px 0;
@@ -366,15 +371,21 @@ button.flash { background:#664 !important; }
   padding:3px 6px; height:120px;
   overflow-y:auto; font-family:monospace; font-size:11px;
 }
-.dbg-row  { display:flex; gap:6px; border-bottom:1px solid #222; padding:1px 0; }
-.dbg-pc   { color:#888; width:5em; flex-shrink:0; font-variant-numeric:tabular-nums; }
+.dbg-table { border-collapse:collapse; width:100%; }
+.dbg-table td,
+.dbg-table th { padding:1px 4px; border-bottom:1px solid #222; white-space:nowrap; }
+.dbg-head th { color:#666; font-size:0.78em; font-weight:normal; border-bottom:1px solid #444; padding-bottom:2px; }
+.dbg-time { color:#555; font-variant-numeric:tabular-nums; min-width:5em; text-align:right; padding-right:6px; }
+.dbg-pc   { color:#888; font-variant-numeric:tabular-nums; }
 .dbg-trap { color:#f84; }   /* TRAP */
 .dbg-sys  { color:#fca; }   /* sys call 名前 */
 .dbg-sys-n{ color:#888; font-size:0.85em; }  /* sys call 番号（副） */
-.dbg-ctx  { color:#a060c0; font-size:0.82em; }  /* UIPAR0 プロセスタグ */
-.dbg-psw  { color:#777; margin-left:auto; }   /* PSW（右寄せ） */
+.dbg-ctx  { color:#a060c0; font-size:0.82em; min-width:4em; }  /* UIPAR0 プロセスタグ */
+.dbg-psw  { color:#777; text-align:right; }   /* PSW */
 .dbg-u2k  { color:#68f; }   /* User → Kernel（sys call / 割り込み）*/
 .dbg-k2u  { color:#6c6; }   /* Kernel → User（sys call 返却 / 割り込み復帰）*/
+/* 旧 flex レイアウト互換（削除済み要素のスタイルを残すと既存スナップ等との差が出るため維持） */
+.dbg-row  { }
 
 /* ── テーマ カスタムドロップダウン ── */
 #theme-menu { position:relative; display:inline-block; }
