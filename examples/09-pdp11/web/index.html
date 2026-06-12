@@ -14,45 +14,45 @@
 <!-- ファイルドラッグ検出時の全画面オーバーレイ -->
 <div id="file-drop-overlay">
   &#x1F4C2; V6 FS: <span id="drop-overlay-dir">/tmp</span>
-  <small>ファイルをここでリリースするとアップロードされます</small>
+  <small>Drop files here to upload them</small>
 </div>
 <input id="v6-upload-input" type="file" multiple style="display:none;">
 
 <div id="overlay">
-  <div id="overlay-msg">Unix V6 ディスクイメージを読み込み中...</div>
+  <div id="overlay-msg">Loading Unix V6 disk image...</div>
   <progress id="overlay-progress" max="100" value="0"></progress>
   <div class="hint">
-    disk/unix_v6_rk05.dsk を web/disk/ に配置してください。<br>
+    Please place disk/unix_v6_rk05.dsk in web/disk/.<br>
     <code>cd examples/09-pdp11/web &amp;&amp; python3 -m http.server 8080</code>
   </div>
 </div>
 
-<h2><a href="https://tommie-jp.github.io/soft-fpga/" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.0 2026/06/12 12:01</span></h2>
+<h2><a href="https://tommie-jp.github.io/soft-fpga/" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.0 2026/06/12 12:39</span></h2>
 <p style="font-size:12px;color:#777;margin:0 0 5px;"><a href="https://github.com/lisper/cpus-pdp11" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">cpus-pdp11</a> (Brad Parker RTL) → <a href="https://www.veripool.org/verilator/" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Verilator</a> → <a href="https://en.wikipedia.org/wiki/WebAssembly" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">WASM</a> &nbsp;|&nbsp; <a href="https://en.wikipedia.org/wiki/History_of_Unix" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Unix V6</a> + custom RK11 BIOS</p>
 
 <!-- docs パネル -->
 <div id="docs-panel">
   <span class="docs-hdr">Unix V6 DOCS</span>
-  <a href="?doc=07-unix-v6-%E6%AD%B4%E5%8F%B2%E7%9A%84%E4%BE%A1%E5%80%A4.md" onclick="openDoc('07-unix-v6-歴史的価値.md');return false;">07 Unix V6 / PDP-11 の歴史</a>
-  <a href="?doc=06-unix-v6-demo-commands.md" onclick="openDoc('06-unix-v6-demo-commands.md');return false;">06 デモコマンド集</a>
-  <a href="?doc=09-unix-v6-%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%82%B7%E3%82%B9%E3%83%86%E3%83%A0.md" onclick="openDoc('09-unix-v6-ファイルシステム.md');return false;">09 ファイルシステム構成</a>
-  <a href="?doc=11-thompson-%E3%82%B7%E3%82%A7%E3%83%AB.md" onclick="openDoc('11-thompson-シェル.md');return false;">11 Thompson シェル使い方</a>
-  <a href="?doc=08-ed-%E4%BD%BF%E3%81%84%E6%96%B9.md" onclick="openDoc('08-ed-使い方.md');return false;">08 ed エディタ使い方</a>
-  <a href="?doc=10-unix-v6-%E3%82%B3%E3%83%9E%E3%83%B3%E3%83%89%E3%83%AA%E3%83%95%E3%82%A1%E3%83%AC%E3%83%B3%E3%82%B9.md" onclick="openDoc('10-unix-v6-コマンドリファレンス.md');return false;">10 Unix V6 コマンドリファレンス</a>
-  <a href="?doc=12-unix-v6-%E3%82%B7%E3%82%B9%E3%83%86%E3%83%A0%E3%82%B3%E3%83%BC%E3%83%AB.md" onclick="openDoc('12-unix-v6-システムコール.md');return false;">12 システムコール参考</a>
-  <a href="?doc=13-c-%E3%82%B3%E3%83%B3%E3%83%91%E3%82%A4%E3%83%AB%E5%85%A5%E9%96%80.md" onclick="openDoc('13-c-コンパイル入門.md');return false;">13 C コンパイル入門</a>
-  <a href="?doc=14-db-%E3%83%87%E3%83%90%E3%83%83%E3%82%AC%E3%83%BC-%E4%BD%BF%E3%81%84%E6%96%B9.md" onclick="openDoc('14-db-デバッガー-使い方.md');return false;">14 db デバッガの使い方</a>
-  <a href="?doc=20-%E3%83%87%E3%83%90%E3%83%83%E3%82%B0%E3%83%91%E3%83%8D%E3%83%AB-%E4%BD%BF%E3%81%84%E6%96%B9.md" onclick="openDoc('20-デバッグパネル-使い方.md');return false;">20 デバッグパネル・Logic Analyzer</a>
-  <a href="?doc=21-%E3%83%90%E3%82%B9%E3%82%B5%E3%82%A4%E3%82%AF%E3%83%AB%E5%AE%9F%E4%BE%8B.md" onclick="openDoc('21-バスサイクル実例.md');return false;">21 LA バスサイクル実例集</a>
-  <a href="?doc=22-%E5%85%A8%E5%91%BD%E4%BB%A4%E3%82%BF%E3%82%A4%E3%83%9F%E3%83%B3%E3%82%B0%E5%9B%B3.md" onclick="openDoc('22-全命令タイミング図.md');return false;">22 全命令タイミング図（61 ケース）</a>
-  <a href="?doc=24-%E5%85%A8%E5%91%BD%E4%BB%A4%E3%82%BF%E3%82%A4%E3%83%9F%E3%83%B3%E3%82%B0%E5%9B%B3-%E8%A7%A3%E8%AA%AC.md" onclick="openDoc('24-全命令タイミング図-解説.md');return false;">24 タイミング図ケース別解説</a>
-  <a href="?doc=25-as-db-%E5%91%BD%E4%BB%A4%E3%82%B7%E3%83%BC%E3%82%B1%E3%83%B3%E3%82%B9%E3%83%87%E3%83%A2.md" onclick="openDoc('25-as-db-命令シーケンスデモ.md');return false;">25 as/db で命令シーケンス図</a>
-  <a href="?doc=52-%E3%83%A1%E3%83%A2%E3%83%AA%E3%83%9E%E3%83%83%E3%83%97.md" onclick="openDoc('52-メモリマップ.md');return false;">52 メモリマップ</a>
-  <a href="?doc=53-%E5%8F%82%E8%80%83%E8%B3%87%E6%96%99.md" onclick="openDoc('53-参考資料.md');return false;">53 参考資料</a>
-  <a href="?doc=54-simh-%E4%BD%BF%E3%81%84%E6%96%B9.md" onclick="openDoc('54-simh-使い方.md');return false;">54 SIMH 使い方（cc 対応）</a>
+  <a href="?doc=07-unix-v6-%E6%AD%B4%E5%8F%B2%E7%9A%84%E4%BE%A1%E5%80%A4.md" onclick="openDoc('07-unix-v6-歴史的価値.md');return false;">07 Unix V6 / PDP-11 History</a>
+  <a href="?doc=06-unix-v6-demo-commands.md" onclick="openDoc('06-unix-v6-demo-commands.md');return false;">06 Demo Commands</a>
+  <a href="?doc=09-unix-v6-%E3%83%95%E3%82%A1%E3%82%A4%E3%83%AB%E3%82%B7%E3%82%B9%E3%83%86%E3%83%A0.md" onclick="openDoc('09-unix-v6-ファイルシステム.md');return false;">09 Filesystem Layout</a>
+  <a href="?doc=11-thompson-%E3%82%B7%E3%82%A7%E3%83%AB.md" onclick="openDoc('11-thompson-シェル.md');return false;">11 Thompson Shell Guide</a>
+  <a href="?doc=08-ed-%E4%BD%BF%E3%81%84%E6%96%B9.md" onclick="openDoc('08-ed-使い方.md');return false;">08 ed Editor Guide</a>
+  <a href="?doc=10-unix-v6-%E3%82%B3%E3%83%9E%E3%83%B3%E3%83%89%E3%83%AA%E3%83%95%E3%82%A1%E3%83%AC%E3%83%B3%E3%82%B9.md" onclick="openDoc('10-unix-v6-コマンドリファレンス.md');return false;">10 Unix V6 Command Reference</a>
+  <a href="?doc=12-unix-v6-%E3%82%B7%E3%82%B9%E3%83%86%E3%83%A0%E3%82%B3%E3%83%BC%E3%83%AB.md" onclick="openDoc('12-unix-v6-システムコール.md');return false;">12 System Call Reference</a>
+  <a href="?doc=13-c-%E3%82%B3%E3%83%B3%E3%83%91%E3%82%A4%E3%83%AB%E5%85%A5%E9%96%80.md" onclick="openDoc('13-c-コンパイル入門.md');return false;">13 C Compilation Guide</a>
+  <a href="?doc=14-db-%E3%83%87%E3%83%90%E3%83%83%E3%82%AC%E3%83%BC-%E4%BD%BF%E3%81%84%E6%96%B9.md" onclick="openDoc('14-db-デバッガー-使い方.md');return false;">14 db Debugger Guide</a>
+  <a href="?doc=20-%E3%83%87%E3%83%90%E3%83%83%E3%82%B0%E3%83%91%E3%83%8D%E3%83%AB-%E4%BD%BF%E3%81%84%E6%96%B9.md" onclick="openDoc('20-デバッグパネル-使い方.md');return false;">20 Debug Panel &amp; Logic Analyzer</a>
+  <a href="?doc=21-%E3%83%90%E3%82%B9%E3%82%B5%E3%82%A4%E3%82%AF%E3%83%AB%E5%AE%9F%E4%BE%8B.md" onclick="openDoc('21-バスサイクル実例.md');return false;">21 LA Bus Cycle Examples</a>
+  <a href="?doc=22-%E5%85%A8%E5%91%BD%E4%BB%A4%E3%82%BF%E3%82%A4%E3%83%9F%E3%83%B3%E3%82%B0%E5%9B%B3.md" onclick="openDoc('22-全命令タイミング図.md');return false;">22 Instruction Timing Diagrams (61 cases)</a>
+  <a href="?doc=24-%E5%85%A8%E5%91%BD%E4%BB%A4%E3%82%BF%E3%82%A4%E3%83%9F%E3%83%B3%E3%82%B0%E5%9B%B3-%E8%A7%A3%E8%AA%AC.md" onclick="openDoc('24-全命令タイミング図-解説.md');return false;">24 Timing Diagram Case Explanations</a>
+  <a href="?doc=25-as-db-%E5%91%BD%E4%BB%A4%E3%82%B7%E3%83%BC%E3%82%B1%E3%83%B3%E3%82%B9%E3%83%87%E3%83%A2.md" onclick="openDoc('25-as-db-命令シーケンスデモ.md');return false;">25 as/db Instruction Sequence Demo</a>
+  <a href="?doc=52-%E3%83%A1%E3%83%A2%E3%83%AA%E3%83%9E%E3%83%83%E3%83%97.md" onclick="openDoc('52-メモリマップ.md');return false;">52 Memory Map</a>
+  <a href="?doc=53-%E5%8F%82%E8%80%83%E8%B3%87%E6%96%99.md" onclick="openDoc('53-参考資料.md');return false;">53 References</a>
+  <a href="?doc=54-simh-%E4%BD%BF%E3%81%84%E6%96%B9.md" onclick="openDoc('54-simh-使い方.md');return false;">54 SIMH Guide (with cc)</a>
   <span class="docs-sep"></span>
   <a class="ss-link" href="../../../test/ss/pdp11/index.html" target="_blank"
-     rel="noopener" title="PDP-11 全命令タイミング図ギャラリー">&#x1F4F7; PDP-11 全命令タイミング図</a>
+     rel="noopener" title="PDP-11 Instruction Timing Diagram Gallery">&#x1F4F7; PDP-11 Timing Diagrams</a>
 </div>
 
 <div class="main">
@@ -62,8 +62,8 @@
       <button id="btn-boot"  disabled>Boot Unix V6</button>
       <button id="btn-reset" disabled>Reset</button>
       <button id="btn-pause" disabled>Pause</button>
-      <button id="btn-editor" title="テキストエディタ：cat > ファイル でソースをターミナルへ送信" style="font-size:11px;">EDITOR</button>
-      <select id="speed-sel" title="シミュレーション速度">
+      <button id="btn-editor" title="Text editor: use cat > file to send source to terminal" style="font-size:11px;">EDITOR</button>
+      <select id="speed-sel" title="Simulation speed">
         <option value="50000">Slow</option>
         <option value="200000" selected>Normal</option>
         <option value="600000">Fast</option>
@@ -72,8 +72,8 @@
       </select>
       <input id="speed-num" type="number" min="1000" max="10000000" step="10000"
              title="steps/frame" placeholder="steps/frame" style="display:none;">
-      <span id="cycle-info" title="シミュレーション速度 / 実機比較（実機 PDP-11/40 ≈ 3.33MHz を 100%）"></span>
-      <select id="font-sel" title="フォントサイズ">
+      <span id="cycle-info" title="Simulation speed / real-machine comparison (PDP-11/40 ≈ 3.33MHz = 100%)"></span>
+      <select id="font-sel" title="Font size">
         <option value="6">6px</option>
         <option value="7">7px</option>
         <option value="8">8px</option>
@@ -116,8 +116,8 @@
       <label><input type="radio" name="kbd-layout" value="us" style="margin:0;"> US</label>
       <label><input type="radio" name="kbd-layout" value="jp106" style="margin:0;"> JIS</label>
       <span class="kbd-sep">|</span>
-      <button id="btn-copy"  title="選択テキストをクリップボードにコピー">COPY</button>
-      <button id="btn-paste" title="クリップボードからターミナルへ貼り付け">PASTE</button>
+      <button id="btn-copy"  title="Copy selected text to clipboard">COPY</button>
+      <button id="btn-paste" title="Paste from clipboard to terminal">PASTE</button>
     </div>
     <div id="cpu-bar">
       <span class="cpu-lbl">CPU</span>
@@ -144,16 +144,16 @@
     <!-- Unix V6 FS パネル -->
     <div id="fs-panel" class="collapsed">
       <div id="fs-hdr">
-        <button id="btn-fs-collapse" title="折りたたむ / 展開する">&#x25BC;</button>
+        <button id="btn-fs-collapse" title="Collapse / expand">&#x25BC;</button>
         V6 Filesystem
         <button id="btn-fs-refresh">&#x21BA;</button>
-        <button id="btn-fs-dl" title="選択ファイルをダウンロード" disabled>&#x2193; DL</button>
-        <button id="btn-fs-edit" title="選択ファイルをエディタで開く" disabled>&#x270F;</button>
-        <button id="btn-lf-toggle" title="LF 変換 ON: ドロップ時に CRLF/CR → LF">LF</button>
-        <button id="btn-save-disk" title="現在のディスクを IndexedDB に保存" disabled>&#x1F4BE; Save</button>
-        <button id="btn-export-disk" title="ディスクイメージをエクスポート">&#x1F4E4; Export</button>
-        <button id="btn-fs-delete" title="選択ファイルを削除" disabled>&#x1F5D1;</button>
-        <button id="btn-reset-disk" title="サーバーの元のディスクイメージに戻す" style="display:none;">Reset</button>
+        <button id="btn-fs-dl" title="Download selected file" disabled>&#x2193; DL</button>
+        <button id="btn-fs-edit" title="Open selected file in editor" disabled>&#x270F;</button>
+        <button id="btn-lf-toggle" title="LF conversion ON: CRLF/CR → LF on drop">LF</button>
+        <button id="btn-save-disk" title="Save current disk to IndexedDB" disabled>&#x1F4BE; Save</button>
+        <button id="btn-export-disk" title="Export disk image">&#x1F4E4; Export</button>
+        <button id="btn-fs-delete" title="Delete selected file" disabled>&#x1F5D1;</button>
+        <button id="btn-reset-disk" title="Reset to original server disk image" style="display:none;">Reset</button>
       </div>
       <div id="fs-body">
         <div id="fs-list"></div>
@@ -168,7 +168,7 @@
     <!-- レジスタパネル -->
     <div class="regs collapsed">
       <div class="regs-header">
-        <button id="btn-regs-collapse" title="折りたたむ / 展開する">&#x25BC;</button>
+        <button id="btn-regs-collapse" title="Collapse / expand">&#x25BC;</button>
         <h3>Registers</h3>
       </div>
       <div id="regs-body">
@@ -194,7 +194,7 @@
     <!-- MMU パネル -->
     <div class="mmu-panel collapsed" id="mmu-panel">
       <div class="mmu-header">
-        <button id="btn-mmu-collapse" class="mmu-collapse-btn" title="折りたたむ / 展開する">&#x25BC;</button>
+        <button id="btn-mmu-collapse" class="mmu-collapse-btn" title="Collapse / expand">&#x25BC;</button>
         <h3>MMU — Page Address Registers</h3>
       </div>
       <div class="mmu-tables" id="mmu-tables">
@@ -213,18 +213,18 @@
     <!-- Event Log パネル -->
     <div id="debug-panel" class="collapsed">
       <div id="dbg-header">
-        <button id="btn-eventlog-collapse" title="折りたたむ / 展開する">&#x25BC;</button>
+        <button id="btn-eventlog-collapse" title="Collapse / expand">&#x25BC;</button>
         <span class="dbg-lbl">Event Log</span>
-        <label class="cpulog-switch" title="イベント収集を開始 / 停止">
+        <label class="cpulog-switch" title="Start / stop event collection">
           <input type="checkbox" id="btn-cpulog-toggle">
           <span class="cpulog-thumb"></span>
         </label>
-        <label id="cpulog-exec-lbl" title="次の exec(sys11) でクリア＆収集開始、exit(sys1) で自動停止">
+        <label id="cpulog-exec-lbl" title="Clear &amp; start on next exec(sys11), auto-stop on exit(sys1)">
           <input type="checkbox" id="btn-cpulog-exec">
           <span>exec</span>
         </label>
-        <button id="btn-cpulog-copy" title="全ログをコピー">Copy</button>
-        <button id="btn-cpulog-clear" title="ログをクリア">Clear</button>
+        <button id="btn-cpulog-copy" title="Copy all log entries">Copy</button>
+        <button id="btn-cpulog-clear" title="Clear log">Clear</button>
       </div>
       <div id="cpulog-body">
         <div id="tab-cpulog" class="dbg-content"></div>
@@ -237,7 +237,7 @@
 <!-- Logic Analyzer: 全幅 -->
 <div class="la-section collapsed">
   <div class="la-header">
-    <button id="btn-la-collapse" class="la-zoom-btn" title="折りたたむ / 展開する">&#x25BC;</button>
+    <button id="btn-la-collapse" class="la-zoom-btn" title="Collapse / expand">&#x25BC;</button>
     <h3>Logic Analyzer</h3>
   </div>
   <div id="la-body">
@@ -247,32 +247,32 @@
         <button id="btn-trig-collapse">&#x25BC;</button>
         <h3>Trigger</h3>
         <select id="trig-type" style="flex:1;background:#eef;border:1px solid #aab;color:#446;font-size:11px;padding:2px 4px;">
-          <option value="7" selected>式 (Expr)</option>
-          <option value="1">PC 値一致</option>
-          <option value="6">PC + データ一致</option>
+          <option value="7" selected>Expr</option>
+          <option value="1">PC Match</option>
+          <option value="6">PC + Data</option>
           <option value="2">Fetch (istate=f1)</option>
-          <option value="3">I/O ページアクセス</option>
-          <option value="4">TRAP 発生</option>
-          <option value="5">バスエラー</option>
+          <option value="3">I/O Page</option>
+          <option value="4">TRAP</option>
+          <option value="5">Bus Error</option>
         </select>
       </div>
       <div id="trig-body">
         <div class="trig-row" id="trig-pc-row" style="display:none;">
           <label>PC(8)</label>
-          <input type="text" id="trig-pc" placeholder="例: 4014" maxlength="8">
+          <input type="text" id="trig-pc" placeholder="e.g. 4014" maxlength="8">
           <select id="trig-preset">
-            <option value="">— 既知アドレス —</option>
+            <option value="">— Known address —</option>
           </select>
         </div>
         <div class="trig-row" id="trig-data-row" style="display:none;">
-          <label title="フェッチ時のバスデータ＝命令語(8進)。db の逆アセンブルで命令語を確認して入力">DATA(8)</label>
-          <input type="text" id="trig-data" placeholder="例: 060001" maxlength="8">
+          <label title="Bus data at fetch = instruction word (octal). Check with db disassembly">DATA(8)</label>
+          <input type="text" id="trig-data" placeholder="e.g. 060001" maxlength="8">
         </div>
         <div class="trig-row" id="trig-expr-row" style="display:none;">
-          <label style="width:auto;flex-shrink:0;">式</label>
+          <label style="width:auto;flex-shrink:0;">Expr</label>
           <div id="trig-expr-cm" style="flex:1;min-width:0;"></div>
-          <select id="trig-expr-hist" title="履歴" style="max-width:90px;background:#eef;border:1px solid #aab;color:#446;font-size:11px;padding:2px 2px;">
-            <option value="" disabled selected>— 履歴 —</option>
+          <select id="trig-expr-hist" title="History" style="max-width:90px;background:#eef;border:1px solid #aab;color:#446;font-size:11px;padding:2px 2px;">
+            <option value="" disabled selected>— History —</option>
           </select>
         </div>
         <div class="trig-row">
@@ -287,14 +287,14 @@
       <button id="la-nav-l">&#8249;</button>
       <button id="la-nav-r">&#8250;</button>
       <button id="la-nav-rr">&#187;</button>
-      <button id="btn-step" title="1ステップ実行（Freeze 中のみ有効）">▶ Step</button>
-      <button id="btn-goto-trig" title="トリガー発火位置へジャンプ">⊙Trig</button>
-      <span class="la-smpl-wrap" title="サンプリング間隔&#10;4tick/smpl: 高速・デフォルト（Unix V6）&#10;1tick/smpl: 式トリガー使用時に自動切替・取りこぼし防止"><span class="la-smpl-label">Smpl:</span><select id="la-sample-sel">
+      <button id="btn-step" title="Single step (Freeze mode only)">▶ Step</button>
+      <button id="btn-goto-trig" title="Jump to trigger position">⊙Trig</button>
+      <span class="la-smpl-wrap" title="Sampling interval&#10;4tick/smpl: fast, default (Unix V6)&#10;1tick/smpl: auto-switched for expr trigger, prevents sample loss"><span class="la-smpl-label">Smpl:</span><select id="la-sample-sel">
         <option value="3">4tick/smpl</option>
         <option value="0">1tick/smpl</option>
       </select></span>
       <button class="la-zoom-btn" id="la-zoom-out">−</button>
-      <select id="la-zoom-sel" title="ズーム倍率">
+      <select id="la-zoom-sel" title="Zoom level">
         <option value="0">1/4x</option>
         <option value="1">1/2x</option>
         <option value="2">1x</option>
@@ -306,16 +306,16 @@
         <option value="8">64x</option>
       </select>
       <button class="la-zoom-btn" id="la-zoom-in">+</button>
-      <label class="sig-tog on" id="la-fill-lbl" style="background:#446;" title="信号レーン塗りつぶし ON/OFF">
+      <label class="sig-tog on" id="la-fill-lbl" style="background:#446;" title="Signal fill ON/OFF">
         <input type="checkbox" id="la-fill-chk" checked><span class="sw-track"></span> Fill
       </label>
-      <label class="sig-tog on" id="la-hatch-lbl" style="background:#446;" title="ハッチパターン ON/OFF">
+      <label class="sig-tog on" id="la-hatch-lbl" style="background:#446;" title="Hatch pattern ON/OFF">
         <input type="checkbox" id="la-hatch-chk" checked><span class="sw-track"></span> Hatch
       </label>
       <button class="la-zoom-btn" id="btn-la-freeze">Freeze</button>
       <span id="frozen-badge" style="display:none;">FROZEN</span>
       <a id="la-ss-link" href="../../../test/ss/pdp11/index.html" target="_blank"
-         rel="noopener" title="PDP-11 全命令タイミング図">&#x1F4F7; SS</a>
+         rel="noopener" title="PDP-11 Timing Diagram Screenshots">&#x1F4F7; SS</a>
     </div>
     <canvas id="la"></canvas>
   </div>
@@ -334,14 +334,14 @@
   <div id="editor-pane">
     <div id="editor-tb">
       <span id="editor-filename-lbl">hello.c</span>
-      <button id="editor-linenum" title="行番号 ON/OFF">Ln</button>
-      <label title="ホストからファイルを読み込む">Upload<input id="editor-upload" type="file" style="display:none;"></label>
-      <button id="editor-download" title="ダウンロード">Download</button>
+      <button id="editor-linenum" title="Line numbers ON/OFF">Ln</button>
+      <label title="Load file from host">Upload<input id="editor-upload" type="file" style="display:none;"></label>
+      <button id="editor-download" title="Download">Download</button>
       <button id="editor-close">✕ Close</button>
     </div>
     <div id="editor-cm"></div>
     <div id="editor-footer">
-      <input id="editor-fname" type="text" value="hello.c" placeholder="ファイル名（例: hello.c）">
+      <input id="editor-fname" type="text" value="hello.c" placeholder="filename (e.g. hello.c)">
       <button id="editor-send">&#x1F4BE; Save</button>
       <button id="editor-cancel">Cancel</button>
     </div>
@@ -356,6 +356,7 @@
       <button id="doc-prev" disabled>‹</button>
       <select id="doc-select"></select>
       <button id="doc-next" disabled>›</button>
+      <button id="doc-lang-btn" title="Switch document language between Japanese and English">JA</button>
       <button id="doc-close" style="margin-left:4px;">✕ Close</button>
     </div>
     <div id="doc-content"></div>
@@ -432,7 +433,7 @@ window._jp106 = _jp106;
     var isJis = _jp106.getLayout() === 'jp106';
     btn.textContent = isJis ? 'JIS' : 'US';
     btn.classList.toggle('kbd-jis', isJis);
-    btn.title = 'キーボード配列: ' + (isJis ? 'JIS/106（クリックで US）' : 'US（クリックで JIS/106）');
+    btn.title = 'Keyboard layout: ' + (isJis ? 'JIS/106 (click for US)' : 'US (click for JIS/106)');
   }
   btn.addEventListener('click', function () {
     _jp106.setLayout(_jp106.getLayout() === 'jp106' ? 'us' : 'jp106');
@@ -659,17 +660,17 @@ function _executeHostCmd(cmd) {
 
   if (verb === 'help') {
     term.write('\r\n' +
-      '!help / !?           このヘルプ\r\n' +
-      '!paste               PASTE ダイアログ\r\n' +
-      '!editor              テキストエディタ\r\n' +
-      '!ls [path]           V6 FS 一覧  (!dir)\r\n' +
-      '!type <path>         V6 FS ファイル表示  (!cat)\r\n' +
-      '!get  <path>         V6 FS ダウンロード  (!dl)\r\n' +
-      '!upload              スクリプトをアップロード\r\n' +
-      '!rm <name>           アップロード済みスクリプトを削除  (!del)\r\n' +
-      '!script <file>       スクリプト再生  (!run)\r\n' +
-      '!stop                スクリプト停止\r\n' +
-      '!sleep N             N ミリ秒待機\r\n' +
+      '!help / !?           this help\r\n' +
+      '!paste               PASTE dialog\r\n' +
+      '!editor              text editor\r\n' +
+      '!ls [path]           V6 FS list  (!dir)\r\n' +
+      '!type <path>         V6 FS view file  (!cat)\r\n' +
+      '!get  <path>         V6 FS download  (!dl)\r\n' +
+      '!upload              upload script\r\n' +
+      '!rm <name>           delete uploaded script  (!del)\r\n' +
+      '!script <file>       run script  (!run)\r\n' +
+      '!stop                stop script\r\n' +
+      '!sleep N             wait N milliseconds\r\n' +
       '\r\n');
   } else if (verb === 'paste') {
     setTimeout(openPasteModal, 10);
@@ -1010,10 +1011,10 @@ document.getElementById('btn-la-freeze').addEventListener('click', function() {
   if (!el) return;
   var FILES = [
     { lbl: 'WASM',   src: 'sim.wasm',              desc: 'Verilog RTL → Verilator → Emscripten' },
-    { lbl: 'worker', src: 'sim-worker.js',          desc: 'WASM シミュレーション Web Worker' },
-    { lbl: 'LA',     src: '../../../js/rtlscope-la.js',      desc: 'Logic Analyzer ライブラリ (RTLScopeLA)' },
-    { lbl: 'la-def', src: '../../../js/sft-pdp11-la-defs.js',desc: 'PDP-11 LA シグナル定義' },
-    { lbl: 'docs',   src: '../../../js/sft-pdp11-docs.js',   desc: 'ドキュメントリスト' },
+    { lbl: 'worker', src: 'sim-worker.js',          desc: 'WASM simulation Web Worker' },
+    { lbl: 'LA',     src: '../../../js/rtlscope-la.js',      desc: 'Logic Analyzer library (RTLScopeLA)' },
+    { lbl: 'la-def', src: '../../../js/sft-pdp11-la-defs.js',desc: 'PDP-11 LA signal definitions' },
+    { lbl: 'docs',   src: '../../../js/sft-pdp11-docs.js',   desc: 'Document list' },
   ];
   function _fmtDate(s) {
     if (!s) return '?';
@@ -1072,7 +1073,7 @@ window._initTrigExprCM = async function() {
   const EDGE_COMPLETIONS = [
     { label: 'rising',  type: 'keyword', detail: '0→1' },
     { label: 'falling', type: 'keyword', detail: '1→0' },
-    { label: 'edge',    type: 'keyword', detail: '変化' },
+    { label: 'edge',    type: 'keyword', detail: 'edge' },
   ];
 
   const STR_BY_SIG = {
@@ -1105,7 +1106,7 @@ window._initTrigExprCM = async function() {
     if (!word || (word.from === word.to && !context.explicit)) {
       if (context.explicit) {
         const hist = (window._loadExprHistory ? window._loadExprHistory() : [])
-          .map((e, i) => ({ label: e, type: 'text', detail: '履歴' + (i + 1) }));
+          .map((e, i) => ({ label: e, type: 'text', detail: 'history ' + (i + 1) }));
         return hist.length ? { from: context.pos, options: hist } : null;
       }
       return null;
@@ -1158,7 +1159,7 @@ window._initTrigExprCM = async function() {
           ...completionKeymap,
           ...closeBracketsKeymap,
         ]),
-        cmPlaceholder('例: VA == 6 && Mode == "USER"  — Ctrl+Space で履歴'),
+        cmPlaceholder('e.g. VA == 6 && Mode == "USER"  — Ctrl+Space for history'),
         darkTheme,
         singleLine,
       ],

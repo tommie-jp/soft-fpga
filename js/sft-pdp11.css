@@ -238,7 +238,12 @@ canvas#la { display:block; width:100%; background:#f5f5f5; }
   flex:1; min-width:0; font-size:12px; border:1px solid #aaa;
   background:#fff; color:#111; padding:2px 4px; cursor:pointer;
 }
-/* #doc-content スタイルは sft-doc-viewer.js が注入 */
+/* #doc-content styles injected by sft-doc-viewer.js */
+#doc-lang-btn {
+  margin-left:auto; font-weight:bold; letter-spacing:0.5px;
+  background:#d0e4f8; border-color:#88a8cc; color:#1a3a6a;
+}
+#doc-lang-btn:hover:not(:disabled) { background:#b8d4f0; }
 
 /* ── FS パネル ── */
 #fs-panel { background:#1a1a14; border:1px solid #3a3a28; padding:5px 8px 0;
