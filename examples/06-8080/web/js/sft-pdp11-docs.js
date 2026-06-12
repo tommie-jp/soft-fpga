@@ -17,9 +17,16 @@ var PDP11_DOC_LIST = [
   { file: '22-全命令タイミング図.md',           fileEn: '22-全命令タイミング図.md',           label: '22 全命令タイミング図（61 ケース）',        labelEn: '22 Instruction Timing Diagrams (61 cases)' },
   { file: '24-全命令タイミング図-解説.md',       fileEn: '24-全命令タイミング図-解説.md',       label: '24 タイミング図ケース別解説',              labelEn: '24 Timing Diagram Case Explanations' },
   { file: '25-as-db-命令シーケンスデモ.md',      fileEn: '25-as-db-命令シーケンスデモ.md',      label: '25 as/db で命令シーケンス図',             labelEn: '25 as/db Instruction Sequence Demo' },
+  { file: '26-式トリガー-リファレンス.md',       fileEn: '26-式トリガー-リファレンス.md',       label: '26 式トリガー（Expr）リファレンス',        labelEn: '26 Expr Trigger Reference' },
+  { file: '30-linux-起動スクリプト.md',         fileEn: '30-linux-起動スクリプト.md',         label: '30 Linux 起動スクリプト',                 labelEn: '30 Linux Boot Script' },
+  { file: '31-lcase-大文字モード.md',           fileEn: '31-lcase-大文字モード.md',           label: '31 LCASE 大文字モード',                   labelEn: '31 LCASE Uppercase Mode' },
+  { file: '42-as-アセンブラ制約.md',            fileEn: '42-as-アセンブラ制約.md',            label: '42 as アセンブラ制約',                    labelEn: '42 as Assembler Constraints' },
   { file: '52-メモリマップ.md',                 fileEn: '52-メモリマップ.md',                 label: '52 メモリマップ',                         labelEn: '52 Memory Map' },
   { file: '53-参考資料.md',                    fileEn: '53-参考資料.md',                    label: '53 参考資料',                            labelEn: '53 References' },
   { file: '54-simh-使い方.md',                 fileEn: '54-simh-使い方.md',                 label: '54 SIMH 使い方（cc 対応）',               labelEn: '54 SIMH Guide (with cc)' },
+  { file: '55-MMU-タイミングと実機比較.md',      fileEn: '55-MMU-タイミングと実機比較.md',      label: '55 MMU タイミング実機比較',               labelEn: '55 MMU Timing vs. Real Hardware' },
+  { file: '56-MMU-unix-v6-での使われ方.md',     fileEn: '56-MMU-unix-v6-での使われ方.md',     label: '56 MMU Unix V6 での使われ方',             labelEn: '56 How Unix V6 Uses the MMU' },
+  { file: '57-レジスタとistate.md',             fileEn: '57-レジスタとistate.md',             label: '57 レジスタと istate',                    labelEn: '57 Registers & istate' },
 ];
 
 var _pdp11DocViewer = new SftDocViewer(PDP11_DOC_LIST, {

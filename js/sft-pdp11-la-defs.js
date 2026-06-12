@@ -1,7 +1,7 @@
 'use strict';
 // sft-pdp11-la-defs.js — PDP-11 / Unix V6 Logic Analyzer 信号定義
 //
-// ring buffer ビットレイアウト (RING_WORDS = 10):
+// ring buffer ビットレイアウト (RING_WORDS = 11):
 //  Word0: [17:0]=addr_p [18]=wr [19]=rd [21:20]=cm [22]=byte [23]=trap [24]=halt [25]=int [30:26]=rk
 //  Word1: [15:0]=data [31:16]=psw
 //  Word2: [15:0]=pc [31:16]=addr_v
@@ -12,8 +12,9 @@
 //  Word7: [15:0]=R4 [31:16]=R5
 //  Word8: [15:0]=SP [31:16]=M1(メモリプローブ値)
 //  Word9: [11:0]=uipar0(User I-space PAR0) [12]=ctx_new(コンテキストスイッチ)
+//  Word10: [31:0]=sim_time 下位 32bit（Event Log 相対時刻用）
 
-var RING_WORDS_PDP11 = 10;
+var RING_WORDS_PDP11 = 11;
 
 // ── PSW フォーマッター ────────────────────────────────────────────────────
 // 表示例: "KK P6 T.NZVC"
