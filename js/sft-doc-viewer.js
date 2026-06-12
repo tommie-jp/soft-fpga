@@ -246,7 +246,34 @@
           .replace(/<\/table>/g, '</table></div>');
         var content = self._el(self._idContent);
         content.innerHTML = html;
+        // marked v9 does not generate heading ids — add them for TOC anchors
+        content.querySelectorAll('h1,h2,h3,h4,h5,h6').forEach(function (h) {
+          if (!h.id) {
+            h.id = h.textContent.trim().toLowerCase()
+              .replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
+          }
+        });
         content.querySelectorAll('a').forEach(function (a) {
+          var href = a.getAttribute('href') || '';
+          if (href.charAt(0) === '#') {
+            // TOC anchor: scroll within doc-content, no navigation
+            a.addEventListener('click', function (e) {
+              e.preventDefault();
+              var id = href.slice(1);
+              var target = content.querySelector('#' + CSS.escape(id));
+              if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+            return;
+          }
+          if (href.charAt(0) === '?' && href.indexOf('doc=') !== -1) {
+            // Internal doc link: open within viewer
+            a.addEventListener('click', function (e) {
+              e.preventDefault();
+              var docFile = new URLSearchParams(href.slice(1)).get('doc');
+              if (docFile) self.openDoc(docFile);
+            });
+            return;
+          }
           a.setAttribute('target', '_blank');
           a.setAttribute('rel', 'noopener');
         });
