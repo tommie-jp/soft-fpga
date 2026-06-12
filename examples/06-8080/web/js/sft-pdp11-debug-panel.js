@@ -422,7 +422,11 @@ function updateRegs(snap, gpr) {
     var updated = false;
     // _stoppedThisLoop: このバッチ内で exit 停止が起きたフラグ。
     // 同一バッチ内の後続 fork が exit 直後にクリアするのを防ぐ（次バッチではリセット）。
+    // _stoppedUipar0: exit を呼んだプロセスの UIPAR0。
+    // 同じ UIPAR0 からの fork は保護（exit したプロセスが fork = ありえないが念のため）。
+    // 異なる UIPAR0（shell 等）からの fork は許可 — これで 2 回目以降の a.out も捕捉できる。
     var _stoppedThisLoop = false;
+    var _stoppedUipar0   = -1;
     var count = (snap.length / _ringWords) | 0;
     for (var i = 0; i < count; i++) {
       var _base = i * _ringWords;
@@ -451,9 +455,14 @@ function updateRegs(snap, gpr) {
         // 失敗すると n=0 のままスキップされる。fork(2) は直接方式で確実に検出できるため
         // フォールバックとして追加する（fork 後に exec が来れば exec で再クリアされる）。
         // !_cpuLogEnabled: キャプチャ終了後のみクリアする（キャプチャ中は無視）。
-        // !_stoppedThisLoop: 同一バッチ内で exit 停止直後の fork はクリアしない。
+        // 同一バッチ内 exit 直後のクリア保護: exit したプロセスと同一 UIPAR0 からの
+        // fork は保護する（exit ログ消去を防ぐ）。
+        // 異なる UIPAR0（shell 等）からの fork は許可 — これで連続 a.out も捕捉可能。
         if (_cpuLogExecCapture && _sys && (_sys.n === 11 || _sys.n === 2)) {
-          if (!_cpuLogEnabled && !_stoppedThisLoop) {
+          var _forkUipar0 = (_base + 9 < snap.length) ? (snap[_base + 9] & 0xFFF) : -1;
+          var _sameProc = _stoppedThisLoop
+            && _stoppedUipar0 >= 0 && _forkUipar0 >= 0 && _forkUipar0 === _stoppedUipar0;
+          if (!_cpuLogEnabled && !_sameProc) {
             _cpuLog.length = 0;
             _lastTrap = null;
             _processToken = -1;
@@ -498,6 +507,7 @@ function updateRegs(snap, gpr) {
               if (_exitN === 1 && (_processToken < 0 || _uipar0 < 0 || _uipar0 === _processToken)) {
                 _cpuLogEnabled = false;
                 _stoppedThisLoop = true;
+                _stoppedUipar0 = _uipar0;
                 _waitingNewCtx = false;
                 _togEl = document.getElementById('btn-cpulog-toggle');
                 if (_togEl) _togEl.checked = false;

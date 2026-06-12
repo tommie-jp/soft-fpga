@@ -206,7 +206,9 @@
     }
     this._idx = idx;
     if (this._useHash && file) {
-      history.replaceState(null, '', '?doc=' + encodeURIComponent(file));
+      var _qs = '?doc=' + encodeURIComponent(file);
+      if (this._lang === 'en') _qs += '&lang=en';
+      history.replaceState(null, '', _qs);
     }
 
     var prev = this._el(this._idPrev);
