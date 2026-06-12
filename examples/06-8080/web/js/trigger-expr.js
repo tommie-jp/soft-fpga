@@ -30,6 +30,7 @@ var _TRIG_SIG_ALIASES = (function() {
   m['BUSERR'] = 'bus_error'; m['NXM']    = 'nxm_access';
   m['TBUS']   = 'trap_bus';  m['TABORT'] = 'trap_abort'; m['TODD'] = 'trap_odd';
   m['M1']     = 'mem_m1';
+  m['CTX']    = 'ctx_new';
   return m;
 })();
 

@@ -113,6 +113,11 @@ button#btn-trig-set.on .sw-track { background:rgba(255,255,255,.4); }
 #trig-expr-cm { flex:1; min-width:0; }
 #trig-expr-cm .cm-editor { width:100%; }
 #trig-expr-cm .cm-scroller { overflow:hidden; }
+/* IME 無効（日本語入力禁止） */
+#trig-expr-cm .cm-content { ime-mode:disabled; }
+
+/* ターミナル IME 無効 */
+.xterm-helper-textarea { ime-mode:disabled; }
 
 /* ── Logic Analyzer（rtlscope-la.js はライトテーマ描画） ── */
 #btn-la-collapse { font-size:9px; padding:1px 4px; line-height:1; transition:transform 0.15s; }

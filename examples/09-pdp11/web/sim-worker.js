@@ -39,7 +39,7 @@ var _laEnabled   = true;
 // 現在設定中のトリガー種別（0=NONE 1=PC 2=ISTATE 3=IOPAGE 4=TRAP 5=BUSERR 7=EXPR）
 var _curTrigType = 0;
 // 式トリガー: コンパイル済み Wasm エクスポート関数（null = 未設定）
-// シグネチャ: eval(w0..w8: i32[9], pw0..pw8: i32[9]) → i32
+// シグネチャ: eval(w0..w9: i32[10], pw0..pw9: i32[10]) → i32
 var _exprEval = null;
 
 // ── キー入力キュー（ペースト文字化け防止）─────────────────────────────────
@@ -209,9 +209,9 @@ function simLoop() {
       var _xpb  = (((_xabs - 1 + RING_SIZE) >>> 0) % RING_SIZE) * RING_WORDS + ringBase;
       if (_exprEval(
         _h[_xb],   _h[_xb+1], _h[_xb+2], _h[_xb+3], _h[_xb+4],
-        _h[_xb+5], _h[_xb+6], _h[_xb+7], _h[_xb+8],
+        _h[_xb+5], _h[_xb+6], _h[_xb+7], _h[_xb+8], _h[_xb+9],
         _h[_xpb],  _h[_xpb+1],_h[_xpb+2],_h[_xpb+3],_h[_xpb+4],
-        _h[_xpb+5],_h[_xpb+6],_h[_xpb+7],_h[_xpb+8]
+        _h[_xpb+5],_h[_xpb+6],_h[_xpb+7],_h[_xpb+8],_h[_xpb+9]
       )) {
         _exprEval = null;
         running   = false;

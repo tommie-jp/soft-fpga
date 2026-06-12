@@ -6,9 +6,9 @@
 // trigCompileToWasm(ast) → Uint8Array
 //
 // 生成する Wasm 関数シグネチャ（メモリインポート不要）:
-//   eval(w0..w8: i32[9], pw0..pw8: i32[9]) → i32
-//   params 0-8:  現サンプルの ring ワード  (w0..w8)
-//   params 9-17: 前サンプルの ring ワード  (pw0..pw8)
+//   eval(w0..w9: i32[10], pw0..pw9: i32[10]) → i32
+//   params 0-9:   現サンプルの ring ワード  (w0..w9)
+//   params 10-19: 前サンプルの ring ワード  (pw0..pw9)
 //
 // 非対応（コンパイルエラーを throw）:
 //   - 仮想信号 (CYCLE 等): ring 複数ワードから合成
@@ -97,10 +97,10 @@ var _COMPILE_STR_TO_NUM = {
 
 // ── シグナル値を stack に push するコードを emit ────────────────────────────
 // Wasm params:
-//   0-8:  現サンプル w0..w8
-//   9-17: 前サンプル pw0..pw8
+//   0-9:   現サンプル w0..w9
+//   10-19: 前サンプル pw0..pw9
 function _emitSigVal(code, sig, isCur) {
-  var paramIdx = (isCur ? 0 : 9) + (sig.word | 0);
+  var paramIdx = (isCur ? 0 : 10) + (sig.word | 0);
   var bit   = (sig.bit   | 0);
   var width = (sig.width | 0) || 1;
   var mask  = width < 32 ? ((1 << width) - 1) : 0xFFFFFFFF;
@@ -227,8 +227,8 @@ function trigCompileToWasm(ast) {
     0x01,                         // 1 type
     0x60,                         // func
   ];
-  _uleb128push(typeBody, 18);     // 18 params
-  for (var pi = 0; pi < 18; pi++) typeBody.push(0x7F);  // i32 × 18
+  _uleb128push(typeBody, 20);     // 20 params
+  for (var pi = 0; pi < 20; pi++) typeBody.push(0x7F);  // i32 × 20
   typeBody.push(0x01, 0x7F);      // 1 result: i32
 
   // ── Function section ────────────────────────────────────────────────────
