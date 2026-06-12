@@ -190,6 +190,14 @@ for ex in "${EXAMPLES[@]}"; do
             cp -r "$docs_src/img" "$dst/docs/"
             echo "  Copied docs/img/ → /${deploy_subdir}/docs/img/"
         fi
+        # 言語別サブディレクトリ（en/ など）を再帰コピー
+        for _subdir in "$docs_src"/*/; do
+            _name="$(basename "$_subdir")"
+            [[ "$_name" == "img" ]] && continue
+            mkdir -p "$dst/docs/$_name"
+            cp "$_subdir"*.md "$dst/docs/$_name/" 2>/dev/null || true
+            echo "  Copied docs/$_name/ → /${deploy_subdir}/docs/$_name/"
+        done
         echo "  Copied docs → /${deploy_subdir}/docs/"
     fi
 done

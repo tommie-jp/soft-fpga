@@ -89,9 +89,11 @@ def main() -> int:
     # ════════════════════════════════════════════════════════════════════════
     section("1. index.html — <script src> / <link href> ローカルファイル")
     for attr_val in re.findall(r'(?:src|href)=["\']([^"\']+)["\']', html):
-        if attr_val.startswith("http") or attr_val.startswith("#") or \
+        # ?v=9 等のキャッシュバスタやフラグメントをファイルパスから除去する
+        attr_val = attr_val.split('?')[0].split('#')[0]
+        if not attr_val or attr_val.startswith("http") or attr_val.startswith("#") or \
            attr_val.startswith("javascript") or attr_val.startswith("data:") or \
-           attr_val.startswith("?"):   # ?doc= 等のクエリパラメータはファイルパスではない
+           attr_val.startswith("?"):
             continue
         if not check_file(web_root, attr_val):
             errors += 1
@@ -124,10 +126,19 @@ def main() -> int:
     # ════════════════════════════════════════════════════════════════════════
     # 5. PDP11_DOC_LIST 参照
     # ════════════════════════════════════════════════════════════════════════
-    section("5. sft-pdp11-docs.js — PDP11_DOC_LIST 参照 .md ファイル")
+    section("5. sft-pdp11-docs.js — PDP11_DOC_LIST 参照 .md ファイル (JA)")
     doclist_files: list[str] = re.findall(r"file:\s*'([^']+\.md)'", docs_js_src)
     for md in doclist_files:
         if not check_file(web_root, f"docs/{md}", md):
+            errors += 1
+
+    # ════════════════════════════════════════════════════════════════════════
+    # 5b. PDP11_DOC_LIST fileEn 参照（英語版 docs/en/）
+    # ════════════════════════════════════════════════════════════════════════
+    section("5b. sft-pdp11-docs.js — PDP11_DOC_LIST fileEn 参照 .md ファイル (EN)")
+    doclist_en_files: list[str] = re.findall(r"fileEn:\s*'([^']+\.md)'", docs_js_src)
+    for md in doclist_en_files:
+        if not check_file(web_root, f"docs/en/{md}", f"en/{md}"):
             errors += 1
 
     # ════════════════════════════════════════════════════════════════════════

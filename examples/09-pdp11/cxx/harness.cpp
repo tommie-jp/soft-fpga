@@ -1,12 +1,13 @@
 // harness.cpp — PDP-11 / Unix V6 WASM ハーネス（Phase 4）
 //
 // DPI 実装（dpi_tty_putc / dpi_tty_getc）、step_n、send_key、
-// get_display_char、ring buffer（RING_WORDS=10）、PC トリガー、sim_init、
+// get_display_char、ring buffer（RING_WORDS=11）、PC トリガー、sim_init、
 // GPR snapshot（R0-R5/SP）、MMU PAR/PDR 読み取りを提供する。
 // mem_probe: sim_set_mem_probe(addr) で指定したアドレスの RAM 値を
 //            Word8[31:16] に毎サンプル記録する（LA の M1 信号）。
 // uipar0:    Word9[11:0] に User I-space PAR0 を毎サンプル記録する（プロセス識別）。
 //            Word9[12] は前サンプルから変化した場合に 1（コンテキストスイッチ検出）。
+// sim_time:  Word10[31:0] に sim_time の下位 32bit を記録する（Event Log 相対時刻用）。
 
 #include "Vtest_top_wasm.h"
 #include "Vtest_top_wasm___024root.h"
@@ -97,7 +98,7 @@ static uint64_t        sim_time = 0;
 //   [31:13] reserved
 
 #define RING_SIZE  4096
-#define RING_WORDS 10
+#define RING_WORDS 11
 
 static uint32_t ring[RING_SIZE * RING_WORDS];
 static uint32_t ring_head = 0;
@@ -172,6 +173,8 @@ static inline void sample_ring() {
         p[9] = (uint32_t)_uipar0 | ((uint32_t)_ctx_new << 12);
         g_prev_uipar0 = _uipar0;
     }
+    // Word10: sim_time 下位 32bit（Event Log 相対時刻用）
+    p[10] = (uint32_t)(sim_time & 0xFFFFFFFFu);
     ring_head++;
 }
 
@@ -409,17 +412,19 @@ static inline void update_trapped_latch() {
             uint16_t virt_pc = (uint16_t)OBS_PC;
             uint32_t apf     = (virt_pc >> 13) & 7u;
             uint32_t par;
-            if (apf == 0u) {
-                // par_h[48] は verilator 最適化で定数化される問題があるため、
-                // verilator public_flat 宣言した user_i_par0 ワイヤー経由で取得する。
-                par = top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__user_i_par0
-                      & 0x0FFFu;
-            } else {
-                auto& _par_h = top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__par_h;
-                auto& _par_l = top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__par_l;
-                par = (((uint32_t)_par_h[48u + apf] << 8)
-                       | (uint32_t)_par_l[48u + apf]) & 0x0FFFu;
-            }
+            // par_h[48+apf] は verilator 最適化で定数化される問題があるため、
+            // verilator public_flat 宣言した user_i_par0〜par7 ワイヤー経由で取得する。
+            static const uint16_t* const k_user_par[] = {
+                &top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__user_i_par0,
+                &top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__user_i_par1,
+                &top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__user_i_par2,
+                &top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__user_i_par3,
+                &top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__user_i_par4,
+                &top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__user_i_par5,
+                &top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__user_i_par6,
+                &top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__user_i_par7,
+            };
+            par = *k_user_par[apf] & 0x0FFFu;
             uint32_t phys_pc = (par << 6u) + (uint32_t)(virt_pc & 0x1FFFu);
             trapped_indirect_n = ram_read_word(phys_pc);
         } else {

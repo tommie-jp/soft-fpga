@@ -23,7 +23,8 @@ usage() {
   --web         [06] Web 統合テスト (Playwright / Apple-I & CP/M WASM)
   --sim-api     [07] sim API テスト (MVI A,$FF · Playwright / TestSimAPI)
   --timing-ss      [08] 8080 全命令タイミング図スクリーンショット (73 ケース)
-  --pdp11          [09] PDP-11 basic tests (test0–17 + sdiag ROM test, 19 件)
+  --pdp11          [15] PDP-11 リンク切れチェック (JA + EN docs)
+                   [09] PDP-11 basic tests (test0–17 + sdiag ROM test, 19 件)
                    [10] PDP-11 MAINDEC 診断
                    [12] PDP-11 WASM コマンド起動テスト (Unix V6 /bin・/usr/bin 全コマンド)
                    [13] PDP-11 Unix V6 シナリオテスト (ls/cat/grep/sort/wc/ed/dc/as/db 等)
@@ -229,6 +230,9 @@ if $RUN_TIMING_SS_PDP11; then
 fi
 
 if $RUN_PDP11; then
+  run_step "15" "PDP-11 リンク切れチェック (JA + EN docs)" \
+    python3 scripts/check-pdp11-links.py
+
   run_step "09" "PDP-11 basic tests (test0–17 + sdiag ROM test)" \
     bash scripts/test-pdp11-basic.sh
 
