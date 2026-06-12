@@ -1,4 +1,4 @@
-# 11. Thompson Shell Usage <a class="qr-link" href="../../../docs/09-PDP11/img/11-QR.png">QR</a>
+# 11. Thompson Shell Usage <a class="qr-link" href="../../../docs/09-PDP11/img/11-en-QR.png">QR</a>
 
 The `/bin/sh` in Unix V6 is the earliest shell, written by Ken Thompson.
 It is simpler and easier to learn than the Bourne shell (V7) or bash.

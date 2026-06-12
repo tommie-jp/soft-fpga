@@ -1,4 +1,4 @@
-# 12. Unix V6 System Calls Reference <a class="qr-link" href="../../../docs/09-PDP11/img/12-QR.png">QR</a>
+# 12. Unix V6 System Calls Reference <a class="qr-link" href="../../../docs/09-PDP11/img/12-en-QR.png">QR</a>
 
 A reference list of Unix V6 (1975) system calls. Use this when writing
 low-level programs in `as` or C on this simulator, and when observing traps

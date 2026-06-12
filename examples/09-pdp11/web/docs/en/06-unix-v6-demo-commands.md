@@ -1,4 +1,4 @@
-# 06. Unix V6 Demo Command Reference <a class="qr-link" href="../../../docs/09-PDP11/img/06-QR.png">QR</a>
+# 06. Unix V6 Demo Command Reference <a class="qr-link" href="../../../docs/09-PDP11/img/06-en-QR.png">QR</a>
 
 ## Right After Boot (Standard Checks)
 

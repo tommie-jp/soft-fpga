@@ -1,4 +1,4 @@
-# 54. SIMH — PDP-11 Simulator <a class="qr-link" href="../../../docs/09-PDP11/img/54-QR.png">QR</a>
+# 54. SIMH — PDP-11 Simulator <a class="qr-link" href="../../../docs/09-PDP11/img/54-en-QR.png">QR</a>
 
 SIMH is a collection of software simulators that recreate historical computers from Digital Equipment Corporation.
 It can run PDP-11/Unix V6 in its entirety.

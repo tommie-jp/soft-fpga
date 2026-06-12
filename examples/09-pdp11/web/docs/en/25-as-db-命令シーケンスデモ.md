@@ -1,4 +1,4 @@
-# 25. Demo: Viewing Instruction Sequence Diagrams with Unix V6 `as` / `db` <a class="qr-link" href="../../../docs/09-PDP11/img/25-QR.png">QR</a>
+# 25. Demo: Viewing Instruction Sequence Diagrams with Unix V6 `as` / `db` <a class="qr-link" href="../../../docs/09-PDP11/img/25-en-QR.png">QR</a>
 
 A demo that writes a small program using the Unix V6 native assembler `as` and debugger `db`,
 then uses the soft-FPGA **Logic Analyzer (LA)** to freeze-capture the moment a specific instruction executes

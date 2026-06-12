@@ -1,4 +1,4 @@
-# 07. Historical Significance of Unix V6 / PDP-11 <a class="qr-link" href="../../../docs/09-PDP11/img/07-QR.png">QR</a>
+# 07. Historical Significance of Unix V6 / PDP-11 <a class="qr-link" href="../../../docs/09-PDP11/img/07-en-QR.png">QR</a>
 
 ## 1. What is Unix V6?
 

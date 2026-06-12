@@ -1,4 +1,4 @@
-# 09. Unix V6 Filesystem Layout <a class="qr-link" href="../../../docs/09-PDP11/img/09-QR.png">QR</a>
+# 09. Unix V6 Filesystem Layout <a class="qr-link" href="../../../docs/09-PDP11/img/09-en-QR.png">QR</a>
 
 ## 1. Directory Hierarchy
 

@@ -1,4 +1,4 @@
-# 10. Unix V6 Command Reference <a class="qr-link" href="../../../docs/09-PDP11/img/10-QR.png">QR</a>
+# 10. Unix V6 Command Reference <a class="qr-link" href="../../../docs/09-PDP11/img/10-en-QR.png">QR</a>
 
 A list of major commands included in the Unix V6 (1975) distribution bundled with this simulator.
 Most commands reside in `/bin/` or `/usr/bin/` (games are in `/usr/games/`).
