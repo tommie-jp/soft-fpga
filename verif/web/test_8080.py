@@ -392,7 +392,7 @@ class TestCPMDocs:
 
     # テストで使用する文書（docs/ に存在し、想定される見出しテキストとセット）
     _DOC_FILE_1   = "12-CP_M-コマンドリファレンス.md"
-    _DOC_LABEL_1  = "12 CP/M コマンドリファレンス"   # #docs-panel リンクテキスト
+    _DOC_LABEL_1  = "12 CP/M Command Reference"       # #docs-panel リンクテキスト（英語化済み）
     _DOC_H1_1     = "CP/M コマンドリファレンス"       # 文書 H1 の一部
 
     _DOC_FILE_2   = "14-cpm-コマンド説明.md"
