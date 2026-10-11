@@ -154,13 +154,25 @@ vm80a:        10T 全体が 1 SYNC グループ         →  SYNC×1
 
 合計 10T は同じだが、Logic Analyzer 上の SYNC 分割が異なる。
 
-### 4.3 CALL — M1=5T, M5=3T（仕様: M1=4T, M5=4T）
+### 4.3 CALL — M1=5T, M5=3T（仕様どおり）
 
-Intel 8080A User's Manual では CALL を M1=4T, M5=4T と定義するが、  
-vm80a は M1=5T, M5=3T で実装されている（合計 17T は同じ）。
+vm80a は CALL を M1=5T, M5=3T で実行する。Intel 8080 のマニュアルの命令表も同じで、
+M1 の T4・T5 で SP を 1 減らすので M1 が 5T になる (PUSH の M1 が 5T なのと同じ)。
 
 | マシンサイクル | Intel 8080A | vm80a |
 |:---:|:---:|:---:|
+| M1 (fetch, SP−1) | 5T | 5T |
+| M2 (addr lo) | 3T | 3T |
+| M3 (addr hi) | 3T | 3T |
+| M4 (push PCH) | 3T | 3T |
+| M5 (push PCL) | 3T | 3T |
+| **合計** | **17T** | **17T** |
+
+条件付き CALL が飛ばないときは 11T (M1 5T + M2 3T + M3 3T)。
+
+> 初版はこの節で「仕様は M1=4T, M5=4T で、vm80a だけ違う」としていたが、仕様も 5-3-3-3-3 で違いは無い。
+
+---:|:---:|:---:|
 | M1 (fetch) | 4T | **5T** |
 | M2 (addr lo) | 3T | 3T |
 | M3 (addr hi) | 3T | 3T |
