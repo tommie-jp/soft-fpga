@@ -55,7 +55,7 @@ em++ $COMMON_FLAGS \
     "$OBJ_DIR"/V*.cpp \
     "$OBJ_DIR/verilated.wasm.o" \
     "$EXAMPLE/cxx/harness.cpp" \
-    -s EXPORTED_FUNCTIONS='["_sim_init","_step","_reset_sim","_get_ring_ptr","_get_head","_get_ring_size"]' \
+    -s EXPORTED_FUNCTIONS='["_sim_init","_step","_sim_run_n","_reset_sim","_get_ring_ptr","_get_head","_get_ring_size","_get_ring_words","_sim_freeze_ring","_sim_thaw_ring","_sim_ring_frozen","_sim_set_la","_sim_set_post_delay","_sim_clear_trigger","_sim_set_edge_trigger","_sim_set_value_trigger","_sim_trigger_hit","_sim_trigger_fired","_sim_get_trig_fire_head"]' \
     -s EXPORTED_RUNTIME_METHODS='["HEAPU32"]' \
     -s ALLOW_MEMORY_GROWTH=1 \
     -s EXIT_RUNTIME=0 \

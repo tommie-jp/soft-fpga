@@ -5,17 +5,60 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>01-counter — rtlscope</title>
   <style>
-    body { background: #1a1a1a; color: #eee; font-family: monospace; margin: 20px; }
-    h2   { margin: 0 0 12px; font-size: 16px; color: #aaa; }
+    body { background: #fff; color: #111; font-family: monospace; margin: 20px; }
+    h2   { margin: 0 0 12px; font-size: 16px; color: #333; }
     .controls { display: flex; align-items: center; gap: 16px; margin-bottom: 10px; flex-wrap: wrap; }
     button {
-      background: #2a2a2a; color: #eee;
-      border: 1px solid #555; padding: 4px 14px; cursor: pointer;
+      background: #e8e8e8; color: #222;
+      border: 1px solid #aaa; padding: 3px 12px; cursor: pointer;
+      font-family: monospace; font-size: 13px;
     }
-    button:hover { background: #3a3a3a; }
-    label { font-size: 12px; color: #aaa; }
+    button:hover { background: #d0d0d0; }
+    label { font-size: 12px; color: #555; }
     #cycle-info { font-size: 12px; color: #666; }
-    canvas { display: block; border: 1px solid #333; max-width: 100%; height: auto; }
+    .sig-label { font-size: 13px; color: #111; white-space: nowrap; }
+    .la-bar  { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+    .chk {
+      display: inline-flex; align-items: center; gap: 4px; cursor: pointer;
+      font-size: 13px; padding: 2px 7px; border: 1px solid #aaa; border-radius: 3px;
+      background: #f8f8f8; user-select: none; color: #111;
+    }
+    .chk input { cursor: pointer; margin: 0; accent-color: #446; }
+    .trig-bar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 2px; }
+    #trig-detail {
+      display: none; flex-wrap: wrap; align-items: center; gap: 4px;
+      padding: 3px 0; border-top: 1px solid #e0e0e0; margin-top: 2px;
+    }
+    #trig-detail select, #trig-detail input {
+      font-family: monospace; font-size: 13px; padding: 1px 3px; border: 1px solid #aaa; background: #fff;
+    }
+    #trig-val  { width: 90px; }
+    #trig-post { width: 80px; }
+    #trig-msg  { font-size: 12px; color: #555; }
+    /* Logic Analyzer ナビゲーションバー（06-8080 と同じ構成） */
+    #la-nav { display: flex; align-items: center; padding: 2px 0; margin-top: 2px; }
+    .la-nav-left   { display: flex; align-items: center; gap: 3px; flex: 1; }
+    .la-nav-center { display: flex; align-items: center; gap: 3px; justify-content: center; }
+    .la-nav-right  { display: flex; align-items: center; gap: 3px; flex: 1; justify-content: flex-end; }
+    #la-nav button { padding: 1px 8px; line-height: 1.4; min-width: 28px; }
+    #la-zoom-sel {
+      font-size: 13px; padding: 1px 2px; line-height: 1.4;
+      font-family: monospace; border: 1px solid #aaa; background: #fff;
+      cursor: pointer; min-width: 46px; text-align: center;
+    }
+    #la-toggles { display: flex; flex-wrap: wrap; gap: 3px; }
+    .sig-tog {
+      display: inline-flex; align-items: center; gap: 3px;
+      font-size: 13px; font-family: monospace;
+      padding: 2px 8px; border-radius: 10px; cursor: pointer;
+      border: 1px solid #bbb; background: #f0f0f0; color: #444;
+      user-select: none; white-space: nowrap;
+    }
+    .sig-tog.on    { color: #fff; border-color: transparent; }
+    .sig-tog input { display: none; }
+    #la-wrap { position: relative; display: block; }
+    canvas { display: block; max-width: 100%; }
+    #error-box { display: none; color: #cc3333; font-size: 13px; margin: 8px 0; white-space: pre-wrap; }
     @media (max-width:500px) { body { margin: 12px; } }
   </style>
 </head>
@@ -27,106 +70,164 @@
     <label>速度: <input id="speed" type="range" min="1" max="2000" value="200"></label>
     <span id="cycle-info">0 cycles</span>
   </div>
-  <canvas id="la" width="800" height="240"></canvas>
+  <div id="error-box"></div>
+
+  <!-- Logic Analyzer（js/rtlscope-la.js: 06-8080 と同じライブラリ） -->
+  <div class="la-bar">
+    <span class="sig-label">Logic Analyzer</span>
+    <button id="btn-la-toggle" title="Logic Analyzer ON/OFF。OFF の間は ring buffer への書き込みを止めます。">LA ON</button>
+    <label class="chk" title="信号レーンの塗りつぶし ON/OFF">
+      <input type="checkbox" id="la-fill-chk" checked> Fill
+    </label>
+    <label class="chk" title="信号レーンの網目パターン ON/OFF">
+      <input type="checkbox" id="la-hatch-chk" checked> Hatch
+    </label>
+    <div id="la-toggles"></div>
+  </div>
+  <div class="trig-bar">
+    <button id="btn-freeze" title="ring buffer を凍結／再開します。凍結中も回路は動き続けます。">❄ Freeze</button>
+    <button id="btn-trig-toggle" title="トリガー設定の表示／非表示">⚙ Trigger ▸</button>
+  </div>
+  <div id="trig-detail">
+    <select id="trig-sig" title="トリガー対象の信号"></select>
+    <select id="trig-mode" title="トリガー条件">
+      <option value="eq" selected>==</option>
+      <option value="rise">↑ 立ち上がり</option>
+      <option value="fall">↓ 立ち下がり</option>
+    </select>
+    <input id="trig-val" type="text" placeholder="value (hex)" title="比較値（16 進。1 ビット信号は 0 / 1）">
+    <input id="trig-post" type="text" placeholder="post (clks)" title="発火後に記録するクロック数（0 = 即停止）">
+    <button id="btn-trig-set" title="トリガーを設定して実行を再開します">Set</button>
+    <button id="btn-trig-clear" title="トリガーを解除します">Clear</button>
+    <button id="btn-goto-trig" title="トリガー発火位置を画面中央へ移動します">⊙ Trig</button>
+    <span id="trig-msg"></span>
+  </div>
+  <div id="la-nav">
+    <div class="la-nav-left">
+      <button id="la-nav-ll" title="最も古いデータへ">&#x00AB;</button>
+      <button id="la-nav-l"  title="1 画面ぶん過去へ">&#x2039;</button>
+    </div>
+    <div class="la-nav-center">
+      <button id="la-zoom-out" title="縮小（マウスホイール対応）">−</button>
+      <select id="la-zoom-sel" title="ズーム倍率">
+        <option value="0">1/4x</option>
+        <option value="1">1/2x</option>
+        <option value="2" selected>1x</option>
+        <option value="3">2x</option>
+        <option value="4">4x</option>
+        <option value="5">8x</option>
+        <option value="6">16x</option>
+        <option value="7">32x</option>
+        <option value="8">64x</option>
+      </select>
+      <button id="la-zoom-in" title="拡大（マウスホイール対応）">＋</button>
+    </div>
+    <div class="la-nav-right">
+      <button id="la-nav-r"  title="1 画面ぶん最新へ">&#x203A;</button>
+      <button id="la-nav-rr" title="最新データへ（ライブ追従）">&#x00BB;</button>
+    </div>
+  </div>
+  <div id="la-wrap"><canvas id="la" width="1200" height="120"></canvas></div>
 
   <script>
+  function showError(e) {
+    console.error('[01-counter]', e);
+    var box = document.getElementById('error-box');
+    box.style.display = 'block';
+    box.textContent = '初期化に失敗しました: ' + (e && e.message ? e.message : e);
+  }
+
   var Module = {
     onRuntimeInitialized: function () {
-      Module._sim_init();
-
-      const canvas   = document.getElementById('la');
-      const ctx      = canvas.getContext('2d');
-      const W        = 8;
-      const TRACK_H  = canvas.height / W;   // 30px per track
-      const LABEL_W  = 32;
-      const VIEW_W   = canvas.width - LABEL_W;
-      const RING_SIZE = Module._get_ring_size();
-      const ringBase  = Module._get_ring_ptr() >>> 2;  // byte → uint32 index
-
-      let running = false;
-
-      function draw() {
-        const head    = Module._get_head() >>> 0;
-        const heapu32 = Module.HEAPU32;
-        const samples = Math.min(head, VIEW_W, RING_SIZE);
-        const startSample = head - samples;
-
-        ctx.fillStyle = '#1a1a1a';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        for (let bit = W - 1; bit >= 0; bit--) {
-          const track = W - 1 - bit;
-          const yBase = track * TRACK_H;
-          const yHigh = yBase + 4;
-          const yLow  = yBase + TRACK_H - 4;
-
-          // トラック区切り線
-          ctx.strokeStyle = '#2a2a2a';
-          ctx.lineWidth = 0.5;
-          ctx.beginPath();
-          ctx.moveTo(0, yBase + TRACK_H);
-          ctx.lineTo(canvas.width, yBase + TRACK_H);
-          ctx.stroke();
-
-          // ビットラベル
-          ctx.fillStyle = '#555';
-          ctx.font = '11px monospace';
-          ctx.fillText('b' + bit, 4, yBase + TRACK_H * 0.65);
-
-          if (samples === 0) continue;
-
-          // 波形
-          ctx.strokeStyle = '#00e676';
-          ctx.lineWidth = 1.5;
-          ctx.beginPath();
-
-          const firstIdx = startSample & (RING_SIZE - 1);
-          const firstVal = (heapu32[ringBase + firstIdx] >> bit) & 1;
-          ctx.moveTo(LABEL_W, firstVal ? yHigh : yLow);
-
-          for (let i = 0; i < samples; i++) {
-            const idx = (startSample + i) & (RING_SIZE - 1);
-            const val = (heapu32[ringBase + idx] >> bit) & 1;
-            const x   = LABEL_W + i;
-            const y   = val ? yHigh : yLow;
-            ctx.lineTo(x, y);      // 遷移（同値なら垂直ゼロ線）
-            ctx.lineTo(x + 1, y);  // 水平
-          }
-          ctx.stroke();
-        }
-
-        document.getElementById('cycle-info').textContent =
-          (Module._get_head() >>> 0) + ' cycles';
+      try {
+        start();
+      } catch (e) {
+        showError(e);
       }
-
-      function loop() {
-        if (running) {
-          const steps = parseInt(document.getElementById('speed').value);
-          for (let i = 0; i < steps; i++) Module._step();
-        }
-        draw();
-        requestAnimationFrame(loop);
-      }
-
-      document.getElementById('btn-run').addEventListener('click', function () {
-        running = !running;
-        this.textContent = running ? 'Pause' : 'Run';
-      });
-
-      document.getElementById('btn-reset').addEventListener('click', function () {
-        Module._reset_sim();
-        running = false;
-        document.getElementById('btn-run').textContent = 'Run';
-      });
-
-      requestAnimationFrame(loop);
     }
   };
+
+  function start() {
+    Module._sim_init();
+
+    var RING_SIZE  = Module._get_ring_size();
+    var RING_WORDS = Module._get_ring_words();
+    var ringBase   = Module._get_ring_ptr() >>> 2;  // byte → uint32 index
+
+    var la = new RTLScopeLA(Object.assign({}, COUNTER_LA_CONFIG, {
+      ringSize:  RING_SIZE,
+      ringWords: RING_WORDS,
+    }));
+    window.la = la;
+    la.buildToggles();
+    la.setZoom(5);  // 8x: b0 の周期と count の値が読める倍率で開始する
+
+    var running  = false;
+    var btnRun   = document.getElementById('btn-run');
+    var speedEl  = document.getElementById('speed');
+    var cycleEl  = document.getElementById('cycle-info');
+
+    function setRunning(on) {
+      running = on;
+      btnRun.textContent = running ? 'Pause' : 'Run';
+    }
+
+    var ctrl = initLaCtrl({
+      la: la,
+      signals: COUNTER_LA_SIGNALS,
+      storagePrefix: COUNTER_LA_CONFIG.storagePrefix,
+      backend: {
+        freeze:          function () { Module._sim_freeze_ring(); },
+        thaw:            function () { Module._sim_thaw_ring(); },
+        isFrozen:        function () { return !!Module._sim_ring_frozen(); },
+        setLA:           function (on) { Module._sim_set_la(on ? 1 : 0); },
+        setPostDelay:    function (n) { Module._sim_set_post_delay(n); },
+        clearTrigger:    function () { Module._sim_clear_trigger(); },
+        setEdgeTrigger:  function (word, bit, dir) { Module._sim_set_edge_trigger(word, bit, dir); },
+        setValueTrigger: function (word, mask, cmp) { Module._sim_set_value_trigger(word, mask, cmp); },
+      },
+      onArm: function () { setRunning(true); },
+    });
+
+    // ring buffer 全体を指す TypedArray ビュー（メモリ拡張で HEAPU32 が変わるため毎フレーム取り直す）
+    function ringView() {
+      return Module.HEAPU32.subarray(ringBase, ringBase + RING_SIZE * RING_WORDS);
+    }
+
+    function loop() {
+      try {
+        if (running) {
+          Module._sim_run_n(parseInt(speedEl.value, 10));
+          if (Module._sim_trigger_hit()) setRunning(false);  // トリガー停止
+        }
+        var head   = Module._get_head() >>> 0;
+        var frozen = !!Module._sim_ring_frozen();
+        la.update(head, ringView(), frozen, Module._sim_get_trig_fire_head());
+        ctrl.sync(frozen);
+        cycleEl.textContent = head + ' cycles';
+      } catch (e) {
+        showError(e);
+        return;  // エラー時は再スケジュールしない
+      }
+      requestAnimationFrame(loop);
+    }
+
+    btnRun.addEventListener('click', function () { setRunning(!running); });
+    document.getElementById('btn-reset').addEventListener('click', function () {
+      Module._reset_sim();
+      setRunning(false);
+    });
+
+    requestAnimationFrame(loop);
+  }
   </script>
 <p id="copyright" style="font-size:12px;color:#555;margin:6px 0 0;">&copy; 2026 <a href="https://github.com/tommie-jp" target="_blank" rel="noopener" style="color:#666;">tommie.jp</a>
   &nbsp;&mdash;&nbsp;
   <a href="01-counter-QR.png" target="_blank" rel="noopener" style="color:#666;">QR</a>
 </p>
+  <script src="js/sft-counter-la-defs.js"></script>
+  <script src="js/rtlscope-la.js"></script>
+  <script src="js/sft-la-ctrl.js"></script>
   <script src="sim.js"></script>
 </body>
 </html>
