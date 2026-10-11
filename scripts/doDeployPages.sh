@@ -1,10 +1,10 @@
 #!/bin/bash
-# deploy-gh-pages.sh — Build WASM and deploy to gh-pages branch
+# doDeployPages.sh — Build WASM and deploy to gh-pages branch
 #
 # Usage:
-#   scripts/deploy-gh-pages.sh          # deploy all examples
-#   scripts/deploy-gh-pages.sh 06       # deploy only example 06-8080
-#   scripts/deploy-gh-pages.sh --no-build 06  # skip build, deploy only
+#   scripts/doDeployPages.sh          # deploy all examples
+#   scripts/doDeployPages.sh 06       # deploy only example 06-8080
+#   scripts/doDeployPages.sh --no-build 06  # skip build, deploy only
 
 set -euo pipefail
 

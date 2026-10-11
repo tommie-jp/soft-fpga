@@ -14,14 +14,17 @@ var ioLog        = [];   // [{port, data, isWrite}, ...]
 var ioLogMaxLen  = 200;
 var prevRingHead = 0;
 
-// NOTE: ここの `idx * 6` は RING_WORDS=7 と不一致の既存ストライドバグ
-//       （tests/helpers/ring.mjs で修正済みの問題と同根）。分離では機能不変を保つため
-//       現状維持し、別コミットで RING_WORDS 連動へ修正予定。
+// リングは 1 サンプル RING_WORDS ワード (sft-8080-la-defs.js。harness は 7)。
+// 以前はここを `idx * 6` で読んでいて、別のサンプルの Word 0 を拾い、
+// I/O Log に合わない行 (`OUT $DC $2F` など) が出ていた。
 function processRingForIOLog(ring32, newHead) {
-  var n = Math.min((newHead - prevRingHead) >>> 0, 4096);
+  var size = (ring32.length / RING_WORDS) | 0;   // サンプル数 (2 のべき乗)
+  if (size === 0) return;
+  var n = Math.min((newHead - prevRingHead) >>> 0, size);
+  var first = (newHead - n) >>> 0;
   for (var i = 0; i < n; i++) {
-    var idx = (prevRingHead + i) & (4096 - 1);
-    var s   = ring32[idx * 6] >>> 0;  // Word 0（6 ワード/サンプル）
+    var idx = (first + i) & (size - 1);
+    var s   = ring32[idx * RING_WORDS] >>> 0;  // Word 0
     if (s & (1 << 24)) {  // io_req
       ioLog.push({ port: s & 0xFF, data: (s >> 16) & 0xFF, isWrite: !!(s & (1 << 25)) });
       if (ioLog.length > ioLogMaxLen) ioLog.shift();

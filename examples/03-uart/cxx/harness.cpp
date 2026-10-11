@@ -28,12 +28,16 @@ static uint32_t  ring[RING_SIZE];
 static uint32_t  head = 0;
 
 // 送信キュー (8バイト)
-static const int TX_QUEUE_SIZE = 8;
+// 送信欄 (maxlength=32) の字が全部入る大きさ。8 だと 7 字までしか積めなかった。
+static const int TX_QUEUE_SIZE = 64;
 static uint8_t   tx_queue[TX_QUEUE_SIZE];
 static int       tx_q_head = 0, tx_q_tail = 0;
 
 static uint8_t   last_rx_data    = 0;
 static uint32_t  rx_valid_count  = 0;
+// 受信した字の記録。1 回の描画の間に何字届いても、画面が全部を読めるようにする。
+static const uint32_t RX_LOG_SIZE = 64;   // 2 のべき乗
+static uint8_t   rx_log[RX_LOG_SIZE];
 
 extern "C" {
 
@@ -66,6 +70,7 @@ EMSCRIPTEN_KEEPALIVE void step() {
 
     if (top->o_rx_valid) {
         last_rx_data = top->o_rx_data;
+        rx_log[rx_valid_count & (RX_LOG_SIZE - 1)] = top->o_rx_data;
         rx_valid_count++;
     }
 
@@ -113,6 +118,12 @@ EMSCRIPTEN_KEEPALIVE uint8_t get_rx_data() {
 
 EMSCRIPTEN_KEEPALIVE uint32_t get_rx_valid_count() {
     return rx_valid_count;
+}
+
+// n 番目 (0 始まり) に受信した字。古すぎて記録から落ちた字は 0。
+EMSCRIPTEN_KEEPALIVE uint8_t get_rx_byte(uint32_t n) {
+    if (rx_valid_count - n > RX_LOG_SIZE) return 0;
+    return rx_log[n & (RX_LOG_SIZE - 1)];
 }
 
 EMSCRIPTEN_KEEPALIVE uint32_t* get_ring_ptr()  { return ring; }

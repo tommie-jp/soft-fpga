@@ -258,11 +258,15 @@
         // 受信履歴
         const rxCount = Module._get_rx_valid_count() >>> 0;
         if (rxCount !== prevRxCount) {
-          const b = Module._get_rx_data();
-          const line = document.createElement('div');
-          line.className = 'byte';
-          line.textContent = '> ' + fmtByte(b);
-          rxHistory.appendChild(line);
+          // 前の描画から増えた分を全部出す (1 回の描画の間に何字届いてもよい)。
+          // ハーネスの記録は 64 字なので、それより古い分は飛ばす。
+          const from = Math.max(prevRxCount, rxCount - 64);
+          for (let n = from; n < rxCount; n++) {
+            const line = document.createElement('div');
+            line.className = 'byte';
+            line.textContent = '> ' + fmtByte(Module._get_rx_byte(n));
+            rxHistory.appendChild(line);
+          }
           rxHistory.scrollTop = rxHistory.scrollHeight;
           prevRxCount = rxCount;
         }

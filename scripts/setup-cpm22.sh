@@ -9,9 +9,10 @@
 # CP/M 2.2 は Caldera が 2001 年にオープンソースとして公開した。
 # ソース: http://www.cpm.z80.de/source.html
 #
-# 利用するバイナリ: SIMH AltairZ80 シミュレータ付属の
-#   altairz80/disks/cpm22.dsk (IBM 3740 フォーマット)
-# から CCP+BDOS を抽出する。
+# 利用するバイナリ: z80pack (MIT) の cpmsim/srccpm2/cpm.bin。
+#   CCP が $E400 に組まれた CP/M 2.2 の像なので、0x880 から 5632 バイトを切り出し、
+#   scripts/cpm22-reloc.txt の位置 (1072 か所) の上位バイトから 8 を引いて $DC00 用に組み直す。
+#   できた像は MD5 で確かめる。
 
 set -euo pipefail
 
@@ -38,25 +39,39 @@ if [ ! -f "$BIOS_BIN" ]; then
 fi
 
 # 3. CCP+BDOS バイナリを入手
-#    CP/M 2.2 システムトラック (2 tracks × 26 sectors × 128 B = 6656 bytes)
-#    のうち CCP は先頭 2048 B、BDOS は続く 3584 B。
-#    RunCPM プロジェクトの CPM22.SYS を使う（CCP+BDOS の raw バイナリ）。
+#    z80pack の cpm.bin (コミットを固定) を取り、$DC00 用に組み直す。
+#    以前は RunCPM の CPM22.SYS を取っていたが、RunCPM はそのファイルを置いていない (404)。
 CPM22_BIN="$ROM_DIR/cpm22.bin"
+CPM22_MD5="62239bb06db6e149fd07440c3bae71d0"
+Z80PACK_URL="https://raw.githubusercontent.com/udo-munk/z80pack/1cf2c6799c6ab31701fb49488da8dfa8400ac32e/cpmsim/srccpm2/cpm.bin"
 if [ ! -f "$CPM22_BIN" ]; then
     mkdir -p "$ROM_DIR"
-    echo "[INFO] CP/M 2.2 CCP+BDOS バイナリをダウンロードします..."
-    # RunCPM の CPM22.SYS は CCP+BDOS の raw binary (5632 bytes)
-    # ライセンス: CP/M 2.2 Caldera open-source release 2001
-    wget -q -O "$CPM22_BIN" \
-        "https://github.com/MockbaTheBorg/RunCPM/raw/master/RunCPM/CPM22.SYS" \
-        || {
-            echo "[ERROR] ダウンロードに失敗しました。"
-            echo "        $CPM22_BIN に CP/M 2.2 の CCP+BDOS binary (5632 bytes) を"
-            echo "        手動で配置してから再実行してください。"
-            echo "        入手先: http://www.cpm.z80.de/binary.html"
-            exit 1
-        }
-    echo "[OK] $CPM22_BIN ($(wc -c < "$CPM22_BIN") bytes)"
+    echo "[INFO] CP/M 2.2 の像を z80pack から取り、\$DC00 用に組み直します..."
+    TMP_SRC="$(mktemp)"
+    trap 'rm -f "$TMP_SRC"' EXIT
+    wget -q -O "$TMP_SRC" "$Z80PACK_URL" || {
+        echo "[ERROR] ダウンロードに失敗しました: $Z80PACK_URL"
+        echo "        $CPM22_BIN に CP/M 2.2 の CCP+BDOS binary (5632 bytes, \$DC00) を"
+        echo "        手動で配置してから再実行してください。"
+        exit 1
+    }
+    python3 - "$TMP_SRC" "$REPO_ROOT/scripts/cpm22-reloc.txt" "$CPM22_BIN" <<'PY'
+import sys
+src = open(sys.argv[1], 'rb').read()[0x880:0x880 + 5632]
+bitmap = bytes.fromhex(open(sys.argv[2]).read().replace('\n', ''))
+out = bytearray(src)
+for i in range(len(out)):
+    if bitmap[i >> 3] & (1 << (i & 7)):
+        out[i] = (out[i] - 8) & 0xFF   # $E4xx -> $DCxx
+open(sys.argv[3], 'wb').write(out)
+PY
+    got="$(md5sum "$CPM22_BIN" | cut -d' ' -f1)"
+    if [ "$got" != "$CPM22_MD5" ]; then
+        echo "[ERROR] 組み直した像の MD5 が合いません ($got)。消して止めます。"
+        rm -f "$CPM22_BIN"
+        exit 1
+    fi
+    echo "[OK] $CPM22_BIN ($(wc -c < "$CPM22_BIN") bytes, MD5 一致)"
 else
     echo "[SKIP] $CPM22_BIN は既に存在します"
 fi
