@@ -64,9 +64,21 @@ EMSCRIPTEN_KEEPALIVE void sim_init() {
     trapped      = false;
     passed       = false;
 
-    top->i_reset_n = 0;
+    // hoglet cpu_65c02: IRQ は active-HIGH、RDY=0 で停止するため明示的に設定する。
+    top->i_irq = 0;
+    top->i_nmi = 0;
+    top->i_rdy = 1;
+    top->i_di  = 0xFF;
+    top->clk   = 0;
+    top->eval();
+
+    top->reset = 1;
     for (int i = 0; i < 8; i++) do_step();
-    top->i_reset_n = 1;
+    top->reset = 0;
+    top->eval();
+    // リセットベクタ取得サイクルに備えて DI を先読みする（04 の harness と同じ）。
+    top->i_di = ram[(uint16_t)top->o_ab];
+    top->eval();
 }
 
 EMSCRIPTEN_KEEPALIVE void step(int n) {
@@ -74,7 +86,9 @@ EMSCRIPTEN_KEEPALIVE void step(int n) {
     for (int i = 0; i < n && !ring.hit(); i++) {   // LA トリガーで Freeze したら打ち切る
         do_step();
         if (top->o_sync) {
-            uint16_t pc = (uint16_t)top->o_ab;
+            // SYNC=1 時の o_ab は次サイクルのアドレスなので使えない。
+            // PC は既に +1 されているため、オペコードアドレス = o_pc - 1。
+            uint16_t pc = (uint16_t)top->o_pc - 1u;
             if (pc == prev_pc) {
                 trapped = true;
                 passed  = (pc == 0x3469);
