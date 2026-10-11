@@ -5,31 +5,10 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$SCRIPT_DIR/.."
 source "$SCRIPT_DIR/_la-exports.inc.sh"   # LA_EXPORTS（Logic Analyzer 共通 API）
 EXAMPLE="$ROOT/examples/03-uart"
-OBJ_DIR="$ROOT/obj_dir"
-VERILATOR_ROOT="${VERILATOR_ROOT:-$(verilator --getenv VERILATOR_ROOT)}"
-
-VERILATED_CPP="$ROOT/cxx/verilated.cpp"
-if [ ! -f "$VERILATED_CPP" ]; then
-    cp "$VERILATOR_ROOT/include/verilated.cpp" "$VERILATED_CPP"
-fi
-WASM_COMPAT="$ROOT/cxx/wasm_compat.h"
-
-# emsdk が未設定なら自動でソース
-if ! command -v em++ &>/dev/null; then
-    EMSDK_ENV=""
-    for candidate in \
-        "$HOME/emsdk/emsdk_env.sh" \
-        "$HOME/emsdk/emsdk/emsdk_env.sh"; do
-        [ -f "$candidate" ] && EMSDK_ENV="$candidate" && break
-    done
-    if [ -n "$EMSDK_ENV" ]; then
-        # shellcheck disable=SC1090
-        source "$EMSDK_ENV" 2>/dev/null
-    else
-        echo "ERROR: em++ not found. Install emsdk and source emsdk_env.sh" >&2
-        exit 1
-    fi
-fi
+OBJ_DIR="$ROOT/obj_dir_03"
+source "$SCRIPT_DIR/_build-wasm-common.sh"
+wasm_sync_verilated_cpp if-missing
+wasm_require_emsdk
 
 echo "=== Verilator ==="
 verilator --cc \
@@ -42,12 +21,7 @@ verilator --cc \
 COMMON_FLAGS="-O2 -std=c++17 -DVL_IGNORE_UNKNOWN_ARCH -I$VERILATOR_ROOT/include -I$OBJ_DIR"
 
 echo "=== Emscripten: verilated.cpp ==="
-# shellcheck disable=SC2086
-em++ $COMMON_FLAGS \
-    -I"$ROOT/cxx" \
-    -include "$WASM_COMPAT" \
-    -c "$VERILATED_CPP" \
-    -o "$OBJ_DIR/verilated.wasm.o"
+wasm_compile_verilated_cpp
 
 echo "=== Emscripten: link ==="
 # shellcheck disable=SC2086

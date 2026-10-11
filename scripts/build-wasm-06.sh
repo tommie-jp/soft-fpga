@@ -5,29 +5,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$SCRIPT_DIR/.."
 EXAMPLE="$ROOT/examples/06-8080"
 OBJ_DIR="$ROOT/obj_dir_06_wasm"
-VERILATOR_ROOT="${VERILATOR_ROOT:-$(verilator --getenv VERILATOR_ROOT)}"
-
-VERILATED_CPP="$ROOT/cxx/verilated.cpp"
-# Verilator バージョンと obj_dir の生成コードを常に合わせるため上書きコピーする
-cp "$VERILATOR_ROOT/include/verilated.cpp" "$VERILATED_CPP"
-WASM_COMPAT="$ROOT/cxx/wasm_compat.h"
-
-# source emsdk if em++ not in PATH
-if ! command -v em++ &>/dev/null; then
-    EMSDK_ENV=""
-    for candidate in \
-        "$HOME/emsdk/emsdk_env.sh" \
-        "$HOME/emsdk/emsdk/emsdk_env.sh"; do
-        [ -f "$candidate" ] && EMSDK_ENV="$candidate" && break
-    done
-    if [ -n "$EMSDK_ENV" ]; then
-        # shellcheck disable=SC1090
-        source "$EMSDK_ENV" 2>/dev/null
-    else
-        echo "ERROR: em++ not found. Install emsdk and source emsdk_env.sh" >&2
-        exit 1
-    fi
-fi
+source "$SCRIPT_DIR/_build-wasm-common.sh"
+wasm_sync_verilated_cpp always
+wasm_require_emsdk
 
 echo "=== Verilator ==="
 # バージョン混在を防ぐため毎回クリーンビルド
@@ -44,12 +24,7 @@ verilator --cc \
 COMMON_FLAGS="-O2 -std=c++17 -DVL_IGNORE_UNKNOWN_ARCH -I$VERILATOR_ROOT/include -I$VERILATOR_ROOT/include/vltstd -I$OBJ_DIR"
 
 echo "=== Emscripten: verilated.cpp ==="
-# shellcheck disable=SC2086
-em++ $COMMON_FLAGS \
-    -I"$ROOT/cxx" \
-    -include "$WASM_COMPAT" \
-    -c "$VERILATED_CPP" \
-    -o "$OBJ_DIR/verilated.wasm.o"
+wasm_compile_verilated_cpp
 
 BIOS="$EXAMPLE/sw/cpm/bios/bios.bin"
 CPM="$EXAMPLE/rom/cpm22.bin"

@@ -7,28 +7,9 @@ source "$SCRIPT_DIR/_la-exports.inc.sh"   # LA_EXPORTS（Logic Analyzer 共通 A
 EXAMPLE="$ROOT/examples/05-dormann"
 EXAMPLE_04="$ROOT/examples/04-6502"
 OBJ_DIR="$ROOT/obj_dir_05"
-VERILATOR_ROOT="${VERILATOR_ROOT:-$(verilator --getenv VERILATOR_ROOT)}"
-
-VERILATED_CPP="$ROOT/cxx/verilated.cpp"
-if [ ! -f "$VERILATED_CPP" ]; then
-    cp "$VERILATOR_ROOT/include/verilated.cpp" "$VERILATED_CPP"
-fi
-WASM_COMPAT="$ROOT/cxx/wasm_compat.h"
-
-if ! command -v em++ &>/dev/null; then
-    EMSDK_ENV=""
-    for candidate in \
-        "$HOME/emsdk/emsdk_env.sh" \
-        "$HOME/emsdk/emsdk/emsdk_env.sh"; do
-        [ -f "$candidate" ] && EMSDK_ENV="$candidate" && break
-    done
-    if [ -n "$EMSDK_ENV" ]; then
-        # shellcheck disable=SC1090
-        source "$EMSDK_ENV" 2>/dev/null
-    else
-        echo "ERROR: em++ not found." >&2; exit 1
-    fi
-fi
+source "$SCRIPT_DIR/_build-wasm-common.sh"
+wasm_sync_verilated_cpp if-missing
+wasm_require_emsdk
 
 HOGLET="$EXAMPLE_04/verilog/hoglet"
 
@@ -48,12 +29,7 @@ verilator --cc \
 COMMON_FLAGS="-O2 -std=c++17 -DVL_IGNORE_UNKNOWN_ARCH -I$VERILATOR_ROOT/include -I$OBJ_DIR"
 
 echo "=== Emscripten: verilated.cpp ==="
-# shellcheck disable=SC2086
-em++ $COMMON_FLAGS \
-    -I"$ROOT/cxx" \
-    -include "$WASM_COMPAT" \
-    -c "$VERILATED_CPP" \
-    -o "$OBJ_DIR/verilated.wasm.o"
+wasm_compile_verilated_cpp
 
 echo "=== Emscripten: link ==="
 BIN="$ROOT/verif/dormann/6502_functional_test.bin"

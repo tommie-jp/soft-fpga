@@ -4,33 +4,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$SCRIPT_DIR/.."
 EXAMPLE="$ROOT/examples/01-counter"
-OBJ_DIR="$ROOT/obj_dir"
-VERILATOR_ROOT="${VERILATOR_ROOT:-$(verilator --getenv VERILATOR_ROOT)}"
-
-# Verilator ランタイムを cxx/ にコピーして使用（システムパスに直接依存しない）
-# Wasm 互換パッチ(wasm_compat.h)を -include で当てながらコンパイルする。
-VERILATED_CPP="$ROOT/cxx/verilated.cpp"
-if [ ! -f "$VERILATED_CPP" ]; then
-    cp "$VERILATOR_ROOT/include/verilated.cpp" "$VERILATED_CPP"
-fi
-WASM_COMPAT="$ROOT/cxx/wasm_compat.h"
-
-# emsdk が未設定なら自動でソース
-if ! command -v em++ &>/dev/null; then
-    EMSDK_ENV=""
-    for candidate in \
-        "$HOME/emsdk/emsdk_env.sh" \
-        "$HOME/emsdk/emsdk/emsdk_env.sh"; do
-        [ -f "$candidate" ] && EMSDK_ENV="$candidate" && break
-    done
-    if [ -n "$EMSDK_ENV" ]; then
-        # shellcheck disable=SC1090
-        source "$EMSDK_ENV" 2>/dev/null
-    else
-        echo "ERROR: em++ not found. Install emsdk and source emsdk_env.sh" >&2
-        exit 1
-    fi
-fi
+OBJ_DIR="$ROOT/obj_dir_01"
+source "$SCRIPT_DIR/_build-wasm-common.sh"
+wasm_sync_verilated_cpp if-missing
+wasm_require_emsdk
 
 echo "=== Verilator ==="
 verilator --cc "$EXAMPLE/verilog/counter.v" \
@@ -39,15 +16,7 @@ verilator --cc "$EXAMPLE/verilog/counter.v" \
 COMMON_FLAGS="-O2 -std=c++17 -DVL_IGNORE_UNKNOWN_ARCH -I$VERILATOR_ROOT/include -I$OBJ_DIR"
 
 echo "=== Emscripten: verilated.cpp ==="
-# verilated.cpp のみ wasm_compat.h を -include して別コンパイル。
-# -I$ROOT/cxx を先頭に置くことで cxx/verilatedos_c.h が優先され、
-# Linux 固有の pthread_getaffinity_np 呼び出しを回避する。
-# shellcheck disable=SC2086
-em++ $COMMON_FLAGS \
-    -I"$ROOT/cxx" \
-    -include "$WASM_COMPAT" \
-    -c "$VERILATED_CPP" \
-    -o "$OBJ_DIR/verilated.wasm.o"
+wasm_compile_verilated_cpp
 
 echo "=== Emscripten: link ==="
 # shellcheck disable=SC2086
@@ -66,7 +35,3 @@ echo "  $EXAMPLE/web/sim.js"
 echo "  $EXAMPLE/web/sim.wasm"
 echo ""
 echo "Serve: cd $EXAMPLE/web && python3 -m http.server"
-
-echo ""
-echo "========================================"
-bash "$SCRIPT_DIR/build-wasm-06.sh"
