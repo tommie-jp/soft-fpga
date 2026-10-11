@@ -45,9 +45,10 @@
       <div><span class="label">Timer   : </span><span class="val" id="r-timer">-</span></div>
       <div><span class="label">btn_req : </span><span class="val" id="r-btnreq">-</span></div>
     </div>
-    <!-- Logic Analyzer -->
-    <canvas id="la" width="360" height="240"></canvas>
   </div>
+
+  <!-- Logic Analyzer（js/rtlscope-la.js: 06-8080 と同じ UI） -->
+  <div id="la-root" style="margin-top:12px;"></div>
 
   <script>
   // ── 定数 ────────────────────────────────────────────────
@@ -66,23 +67,6 @@
   const BIT_TIMER   = 16;  // bits[25:16]
 
   const BIT_BTN    = 9;
-
-  // Logic Analyzer の信号定義
-  // type:'bit'   → 0/1 の矩形波
-  // type:'bus'   → 値をアナログ風（高さで表現）の波形
-  // type:'state' → 状態名ラベル付きバス
-  const LA_SIGNALS = [
-    { label: 'clk',     bit: BIT_CLK,    type: 'bit', color: '#888888' },
-    { label: 'rst',     bit: BIT_RST,    type: 'bit', color: '#ff8888' },
-    { label: 'btn',     bit: BIT_BTN,    type: 'bit', color: '#aaaaff' },
-    { label: 'red',     bit: BIT_RED,    type: 'bit', color: '#ff4444' },
-    { label: 'yellow',  bit: BIT_YELLOW, type: 'bit', color: '#ffdd00' },
-    { label: 'green',   bit: BIT_GREEN,  type: 'bit', color: '#44dd44' },
-    { label: 'walk',    bit: BIT_WALK,   type: 'bit', color: '#00ccff' },
-    { label: 'state',   bit: BIT_STATE,  type: 'state', width: 2, color: '#cc88ff' },
-    { label: 'timer',   bit: BIT_TIMER,  type: 'bus',   width: 10, max: 512, color: '#00ccff' },
-    { label: 'btn_req', bit: BIT_BTNREQ, type: 'bit', color: '#ffaa00' },
-  ];
 
   // ── State Diagram 描画 ──────────────────────────────────
   // ノード座標 [x, y] （canvas 520×200）
@@ -163,126 +147,6 @@
     }
   }
 
-  // ── Logic Analyzer 描画 ────────────────────────────────
-  const LA_H     = 240;
-  const LA_W     = 360;
-  const LABEL_W  = 44;
-  const VIEW_W   = LA_W - LABEL_W;
-  const TRACK_H  = LA_H / LA_SIGNALS.length;
-
-  function drawLA(ctx, heapu32, ringBase, head, ringSize) {
-    ctx.fillStyle = '#1a1a1a';
-    ctx.fillRect(0, 0, LA_W, LA_H);
-
-    const samples   = Math.min(head, VIEW_W, ringSize);
-    const startSamp = head - samples;
-
-    for (let t = 0; t < LA_SIGNALS.length; t++) {
-      const sig   = LA_SIGNALS[t];
-      const yBase = t * TRACK_H;
-
-      // 区切り線
-      ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 0.5;
-      ctx.beginPath();
-      ctx.moveTo(0, yBase + TRACK_H); ctx.lineTo(LA_W, yBase + TRACK_H);
-      ctx.stroke();
-
-      // ラベル
-      ctx.fillStyle = '#555'; ctx.font = '11px monospace';
-      ctx.textAlign = 'left';
-      ctx.fillText(sig.label, 4, yBase + TRACK_H * 0.65);
-
-      if (samples === 0) continue;
-
-      ctx.strokeStyle = sig.color; ctx.lineWidth = 1.5;
-      ctx.beginPath();
-
-      if (sig.type === 'bit') {
-        // 0/1 矩形波
-        const yHigh = yBase + 4;
-        const yLow  = yBase + TRACK_H - 4;
-        const firstIdx = startSamp & (ringSize - 1);
-        const firstVal = (heapu32[ringBase + firstIdx] >> sig.bit) & 1;
-        ctx.moveTo(LABEL_W, firstVal ? yHigh : yLow);
-        for (let i = 0; i < samples; i++) {
-          const idx = (startSamp + i) & (ringSize - 1);
-          const val = (heapu32[ringBase + idx] >> sig.bit) & 1;
-          const x   = LABEL_W + i;
-          const y   = val ? yHigh : yLow;
-          ctx.lineTo(x, y);
-          ctx.lineTo(x + 1, y);
-        }
-      } else if (sig.type === 'bus') {
-        // bus: アナログ風（値の高さで表現）
-        const MASK     = (1 << sig.width) - 1;
-        const yTop     = yBase + 3;
-        const yBottom  = yBase + TRACK_H - 3;
-        const yRange   = yBottom - yTop;
-        const toY = v => yBottom - (v / sig.max) * yRange;
-
-        const firstIdx = startSamp & (ringSize - 1);
-        const firstVal = (heapu32[ringBase + firstIdx] >> sig.bit) & MASK;
-        ctx.moveTo(LABEL_W, toY(firstVal));
-        for (let i = 0; i < samples; i++) {
-          const idx = (startSamp + i) & (ringSize - 1);
-          const val = (heapu32[ringBase + idx] >> sig.bit) & MASK;
-          ctx.lineTo(LABEL_W + i, toY(val));
-        }
-        // 現在値をラベル右に表示
-        const lastIdx = (startSamp + samples - 1) & (ringSize - 1);
-        const lastVal = (heapu32[ringBase + lastIdx] >> sig.bit) & MASK;
-        ctx.fillStyle = sig.color; ctx.font = '10px monospace';
-        ctx.textAlign = 'left';
-        ctx.fillText(lastVal, LABEL_W + samples + 2, yBase + TRACK_H * 0.65);
-      } else {
-        // state: 状態名ラベル付きバス（ハイ固定線 + 遷移時に縦線 + 中央に状態名）
-        const MASK   = (1 << sig.width) - 1;
-        const yTop   = yBase + 4;
-        const yMid   = yBase + TRACK_H / 2;
-        const yBot   = yBase + TRACK_H - 4;
-
-        let prevVal = (heapu32[ringBase + (startSamp & (ringSize - 1))] >> sig.bit) & MASK;
-        let segStart = LABEL_W;
-        const segments = [];  // {x, w, val}
-
-        for (let i = 1; i < samples; i++) {
-          const idx = (startSamp + i) & (ringSize - 1);
-          const val = (heapu32[ringBase + idx] >> sig.bit) & MASK;
-          if (val !== prevVal) {
-            segments.push({ x: segStart, w: LABEL_W + i - segStart, val: prevVal });
-            segStart = LABEL_W + i;
-            prevVal = val;
-          }
-        }
-        segments.push({ x: segStart, w: LABEL_W + samples - segStart, val: prevVal });
-
-        for (const seg of segments) {
-          // 上下の水平線
-          ctx.strokeStyle = sig.color; ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.moveTo(seg.x, yTop); ctx.lineTo(seg.x + seg.w, yTop); ctx.stroke();
-          ctx.beginPath();
-          ctx.moveTo(seg.x, yBot); ctx.lineTo(seg.x + seg.w, yBot); ctx.stroke();
-          // 左右の縦線
-          ctx.beginPath();
-          ctx.moveTo(seg.x, yTop); ctx.lineTo(seg.x, yBot); ctx.stroke();
-          ctx.beginPath();
-          ctx.moveTo(seg.x + seg.w, yTop); ctx.lineTo(seg.x + seg.w, yBot); ctx.stroke();
-          // 状態名（幅が十分なら）
-          const name = STATE_NAMES[seg.val] || String(seg.val);
-          ctx.fillStyle = sig.color; ctx.font = '9px monospace';
-          ctx.textAlign = 'center';
-          const cx = seg.x + seg.w / 2;
-          if (seg.w > name.length * 6) {
-            ctx.fillText(name, cx, yMid + 3);
-          }
-        }
-        ctx.strokeStyle = sig.color;  // stroke() below is a no-op for state type
-      }
-      ctx.stroke();
-    }
-  }
-
   // ── メイン ──────────────────────────────────────────────
   var Module = {
     onRuntimeInitialized: function () {
@@ -290,29 +154,34 @@
 
       const sdCanvas = document.getElementById('sd');
       const sdCtx    = sdCanvas.getContext('2d');
-      const laCanvas = document.getElementById('la');
-      const laCtx    = laCanvas.getContext('2d');
-
-      const RING_SIZE = Module._get_ring_size();
-      const ringBase  = Module._get_ring_ptr() >>> 2;  // byte → uint32 index
 
       let running = false;
+      function setRunning(on) {
+        running = on;
+        document.getElementById('btn-run').textContent = running ? 'Pause' : 'Run';
+      }
+
+      const lag = setupLa({
+        Module: Module, rootId: 'la-root',
+        config: FSM_LA_CONFIG, signals: FSM_LA_SIGNALS,
+        zoomIdx: 0,   // 1/4x: 状態遷移（数百クロック）全体が見える倍率で開始する
+        onArm: function () { setRunning(true); }
+      });
 
       function loop() {
         if (running) {
-          const steps = parseInt(document.getElementById('speed').value);
-          for (let i = 0; i < steps; i++) Module._step();
+          Module._sim_run_n(parseInt(document.getElementById('speed').value, 10));
+          if (lag.triggerHit()) setRunning(false);   // トリガー停止
         }
 
-        const head    = Module._get_head() >>> 0;
-        const heapu32 = Module.HEAPU32;
+        // Logic Analyzer（Freeze 中は ring が止まるので、head は表示用の総数）
+        const head = lag.draw();
 
         // 最新サンプルを読む
-        const latestIdx = head > 0 ? (head - 1) & (RING_SIZE - 1) : 0;
-        const latest    = head > 0 ? heapu32[ringBase + latestIdx] : 0;
-        const state     = (latest >> BIT_STATE)  & 0x3;
-        const timer     = (latest >> BIT_TIMER)  & 0x3FF;
-        const btnreq    = (latest >> BIT_BTNREQ) & 0x1;
+        const latest = lag.latestWord(0);
+        const state  = (latest >> BIT_STATE)  & 0x3;
+        const timer  = (latest >> BIT_TIMER)  & 0x3FF;
+        const btnreq = (latest >> BIT_BTNREQ) & 0x1;
 
         // State Diagram
         drawStateDiagram(sdCtx, head > 0 ? state : -1);
@@ -322,23 +191,19 @@
         document.getElementById('r-timer').textContent  = head > 0 ? timer : '-';
         document.getElementById('r-btnreq').textContent = head > 0 ? btnreq : '-';
 
-        // Logic Analyzer
-        drawLA(laCtx, heapu32, ringBase, head, RING_SIZE);
-
         document.getElementById('cycle-info').textContent = head + ' cycles';
 
         requestAnimationFrame(loop);
       }
 
       document.getElementById('btn-run').addEventListener('click', function () {
-        running = !running;
-        this.textContent = running ? 'Pause' : 'Run';
+        if (!running) lag.resume();   // トリガー停止後は Thaw して再武装する
+        setRunning(!running);
       });
 
       document.getElementById('btn-reset').addEventListener('click', function () {
         Module._reset_sim();
-        running = false;
-        document.getElementById('btn-run').textContent = 'Run';
+        setRunning(false);
       });
 
       document.getElementById('btn-ped').addEventListener('click', function () {
@@ -349,6 +214,15 @@
     }
   };
   </script>
+<p id="copyright" style="font-size:12px;color:#555;margin:6px 0 0;">&copy; 2026 <a href="https://github.com/tommie-jp" target="_blank" rel="noopener" style="color:#666;">tommie.jp</a>
+  &nbsp;&mdash;&nbsp;
+  <a href="02-traffic-fsm-QR.png" target="_blank" rel="noopener" style="color:#666;">QR</a>
+</p>
+  <script src="js/sft-fsm-la-defs.js"></script>
+  <script src="js/rtlscope-la.js"></script>
+  <script src="js/sft-la-toolbar.js"></script>
+  <script src="js/sft-la-ctrl.js"></script>
+  <script src="js/sft-la-glue.js"></script>
   <script src="sim.js"></script>
 </body>
 </html>

@@ -16,48 +16,6 @@
     button:hover { background: #d0d0d0; }
     label { font-size: 12px; color: #555; }
     #cycle-info { font-size: 12px; color: #666; }
-    .sig-label { font-size: 13px; color: #111; white-space: nowrap; }
-    .la-bar  { display: flex; align-items: flex-start; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
-    .chk {
-      display: inline-flex; align-items: center; gap: 4px; cursor: pointer;
-      font-size: 13px; padding: 2px 7px; border: 1px solid #aaa; border-radius: 3px;
-      background: #f8f8f8; user-select: none; color: #111;
-    }
-    .chk input { cursor: pointer; margin: 0; accent-color: #446; }
-    .trig-bar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 2px; }
-    #trig-detail {
-      display: none; flex-wrap: wrap; align-items: center; gap: 4px;
-      padding: 3px 0; border-top: 1px solid #e0e0e0; margin-top: 2px;
-    }
-    #trig-detail select, #trig-detail input {
-      font-family: monospace; font-size: 13px; padding: 1px 3px; border: 1px solid #aaa; background: #fff;
-    }
-    #trig-val  { width: 90px; }
-    #trig-post { width: 80px; }
-    #trig-msg  { font-size: 12px; color: #555; }
-    /* Logic Analyzer ナビゲーションバー（06-8080 と同じ構成） */
-    #la-nav { display: flex; align-items: center; padding: 2px 0; margin-top: 2px; }
-    .la-nav-left   { display: flex; align-items: center; gap: 3px; flex: 1; }
-    .la-nav-center { display: flex; align-items: center; gap: 3px; justify-content: center; }
-    .la-nav-right  { display: flex; align-items: center; gap: 3px; flex: 1; justify-content: flex-end; }
-    #la-nav button { padding: 1px 8px; line-height: 1.4; min-width: 28px; }
-    #la-zoom-sel {
-      font-size: 13px; padding: 1px 2px; line-height: 1.4;
-      font-family: monospace; border: 1px solid #aaa; background: #fff;
-      cursor: pointer; min-width: 46px; text-align: center;
-    }
-    #la-toggles { display: flex; flex-wrap: wrap; gap: 3px; }
-    .sig-tog {
-      display: inline-flex; align-items: center; gap: 3px;
-      font-size: 13px; font-family: monospace;
-      padding: 2px 8px; border-radius: 10px; cursor: pointer;
-      border: 1px solid #bbb; background: #f0f0f0; color: #444;
-      user-select: none; white-space: nowrap;
-    }
-    .sig-tog.on    { color: #fff; border-color: transparent; }
-    .sig-tog input { display: none; }
-    #la-wrap { position: relative; display: block; }
-    canvas { display: block; max-width: 100%; }
     #error-box { display: none; color: #cc3333; font-size: 13px; margin: 8px 0; white-space: pre-wrap; }
     @media (max-width:500px) { body { margin: 12px; } }
   </style>
@@ -72,62 +30,8 @@
   </div>
   <div id="error-box"></div>
 
-  <!-- Logic Analyzer（js/rtlscope-la.js: 06-8080 と同じライブラリ） -->
-  <div class="la-bar">
-    <span class="sig-label">Logic Analyzer</span>
-    <button id="btn-la-toggle" title="Logic Analyzer ON/OFF。OFF の間は ring buffer への書き込みを止めます。">LA ON</button>
-    <label class="chk" title="信号レーンの塗りつぶし ON/OFF">
-      <input type="checkbox" id="la-fill-chk" checked> Fill
-    </label>
-    <label class="chk" title="信号レーンの網目パターン ON/OFF">
-      <input type="checkbox" id="la-hatch-chk" checked> Hatch
-    </label>
-    <div id="la-toggles"></div>
-  </div>
-  <div class="trig-bar">
-    <button id="btn-freeze" title="ring buffer を凍結／再開します。凍結中も回路は動き続けます。">❄ Freeze</button>
-    <button id="btn-trig-toggle" title="トリガー設定の表示／非表示">⚙ Trigger ▸</button>
-  </div>
-  <div id="trig-detail">
-    <select id="trig-sig" title="トリガー対象の信号"></select>
-    <select id="trig-mode" title="トリガー条件">
-      <option value="eq" selected>==</option>
-      <option value="rise">↑ 立ち上がり</option>
-      <option value="fall">↓ 立ち下がり</option>
-    </select>
-    <input id="trig-val" type="text" placeholder="value (hex)" title="比較値（16 進。1 ビット信号は 0 / 1）">
-    <input id="trig-post" type="text" placeholder="post (clks)" title="発火後に記録するクロック数（0 = 即停止）">
-    <button id="btn-trig-set" title="トリガーを設定して実行を再開します">Set</button>
-    <button id="btn-trig-clear" title="トリガーを解除します">Clear</button>
-    <button id="btn-goto-trig" title="トリガー発火位置を画面中央へ移動します">⊙ Trig</button>
-    <span id="trig-msg"></span>
-  </div>
-  <div id="la-nav">
-    <div class="la-nav-left">
-      <button id="la-nav-ll" title="最も古いデータへ">&#x00AB;</button>
-      <button id="la-nav-l"  title="1 画面ぶん過去へ">&#x2039;</button>
-    </div>
-    <div class="la-nav-center">
-      <button id="la-zoom-out" title="縮小（マウスホイール対応）">−</button>
-      <select id="la-zoom-sel" title="ズーム倍率">
-        <option value="0">1/4x</option>
-        <option value="1">1/2x</option>
-        <option value="2" selected>1x</option>
-        <option value="3">2x</option>
-        <option value="4">4x</option>
-        <option value="5">8x</option>
-        <option value="6">16x</option>
-        <option value="7">32x</option>
-        <option value="8">64x</option>
-      </select>
-      <button id="la-zoom-in" title="拡大（マウスホイール対応）">＋</button>
-    </div>
-    <div class="la-nav-right">
-      <button id="la-nav-r"  title="1 画面ぶん最新へ">&#x203A;</button>
-      <button id="la-nav-rr" title="最新データへ（ライブ追従）">&#x00BB;</button>
-    </div>
-  </div>
-  <div id="la-wrap"><canvas id="la" width="1200" height="120"></canvas></div>
+  <!-- Logic Analyzer（js/rtlscope-la.js + js/sft-la-toolbar.js: 06-8080 と同じ UI） -->
+  <div id="la-root"></div>
 
   <script>
   function showError(e) {
@@ -149,19 +53,6 @@
 
   function start() {
     Module._sim_init();
-
-    var RING_SIZE  = Module._get_ring_size();
-    var RING_WORDS = Module._get_ring_words();
-    var ringBase   = Module._get_ring_ptr() >>> 2;  // byte → uint32 index
-
-    var la = new RTLScopeLA(Object.assign({}, COUNTER_LA_CONFIG, {
-      ringSize:  RING_SIZE,
-      ringWords: RING_WORDS,
-    }));
-    window.la = la;
-    la.buildToggles();
-    la.setZoom(5);  // 8x: b0 の周期と count の値が読める倍率で開始する
-
     var running  = false;
     var btnRun   = document.getElementById('btn-run');
     var speedEl  = document.getElementById('speed');
@@ -172,39 +63,20 @@
       btnRun.textContent = running ? 'Pause' : 'Run';
     }
 
-    var ctrl = initLaCtrl({
-      la: la,
-      signals: COUNTER_LA_SIGNALS,
-      storagePrefix: COUNTER_LA_CONFIG.storagePrefix,
-      backend: {
-        freeze:          function () { Module._sim_freeze_ring(); },
-        thaw:            function () { Module._sim_thaw_ring(); },
-        isFrozen:        function () { return !!Module._sim_ring_frozen(); },
-        setLA:           function (on) { Module._sim_set_la(on ? 1 : 0); },
-        setPostDelay:    function (n) { Module._sim_set_post_delay(n); },
-        clearTrigger:    function () { Module._sim_clear_trigger(); },
-        setEdgeTrigger:  function (word, bit, dir) { Module._sim_set_edge_trigger(word, bit, dir); },
-        setValueTrigger: function (word, mask, cmp) { Module._sim_set_value_trigger(word, mask, cmp); },
-      },
-      onArm: function () { setRunning(true); },
+    var lag = setupLa({
+      Module: Module, rootId: 'la-root',
+      config: COUNTER_LA_CONFIG, signals: COUNTER_LA_SIGNALS,
+      zoomIdx: 5,  // 8x: b0 の周期と count の値が読める倍率で開始する
+      onArm: function () { setRunning(true); }
     });
-
-    // ring buffer 全体を指す TypedArray ビュー（メモリ拡張で HEAPU32 が変わるため毎フレーム取り直す）
-    function ringView() {
-      return Module.HEAPU32.subarray(ringBase, ringBase + RING_SIZE * RING_WORDS);
-    }
 
     function loop() {
       try {
         if (running) {
           Module._sim_run_n(parseInt(speedEl.value, 10));
-          if (Module._sim_trigger_hit()) setRunning(false);  // トリガー停止
+          if (lag.triggerHit()) setRunning(false);  // トリガー停止
         }
-        var head   = Module._get_head() >>> 0;
-        var frozen = !!Module._sim_ring_frozen();
-        la.update(head, ringView(), frozen, Module._sim_get_trig_fire_head());
-        ctrl.sync(frozen);
-        cycleEl.textContent = head + ' cycles';
+        cycleEl.textContent = lag.draw() + ' cycles';
       } catch (e) {
         showError(e);
         return;  // エラー時は再スケジュールしない
@@ -212,7 +84,10 @@
       requestAnimationFrame(loop);
     }
 
-    btnRun.addEventListener('click', function () { setRunning(!running); });
+    btnRun.addEventListener('click', function () {
+      if (!running) lag.resume();   // トリガー停止後は Thaw して再武装する
+      setRunning(!running);
+    });
     document.getElementById('btn-reset').addEventListener('click', function () {
       Module._reset_sim();
       setRunning(false);
@@ -227,7 +102,9 @@
 </p>
   <script src="js/sft-counter-la-defs.js"></script>
   <script src="js/rtlscope-la.js"></script>
+  <script src="js/sft-la-toolbar.js"></script>
   <script src="js/sft-la-ctrl.js"></script>
+  <script src="js/sft-la-glue.js"></script>
   <script src="sim.js"></script>
 </body>
 </html>

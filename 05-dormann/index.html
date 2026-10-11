@@ -64,9 +64,18 @@
 
   <div id="prog-wrap"><div id="prog-bar"></div></div>
 
-  <div class="sig-label">Bus Analyzer (addr / data / we / sync)</div>
-  <canvas id="cv" width="760" height="120"></canvas>
+  <!-- Logic Analyzer（js/rtlscope-la.js: 06-8080 と同じ UI。04-6502 と共通の信号定義） -->
+  <div id="la-root" style="margin-top:8px;"></div>
 
+<p id="copyright" style="font-size:12px;color:#555;margin:6px 0 0;">&copy; 2026 <a href="https://github.com/tommie-jp" target="_blank" rel="noopener" style="color:#666;">tommie.jp</a>
+  &nbsp;&mdash;&nbsp;
+  <a href="05-dormann-QR.png" target="_blank" rel="noopener" style="color:#666;">QR</a>
+</p>
+<script src="js/sft-6502-la-defs.js"></script>
+<script src="js/rtlscope-la.js"></script>
+<script src="js/sft-la-toolbar.js"></script>
+<script src="js/sft-la-ctrl.js"></script>
+<script src="js/sft-la-glue.js"></script>
 <script src="sim.js"></script>
 <script>
 const SUCCESS_PC  = 0x3469;
@@ -87,8 +96,7 @@ const mPc      = document.getElementById('m-pc');
 const mSpeed   = document.getElementById('m-speed');
 const mWall    = document.getElementById('m-wall');
 const progBar  = document.getElementById('prog-bar');
-const cv       = document.getElementById('cv');
-const ctx      = cv.getContext('2d');
+let lag = null;   // Logic Analyzer（Module 初期化後に setupLa で作る）
 
 function getCycles() {
   const lo = Module._get_cycles_lo() >>> 0;
@@ -123,44 +131,6 @@ function updateMetrics() {
   progBar.style.width = pct + '%';
 }
 
-// ── Logic Analyzer ────────────────────────────────────────────────────────
-const RING_SIZE = 4096;
-const SIG_ROWS  = [
-  { label:'addr', shift:0,  mask:0xFFFF, height:28, color:'#5af' },
-  { label:'data', shift:16, mask:0xFF,   height:20, color:'#4d4' },
-  { label:'we',   shift:24, mask:0x1,    height:16, color:'#f84' },
-  { label:'sync', shift:25, mask:0x1,    height:16, color:'#fa4' },
-];
-const TOTAL_H = SIG_ROWS.reduce((s, r) => s + r.height + 4, 0);
-const W = cv.width;
-cv.height = TOTAL_H + 4;
-
-function drawAnalyzer() {
-  ctx.clearRect(0, 0, W, cv.height);
-  const ringPtr  = Module._get_ring_ptr() >>> 0;
-  const head     = Module._get_head() >>> 0;
-  const samples  = Math.min(head, RING_SIZE);
-  const buf      = Module.HEAPU32;
-  const base     = ringPtr / 4;
-
-  let y = 2;
-  for (const sig of SIG_ROWS) {
-    ctx.strokeStyle = sig.color;
-    ctx.lineWidth   = 1;
-    ctx.beginPath();
-    for (let i = 0; i < W; i++) {
-      const idx  = ((head - samples + Math.floor(i * samples / W)) & (RING_SIZE - 1)) * 2;
-      const word = buf[base + idx];
-      const val  = (word >>> sig.shift) & sig.mask;
-      const norm = sig.mask > 1 ? val / sig.mask : val;
-      const py   = y + sig.height - norm * (sig.height - 2);
-      if (i === 0) ctx.moveTo(i, py); else ctx.lineTo(i, py);
-    }
-    ctx.stroke();
-    y += sig.height + 4;
-  }
-}
-
 // ── Main loop ──────────────────────────────────────────────────────────────
 function frame() {
   if (!running) return;
@@ -180,8 +150,15 @@ function frame() {
     btnRun.textContent = 'Run';
   }
 
+  // LA のトリガーで Freeze した場合は実行を止める（Pass/Fail 判定は出さない）
+  if (running && lag.triggerHit() && !trapped) {
+    running = false;
+    btnRun.textContent = 'Run';
+    setStatus('TRIGGER', 'running');
+  }
+
   updateMetrics();
-  drawAnalyzer();
+  lag.draw();
 
   if (running) rafId = requestAnimationFrame(frame);
 }
@@ -201,7 +178,7 @@ function doReset() {
   mSpeed.textContent  = '—';
   mWall.textContent   = '—';
   cycInfo.textContent = '';
-  ctx.clearRect(0, 0, W, cv.height);
+  lag.draw();
 }
 
 btnRun.addEventListener('click', () => {
@@ -212,6 +189,7 @@ btnRun.addEventListener('click', () => {
     btnRun.textContent = 'Run';
     setStatus('PAUSED', 'running');
   } else {
+    lag.resume();   // トリガー停止後は Thaw して再武装する
     running = true;
     if (!startMs) startMs = performance.now() - getCycles() / 1e6 * 0; // reset wall
     startMs = performance.now() - (getCycles() > 0 ? getCycles() / 1e6 * 1000 : 0);
@@ -225,6 +203,16 @@ btnReset.addEventListener('click', doReset);
 
 Module.onRuntimeInitialized = () => {
   Module._sim_init();
+  lag = setupLa({
+    Module: Module, rootId: 'la-root',
+    config: M6502_LA_CONFIG, signals: M6502_LA_SIGNALS,
+    zoomIdx: 6,   // 16x: 1 命令ずつニーモニックが読める倍率で開始する
+    onArm: function () {
+      // トリガー設定後は実行を再開する（Run ボタンと同じ処理）
+      if (!Module._is_trapped() && !running) btnRun.click();
+    }
+  });
+  lag.draw();
   setStatus('READY', 'running');
 };
 </script>
