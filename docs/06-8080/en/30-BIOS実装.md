@@ -25,10 +25,16 @@ $DC00–$E3FF  CCP (Console Command Processor, 2 KB)
 $E400–$F1FF  BDOS (Basic Disk OS, 3.5 KB)
 $F200–$FFFF  BIOS <- this file
   $F200      Jump table (17 entries x 3 B = 51 B)
-  $F200+51   Variables (CUR_DRV / CUR_TRK / CUR_SEC / DMA_LO / DMA_HI)
-  ...        BOOT / WBOOT / CONST / CONIN / CONOUT / ...
-  end        DIR_BUF / CSV / ALV buffers
+  $F233      BOOT / WBOOT / CONST / CONIN / CONOUT / ... / SECTRAN (code)
+  $F300      Variables (CUR_DRV / CUR_TRK / CUR_SEC / DMA_LO / DMA_HI)
+  $F306      DPH table / DPH / DPB / skew table
+  $F377      DIR_BUF / CSV / ALV buffers
+  $F4B3      Sign-on message (always last; its length differs between the Linux and WASM builds)
 ```
+
+Code comes first and data after it, with the sign-on message (whose length depends on the build) at the very end.
+This keeps routine addresses (e.g. CONOUT = $F29A) identical between `make linux` and `make wasm`.
+Previously the sign-on sat right after BOOT, so CONOUT in the WASM build was one byte lower than in the Linux build.
 
 ---
 

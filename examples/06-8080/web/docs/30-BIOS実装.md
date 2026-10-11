@@ -24,10 +24,16 @@ $DC00–$E3FF  CCP（コマンドラインプロセッサ、2 KB）
 $E400–$F1FF  BDOS（基本ディスク OS、3.5 KB）
 $F200–$FFFF  BIOS ← このファイル
   $F200      ジャンプテーブル（17 エントリ × 3 B = 51 B）
-  $F200+51   変数エリア（CUR_DRV / CUR_TRK / CUR_SEC / DMA_LO / DMA_HI）
-  ...        BOOT / WBOOT / CONST / CONIN / CONOUT / ...
-  末尾       DIR_BUF / CSV / ALV バッファ
+  $F233      BOOT / WBOOT / CONST / CONIN / CONOUT / ... / SECTRAN（コード）
+  $F300      変数エリア（CUR_DRV / CUR_TRK / CUR_SEC / DMA_LO / DMA_HI）
+  $F306      DPH テーブル / DPH / DPB / スキューテーブル
+  $F377      DIR_BUF / CSV / ALV バッファ
+  $F4B3      サインオンメッセージ（必ず末尾。Linux 版と WASM 版で長さが違う）
 ```
+
+コードは先、データは後ろに置き、長さが版で変わるサインオンメッセージは一番うしろに置く。
+こうしておくと `make linux` と `make wasm` でルーチンの番地 (CONOUT = $F29A など) が同じになる。
+以前はサインオンが BOOT の直後にあり、WASM 版の CONOUT が Linux 版より 1 バイト前にずれていた。
 
 ---
 
