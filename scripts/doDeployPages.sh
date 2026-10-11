@@ -171,6 +171,14 @@ for ex in "${EXAMPLES[@]}"; do
             _n=$((_n + 1))
         done <<< "$_js_refs"
         echo "  Copied ${_n} referenced js files → /${deploy_subdir}/js/"
+        # 参照されない js は残さない（共通ライブラリ全体をコピーしていた旧デプロイの残り）
+        for _old in "$dst/js/"*.js; do
+            [ -f "$_old" ] || continue
+            if ! grep -qxF "$(basename "$_old")" <<< "$_js_refs"; then
+                rm -f "$_old"
+                echo "  Removed unreferenced js: /${deploy_subdir}/js/$(basename "$_old")"
+            fi
+        done
     elif [ -d "$src/js" ]; then
         mkdir -p "$dst/js"
         cp "$src/js/"*.js "$dst/js/" 2>/dev/null && \
