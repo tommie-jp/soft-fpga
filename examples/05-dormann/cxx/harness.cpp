@@ -3,11 +3,7 @@
 // Success: PC traps at $3469
 #include "Vapple1_top.h"
 #include "verilated.h"
-#ifdef __EMSCRIPTEN__
-#include <emscripten.h>
-#else
-#define EMSCRIPTEN_KEEPALIVE
-#endif
+#include "../../../cxx/rtlscope_ring.h"
 #include <cstdio>
 #include <cstdint>
 #include <cstring>
@@ -19,9 +15,10 @@ static uint16_t prev_pc      = 0xFFFF;
 static bool     trapped      = false;
 static bool     passed       = false;
 
-static const int RING_SIZE = 4096;
-static uint32_t ring[RING_SIZE * 2];
-static uint32_t head = 0;
+// ring buffer: 2 uint32_t per sample（04-6502 と同じレイアウト。cxx/rtlscope_ring.h が記録・Freeze・トリガーを担当）
+// Word0: [15:0]=AB  [23:16]=DB  [24]=WE  [25]=SYNC  [26]=reset
+// Word1: [7:0]=A  [15:8]=X  [23:16]=Y  [31:24]=SP
+static rtlscope::Ring<4096, 2> ring;
 
 static void do_step() {
     uint16_t ab = (uint16_t)top->o_ab;
@@ -33,13 +30,20 @@ static void do_step() {
     top->i_di = ram[ab];
     top->eval();
 
-    uint32_t idx = (head & (uint32_t)(RING_SIZE - 1)) * 2;
-    ring[idx]     = (uint32_t)ab
-                  | ((uint32_t)top->o_do  << 16)
-                  | ((uint32_t)top->o_we  << 24)
-                  | ((uint32_t)top->o_sync << 25);
-    ring[idx + 1] = 0;
-    head++;
+    // SYNC=1 のサンプルでは DB（= i_di）がフェッチしたオペコードになる。WE=1 なら CPU が書く値。
+    const uint8_t db = top->o_we ? top->o_do : top->i_di;
+    const uint32_t w[2] = {
+        (uint32_t)ab
+            | ((uint32_t)db                   << 16)
+            | ((uint32_t)(top->o_we    & 1u) << 24)
+            | ((uint32_t)(top->o_sync  & 1u) << 25)
+            | ((uint32_t)(top->reset   & 1u) << 26),
+        (uint32_t)(top->o_a)
+            | ((uint32_t)(top->o_x)  << 8)
+            | ((uint32_t)(top->o_y)  << 16)
+            | ((uint32_t)(top->o_sp) << 24)
+    };
+    ring.record(w);
     total_cycles++;
 }
 
@@ -55,7 +59,7 @@ EMSCRIPTEN_KEEPALIVE void sim_init() {
 
     if (!top) top = new Vapple1_top();
     total_cycles = 0;
-    head         = 0;
+    ring.start_session();
     prev_pc      = 0xFFFF;
     trapped      = false;
     passed       = false;
@@ -67,7 +71,7 @@ EMSCRIPTEN_KEEPALIVE void sim_init() {
 
 EMSCRIPTEN_KEEPALIVE void step(int n) {
     if (trapped) return;
-    for (int i = 0; i < n; i++) {
+    for (int i = 0; i < n && !ring.hit(); i++) {   // LA トリガーで Freeze したら打ち切る
         do_step();
         if (top->o_sync) {
             uint16_t pc = (uint16_t)top->o_ab;
@@ -86,8 +90,9 @@ EMSCRIPTEN_KEEPALIVE uint32_t get_cycles_lo() { return (uint32_t)(total_cycles &
 EMSCRIPTEN_KEEPALIVE uint32_t get_cycles_hi() { return (uint32_t)(total_cycles >> 32); }
 EMSCRIPTEN_KEEPALIVE int      is_trapped()    { return trapped ? 1 : 0; }
 EMSCRIPTEN_KEEPALIVE int      is_passed()     { return passed  ? 1 : 0; }
-EMSCRIPTEN_KEEPALIVE uint32_t get_ring_ptr()  { return (uint32_t)(uintptr_t)ring; }
-EMSCRIPTEN_KEEPALIVE uint32_t get_ring_size() { return RING_SIZE; }
-EMSCRIPTEN_KEEPALIVE uint32_t get_head()      { return head; }
+// n クロック進める（04 と同じ名前。Logic Analyzer 共通コードから呼ぶ）
+EMSCRIPTEN_KEEPALIVE void sim_run_n(int n) { step(n); }
 
 } // extern "C"
+
+RTLSCOPE_EXPORT_RING(ring)

@@ -1,22 +1,18 @@
 #include "Vapple1_top.h"
 #include "verilated.h"
-#ifdef __EMSCRIPTEN__
-#include <emscripten.h>
-#else
-#define EMSCRIPTEN_KEEPALIVE
-#endif
+#include "../../../cxx/rtlscope_ring.h"
 #include <cstdio>
 #include <stdint.h>
 #include <string.h>
 
 static Vapple1_top* top;
 
-// ring buffer: 2 uint32_t per sample
+// ring buffer: 2 uint32_t per sample（記録・Freeze・トリガーは cxx/rtlscope_ring.h）
 // Word0: [15:0]=AB  [23:16]=DB  [24]=WE  [25]=SYNC  [26]=reset
 // Word1: [7:0]=A  [15:8]=X  [23:16]=Y  [31:24]=SP
-static const int RING_SIZE = 4096;  // power of 2
-static uint32_t  ring[RING_SIZE * 2];
-static uint32_t  head = 0;
+static rtlscope::Ring<4096, 2> ring;
+// 総サイクル数。ring の head は Freeze 中に止まるため、表示用の数値は別に持つ。
+static uint32_t  total_cycles = 0;
 
 // 64KB flat address space
 static uint8_t   ram[0x10000];
@@ -373,18 +369,19 @@ static void load_rom() {
 }
 
 static void write_ring() {
-    uint32_t idx = (head & (RING_SIZE - 1)) << 1;
     uint8_t  db  = top->o_we ? top->o_do : top->i_di;
-    ring[idx]     = (uint32_t)(top->o_ab)
-                  | ((uint32_t)db              << 16)
-                  | ((uint32_t)(top->o_we    & 1u) << 24)
-                  | ((uint32_t)(top->o_sync  & 1u) << 25)
-                  | ((uint32_t)(top->reset   & 1u) << 26);
-    ring[idx + 1] = (uint32_t)(top->o_a)
-                  | ((uint32_t)(top->o_x)  << 8)
-                  | ((uint32_t)(top->o_y)  << 16)
-                  | ((uint32_t)(top->o_sp) << 24);
-    head++;
+    const uint32_t w[2] = {
+        (uint32_t)(top->o_ab)
+            | ((uint32_t)db              << 16)
+            | ((uint32_t)(top->o_we    & 1u) << 24)
+            | ((uint32_t)(top->o_sync  & 1u) << 25)
+            | ((uint32_t)(top->reset   & 1u) << 26),
+        (uint32_t)(top->o_a)
+            | ((uint32_t)(top->o_x)  << 8)
+            | ((uint32_t)(top->o_y)  << 16)
+            | ((uint32_t)(top->o_sp) << 24)
+    };
+    ring.record(w);
 }
 
 extern "C" {
@@ -394,6 +391,7 @@ EMSCRIPTEN_KEEPALIVE void sim_init() {
     prev_pc_trap = 0xFFFF;
     trapped      = false;
     passed       = false;
+    delete top;   // 前のモデルを解放する（nullptr でも安全）
     top = new Vapple1_top();
     memset(ram, 0xFF, sizeof(ram));  // uninitialized ROM areas = $FF (NOP-ish)
     memset(ram, 0x00, 0xD000);       // RAM area = 0
@@ -403,7 +401,8 @@ EMSCRIPTEN_KEEPALIVE void sim_init() {
     kbd_q_head  = 0; kbd_q_tail = 0;
     disp_q_head = 0; disp_q_tail = 0;
     disp_count  = 0;
-    head        = 0;
+    ring.start_session();
+    total_cycles = 0;
 
     top->reset = 1;
     top->i_irq = 0;  // hoglet IRQ is active-HIGH; 0 = deasserted
@@ -417,6 +416,7 @@ EMSCRIPTEN_KEEPALIVE void sim_init() {
     for (int i = 0; i < 8; i++) {
         top->clk = 1; top->eval();
         top->clk = 0; top->eval();
+        write_ring();
     }
     top->reset = 0;
     top->eval();
@@ -446,7 +446,7 @@ EMSCRIPTEN_KEEPALIVE void step() {
     top->eval();  // propagate new DI → combinatorial AB (e.g. JMP1: AB={DIMUX,ADD})
 
     write_ring();
-
+    total_cycles++;
 }
 
 EMSCRIPTEN_KEEPALIVE void step_instruction() {
@@ -464,7 +464,8 @@ EMSCRIPTEN_KEEPALIVE void reset_sim() {
     kbd_q_head  = 0; kbd_q_tail = 0;
     disp_q_head = 0; disp_q_tail = 0;
     disp_count  = 0;
-    head        = 0;
+    ring.thaw();
+    total_cycles = 0;
 
     top->reset = 1;
     top->i_irq = 0;
@@ -473,6 +474,7 @@ EMSCRIPTEN_KEEPALIVE void reset_sim() {
     for (int i = 0; i < 8; i++) {
         top->clk = 1; top->eval();
         top->clk = 0; top->eval();
+        write_ring();
     }
     top->reset = 0;
     top->eval();
@@ -496,8 +498,10 @@ EMSCRIPTEN_KEEPALIVE void dormann_init() {
     kbd_q_head  = 0; kbd_q_tail = 0;
     disp_q_head = 0; disp_q_tail = 0;
     disp_count  = 0;
-    head        = 0;
+    ring.start_session();   // 別のテストへ切り替わるので履歴を捨てる
+    total_cycles = 0;
 
+    delete top;   // 前のモデルを解放する（nullptr でも安全）
     top = new Vapple1_top();
     top->reset = 1;
     top->i_irq = 0;
@@ -509,6 +513,7 @@ EMSCRIPTEN_KEEPALIVE void dormann_init() {
     for (int i = 0; i < 8; i++) {
         top->clk = 1; top->eval();
         top->clk = 0; top->eval();
+        write_ring();
     }
     top->reset = 0;
     top->eval();
@@ -519,7 +524,7 @@ EMSCRIPTEN_KEEPALIVE void dormann_init() {
 // n クロック進めてトラップを検出（Dormann モード用）
 EMSCRIPTEN_KEEPALIVE void step_n(int n) {
     if (trapped) return;
-    for (int i = 0; i < n; i++) {
+    for (int i = 0; i < n && !ring.hit(); i++) {
         step();
         if (top->o_sync) {
             // SYNC=1 時 PC は既に +1 されている（FETCH・JMP1 共通）
@@ -533,6 +538,14 @@ EMSCRIPTEN_KEEPALIVE void step_n(int n) {
         }
     }
 }
+
+// n クロック進める（Apple-I モード用）。Logic Analyzer のトリガーで Freeze したら打ち切る。
+EMSCRIPTEN_KEEPALIVE void sim_run_n(int n) {
+    for (int i = 0; i < n && !ring.hit(); i++) step();
+}
+
+// 総サイクル数（リセットで 0 に戻る。ring の head と違い Freeze 中も進む）
+EMSCRIPTEN_KEEPALIVE uint32_t get_cycles() { return total_cycles; }
 
 EMSCRIPTEN_KEEPALIVE int is_trapped() { return trapped ? 1 : 0; }
 EMSCRIPTEN_KEEPALIVE int is_passed()  { return passed  ? 1 : 0; }
@@ -562,8 +575,6 @@ EMSCRIPTEN_KEEPALIVE uint8_t  get_sp()    { return (uint8_t) top->o_sp;    }
 EMSCRIPTEN_KEEPALIVE uint8_t  get_p()     { return (uint8_t) top->o_p;     }
 EMSCRIPTEN_KEEPALIVE uint8_t  get_state() { return (uint8_t) top->o_state; }
 
-EMSCRIPTEN_KEEPALIVE uint32_t* get_ring_ptr()  { return ring; }
-EMSCRIPTEN_KEEPALIVE uint32_t  get_head()       { return head; }
-EMSCRIPTEN_KEEPALIVE int       get_ring_size()  { return RING_SIZE; }
-
 } // extern "C"
+
+RTLSCOPE_EXPORT_RING(ring)

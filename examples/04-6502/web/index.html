@@ -124,101 +124,14 @@
     <div id="d-prog-wrap"><div id="d-prog-bar"></div></div>
   </div>
 
-  <!-- Logic Analyzer（共有） -->
-  <div class="sig-label">Bus Analyzer (addr / data / we / sync)</div>
-  <canvas id="la" width="900" height="160"></canvas>
+  <!-- Logic Analyzer（js/rtlscope-la.js: 06-8080 と同じ UI。Apple-I / Dormann 共有） -->
+  <div id="la-root" style="margin-top:8px;"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
   <script>
   // ── ring buffer レイアウト ────────────────────────────────────────
   // Word0: [15:0]=AB  [23:16]=DB  [24]=WE  [25]=SYNC  [26]=reset
   // Word1: [7:0]=A    [15:8]=X    [23:16]=Y [31:24]=SP
-
-  // ── Logic Analyzer ──────────────────────────────────────────────
-  const LA_SIGNALS = [
-    { label: 'addr', word: 0, bit: 0,  type: 'hex16', width: 16, color: '#88ccff' },
-    { label: 'data', word: 0, bit: 16, type: 'hex',   width: 8,  color: '#88ff88' },
-    { label: 'we',   word: 0, bit: 24, type: 'bit',   width: 1,  color: '#ff8888' },
-    { label: 'sync', word: 0, bit: 25, type: 'bit',   width: 1,  color: '#ffaa00' },
-  ];
-  const LA_H    = 160;
-  const LA_W    = 900;
-  const LABEL_W = 56;
-  const VIEW_W  = LA_W - LABEL_W;
-  const TRACK_H = LA_H / LA_SIGNALS.length;
-
-  function drawLA(ctx, heapu32, ringBase, head, ringSize) {
-    ctx.fillStyle = '#1a1a1a';
-    ctx.fillRect(0, 0, LA_W, LA_H);
-    const samples   = Math.min(head, VIEW_W, ringSize);
-    const startSamp = head - samples;
-    for (let t = 0; t < LA_SIGNALS.length; t++) {
-      const sig   = LA_SIGNALS[t];
-      const yBase = t * TRACK_H;
-      const MASK  = (sig.width < 32) ? ((1 << sig.width) - 1) : 0xFFFFFFFF;
-      ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 0.5;
-      ctx.beginPath();
-      ctx.moveTo(0, yBase + TRACK_H); ctx.lineTo(LA_W, yBase + TRACK_H);
-      ctx.stroke();
-      ctx.fillStyle = '#555'; ctx.font = '10px monospace';
-      ctx.textAlign = 'left';
-      ctx.fillText(sig.label, 3, yBase + TRACK_H * 0.65);
-      if (samples === 0) continue;
-      const getWord = (i) => {
-        const idx = (startSamp + i) & (ringSize - 1);
-        return heapu32[ringBase + (idx << 1) + (sig.word | 0)];
-      };
-      if (sig.type === 'bit') {
-        const yHigh = yBase + 4;
-        const yLow  = yBase + TRACK_H - 4;
-        ctx.strokeStyle = sig.color; ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        const first = (getWord(0) >> sig.bit) & 1;
-        ctx.moveTo(LABEL_W, first ? yHigh : yLow);
-        for (let i = 0; i < samples; i++) {
-          const val = (getWord(i) >> sig.bit) & 1;
-          const x   = LABEL_W + i;
-          const y   = val ? yHigh : yLow;
-          ctx.lineTo(x, y);
-          ctx.lineTo(x + 1, y);
-        }
-        ctx.stroke();
-      } else {
-        const labelOf = (val) => {
-          if (sig.type === 'hex16') return val.toString(16).toUpperCase().padStart(4, '0');
-          return '0x' + val.toString(16).toUpperCase().padStart(2, '0');
-        };
-        const minLabelW = sig.type === 'hex16' ? 32 : 24;
-        const yTop = yBase + 4;
-        const yMid = yBase + TRACK_H / 2;
-        const yBot = yBase + TRACK_H - 4;
-        let prevVal  = (getWord(0) >> sig.bit) & MASK;
-        let segStart = LABEL_W;
-        const segs   = [];
-        for (let i = 1; i < samples; i++) {
-          const val = (getWord(i) >> sig.bit) & MASK;
-          if (val !== prevVal) {
-            segs.push({ x: segStart, w: LABEL_W + i - segStart, val: prevVal });
-            segStart = LABEL_W + i;
-            prevVal  = val;
-          }
-        }
-        segs.push({ x: segStart, w: LABEL_W + samples - segStart, val: prevVal });
-        ctx.lineWidth = 1;
-        for (const seg of segs) {
-          ctx.strokeStyle = sig.color;
-          ctx.beginPath(); ctx.moveTo(seg.x, yTop); ctx.lineTo(seg.x + seg.w, yTop); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(seg.x, yBot); ctx.lineTo(seg.x + seg.w, yBot); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(seg.x, yTop); ctx.lineTo(seg.x, yBot);         ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(seg.x + seg.w, yTop); ctx.lineTo(seg.x + seg.w, yBot); ctx.stroke();
-          if (seg.w > minLabelW) {
-            ctx.fillStyle = sig.color; ctx.font = '9px monospace'; ctx.textAlign = 'center';
-            ctx.fillText(labelOf(seg.val), seg.x + seg.w / 2, yMid + 3);
-          }
-        }
-      }
-    }
-  }
 
   // ── フラグパネル ─────────────────────────────────────────────────
   const FLAG_DEFS = [
@@ -289,12 +202,6 @@
       term.open(document.getElementById('terminal'));
       window._sftTerm = term;
 
-      // ── ring buffer ─────────────────────────────────────────────
-      const RING_SIZE = Module._get_ring_size();
-      const ringBase  = Module._get_ring_ptr() >>> 2;
-      const laCanvas  = document.getElementById('la');
-      const laCtx     = laCanvas.getContext('2d');
-
       // ── 状態 ────────────────────────────────────────────────────
       let romMode        = 'apple1';
       let apple1Running  = true;
@@ -305,6 +212,24 @@
 
       // ── 初期化 ──────────────────────────────────────────────────
       Module._sim_init();
+
+      // ── Logic Analyzer（トリガー設定時は、いまのモードの実行を再開する） ──
+      const lag = setupLa({
+        Module: Module, rootId: 'la-root',
+        config: M6502_LA_CONFIG, signals: M6502_LA_SIGNALS,
+        zoomIdx: 6,   // 16x: 1 命令ずつニーモニックが読める倍率で開始する
+        onArm: function () {
+          if (romMode === 'apple1') {
+            apple1Running = true;
+            document.getElementById('btn-run').textContent = 'Pause';
+          } else if (!Module._is_trapped()) {
+            dormannRunning = true;
+            if (!dormannStartMs) dormannStartMs = performance.now();
+            document.getElementById('d-btn-run').textContent = 'Pause';
+            setDormannStatus('RUNNING...', 'running');
+          }
+        }
+      });
 
       term.onData(function (data) {
         if (romMode !== 'apple1') return;
@@ -365,7 +290,7 @@
       }
 
       function updateDormannMetrics() {
-        const c       = Module._get_head() >>> 0;
+        const c       = Module._get_cycles() >>> 0;
         const pc      = Module._get_pc()   >>> 0;
         const elapsed = dormannStartMs ? (performance.now() - dormannStartMs) / 1000 : 0;
         const cps     = elapsed > 0 ? c / elapsed : 0;
@@ -383,17 +308,26 @@
         if (romMode === 'apple1') {
           if (apple1Running) {
             const steps = parseInt(document.getElementById('speed').value);
-            for (let i = 0; i < steps; i++) Module._step();
+            Module._sim_run_n(steps);
+            if (lag.triggerHit()) {                       // トリガー停止
+              apple1Running = false;
+              document.getElementById('btn-run').textContent = 'Run';
+            }
           }
           drainDisplay();
           updateRegPanel();
           document.getElementById('cycle-info').textContent =
-            (Module._get_head() >>> 0).toLocaleString() + ' cycles';
+            (Module._get_cycles() >>> 0).toLocaleString() + ' cycles';
 
         } else {
           if (dormannRunning && !Module._is_trapped()) {
             const n = parseInt(document.getElementById('d-speed').value);
             Module._step_n(n);
+            if (lag.triggerHit() && !Module._is_trapped()) {   // トリガー停止
+              dormannRunning = false;
+              document.getElementById('d-btn-run').textContent = 'Run';
+              setDormannStatus('TRIGGER', 'running');
+            }
             if (Module._is_trapped()) {
               dormannRunning = false;
               const ok = Module._is_passed();
@@ -407,8 +341,7 @@
           updateDormannMetrics();
         }
 
-        const head = Module._get_head() >>> 0;
-        drawLA(laCtx, Module.HEAPU32, ringBase, head, RING_SIZE);
+        lag.draw();
         requestAnimationFrame(loop);
       }
 
@@ -425,6 +358,7 @@
 
       // ── Apple-I ボタン ───────────────────────────────────────────
       document.getElementById('btn-run').addEventListener('click', function () {
+        if (!apple1Running) lag.resume();   // トリガー停止後は Thaw して再武装する
         apple1Running = !apple1Running;
         this.textContent = apple1Running ? 'Pause' : 'Run';
       });
@@ -483,6 +417,7 @@
           this.textContent = 'Run';
           setDormannStatus('PAUSED', 'running');
         } else {
+          lag.resume();   // トリガー停止後は Thaw して再武装する
           dormannRunning = true;
           if (!dormannStartMs) dormannStartMs = performance.now();
           this.textContent = 'Pause';
@@ -525,6 +460,11 @@
   &nbsp;&mdash;&nbsp;
   <a href="04-6502-QR.png" target="_blank" rel="noopener" style="color:#666;">QR</a>
 </p>
+  <script src="js/sft-6502-la-defs.js"></script>
+  <script src="js/rtlscope-la.js"></script>
+  <script src="js/sft-la-toolbar.js"></script>
+  <script src="js/sft-la-ctrl.js"></script>
+  <script src="js/sft-la-glue.js"></script>
   <script src="sim.js"></script>
 </body>
 </html>

@@ -153,7 +153,25 @@ for ex in "${EXAMPLES[@]}"; do
         [ -f "$asset" ] && cp "$asset" "$dst/"
     done
     # js/ ディレクトリ（rtlscope-la.js など: gitignore 対象だがビルド時に生成済み）
-    if [ -d "$src/js" ]; then
+    # index.html が src="js/..." で参照するファイルがあれば、それだけをコピーする
+    # （01〜05 は共通ライブラリ全体ではなく数本しか使わない）。コピー元は web/js（開発用の
+    # シンボリックリンク）があればそれ、無ければ $ROOT/js。参照が無ければ従来どおり全件コピー。
+    _js_refs=$(grep -oE "src=[\"']js/[^\"'?#]+\.js" "$src/index.html" | sed -E "s|^src=[\"']js/||" | sort -u || true)
+    if [ -n "$_js_refs" ]; then
+        _js_dir="$src/js"
+        [ -d "$_js_dir" ] || _js_dir="$ROOT/js"
+        mkdir -p "$dst/js"
+        _n=0
+        while IFS= read -r _f; do
+            if [ ! -f "$_js_dir/$_f" ]; then
+                echo "ERROR: $src/index.html が参照する js/$_f が $_js_dir に見つかりません" >&2
+                exit 1
+            fi
+            cp "$_js_dir/$_f" "$dst/js/"
+            _n=$((_n + 1))
+        done <<< "$_js_refs"
+        echo "  Copied ${_n} referenced js files → /${deploy_subdir}/js/"
+    elif [ -d "$src/js" ]; then
         mkdir -p "$dst/js"
         cp "$src/js/"*.js "$dst/js/" 2>/dev/null && \
             echo "  Copied js/ → /${deploy_subdir}/js/" || true

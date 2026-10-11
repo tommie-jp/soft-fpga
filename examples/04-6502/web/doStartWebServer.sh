@@ -20,6 +20,12 @@ class NoCacheHandler(SimpleHTTPRequestHandler):
 
 
 os.chdir(ROOT)
+
+# 共通ライブラリ（js/rtlscope-la.js など）を相対パス js/ で配信するためのシンボリックリンク
+_JS_LINK = os.path.join(ROOT, "js")
+if not os.path.exists(_JS_LINK):
+    os.symlink(os.path.join("..", "..", "..", "js"), _JS_LINK)
+
 print(f"HTTP サーバー起動中 (ポート {PORT}) — Ctrl+C で停止")
 print(f"URL: http://localhost:{PORT}/index.html")
 HTTPServer(("", PORT), NoCacheHandler).serve_forever()

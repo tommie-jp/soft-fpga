@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$SCRIPT_DIR/.."
+source "$SCRIPT_DIR/_la-exports.inc.sh"   # LA_EXPORTS（Logic Analyzer 共通 API）
 EXAMPLE="$ROOT/examples/04-6502"
 OBJ_DIR="$ROOT/obj_dir"
 VERILATOR_ROOT="${VERILATOR_ROOT:-$(verilator --getenv VERILATOR_ROOT)}"
@@ -64,7 +65,7 @@ em++ $COMMON_FLAGS \
     "$OBJ_DIR/verilated.wasm.o" \
     "$EXAMPLE/cxx/harness.cpp" \
     --embed-file "$BIN@/6502_functional_test.bin" \
-    -s EXPORTED_FUNCTIONS='["_sim_init","_step","_step_instruction","_reset_sim","_send_key","_get_display_char","_get_display_count","_get_pc","_get_a","_get_x","_get_y","_get_sp","_get_p","_get_state","_get_ring_ptr","_get_head","_get_ring_size","_dormann_init","_step_n","_is_trapped","_is_passed"]' \
+    -s EXPORTED_FUNCTIONS="[\"_sim_init\",\"_step\",\"_step_instruction\",\"_reset_sim\",\"_send_key\",\"_get_display_char\",\"_get_display_count\",\"_get_pc\",\"_get_a\",\"_get_x\",\"_get_y\",\"_get_sp\",\"_get_p\",\"_get_state\",\"_get_ring_ptr\",\"_get_head\",\"_get_ring_size\",\"_get_cycles\",\"_dormann_init\",\"_step_n\",\"_is_trapped\",\"_is_passed\",${LA_EXPORTS}]" \
     -s EXPORTED_RUNTIME_METHODS='["HEAPU32"]' \
     -s ALLOW_MEMORY_GROWTH=1 \
     -s EXIT_RUNTIME=0 \

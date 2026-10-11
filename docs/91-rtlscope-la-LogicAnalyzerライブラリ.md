@@ -198,9 +198,77 @@ bash doStart.sh     # ビルド済みなら --no-build オプション相当（�
 
 ---
 
-## 8. 今後の拡張予定
+## 8. 共通部品と 01〜05 への適用（2026-10-12）
 
-- **04-6502 への移行**: `04-6502/web/index.html` の旧 `drawLA` を RTLScopeLA に置き換え（6502 ページ本格リニューアル時）
-- **01/02/03 への移行**: 各例リニューアル時に順次移行
-- **UART デコードレーン**: START/DATA/STOP フレームを色ブロック表示（03-uart 向け）
-- **6502 サイクル デコードレーン**: FETCH/READ/WRITE の色分け（04-6502 向け）
+01〜05 の手書き Canvas 描画を RTLScopeLA に置き換えた。
+CPU ごとに書くのは「信号定義」と「1 クロックぶんの観測値を詰める処理」だけで、
+記録・Freeze・トリガー・UI は次の共通部品が受け持つ。
+
+| 部品 | 役割 |
+| --- | --- |
+| [`cxx/rtlscope_ring.h`](../cxx/rtlscope_ring.h) | ring buffer の記録、Freeze/Thaw、エッジ/値トリガー、post delay、LA ON/OFF。`RTLSCOPE_EXPORT_RING` で Wasm API を公開する |
+| [`scripts/_la-exports.inc.sh`](../scripts/_la-exports.inc.sh) | 上記 API の EXPORTED_FUNCTIONS 一覧（`build-wasm-*.sh` から `source`） |
+| [`js/sft-la-toolbar.js`](../js/sft-la-toolbar.js) | ツールバー・トリガー欄・ナビ・canvas の HTML と CSS を `#la-root` に描く |
+| [`js/sft-la-ctrl.js`](../js/sft-la-ctrl.js) | Freeze/Thaw・トリガー設定・LA ON/OFF・Fill/Hatch の配線（backend 注入で CPU 非依存） |
+| [`js/sft-la-glue.js`](../js/sft-la-glue.js) | 上 3 つと RTLScopeLA の組み立て（`setupLa()`）。Wasm 直呼び・メインスレッド用 |
+
+### 8.1 各 example の構成
+
+| example | 信号定義 | ring | デコードレーン | 既定ズーム |
+| --- | --- | --- | --- | --- |
+| 01-counter | `js/sft-counter-la-defs.js` | 1 word | なし | 8x |
+| 02-traffic-fsm | `js/sft-fsm-la-defs.js` | 1 word | なし（state を名前表示、状態別に背景色） | 1/4x |
+| 03-uart | `js/sft-uart-la-defs.js` | 2 word | TX/RX フレームとバイト値 | 1x |
+| 04-6502 | `js/sft-6502-la-defs.js` | 2 word | 命令ニーモニック（SYNC で区切る） | 16x |
+| 05-dormann | `js/sft-6502-la-defs.js`（04 と共通） | 2 word | 命令ニーモニック | 16x |
+
+### 8.2 ハーネス側の書き方
+
+```cpp
+#include "../../../cxx/rtlscope_ring.h"
+
+static rtlscope::Ring<4096, 1> ring;      // <サンプル数, word 数>
+
+static void record_sample() {
+    const uint32_t w[1] = { /* 1 クロックぶんの観測値 */ };
+    ring.record(w);
+}
+
+RTLSCOPE_EXPORT_RING(ring)                // get_ring_ptr / sim_freeze_ring / sim_set_*_trigger ...
+```
+
+- `Ring::thaw()` はトリガーも再武装する。発火済みのまま残すと直後に再 Freeze されるため。
+- `reset_sim()` は履歴を捨てず、rst が立つ区間を波形に残す（01〜03）。
+- 表示用の総サイクル数は ring の head と別に持つこと。Freeze 中は head が止まる（04 の `get_cycles()`）。
+
+### 8.3 HTML 側の書き方
+
+```html
+<div id="la-root"></div>
+<script src="js/sft-xxx-la-defs.js"></script>
+<script src="js/rtlscope-la.js"></script>
+<script src="js/sft-la-toolbar.js"></script>
+<script src="js/sft-la-ctrl.js"></script>
+<script src="js/sft-la-glue.js"></script>
+<script src="sim.js"></script>
+```
+
+```js
+const lag = setupLa({ Module, rootId: 'la-root', config: XXX_LA_CONFIG, signals: XXX_LA_SIGNALS,
+                      zoomIdx: 5, onArm: () => setRunning(true) });
+// 毎フレーム
+if (running) { Module._sim_run_n(steps); if (lag.triggerHit()) setRunning(false); }
+const head = lag.draw();
+```
+
+`web/js` は `../../../js` へのシンボリックリンク（gitignore 対象）。デプロイ時は
+`doDeployPages.sh` が index.html の `src="js/…"` で参照されるファイルだけを各 example の `js/` にコピーする。
+
+---
+
+## 9. 今後の拡張予定
+
+- **Worker 化**: 01〜05 はメインスレッド実行のまま。Worker 化は 93 の方針に従い、`setupLa()` の
+  backend を worker 経由に差し替える形で別フェーズに行う
+- **6502 サイクル デコードレーン**: FETCH/READ/WRITE の色分け（現状は命令単位のニーモニックのみ）
+- **レジスタ値トリガー**: PC / A / X / Y を条件にするトリガー（現状は ring に載る信号のみ）

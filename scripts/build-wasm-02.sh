@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$SCRIPT_DIR/.."
+source "$SCRIPT_DIR/_la-exports.inc.sh"   # LA_EXPORTS（Logic Analyzer 共通 API）
 EXAMPLE="$ROOT/examples/02-traffic-fsm"
 OBJ_DIR="$ROOT/obj_dir"
 VERILATOR_ROOT="${VERILATOR_ROOT:-$(verilator --getenv VERILATOR_ROOT)}"
@@ -50,7 +51,7 @@ em++ $COMMON_FLAGS \
     "$OBJ_DIR"/V*.cpp \
     "$OBJ_DIR/verilated.wasm.o" \
     "$EXAMPLE/cxx/harness.cpp" \
-    -s EXPORTED_FUNCTIONS='["_sim_init","_step","_reset_sim","_press_btn","_get_ring_ptr","_get_head","_get_ring_size"]' \
+    -s EXPORTED_FUNCTIONS="[\"_sim_init\",\"_step\",\"_reset_sim\",\"_press_btn\",\"_get_ring_ptr\",\"_get_head\",\"_get_ring_size\",${LA_EXPORTS}]" \
     -s EXPORTED_RUNTIME_METHODS='["HEAPU32"]' \
     -s ALLOW_MEMORY_GROWTH=1 \
     -s EXIT_RUNTIME=0 \

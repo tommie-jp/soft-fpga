@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$SCRIPT_DIR/.."
+source "$SCRIPT_DIR/_la-exports.inc.sh"   # LA_EXPORTS（Logic Analyzer 共通 API）
 EXAMPLE="$ROOT/examples/05-dormann"
 EXAMPLE_04="$ROOT/examples/04-6502"
 OBJ_DIR="$ROOT/obj_dir_05"
@@ -64,7 +65,7 @@ em++ $COMMON_FLAGS \
     -I"$ROOT/cxx" \
     -include "$WASM_COMPAT" \
     --embed-file "$BIN@/6502_functional_test.bin" \
-    -s EXPORTED_FUNCTIONS='["_sim_init","_step","_get_pc","_get_cycles_lo","_get_cycles_hi","_is_trapped","_is_passed","_get_ring_ptr","_get_ring_size","_get_head"]' \
+    -s EXPORTED_FUNCTIONS="[\"_sim_init\",\"_step\",\"_get_pc\",\"_get_cycles_lo\",\"_get_cycles_hi\",\"_is_trapped\",\"_is_passed\",\"_get_ring_ptr\",\"_get_ring_size\",\"_get_head\",${LA_EXPORTS}]" \
     -s EXPORTED_RUNTIME_METHODS='["HEAPU32"]' \
     -s ALLOW_MEMORY_GROWTH=1 \
     -s EXIT_RUNTIME=0 \

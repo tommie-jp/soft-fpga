@@ -16,6 +16,7 @@ extern "C" {
     void      sim_freeze_ring();
     void      sim_thaw_ring();
     int       sim_ring_frozen();
+    void      sim_set_la(int on);
     void      sim_set_post_delay(int n);
     void      sim_clear_trigger();
     void      sim_set_edge_trigger(int word, int bit, int dir);
@@ -66,6 +67,19 @@ int main() {
     check(!sim_ring_frozen(), "thaw does not refreeze immediately");
     sim_run_n(1000);
     check(sim_trigger_hit() && (sample_at(get_head() - 1) & 0xFF) == 0x80, "re-armed trigger fires on next match");
+
+    // LA OFF → ON: OFF 区間に残った古いサンプルは消える（偽の波形を見せない）
+    sim_clear_trigger();
+    for (int i = 0; i < 40; i++) step();
+    sim_set_la(0);
+    uint32_t off_start = get_head();
+    for (int i = 0; i < 20; i++) step();
+    sim_set_la(1);
+    bool stale = false;
+    for (uint32_t i = off_start; i < get_head(); i++) if (sample_at(i) != 0) stale = true;
+    check(!stale, "LA OFF span is blank after re-enable");
+    sim_set_value_trigger(0, 0xFF, 0x10);   // 次の post delay 検査のために戻す
+    sim_thaw_ring();
 
     // post delay: 発火後 16 クロック記録してから Freeze
     sim_thaw_ring();
