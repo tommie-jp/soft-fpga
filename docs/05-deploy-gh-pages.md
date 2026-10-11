@@ -1,6 +1,6 @@
 # 05. GitHub Pages デプロイ手順
 
-`scripts/deploy-gh-pages.sh` を使って、各エグザンプルの WASM シミュレータを
+`scripts/doDeployPages.sh` を使って、各エグザンプルの WASM シミュレータを
 `gh-pages` ブランチへデプロイし GitHub Pages で公開する。
 
 ## 1. コマンド
@@ -9,22 +9,27 @@
 
 ```bash
 # 特定のエグザンプルだけビルドしてデプロイ（通常はこれ）
-scripts/deploy-gh-pages.sh 01        # 二進カウンタ
-scripts/deploy-gh-pages.sh 02        # 信号機 FSM
-scripts/deploy-gh-pages.sh 03        # UART
-scripts/deploy-gh-pages.sh 04        # 6502 / Apple-I
-scripts/deploy-gh-pages.sh 06        # 8080 / CP/M 2.2
+scripts/doDeployPages.sh 01        # 二進カウンタ
+scripts/doDeployPages.sh 02        # 信号機 FSM
+scripts/doDeployPages.sh 03        # UART
+scripts/doDeployPages.sh 04        # 6502 / Apple-I
+scripts/doDeployPages.sh 05        # Dormann テスト
+scripts/doDeployPages.sh 06        # 8080 / CP/M 2.2
+scripts/doDeployPages.sh 09        # PDP-11 / Unix V6
 
 # ビルド済みの WASM をそのままデプロイ（ビルドをスキップ）
-scripts/deploy-gh-pages.sh --no-build 06
+scripts/doDeployPages.sh --no-build 06
 
 # 全エグザンプルをビルドしてデプロイ
-scripts/deploy-gh-pages.sh
+scripts/doDeployPages.sh
 ```
+
+06 と 09 は、ビルド・タイミング図の再生成・デプロイ後の確認までを一式で行う
+`doDeployAll.sh` (リポジトリルート) からも呼ばれる (`doDeployPages.sh --no-build 06 09`)。
 
 ## 2. スクリプトの動作
 
-`scripts/deploy-gh-pages.sh` は以下を順に行う。
+`scripts/doDeployPages.sh` は以下を順に行う。
 
 ### 2.1 ビルド（`--no-build` でスキップ）
 
@@ -35,9 +40,10 @@ scripts/deploy-gh-pages.sh
 | 01 | `scripts/build-wasm.sh` |
 | 02 | `scripts/build-wasm-02.sh` |
 | 03 | `scripts/build-wasm-03.sh` |
-| 04 | `scripts/build-wasm.sh` |
-| 05 | `scripts/build-wasm.sh` |
+| 04 | `scripts/build-wasm-04.sh` |
+| 05 | `scripts/build-wasm-05.sh` |
 | 06 | `scripts/build-wasm-06.sh` |
+| 09 | `scripts/build-wasm-09.sh` |
 
 ### 2.2 ワークツリー準備
 
@@ -56,7 +62,12 @@ scripts/deploy-gh-pages.sh
 | `examples/03-uart/web/{index.html,sim.js,sim.wasm,*.png,*.svg}` | `/03-uart/` |
 | `examples/04-6502/web/{index.html,sim.js,sim.wasm,*.png,*.svg}` | `/04-6502/` |
 | `examples/05-dormann/web/{index.html,sim.js,sim.wasm,*.png,*.svg}` | `/05-dormann/` |
-| `examples/06-8080/web/{index.html,sim.js,sim.wasm,*.png,*.svg}` | `/06-8080/` |
+| `examples/06-8080/web/{index.html,sim.js,sim.wasm,*.png,*.svg}` | `/examples/06-8080/web/` (旧 URL `/06-8080/` にはリダイレクトだけを置く) |
+| `examples/09-pdp11/web/{index.html,sim.js,sim.wasm,sim-worker.js,*.png,*.svg}`・`disk/` | `/examples/09-pdp11/web/` |
+| `js/*.js`・`js/*.css` (rtlscope-la.js など) | `/js/` |
+| `docs/` | `/docs/` (各エグザンプルの `docs/` にも、対応する章の Markdown と `img/`・`en/` を写す) |
+
+`index.html` の `<!-- DEPLOY_DATETIME -->` は、デプロイ時に `Ver.<版> <日時>` へ置き換わる。
 
 ### 2.4 コミット & プッシュ
 
@@ -73,7 +84,8 @@ scripts/deploy-gh-pages.sh
 | 03 — UART | [https://tommie-jp.github.io/soft-fpga/03-uart/](https://tommie-jp.github.io/soft-fpga/03-uart/) |
 | 04 — 6502 / Apple-I | [https://tommie-jp.github.io/soft-fpga/04-6502/](https://tommie-jp.github.io/soft-fpga/04-6502/) |
 | 05 — Dormann テスト | [https://tommie-jp.github.io/soft-fpga/05-dormann/](https://tommie-jp.github.io/soft-fpga/05-dormann/) |
-| 06 — 8080 / CP/M 2.2 | [https://tommie-jp.github.io/soft-fpga/06-8080/](https://tommie-jp.github.io/soft-fpga/06-8080/) |
+| 06 — 8080 / CP/M 2.2 | [https://tommie-jp.github.io/soft-fpga/examples/06-8080/web/](https://tommie-jp.github.io/soft-fpga/examples/06-8080/web/) (旧 [06-8080/](https://tommie-jp.github.io/soft-fpga/06-8080/) から転送) |
+| 09 — PDP-11 / Unix V6 | [https://tommie-jp.github.io/soft-fpga/examples/09-pdp11/web/](https://tommie-jp.github.io/soft-fpga/examples/09-pdp11/web/) |
 
 デプロイ完了時にスクリプトが該当 URL を出力する。
 
@@ -121,7 +133,7 @@ gh api repos/{owner}/{repo}/pages \
 2. **Source** を **Deploy from a branch** に設定する
 3. **Branch** に `gh-pages` / `/ (root)` を選択して **Save** する
 
-> `gh-pages` ブランチがまだ存在しない場合、`deploy-gh-pages.sh` の初回実行時に
+> `gh-pages` ブランチがまだ存在しない場合、`doDeployPages.sh` の初回実行時に
 > 孤立ブランチとして自動作成・プッシュされる。
 > プッシュ後に上記の設定を行えばよい。
 

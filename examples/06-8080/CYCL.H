@@ -1,7 +1,11 @@
 /*
  * cycl.h -- T-state counter for soft-FPGA CP/M simulator
  *
- * BDS C 1.60: no long type; 16-bit int only (max 65535 T per measurement).
+ * The counter advances once per clk period; vm80a takes two clk periods per
+ * T-state, so the value is TWICE the T-state count (divide by 2).
+ *
+ * BDS C 1.60: no long type; 16-bit signed int only (a difference prints
+ * correctly up to 32767 = about 16000 T per measurement).
  *
  * I/O ports:
  *   OUT 30h   reset counter to 0
@@ -14,9 +18,9 @@
  *   int t0, t1;
  *   cycl_reset();
  *   t0 = cycl_read();
- *   ... code (must complete in < 65535 T) ...
+ *   ... code (counter difference must stay below 32767) ...
  *   t1 = cycl_read();
- *   printf("cycles: %d\n", t1 - t0);
+ *   printf("T-states: %d\n", (t1 - t0) / 2);
  */
 
 #define cycl_reset()   outp(0x30, 0)

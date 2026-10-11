@@ -67,7 +67,7 @@ A library for declaratively observing RTL internal signals in the browser.
 A few non-obvious problems behind the "just run RTL in the browser" pitch. Full write-up in [docs/01-soft-FPGA-WebAssembly-設計議論メモ.md](docs/01-soft-FPGA-WebAssembly-設計議論メモ.md).
 
 - **Never cross the Wasm↔JS boundary every cycle.** A per-cycle `EM_ASM`/`EM_JS` callback collapses under call overhead. rtlscope writes each sample into a ring buffer in Wasm memory; JS reads it zero-copy through a `TypedArray` view over `HEAP8.buffer` and renders at 60 Hz with `requestAnimationFrame`.
-- **`ALLOW_MEMORY_GROWTH=1` silently invalidates those views.** When the Wasm heap grows, the old `ArrayBuffer` is detached and the view goes blank mid-run, so the harness watches for growth and regenerates the views.
+- **`ALLOW_MEMORY_GROWTH=1` silently invalidates those views.** When the Wasm heap grows, the old `ArrayBuffer` is detached and the view goes blank mid-run, so the JS never holds on to a view: it re-reads `Module.HEAPU32` on every frame before reading (06 and 09, which run in a Web Worker, copy the ring buffer with `slice()` inside the worker and post it).
 - **Verilator hierarchical signal names are not stable.** `top->cpu__DOT__regs__DOT__pc` shifts with the Verilator version and `--public-flat-rw` is brittle. Observed signals are pulled out through a thin Verilog wrapper at the top level and bound in the C++ harness, so the JS side never depends on internal naming.
 - **VCD dump is a non-starter in Wasm** — the in-Wasm filesystem fills instantly, so all tracing goes through the custom ring buffer instead.
 - **The simulation has to run in a Web Worker.** On the main thread the UI freezes; the fast path needs `SharedArrayBuffer` + Atomics, which pulls in COOP/COEP headers.
@@ -114,7 +114,7 @@ cd examples/06-8080/web && ./doStart.sh
 # open http://localhost:8000/
 
 # Deploy all examples to GitHub Pages
-scripts/deploy-gh-pages.sh
+scripts/doDeployPages.sh
 ```
 
 ## Directory layout

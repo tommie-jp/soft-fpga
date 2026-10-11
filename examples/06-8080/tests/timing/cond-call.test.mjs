@@ -7,7 +7,7 @@
  *
  * vm80a 実測値 (Intel 8080A 仕様と perCycle が異なる):
  *   not-taken : 11T / 3M , perCycle=[5,3,3]   (仕様: M1=4T, M3=4T)
- *   taken     : 17T / 5M , perCycle=[5,3,3,3,3] (仕様: M1=4T, M5=4T)
+ *   taken     : 17T / 5M , perCycle=[5,3,3,3,3] (Intel 8080A の命令表どおり)
  *   ※ vm80a は全ケースで M1=5T を使う。
  *
  * テスト手法:

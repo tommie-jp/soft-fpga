@@ -83,7 +83,9 @@ sw/cpm/
 CP/M 2.2 は Digital Research が 2001 年に公開したため再配布可能。
 
 - 公式放流版ソース: `http://www.cpm.z80.de/source.html`
-- RunCPM（動作確認済みバイナリ付き）: `https://github.com/MockbaTheBorg/RunCPM`
+- z80pack（CP/M 2.2 の組み上がった像 `cpmsim/srccpm2/cpm.bin`。MIT）: `https://github.com/udo-munk/z80pack`
+  — `scripts/setup-cpm22.sh` がこれを取り、`$DC00` 用に組み直して `rom/cpm22.bin` を作る
+  (RunCPM は BDOS を C で真似るので、CCP+BDOS の像を置いていない)
 
 ## I/O ポート割り当て
 

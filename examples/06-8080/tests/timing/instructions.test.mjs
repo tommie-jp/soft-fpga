@@ -505,7 +505,7 @@ describe('G18: CALL addr (17T / M=5)', () => {
     const instrSamples = extractNMachineCycles(parsed, 5);
     const timing = analyzeTiming(instrSamples);
     // vm80a では M1=5T (Intel 8080 仕様の M1=4T と異なる)、M5=3T
-    // Intel 8080A User's Manual では M1=4T, M5=4T だが vm80a は M1=5T, M5=3T で合計 17T は同じ
+    // Intel 8080A のマニュアルの命令表どおり M1=5T (T4・T5 で SP−1), M2〜M5=3T で合計 17T
     expectTiming(timing, { m: 5, t: 17, perCycle: [5, 3, 3, 3, 3] }, 'CALL addr');
   });
 });

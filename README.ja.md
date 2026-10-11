@@ -66,7 +66,7 @@ RTL 内部信号をブラウザで宣言的に観測するライブラリ。
 「RTL をブラウザで動かすだけ」の裏にある非自明な問題。詳細は [docs/01-soft-FPGA-WebAssembly-設計議論メモ.md](docs/01-soft-FPGA-WebAssembly-設計議論メモ.md)。
 
 - **毎サイクル Wasm↔JS 境界を跨がない。** 毎サイクルの `EM_ASM`/`EM_JS` コールバックは呼出オーバーヘッドで破綻する。rtlscope は各サンプルを Wasm メモリ上のリングバッファに書き、JS は `HEAP8.buffer` 上の `TypedArray` ビュー越しに**ゼロコピー読取**し、`requestAnimationFrame` で 60Hz 描画する。
-- **`ALLOW_MEMORY_GROWTH=1` がそのビューを静かに無効化する。** Wasm ヒープが伸びると古い `ArrayBuffer` が detach され、実行中に表示が消える。ハーネス側で growth を監視しビューを再生成する。
+- **`ALLOW_MEMORY_GROWTH=1` がそのビューを静かに無効化する。** Wasm ヒープが伸びると古い `ArrayBuffer` が detach され、実行中に表示が消える。そこで JS は読み口を持ち続けず、描くたびに `Module.HEAPU32` を取り直してから読む (Worker で回す 06・09 は、Worker の中でリングバッファを `slice()` で写して送る)。
 - **Verilator の階層信号名は安定しない。** `top->cpu__DOT__regs__DOT__pc` は Verilator バージョンで変わり、`--public-flat-rw` は脆い。観測対象はトップ直下の薄い Verilog ラッパーで引き出し、C++ ハーネスで bind する（JS 側は内部命名に依存しない）。
 - **VCD ダンプは Wasm では成立しない** — Wasm 内 FS が即詰まるため、トレースはすべてカスタムリングバッファに振る。
 - **シミュレーションは Web Worker で動かす必要がある。** メインスレッド実行では UI が固まる。高速版は `SharedArrayBuffer` + Atomics が要り、COOP/COEP ヘッダを伴う。
@@ -113,7 +113,7 @@ cd examples/06-8080/web && ./doStart.sh
 # ブラウザで http://localhost:8000/ を開く
 
 # GitHub Pages へのデプロイ（全エグザンプル）
-scripts/deploy-gh-pages.sh
+scripts/doDeployPages.sh
 ```
 
 ## ディレクトリ構成
