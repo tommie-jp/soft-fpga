@@ -1,4 +1,4 @@
-"""test_timing_ss_pdp11.py — PDP-11 ベアメタル全命令タイミング図スクリーンショット（55 ケース）
+"""test_timing_ss_pdp11.py — PDP-11 ベアメタル全命令タイミング図スクリーンショット（63 ケース）
 
 WASM をベアメタルモード（Unix V6 ブートなし）で起動し、各ケースで Python アセンブラで
 機械語を生成して RAM に直接ロードし、PC trigger 発火時の Logic Analyzer キャンバスを PNG に保存する。
@@ -1115,6 +1115,51 @@ mov 2(r0), r1
     ),
 ]
 
+# ── Phase L — RTI / RTT (2件) ────────────────────────────────────────────────
+# RTI / RTT はどちらも「スタックから PC と PSW を 2 回 POP して戻る」命令。
+# セットアップ:
+#   SP=01400 → push PSW=0 (01376) → push return PC=01020 (01374)
+#   trigger=01014 (rti/rtt)
+# バスサイクル: FETCH × 1 → MEM_RD × 2 (SP→PC, SP+2→PSW)
+# RTT は RTI と同じバスサイクル。新 PSW の T=1 が効くのは RTT 後の次命令から。
+_L: list[TimingCasePDP11] = [
+    # RTI: pop PC then PSW from kernel stack
+    TimingCasePDP11(
+        61, 'rti',
+        asm=""". = 01000
+mov $01400, sp
+mov $0, -(sp)
+mov $01020, -(sp)
+rti
+. = 01020
+1: br 1b
+""",
+        trigger_pc=0o1014,
+        signals=SIG_MEM,
+        zoom=32,
+        post_delay=100,
+        desc='Return from Interrupt — pop PC then PSW from stack (2 MEM_RD)',
+    ),
+
+    # RTT: same bus cycle as RTI; T-bit of new PSW deferred until after next insn
+    TimingCasePDP11(
+        62, 'rtt',
+        asm=""". = 01000
+mov $01400, sp
+mov $0, -(sp)
+mov $01020, -(sp)
+rtt
+. = 01020
+1: br 1b
+""",
+        trigger_pc=0o1014,
+        signals=SIG_MEM,
+        zoom=32,
+        post_delay=100,
+        desc='Return from Trace Trap — same bus cycle as RTI, T takes effect after next insn',
+    ),
+]
+
 # ── Phase N — EIS instructions (6件) ─────────────────────────────────────────
 # mul/div/ash/ashc は内部ハードウェア（mul1616/div3216/shift32）で処理するため
 # 数〜数十クロックの stall が発生する。zoom=8 で内部処理サイクルを可視化する。
@@ -1241,9 +1286,9 @@ div r2, r0
 
 # ── 全ケースリスト ─────────────────────────────────────────────────────────────
 CASES: list[TimingCasePDP11] = (
-    _A + _B + _C + _D + _E + _F + _G + _H + _I + _J + _K + _N
+    _A + _B + _C + _D + _E + _F + _G + _H + _I + _J + _K + _L + _N
 )
-assert len(CASES) == 61, f"期待 61 ケース、実際 {len(CASES)} ケース"
+assert len(CASES) == 63, f"期待 63 ケース、実際 {len(CASES)} ケース"
 
 
 # ── ヘルパー関数（ベアメタルモード）────────────────────────────────────────────

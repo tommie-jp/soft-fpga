@@ -34,4 +34,16 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # ビルド層は Makefile に委譲する（差分ビルド: 変更があった example だけ再ビルド）。
 # make wasm = 01-counter / 02-traffic-fsm / 03-uart / 04-6502 / 09-pdp11
-exec make -C "$SCRIPT_DIR" wasm
+make -C "$SCRIPT_DIR" wasm
+
+# タイミング図 PNG を docs/09-PDP11/img/timing/ に集約
+# test/ss/pdp11/timing-*/ 配下の PNG を古い順にコピー（同名は新しい方で上書き）
+_ss_dir="${SCRIPT_DIR}/test/ss/pdp11"
+_img_dir="${SCRIPT_DIR}/docs/09-PDP11/img/timing"
+if ls "${_ss_dir}/timing-"*/*.png 2>/dev/null | grep -q .; then
+    mkdir -p "$_img_dir"
+    while IFS= read -r -d '' _d; do
+        cp "${_d}"/*.png "$_img_dir/" 2>/dev/null || true
+    done < <(find "${_ss_dir}" -maxdepth 1 -name 'timing-*' -type d -print0 | sort -z)
+    echo "docs/09-PDP11/img/timing/ 更新: $(ls "${_img_dir}"/*.png 2>/dev/null | wc -l) 枚"
+fi
