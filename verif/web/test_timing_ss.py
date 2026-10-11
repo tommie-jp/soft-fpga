@@ -714,9 +714,9 @@ def _run_case(sim: SimAPI, tc: TimingCase) -> None:
     2. step_instr() で次の命令境界（M1 T1）まで正確に前進
     3. その時点の PC (bios_pc) を読み取り、そこに JMP 0x0300 を書き込む
        → CPU は M1 T2 でオペコード 0xC3 を読んで 0x0300 にジャンプする
-    4. CONIN ループ入口 0xF2DC にも JMP 0x0300 を書き込む（保険）
-       → bios_pc が CONIN ループ外（例: 0xF2E2）の場合でも
-         CPU が次に 0xF2DC を通過したとき 0x0300 へ到達できる
+    4. CONIN ループ入口 0xF28F にも JMP 0x0300 を書き込む（保険）
+       → bios_pc が CONIN ループ外（例: 0xF295）の場合でも
+         CPU が次に 0xF28F を通過したとき 0x0300 へ到達できる
     5. 0x0300 にテストコードを配置してトリガーを設定
     6. run() で再開 → JMP → テスト命令 → トリガー発火
     """
@@ -743,11 +743,11 @@ def _run_case(sim: SimAPI, tc: TimingCase) -> None:
     sim.write_mem(bios_pc, [0xC3, 0x00, 0x03])   # JMP 0x0300
 
     # 4a. CONIN ループ入口にも JMP 0x0300 を植える（保険）
-    #     step_instr() が CONIN ループ外のアドレス（例: 0xF2E2）を返した場合、
+    #     step_instr() が CONIN ループ外のアドレス（例: 0xF295）を返した場合、
     #     bios_pc への JMP 書き込みが効かないことがある。
-    #     その場合でも CPU が次に CONIN ループ入口 0xF2DC を通過したとき
+    #     その場合でも CPU が次に CONIN ループ入口 0xF28F を通過したとき
     #     0x0300 へリダイレクトされることを保証する。
-    sim.write_mem(0xF2DC, [0xC3, 0x00, 0x03])   # JMP 0x0300 at CONIN loop entry
+    sim.write_mem(0xF28F, [0xC3, 0x00, 0x03])   # JMP 0x0300 at CONIN loop entry
 
     # 5. MemWatch 設定（MEMW 観測用アドレスをスロットに設定）
     #    全スロットを一旦クリアしてから tc.setup_mem_watch で上書きする。

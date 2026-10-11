@@ -735,11 +735,11 @@ class TestSimAPI:
         sim.set_trigger(type="reg", regId=0, value=0xFF)
         sim.set_post_delay(10)
 
-        # 4. BIOS CONIN (0xF2DC) を JMP 0x0300 に差し替え
+        # 4. BIOS CONIN (0xF28F) を JMP 0x0300 に差し替え
         # CONIN を上書きすることで NOP sled → CCP → CONIN 経路も 0x0300 ループに収束する。
         # type="reg" A=0xFF トリガーは HLT なし → HLTA 問題なし。
         # set_trigger より後に書くことで CONIN 到達前に A=0xFF で即発火する競合を防ぐ。
-        sim.write_mem(0xF2DC, [0xC3, 0x00, 0x03])  # JMP 0x0300
+        sim.write_mem(0xF28F, [0xC3, 0x00, 0x03])  # JMP 0x0300
 
         # 5. 0x0300 から実行開始
         sim.run_from(0x0300)

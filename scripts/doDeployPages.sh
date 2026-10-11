@@ -12,7 +12,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$SCRIPT_DIR/.."
 WORKTREE="/tmp/soft-fpga-gh-pages"
 BRANCH="gh-pages"
-VERSION="1.0.0"
+VERSION="1.0.1"
 
 # ---------- option parsing ----------
 NO_BUILD=false
