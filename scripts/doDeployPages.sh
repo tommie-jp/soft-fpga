@@ -157,7 +157,16 @@ for ex in "${EXAMPLES[@]}"; do
     # index.html が src="js/..." で参照するファイルがあれば、それだけをコピーする
     # （01〜05 は共通ライブラリ全体ではなく数本しか使わない）。コピー元は web/js（開発用の
     # シンボリックリンク）があればそれ、無ければ $ROOT/js。参照が無ければ従来どおり全件コピー。
-    _js_refs=$(grep -oE "src=[\"']js/[^\"'?#]+\.js" "$src/index.html" | sed -E "s|^src=[\"']js/||" | sort -u || true)
+    # sim-worker.js が importScripts('js/...') で読むファイルも同じく対象にする。
+    _js_refs=$(
+        {
+            grep -oE "src=[\"']js/[^\"'?#]+\.js" "$src/index.html" | sed -E "s|^src=[\"']js/||" || true
+            if [ -f "$src/sim-worker.js" ]; then
+                grep -oE "importScripts\([\"']js/[^\"'?#]+\.js" "$src/sim-worker.js" \
+                    | sed -E "s|^importScripts\([\"']js/||" || true
+            fi
+        } | sort -u
+    )
     if [ -n "$_js_refs" ]; then
         _js_dir="$src/js"
         [ -d "$_js_dir" ] || _js_dir="$ROOT/js"

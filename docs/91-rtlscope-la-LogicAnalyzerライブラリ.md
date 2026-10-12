@@ -210,7 +210,8 @@ CPU ごとに書くのは「信号定義」と「1 クロックぶんの観測�
 | [`scripts/_la-exports.inc.sh`](../scripts/_la-exports.inc.sh) | 上記 API の EXPORTED_FUNCTIONS 一覧（`build-wasm-*.sh` から `source`） |
 | [`js/sft-la-toolbar.js`](../js/sft-la-toolbar.js) | ツールバー・トリガー欄・ナビ・canvas の HTML と CSS を `#la-root` に描く |
 | [`js/sft-la-ctrl.js`](../js/sft-la-ctrl.js) | Freeze/Thaw・トリガー設定・LA ON/OFF・Fill/Hatch の配線（backend 注入で CPU 非依存） |
-| [`js/sft-la-glue.js`](../js/sft-la-glue.js) | 上 3 つと RTLScopeLA の組み立て。`setupLa()` は Wasm 直呼び・メインスレッド用、`setupLaWorker()` は Web Worker 用 |
+| [`js/sft-la-glue.js`](../js/sft-la-glue.js) | 上 3 つと RTLScopeLA の組み立て。`setupLa()` は Wasm 直呼び・メインスレッド用、`setupLaWorker()` / `openLaWorker()` は Web Worker 用 |
+| [`js/sft-la-worker-core.js`](../js/sft-la-worker-core.js) | Worker 側の共通部分（`SftLaWorker.start`）。実行ループ・ring 送信・LA 制御・トリガー停止 |
 
 ### 8.1 各 example の構成
 
@@ -268,7 +269,8 @@ const head = lag.draw();
 
 ## 9. 今後の拡張予定
 
-- **Worker 化**: 04 は Worker 化済み（`setupLaWorker()`。メッセージの約束は `js/sft-la-glue.js` 末尾のコメント）。
-  01・02・03・05 は 93 の方針に従い、同じ形で順次移す
+- **Worker 化**: 03・04 は Worker 化済み（Worker 側は `js/sft-la-worker-core.js`、メインスレッド側は
+  `openLaWorker()` と `setupLaWorker()`。メッセージの約束は各ファイルのヘッダ）。01・02・05 は
+  93 の方針に従い、同じ形で順次移す
 - **6502 サイクル デコードレーン**: FETCH/READ/WRITE の色分け（現状は命令単位のニーモニックのみ）
 - **レジスタ値トリガー**: PC / A / X / Y を条件にするトリガー（現状は ring に載る信号のみ）

@@ -1,6 +1,7 @@
 // sft-la-glue.js — Logic Analyzer の組み立てを 1 回で行う
 //   setupLa        : Wasm 直呼び（メインスレッドで動かす example 用）
 //   setupLaWorker  : Wasm を Web Worker で動かす example 用（末尾のコメント参照）
+//   openLaWorker   : Worker を開き、ready / frame / error を振り分ける（setupLaWorker とセットで使う）
 //
 //   var lag = setupLa({
 //     Module: Module, rootId: 'la-root', config: COUNTER_LA_CONFIG, signals: COUNTER_LA_SIGNALS,
@@ -98,25 +99,52 @@ function setupLa(opts) {
 
 // ── Web Worker 版 ───────────────────────────────────────────────────────────
 //
-//   var lag = setupLaWorker({
-//     worker: worker, ringSize: msg.ringSize, ringWords: msg.ringWords,   // Worker の 'ready' で受け取る
-//     rootId: 'la-root', config: M6502_LA_CONFIG, signals: M6502_LA_SIGNALS,
-//     zoomIdx: 6, onArm: function () { setRunning(true); }
+//   var worker = openLaWorker('sim-worker.js', {
+//     onReady: function (m) { ... lag = setupLaWorker({worker, ringSize: m.ringSize, ringWords: m.ringWords, ...}) },
+//     onFrame: function (m) { lag.frame(m); ... },         // frame の内容は Worker 側の fields() が決める
+//     onFault: function (text) { ...停止表示にして text を見せる... }
 //   });
-//   worker.onmessage の 'frame' で:  lag.frame(msg);   // ringSnap・head・frozen・trigFireHead を取り込む
-//   描画（rAF 内）:                  lag.draw();
+//   描画（rAF 内）:  lag.draw();
 //
-// Worker 側の約束（examples/04-6502/web/sim-worker.js が実装例）:
-//   - 次の制御メッセージを受けて cxx/rtlscope_ring.h の API を呼ぶ:
-//       freezeRing / thawRing / setLA{enabled} / setPostDelay{n} / clearTrigger /
-//       setEdgeTrigger{word,bit,dir} / setValueTrigger{word,mask,cmp}
-//   - これらを 1 通処理するたびに laAck を 1 増やし、毎フレームの 'frame' に
+// Worker 側は js/sft-la-worker-core.js（SftLaWorker.start）が約束を実装する。
+//   - LA 制御メッセージ: freezeRing / thawRing / setLA{enabled} / setPostDelay{n} / clearTrigger /
+//     setEdgeTrigger{word,bit,dir} / setValueTrigger{word,mask,cmp}
+//   - 処理するたびに laAck を 1 増やし、毎フレームの 'frame' に
 //     {laAck, head, frozen, trigFireHead, ringSnap(ArrayBuffer, 空なら LA OFF)} を載せる。
-//   - トリガー停止後の Run（thaw して再武装）は Worker 側の setRunning で行う。
+//   - トリガー停止後の Run（thaw して再武装）は Worker 側の setRunning が行う。
 //
 // Freeze ボタンは押した直後に状態を読み返すため、メインスレッドに楽観的な影を持つ。
 // 送った制御メッセージが全て ack されるまでは、フレームの frozen / trigFireHead を採用しない
 // （飛行中の古いフレームで表示が一瞬戻るのを防ぐ）。
+
+// Worker を開く。ready / frame / error と Worker 全体のエラーを opts に振り分ける。
+// Worker 全体のエラー（メッセージ処理中の例外）では Worker が生きたまま走り続けることがあるため、
+// 実行を止めるメッセージを送ってから onFault を呼ぶ（落ちていれば、このメッセージは届かないだけ）。
+function openLaWorker(url, opts) {
+  'use strict';
+  var worker = new Worker(url);
+
+  worker.onerror = function (e) {
+    console.error('[la-worker] Worker エラー:', e.message, e);
+    worker.postMessage({ type: 'setRunning', running: false });
+    opts.onFault('WORKER ERROR — ページを再読み込みしてください');
+  };
+
+  worker.onmessage = function (e) {
+    var m = e.data;
+    switch (m.type) {
+      case 'ready': opts.onReady(m); break;
+      case 'frame': opts.onFrame(m); break;
+      case 'error':
+        console.error('[la-worker] Worker 内エラー:', m.message);
+        opts.onFault('ERROR: ' + m.message);
+        break;
+      default: console.warn('[la-worker] 未知の Worker メッセージ:', m.type);
+    }
+  };
+  return worker;
+}
+
 function setupLaWorker(opts) {
   'use strict';
   var worker = opts.worker;

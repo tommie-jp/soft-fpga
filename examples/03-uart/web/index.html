@@ -71,138 +71,157 @@
     </div>
   </div>
 
-  <script>
-  // ── 定数 ─────────────────────────────────────────────────
-  // UART_STATE_NAMES は js/sft-uart-la-defs.js で定義する
-
-  const BIT_TXD      = 0;
-  const BIT_RXD      = 1;
-  const BIT_TX_VALID = 2;
-  const BIT_TX_READY = 3;
-  const BIT_RX_VALID = 4;
-  const BIT_RX_ERROR = 5;
-  const BIT_TX_STATE = 6;
-  const BIT_RX_STATE = 8;
-  const BIT_TX_BIT   = 10;
-  const BIT_RX_BIT   = 13;
-  const BIT_TX_DATA  = 16;
-  const BIT_RX_DATA  = 24;
-
-  // ── メイン ──────────────────────────────────────────────
-  var Module = {
-    onRuntimeInitialized: function () {
-      Module._sim_init();
-
-      let running      = false;
-      let prevRxCount  = 0;
-      const rxHistory  = document.getElementById('rx-history');
-
-      function setRunning(on) {
-        running = on;
-        document.getElementById('btn-run').textContent = running ? 'Pause' : 'Run';
-      }
-
-      const lag = setupLa({
-        Module: Module, rootId: 'la-root',
-        config: UART_LA_CONFIG, signals: UART_LA_SIGNALS,
-        zoomIdx: 2,   // 1x: 1 フレーム（160 クロック）が 160px で、バイト表示が読める
-        onArm: function () { setRunning(true); }
-      });
-
-      function loop() {
-        if (running) {
-          Module._sim_run_n(parseInt(document.getElementById('speed').value, 10));
-          if (lag.triggerHit()) setRunning(false);   // トリガー停止
-        }
-
-        // Logic Analyzer（描画と最新サンプルの取得）
-        const head   = lag.draw();
-        const latest = lag.latestWord(0);
-
-        const txState  = (latest >> BIT_TX_STATE) & 0x3;
-        const rxState  = (latest >> BIT_RX_STATE) & 0x3;
-        const txData   = (latest >> BIT_TX_DATA)  & 0xFF;
-        const rxData   = (latest >> BIT_RX_DATA)  & 0xFF;
-        const txReady  = (latest >> BIT_TX_READY) & 0x1;
-        const rxError  = (latest >> BIT_RX_ERROR) & 0x1;
-
-        const fmtByte = v => '0x' + v.toString(16).toUpperCase().padStart(2, '0') +
-                             (v >= 0x20 && v < 0x7F ? " '" + String.fromCharCode(v) + "'" : '');
-
-        // Register Panel
-        if (head > 0) {
-          document.getElementById('r-txdata').textContent  = fmtByte(txData);
-          document.getElementById('r-rxdata').textContent  = fmtByte(rxData);
-          document.getElementById('r-txstate').textContent = UART_STATE_NAMES[txState];
-          document.getElementById('r-rxstate').textContent = UART_STATE_NAMES[rxState];
-          document.getElementById('r-txrdy').textContent   = txReady;
-          document.getElementById('r-rxerr').textContent   = rxError ? '⚠ ERROR' : '0';
-        }
-
-        // 受信履歴
-        const rxCount = Module._get_rx_valid_count() >>> 0;
-        if (rxCount !== prevRxCount) {
-          // 前の描画から増えた分を全部出す (1 回の描画の間に何字届いてもよい)。
-          // ハーネスの記録は 64 字なので、それより古い分は飛ばす。
-          const from = Math.max(prevRxCount, rxCount - 64);
-          for (let n = from; n < rxCount; n++) {
-            const line = document.createElement('div');
-            line.className = 'byte';
-            line.textContent = '> ' + fmtByte(Module._get_rx_byte(n));
-            rxHistory.appendChild(line);
-          }
-          rxHistory.scrollTop = rxHistory.scrollHeight;
-          prevRxCount = rxCount;
-        }
-
-        document.getElementById('cycle-info').textContent = head + ' cycles';
-
-        requestAnimationFrame(loop);
-      }
-
-      function sendString(s) {
-        for (let i = 0; i < s.length; i++) {
-          Module._send_byte(s.charCodeAt(i));
-        }
-      }
-
-      document.getElementById('btn-run').addEventListener('click', function () {
-        if (!running) lag.resume();   // トリガー停止後は Thaw して再武装する
-        setRunning(!running);
-      });
-
-      document.getElementById('btn-reset').addEventListener('click', function () {
-        Module._reset_sim();
-        setRunning(false);
-        prevRxCount = 0;
-        // 履歴は残す（意図的）
-      });
-
-      document.getElementById('btn-send').addEventListener('click', function () {
-        const s = document.getElementById('send-input').value;
-        if (s.length > 0) sendString(s);
-      });
-
-      document.getElementById('send-input').addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') {
-          const s = this.value;
-          if (s.length > 0) sendString(s);
-        }
-      });
-
-      requestAnimationFrame(loop);
-    }
-  };
-  </script>
-<p id="copyright" style="font-size:12px;color:#555;margin:6px 0 0;">&copy; 2026 <a href="https://github.com/tommie-jp" target="_blank" rel="noopener" style="color:#666;">tommie.jp</a>
+  <p id="copyright" style="font-size:12px;color:#555;margin:6px 0 0;">&copy; 2026 <a href="https://github.com/tommie-jp" target="_blank" rel="noopener" style="color:#666;">tommie.jp</a>
   &nbsp;&mdash;&nbsp;
   <a href="03-uart-QR.png" target="_blank" rel="noopener" style="color:#666;">QR</a>
-</p>
+  </p>
+
   <script src="js/sft-uart-la-defs.js"></script>
   <script src="js/rtlscope-la.js"></script>
   <script src="js/sft-la-toolbar.js"></script>
   <script src="js/sft-la-ctrl.js"></script>
   <script src="js/sft-la-glue.js"></script>
-  <script src="sim.js"></script>
+  <script>
+  // シミュレーション本体は Web Worker（sim-worker.js）で回す。このスクリプトは UI と描画だけを持つ。
+  // UART_STATE_NAMES は js/sft-uart-la-defs.js で定義する
+
+  const BIT_TX_READY = 3;
+  const BIT_RX_ERROR = 5;
+  const BIT_TX_STATE = 6;
+  const BIT_RX_STATE = 8;
+  const BIT_TX_DATA  = 16;
+  const BIT_RX_DATA  = 24;
+
+  const $ = id => document.getElementById(id);
+  const fmtByte = v => '0x' + v.toString(16).toUpperCase().padStart(2, '0') +
+                       (v >= 0x20 && v < 0x7F ? " '" + String.fromCharCode(v) + "'" : '');
+
+  let onFrame         = null;   // boot() が設定する
+  let onWorkerStopped = null;
+  let epoch           = 0;      // Reset のたびに増やす。古いフレームを捨てる目印
+  const RX_HISTORY_MAX = 200;   // 受信履歴の行数の上限（走らせっぱなしでも DOM を増やさない）
+  const worker = openLaWorker('sim-worker.js', {
+    onReady: function (m) { boot(m.ringSize, m.ringWords); },
+    onFrame: function (m) { if (onFrame) onFrame(m); },
+    onFault: function (text) {
+      $('cycle-info').textContent = text;
+      if (onWorkerStopped) onWorkerStopped();
+    }
+  });
+  function send(msg) { worker.postMessage(msg); }
+
+  function boot(ringSize, ringWords) {
+    let running    = false;
+    let latest     = null;    // 直近の frame（描画用）
+    let rafPending = false;
+    const rxHistory = $('rx-history');
+
+    function setRunning(on) {
+      running = on;
+      $('btn-run').textContent = running ? 'Pause' : 'Run';
+    }
+    function applySteps() {
+      send({ type: 'setSteps', steps: parseInt($('speed').value, 10) });
+    }
+    function startRun() {
+      applySteps();
+      setRunning(true);
+      send({ type: 'setRunning', running: true });   // トリガー停止後は Worker が Thaw して再武装する
+    }
+
+    const lag = setupLaWorker({
+      worker: worker, ringSize: ringSize, ringWords: ringWords,
+      rootId: 'la-root',
+      config: UART_LA_CONFIG, signals: UART_LA_SIGNALS,
+      zoomIdx: 2,   // 1x: 1 フレーム（160 クロック）が 160px で、バイト表示が読める
+      onArm: startRun
+    });
+
+    onWorkerStopped = function () { setRunning(false); };
+
+    function render() {
+      rafPending = false;
+      if (!latest) return;
+
+      // Logic Analyzer（描画と最新サンプルの取得）
+      const head   = lag.draw();
+      const sample = lag.latestWord(0);
+
+      // Register Panel
+      if (head > 0) {
+        $('r-txdata').textContent  = fmtByte((sample >> BIT_TX_DATA) & 0xFF);
+        $('r-rxdata').textContent  = fmtByte((sample >> BIT_RX_DATA) & 0xFF);
+        $('r-txstate').textContent = UART_STATE_NAMES[(sample >> BIT_TX_STATE) & 0x3];
+        $('r-rxstate').textContent = UART_STATE_NAMES[(sample >> BIT_RX_STATE) & 0x3];
+        $('r-txrdy').textContent   = (sample >> BIT_TX_READY) & 0x1;
+        $('r-rxerr').textContent   = ((sample >> BIT_RX_ERROR) & 0x1) ? '⚠ ERROR' : '0';
+      }
+      $('cycle-info').textContent = head + ' cycles';
+    }
+
+    onFrame = function (m) {
+      if (m.epoch !== epoch) return;   // Reset より前に作られたフレームは捨てる
+      lag.frame(m);
+      latest = m;
+
+      // 受信履歴（Worker が前のフレームから増えた分を m.rx で渡す。1 回の描画の間に何字届いてもよい）
+      if (m.rx.length > 0) {
+        for (const b of m.rx) {
+          const line = document.createElement('div');
+          line.className = 'byte';
+          line.textContent = '> ' + fmtByte(b);
+          rxHistory.appendChild(line);
+        }
+        while (rxHistory.querySelectorAll('.byte').length > RX_HISTORY_MAX) {
+          rxHistory.querySelector('.byte').remove();   // 古い順に捨てる（先頭の .title は残る）
+        }
+        rxHistory.scrollTop = rxHistory.scrollHeight;
+      }
+
+      if (m.trigPause && running) setRunning(false);   // トリガー停止
+
+      if (!rafPending) {
+        rafPending = true;
+        requestAnimationFrame(render);
+      }
+    };
+
+    function sendString(s) {
+      for (let i = 0; i < s.length; i++) send({ type: 'sendByte', b: s.charCodeAt(i) });
+    }
+
+    $('speed').addEventListener('input', applySteps);
+
+    $('btn-run').addEventListener('click', function () {
+      if (running) {
+        setRunning(false);
+        send({ type: 'setRunning', running: false });
+      } else {
+        startRun();
+      }
+    });
+
+    $('btn-reset').addEventListener('click', function () {
+      epoch++;
+      send({ type: 'reset', epoch: epoch });
+      setRunning(false);
+      // 履歴は残す（意図的）
+    });
+
+    $('btn-send').addEventListener('click', function () {
+      const s = $('send-input').value;
+      if (s.length > 0) sendString(s);
+    });
+
+    $('send-input').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        const s = this.value;
+        if (s.length > 0) sendString(s);
+      }
+    });
+
+    applySteps();
+  }
+  </script>
 </body>
 </html>

@@ -203,37 +203,20 @@
   // ── Worker ──────────────────────────────────────────────────────
   var workerReady = false;   // テストが `workerReady === true` で待つ
   var epoch       = 0;       // reset / モード切替のたびに増やす。古いフレームを捨てる目印
-  const worker = new Worker('sim-worker.js');
-  function send(msg) { worker.postMessage(msg); }
+  let onFrame         = null;  // boot() が設定する
+  let onWorkerStopped = null;  // Worker を止めたとき UI を合わせる（boot() が設定する）
+  let workerFault     = '';    // 空でなければ State 欄に出し続ける（フレームで上書きさせない）
 
-  let onFrame = null;         // boot() が設定する
-  let onWorkerStopped = null; // Worker を止めたとき UI を合わせる（boot() が設定する）
-  let workerFault = '';       // 空でなければ State 欄に出し続ける（フレームで上書きさせない）
-
-  // Worker 側で例外が出た。メッセージ処理中の例外では Worker が生きたまま走り続けることがあるため、
-  // 実行を止めるメッセージを送ってから UI を合わせる（落ちていれば、このメッセージは届かないだけ）。
-  worker.onerror = function (e) {
-    console.error('[04-6502] Worker エラー:', e.message, e);
-    workerFault = 'WORKER ERROR — ページを再読み込みしてください';
-    document.getElementById('r-state').textContent = workerFault;
-    worker.postMessage({ type: 'setRunning', running: false });
-    if (onWorkerStopped) onWorkerStopped();
-  };
-
-  worker.onmessage = function (e) {
-    const m = e.data;
-    switch (m.type) {
-      case 'ready': boot(m.ringSize, m.ringWords); break;
-      case 'frame': if (onFrame) onFrame(m); break;
-      case 'error':
-        console.error('[04-6502] Worker 内エラー:', m.message);
-        workerFault = 'ERROR: ' + m.message;
-        document.getElementById('r-state').textContent = workerFault;
-        if (onWorkerStopped) onWorkerStopped();
-        break;
-      default: console.warn('[04-6502] 未知の Worker メッセージ:', m.type);
+  const worker = openLaWorker('sim-worker.js', {
+    onReady: function (m) { boot(m.ringSize, m.ringWords); },
+    onFrame: function (m) { if (onFrame) onFrame(m); },
+    onFault: function (text) {
+      workerFault = text;
+      document.getElementById('r-state').textContent = text;
+      if (onWorkerStopped) onWorkerStopped();
     }
-  };
+  });
+  function send(msg) { worker.postMessage(msg); }
 
   // ── 起動（Worker の初期化完了後）────────────────────────────────
   function boot(ringSize, ringWords) {
