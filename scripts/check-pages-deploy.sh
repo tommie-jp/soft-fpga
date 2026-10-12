@@ -44,6 +44,8 @@ SMOKE_URLS=(
     "${PAGES_BASE}/01-counter/"
     "${PAGES_BASE}/02-traffic-fsm/"
     "${PAGES_BASE}/02-traffic-fsm/js/sft-fsm-la-defs.js"
+    "${PAGES_BASE}/02-traffic-fsm/sim-worker.js"
+    "${PAGES_BASE}/02-traffic-fsm/js/sft-la-worker-core.js"
     "${PAGES_BASE}/03-uart/"
     "${PAGES_BASE}/03-uart/js/sft-uart-la-defs.js"
     "${PAGES_BASE}/03-uart/sim-worker.js"

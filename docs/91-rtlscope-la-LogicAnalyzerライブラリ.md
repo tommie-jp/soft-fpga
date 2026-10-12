@@ -269,8 +269,8 @@ const head = lag.draw();
 
 ## 9. 今後の拡張予定
 
-- **Worker 化**: 03・04 は Worker 化済み（Worker 側は `js/sft-la-worker-core.js`、メインスレッド側は
-  `openLaWorker()` と `setupLaWorker()`。メッセージの約束は各ファイルのヘッダ）。01・02・05 は
+- **Worker 化**: 02・03・04 は Worker 化済み（Worker 側は `js/sft-la-worker-core.js`、メインスレッド側は
+  `openLaWorker()` と `setupLaWorker()`。メッセージの約束は各ファイルのヘッダ）。01・05 は
   93 の方針に従い、同じ形で順次移す
 - **6502 サイクル デコードレーン**: FETCH/READ/WRITE の色分け（現状は命令単位のニーモニックのみ）
 - **レジスタ値トリガー**: PC / A / X / Y を条件にするトリガー（現状は ring に載る信号のみ）
