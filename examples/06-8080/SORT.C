@@ -1,7 +1,9 @@
 /*
  * sort.c -- bubble sort vs insertion sort cycle benchmark
  *
- * N=16: worst case ~8000 T, fits in 16-bit int (N=32 overflows).
+ * N=16. The counter advances by 2 per T-state and differences are printed with
+ * %d (16-bit signed); the measured differences still exceed 32767 counts and
+ * print as negative numbers (measured output: docs/06-8080/22 section 3.3).
  *
  * Compile: CC CYCL.C, CC SORT.C, CLINK SORT CYCL
  */

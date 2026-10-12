@@ -4,7 +4,9 @@
  * Compile: CC CYCL.C, CC BENCH.C, CLINK BENCH CYCL
  *
  * BDS C 1.60: identifiers significant to 8 chars.
- * N=500 keeps all measurements within 16-bit int (< 65535 T).
+ * N=100. The counter advances by 2 per T-state and differences are printed with
+ * %d (16-bit signed), so several measurements still overflow to negative numbers
+ * (measured output: docs/06-8080/22 section 4.3).
  *
  * I/O port 0x10 = disk status (read-only, safe to call repeatedly).
  * IN/OUT = 10 T each.
