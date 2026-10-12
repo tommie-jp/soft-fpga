@@ -13,7 +13,7 @@
 | 01-counter | **メインスレッド** | なし |
 | 02-traffic-fsm | **メインスレッド** | なし |
 | 03-uart | **メインスレッド** | なし |
-| 04-6502 | **メインスレッド** | なし |
+| 04-6502 | **メインスレッド** → Web Worker ✅ (2026-10-12) | あり |
 | 05-dormann | **メインスレッド** | なし |
 | 06-8080 | Web Worker ✅ | あり |
 
@@ -21,7 +21,20 @@
 
 **01〜05 を順次 Web Worker 化（sim-worker.js 導入）する。**
 
-> 進み具合 (2026-10-11 時点): 01〜05 はまだメインスレッドで回している (未着手)。Worker で回しているのは 06-8080 と 09-pdp11。
+> 進み具合 (2026-10-12 時点): 04-6502 は Worker 化済み（`examples/04-6502/web/sim-worker.js`。
+> LA は `js/sft-la-glue.js` の `setupLaWorker()` で組み立てる）。01・02・03・05 はまだメインスレッドで回している。
+> Worker で回しているのは 04-6502・06-8080・09-pdp11。
+>
+> 04-6502 の実装メモ:
+>
+> - 実行の主導権は Worker が持つ。トリガー停止・Dormann のトラップ検出も Worker が `running` を落とし、
+>   frame の `trigPause` / `trapped` で UI に知らせる。
+> - Run 時の Thaw（トリガー停止後の再武装）は Worker の `setRunning` が行う。main は frame の
+>   `trigHit` を見て再開判定をしない（飛行中の古いフレームで二重停止するため）。
+> - LA 制御メッセージは `laAck` で突き合わせる。main は Freeze 表示を楽観的に更新し、送った制御が
+>   全て ack されるまで frame の `frozen` / `trigFireHead` を採用しない。
+> - reset / モード切替は `epoch` を増やして送り、Worker が frame に返す。古い epoch のフレームは捨てる。
+> - 停止中は状態が変わったときだけ frame を送る（ring 32 KB の転送を省く）。
 
 2パターン（main thread / Worker）を並存させるより、Worker に統一した方が：
 

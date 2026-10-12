@@ -128,11 +128,23 @@
   <!-- Logic Analyzer（js/rtlscope-la.js: 06-8080 と同じ UI。Apple-I / Dormann 共有） -->
   <div id="la-root" style="margin-top:8px;"></div>
 
+  <p id="copyright" style="font-size:12px;color:#555;margin:6px 0 0;">&copy; 2026 <a href="https://github.com/tommie-jp" target="_blank" rel="noopener" style="color:#666;">tommie.jp</a>
+  &nbsp;&mdash;&nbsp;
+  <a href="04-6502-QR.png" target="_blank" rel="noopener" style="color:#666;">QR</a>
+  </p>
+
   <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+  <script src="js/sft-6502-la-defs.js"></script>
+  <script src="js/rtlscope-la.js"></script>
+  <script src="js/sft-la-toolbar.js"></script>
+  <script src="js/sft-la-ctrl.js"></script>
+  <script src="js/sft-la-glue.js"></script>
   <script>
-  // ── ring buffer レイアウト ────────────────────────────────────────
-  // Word0: [15:0]=AB  [23:16]=DB  [24]=WE  [25]=SYNC  [26]=reset
-  // Word1: [7:0]=A    [15:8]=X    [23:16]=Y [31:24]=SP
+  // シミュレーション本体は Web Worker（sim-worker.js）で回す。このスクリプトは UI と描画だけを持つ。
+  //
+  // ring buffer レイアウト（Worker が毎フレーム ringSnap として送ってくる）:
+  //   Word0: [15:0]=AB  [23:16]=DB  [24]=WE  [25]=SYNC  [26]=reset
+  //   Word1: [7:0]=A    [15:8]=X    [23:16]=Y [31:24]=SP
 
   // ── フラグパネル ─────────────────────────────────────────────────
   const FLAG_DEFS = [
@@ -186,286 +198,339 @@
     'JMPIX0','JMPIX1','JMPIX2',
   ];
 
-  // ── メイン ───────────────────────────────────────────────────────
-  var Module = {
-    onRuntimeInitialized: function () {
-      initFlagPanel();
+  const EXPECT_CYCLES = 96_241_373;
 
-      // ── xterm.js ────────────────────────────────────────────────
-      const term = new Terminal({
-        cols: 40, rows: 20,
-        theme: { background: '#000000', foreground: '#00dd00', cursor: '#00dd00' },
-        fontSize: 14,
-        fontFamily: 'Courier New, monospace',
-        cursorBlink: true,
-        convertEol: true,
-      });
-      term.open(document.getElementById('terminal'));
-      window._sftTerm = term;
+  // ── Worker ──────────────────────────────────────────────────────
+  var workerReady = false;   // テストが `workerReady === true` で待つ
+  var epoch       = 0;       // reset / モード切替のたびに増やす。古いフレームを捨てる目印
+  const worker = new Worker('sim-worker.js');
+  function send(msg) { worker.postMessage(msg); }
 
-      // ── 状態 ────────────────────────────────────────────────────
-      let romMode        = 'apple1';
-      let apple1Running  = true;
-      let dormannRunning = false;
-      let dormannStartMs = null;
+  let onFrame = null;         // boot() が設定する
+  let onWorkerStopped = null; // Worker を止めたとき UI を合わせる（boot() が設定する）
+  let workerFault = '';       // 空でなければ State 欄に出し続ける（フレームで上書きさせない）
 
-      const EXPECT_CYCLES = 96_241_373;
+  // Worker 側で例外が出た。メッセージ処理中の例外では Worker が生きたまま走り続けることがあるため、
+  // 実行を止めるメッセージを送ってから UI を合わせる（落ちていれば、このメッセージは届かないだけ）。
+  worker.onerror = function (e) {
+    console.error('[04-6502] Worker エラー:', e.message, e);
+    workerFault = 'WORKER ERROR — ページを再読み込みしてください';
+    document.getElementById('r-state').textContent = workerFault;
+    worker.postMessage({ type: 'setRunning', running: false });
+    if (onWorkerStopped) onWorkerStopped();
+  };
 
-      // ── 初期化 ──────────────────────────────────────────────────
-      Module._sim_init();
-
-      // ── Logic Analyzer（トリガー設定時は、いまのモードの実行を再開する） ──
-      const lag = setupLa({
-        Module: Module, rootId: 'la-root',
-        config: M6502_LA_CONFIG, signals: M6502_LA_SIGNALS,
-        zoomIdx: 6,   // 16x: 1 命令ずつニーモニックが読める倍率で開始する
-        onArm: function () {
-          if (romMode === 'apple1') {
-            apple1Running = true;
-            document.getElementById('btn-run').textContent = 'Pause';
-          } else if (!Module._is_trapped()) {
-            dormannRunning = true;
-            if (!dormannStartMs) dormannStartMs = performance.now();
-            document.getElementById('d-btn-run').textContent = 'Pause';
-            setDormannStatus('RUNNING...', 'running');
-          }
-        }
-      });
-
-      term.onData(function (data) {
-        if (romMode !== 'apple1') return;
-        for (let i = 0; i < data.length; i++) Module._send_key(data.charCodeAt(i));
-      });
-
-      // ── ヘルパー ────────────────────────────────────────────────
-      function drainDisplay() {
-        let ch;
-        while ((ch = Module._get_display_char()) !== -1) {
-          term.write(String.fromCharCode(ch));
-        }
-      }
-
-      function updateRegPanel() {
-        const pc = Module._get_pc()    >>> 0;
-        const a  = Module._get_a()     >>> 0;
-        const x  = Module._get_x()     >>> 0;
-        const y  = Module._get_y()     >>> 0;
-        const sp = Module._get_sp()    >>> 0;
-        const p  = Module._get_p()     >>> 0;
-        const st = Module._get_state() >>> 0;
-        document.getElementById('r-pc').textContent = pc.toString(16).toUpperCase().padStart(4, '0');
-        document.getElementById('r-a').textContent  = a.toString(16).toUpperCase().padStart(2, '0');
-        document.getElementById('r-x').textContent  = x.toString(16).toUpperCase().padStart(2, '0');
-        document.getElementById('r-y').textContent  = y.toString(16).toUpperCase().padStart(2, '0');
-        document.getElementById('r-sp').textContent = sp.toString(16).toUpperCase().padStart(2, '0');
-        document.getElementById('r-p').textContent  = p.toString(16).toUpperCase().padStart(2, '0');
-        document.getElementById('r-state').textContent =
-          (STATE_NAMES[st] || ('?' + st)) + ' (' + st + ')';
-        updateFlags(p);
-      }
-
-      function fmtNum(n) {
-        if (n >= 1e6) return (n / 1e6).toFixed(2) + ' M';
-        if (n >= 1e3) return (n / 1e3).toFixed(1) + ' K';
-        return n.toString();
-      }
-
-      function setDormannStatus(text, cls) {
-        const box = document.getElementById('d-status-box');
-        box.textContent = text;
-        box.className   = cls;
-      }
-
-      function resetDormannUI() {
-        dormannRunning = false;
-        dormannStartMs = null;
-        document.getElementById('d-btn-run').textContent = 'Run';
-        setDormannStatus('READY', 'running');
-        document.getElementById('d-prog-bar').style.width = '0%';
-        document.getElementById('d-prog-bar').className   = '';
-        document.getElementById('d-m-cycles').textContent = '—';
-        document.getElementById('d-m-pc').textContent     = '—';
-        document.getElementById('d-m-speed').textContent  = '—';
-        document.getElementById('d-m-wall').textContent   = '—';
-        document.getElementById('d-cycle-info').textContent = '';
-      }
-
-      function updateDormannMetrics() {
-        const c       = Module._get_cycles() >>> 0;
-        const pc      = Module._get_pc()   >>> 0;
-        const elapsed = dormannStartMs ? (performance.now() - dormannStartMs) / 1000 : 0;
-        const cps     = elapsed > 0 ? c / elapsed : 0;
-        document.getElementById('d-m-cycles').textContent = fmtNum(c) + ' cycles';
-        document.getElementById('d-m-pc').textContent     = '$' + pc.toString(16).toUpperCase().padStart(4, '0');
-        document.getElementById('d-m-speed').textContent  = fmtNum(cps) + '/s';
-        document.getElementById('d-m-wall').textContent   = elapsed.toFixed(1) + ' s';
-        document.getElementById('d-cycle-info').textContent = fmtNum(c) + ' cycles';
-        const pct = Math.min(c / EXPECT_CYCLES * 100, 100);
-        document.getElementById('d-prog-bar').style.width = pct + '%';
-      }
-
-      // ── メインループ ─────────────────────────────────────────────
-      function loop() {
-        if (romMode === 'apple1') {
-          if (apple1Running) {
-            const steps = parseInt(document.getElementById('speed').value);
-            Module._sim_run_n(steps);
-            if (lag.triggerHit()) {                       // トリガー停止
-              apple1Running = false;
-              document.getElementById('btn-run').textContent = 'Run';
-            }
-          }
-          drainDisplay();
-          updateRegPanel();
-          document.getElementById('cycle-info').textContent =
-            (Module._get_cycles() >>> 0).toLocaleString() + ' cycles';
-
-        } else {
-          if (dormannRunning && !Module._is_trapped()) {
-            const n = parseInt(document.getElementById('d-speed').value);
-            Module._step_n(n);
-            if (lag.triggerHit() && !Module._is_trapped()) {   // トリガー停止
-              dormannRunning = false;
-              document.getElementById('d-btn-run').textContent = 'Run';
-              setDormannStatus('TRIGGER', 'running');
-            }
-            if (Module._is_trapped()) {
-              dormannRunning = false;
-              const ok = Module._is_passed();
-              setDormannStatus(ok ? 'PASS ✓' : 'FAIL ✗', ok ? 'pass' : 'fail');
-              const bar = document.getElementById('d-prog-bar');
-              bar.style.width = '100%';
-              bar.className   = ok ? 'pass' : 'fail';
-              document.getElementById('d-btn-run').textContent = 'Run';
-            }
-          }
-          updateDormannMetrics();
-        }
-
-        lag.draw();
-        requestAnimationFrame(loop);
-      }
-
-      // ── Auto-type helper ─────────────────────────────────────────
-      function autoTypeStr(str, charDelay, done) {
-        var i = 0;
-        function next() {
-          if (i >= str.length) { if (done) done(); return; }
-          Module._send_key(str.charCodeAt(i++));
-          setTimeout(next, charDelay);
-        }
-        setTimeout(next, 0);
-      }
-
-      // ── Apple-I ボタン ───────────────────────────────────────────
-      document.getElementById('btn-run').addEventListener('click', function () {
-        if (!apple1Running) lag.resume();   // トリガー停止後は Thaw して再武装する
-        apple1Running = !apple1Running;
-        this.textContent = apple1Running ? 'Pause' : 'Run';
-      });
-
-      document.getElementById('btn-reset').addEventListener('click', function () {
-        Module._reset_sim();
-        apple1Running = false;
-        document.getElementById('btn-run').textContent = 'Run';
-        term.reset();
-        term.focus();
-      });
-
-      document.getElementById('btn-demo').addEventListener('click', function () {
-        Module._reset_sim();
-        apple1Running = true;
-        document.getElementById('btn-run').textContent = 'Pause';
-        term.reset();
-        term.focus();
-        // WozMon 起動待ち → E000R で BASIC へジャンプ
-        setTimeout(function () {
-          autoTypeStr('E000R\r', 80, function () {
-            // BASIC > プロンプト待ち → プログラム入力
-            setTimeout(function () {
-              var lines = [
-                '10 A=1\r',
-                '20 B=20\r',
-                '30 PRINT "A+B=",A+B\r',
-                '40 END\r',
-                'LIST\r',
-                'RUN\r'
-              ];
-              var li = 0;
-              function nextLine() {
-                if (li >= lines.length) return;
-                autoTypeStr(lines[li++], 80, function () { setTimeout(nextLine, 400); });
-              }
-              nextLine();
-            }, 2000);
-          });
-        }, 1200);
-      });
-
-      document.getElementById('btn-step').addEventListener('click', function () {
-        apple1Running = false;
-        document.getElementById('btn-run').textContent = 'Run';
-        Module._step_instruction();
-        drainDisplay();
-        updateRegPanel();
-      });
-
-      // ── Dormann ボタン ───────────────────────────────────────────
-      document.getElementById('d-btn-run').addEventListener('click', function () {
-        if (Module._is_trapped()) return;
-        if (dormannRunning) {
-          dormannRunning = false;
-          this.textContent = 'Run';
-          setDormannStatus('PAUSED', 'running');
-        } else {
-          lag.resume();   // トリガー停止後は Thaw して再武装する
-          dormannRunning = true;
-          if (!dormannStartMs) dormannStartMs = performance.now();
-          this.textContent = 'Pause';
-          setDormannStatus('RUNNING...', 'running');
-        }
-      });
-
-      document.getElementById('d-btn-reset').addEventListener('click', function () {
-        Module._dormann_init();
-        resetDormannUI();
-      });
-
-      // ── ROM セレクター ───────────────────────────────────────────
-      document.querySelectorAll('input[name="rom"]').forEach(function (radio) {
-        radio.addEventListener('change', function () {
-          romMode = this.value;
-          if (romMode === 'apple1') {
-            document.getElementById('panel-apple1').style.display = '';
-            document.getElementById('panel-dormann').style.display = 'none';
-            Module._sim_init();
-            apple1Running = false;
-            document.getElementById('btn-run').textContent = 'Run';
-            term.reset();
-            term.focus();
-          } else {
-            document.getElementById('panel-apple1').style.display = 'none';
-            document.getElementById('panel-dormann').style.display = '';
-            Module._dormann_init();
-            resetDormannUI();
-          }
-        });
-      });
-
-      term.focus();
-      requestAnimationFrame(loop);
+  worker.onmessage = function (e) {
+    const m = e.data;
+    switch (m.type) {
+      case 'ready': boot(m.ringSize, m.ringWords); break;
+      case 'frame': if (onFrame) onFrame(m); break;
+      case 'error':
+        console.error('[04-6502] Worker 内エラー:', m.message);
+        workerFault = 'ERROR: ' + m.message;
+        document.getElementById('r-state').textContent = workerFault;
+        if (onWorkerStopped) onWorkerStopped();
+        break;
+      default: console.warn('[04-6502] 未知の Worker メッセージ:', m.type);
     }
   };
+
+  // ── 起動（Worker の初期化完了後）────────────────────────────────
+  function boot(ringSize, ringWords) {
+    initFlagPanel();
+
+    // ── xterm.js ────────────────────────────────────────────────
+    const term = new Terminal({
+      cols: 40, rows: 20,
+      theme: { background: '#000000', foreground: '#00dd00', cursor: '#00dd00' },
+      fontSize: 14,
+      fontFamily: 'Courier New, monospace',
+      cursorBlink: true,
+      convertEol: true,
+    });
+    term.open(document.getElementById('terminal'));
+    window._sftTerm = term;
+
+    // ── 状態（実行の主導権は Worker。ここは UI の写し）──────────
+    let romMode        = 'apple1';
+    let apple1Running  = true;
+    let dormannRunning = false;
+    let dormannStartMs = null;
+    let latest         = null;    // 直近の frame（描画用）
+    let rafPending     = false;
+
+    function setRunLabel() {
+      document.getElementById('btn-run').textContent = apple1Running ? 'Pause' : 'Run';
+    }
+    function setDormannStatus(text, cls) {
+      const box = document.getElementById('d-status-box');
+      box.textContent = text;
+      box.className   = cls;
+    }
+
+    // 実行を始める・止める（Worker へ送る）
+    function applySteps() {
+      const id = romMode === 'apple1' ? 'speed' : 'd-speed';
+      send({ type: 'setSteps', steps: parseInt(document.getElementById(id).value, 10) });
+    }
+    function startApple1() {
+      apple1Running = true;
+      setRunLabel();
+      applySteps();
+      send({ type: 'setRunning', running: true });
+    }
+    function startDormann() {
+      dormannRunning = true;
+      if (!dormannStartMs) dormannStartMs = performance.now();
+      document.getElementById('d-btn-run').textContent = 'Pause';
+      setDormannStatus('RUNNING...', 'running');
+      applySteps();
+      send({ type: 'setRunning', running: true });
+    }
+
+    // ── Logic Analyzer（トリガー設定時は、いまのモードの実行を再開する）──
+    const lag = setupLaWorker({
+      worker: worker, ringSize: ringSize, ringWords: ringWords,
+      rootId: 'la-root',
+      config: M6502_LA_CONFIG, signals: M6502_LA_SIGNALS,
+      zoomIdx: 6,   // 16x: 1 命令ずつニーモニックが読める倍率で開始する
+      onArm: function () {
+        if (romMode === 'apple1') {
+          startApple1();
+        } else if (!(latest && latest.trapped)) {
+          startDormann();
+        }
+      }
+    });
+
+    term.onData(function (data) {
+      if (romMode !== 'apple1') return;
+      for (let i = 0; i < data.length; i++) send({ type: 'sendKey', ch: data.charCodeAt(i) });
+    });
+
+    // ── 描画 ────────────────────────────────────────────────────
+    function updateRegPanel(m) {
+      const hex = (v, w) => v.toString(16).toUpperCase().padStart(w, '0');
+      document.getElementById('r-pc').textContent = hex(m.pc, 4);
+      document.getElementById('r-a').textContent  = hex(m.a, 2);
+      document.getElementById('r-x').textContent  = hex(m.x, 2);
+      document.getElementById('r-y').textContent  = hex(m.y, 2);
+      document.getElementById('r-sp').textContent = hex(m.sp, 2);
+      document.getElementById('r-p').textContent  = hex(m.p, 2);
+      document.getElementById('r-state').textContent =
+        workerFault || ((STATE_NAMES[m.state] || ('?' + m.state)) + ' (' + m.state + ')');
+      updateFlags(m.p);
+    }
+
+    function fmtNum(n) {
+      if (n >= 1e6) return (n / 1e6).toFixed(2) + ' M';
+      if (n >= 1e3) return (n / 1e3).toFixed(1) + ' K';
+      return n.toString();
+    }
+
+    function resetDormannUI() {
+      dormannRunning = false;
+      dormannStartMs = null;
+      document.getElementById('d-btn-run').textContent = 'Run';
+      setDormannStatus('READY', 'running');
+      document.getElementById('d-prog-bar').style.width = '0%';
+      document.getElementById('d-prog-bar').className   = '';
+      document.getElementById('d-m-cycles').textContent = '—';
+      document.getElementById('d-m-pc').textContent     = '—';
+      document.getElementById('d-m-speed').textContent  = '—';
+      document.getElementById('d-m-wall').textContent   = '—';
+      document.getElementById('d-cycle-info').textContent = '';
+    }
+
+    function updateDormannMetrics(m) {
+      const c       = m.cycles;
+      const elapsed = dormannStartMs ? (performance.now() - dormannStartMs) / 1000 : 0;
+      const cps     = elapsed > 0 ? c / elapsed : 0;
+      document.getElementById('d-m-cycles').textContent = fmtNum(c) + ' cycles';
+      document.getElementById('d-m-pc').textContent     = '$' + m.pc.toString(16).toUpperCase().padStart(4, '0');
+      document.getElementById('d-m-speed').textContent  = fmtNum(cps) + '/s';
+      document.getElementById('d-m-wall').textContent   = elapsed.toFixed(1) + ' s';
+      document.getElementById('d-cycle-info').textContent = fmtNum(c) + ' cycles';
+      document.getElementById('d-prog-bar').style.width = Math.min(c / EXPECT_CYCLES * 100, 100) + '%';
+    }
+
+    function render() {
+      rafPending = false;
+      const m = latest;
+      if (!m) return;
+      if (romMode === 'apple1') {
+        updateRegPanel(m);
+        document.getElementById('cycle-info').textContent = m.cycles.toLocaleString() + ' cycles';
+      } else {
+        updateDormannMetrics(m);
+      }
+      lag.draw();
+    }
+
+    // ── Worker からのフレーム ───────────────────────────────────
+    onFrame = function (m) {
+      // reset / モード切替より前に作られたフレームは捨てる（前のテストの出力・トラップを混ぜない）
+      if (m.epoch !== epoch) return;
+
+      if (m.chars.length > 0) term.write(String.fromCharCode.apply(null, m.chars));
+      lag.frame(m);
+      latest = m;
+
+      if (romMode === 'apple1') {
+        if (m.trigPause && apple1Running) {          // トリガー停止
+          apple1Running = false;
+          setRunLabel();
+        }
+      } else if (dormannRunning) {
+        if (m.trapped) {
+          dormannRunning = false;
+          setDormannStatus(m.passed ? 'PASS ✓' : 'FAIL ✗', m.passed ? 'pass' : 'fail');
+          const bar = document.getElementById('d-prog-bar');
+          bar.style.width = '100%';
+          bar.className   = m.passed ? 'pass' : 'fail';
+          document.getElementById('d-btn-run').textContent = 'Run';
+        } else if (m.trigPause) {                    // トリガー停止
+          dormannRunning = false;
+          document.getElementById('d-btn-run').textContent = 'Run';
+          setDormannStatus('TRIGGER', 'running');
+        }
+      }
+
+      if (!rafPending) {
+        rafPending = true;
+        requestAnimationFrame(render);
+      }
+    };
+
+    onWorkerStopped = function () {
+      apple1Running = false;
+      setRunLabel();
+      if (dormannRunning) {
+        dormannRunning = false;
+        document.getElementById('d-btn-run').textContent = 'Run';
+        setDormannStatus('ERROR', 'fail');
+      }
+    };
+
+    // ── Auto-type helper ─────────────────────────────────────────
+    function autoTypeStr(str, charDelay, done) {
+      var i = 0;
+      function next() {
+        if (i >= str.length) { if (done) done(); return; }
+        send({ type: 'sendKey', ch: str.charCodeAt(i++) });
+        setTimeout(next, charDelay);
+      }
+      setTimeout(next, 0);
+    }
+
+    // ── Apple-I ボタン ───────────────────────────────────────────
+    document.getElementById('speed').addEventListener('input', applySteps);
+
+    document.getElementById('btn-run').addEventListener('click', function () {
+      if (apple1Running) {
+        apple1Running = false;
+        setRunLabel();
+        send({ type: 'setRunning', running: false });
+      } else {
+        startApple1();   // トリガー停止後は Worker が Thaw して再武装する
+      }
+    });
+
+    document.getElementById('btn-reset').addEventListener('click', function () {
+      epoch++;
+      send({ type: 'reset', running: false, epoch: epoch });
+      apple1Running = false;
+      setRunLabel();
+      term.reset();
+      term.focus();
+    });
+
+    document.getElementById('btn-demo').addEventListener('click', function () {
+      epoch++;
+      send({ type: 'reset', running: true, epoch: epoch });
+      apple1Running = true;
+      setRunLabel();
+      term.reset();
+      term.focus();
+      // WozMon 起動待ち → E000R で BASIC へジャンプ
+      setTimeout(function () {
+        autoTypeStr('E000R\r', 80, function () {
+          // BASIC > プロンプト待ち → プログラム入力
+          setTimeout(function () {
+            var lines = [
+              '10 A=1\r',
+              '20 B=20\r',
+              '30 PRINT "A+B=",A+B\r',
+              '40 END\r',
+              'LIST\r',
+              'RUN\r'
+            ];
+            var li = 0;
+            function nextLine() {
+              if (li >= lines.length) return;
+              autoTypeStr(lines[li++], 80, function () { setTimeout(nextLine, 400); });
+            }
+            nextLine();
+          }, 2000);
+        });
+      }, 1200);
+    });
+
+    document.getElementById('btn-step').addEventListener('click', function () {
+      apple1Running = false;
+      setRunLabel();
+      send({ type: 'stepInstr' });
+    });
+
+    // ── Dormann ボタン ───────────────────────────────────────────
+    document.getElementById('d-speed').addEventListener('input', applySteps);
+
+    document.getElementById('d-btn-run').addEventListener('click', function () {
+      if (latest && latest.trapped) return;
+      if (dormannRunning) {
+        dormannRunning = false;
+        this.textContent = 'Run';
+        setDormannStatus('PAUSED', 'running');
+        send({ type: 'setRunning', running: false });
+      } else {
+        startDormann();   // トリガー停止後は Worker が Thaw して再武装する
+      }
+    });
+
+    document.getElementById('d-btn-reset').addEventListener('click', function () {
+      epoch++;
+      send({ type: 'reset', running: false, epoch: epoch });
+      latest = null;      // 前回のトラップ状態を持ち越さない
+      resetDormannUI();
+    });
+
+    // ── ROM セレクター ───────────────────────────────────────────
+    document.querySelectorAll('input[name="rom"]').forEach(function (radio) {
+      radio.addEventListener('change', function () {
+        romMode = this.value;
+        epoch++;
+        latest = null;
+        send({ type: 'setMode', mode: romMode, epoch: epoch });
+        applySteps();
+        if (romMode === 'apple1') {
+          document.getElementById('panel-apple1').style.display = '';
+          document.getElementById('panel-dormann').style.display = 'none';
+          apple1Running = false;
+          setRunLabel();
+          term.reset();
+          term.focus();
+        } else {
+          document.getElementById('panel-apple1').style.display = 'none';
+          document.getElementById('panel-dormann').style.display = '';
+          resetDormannUI();
+        }
+      });
+    });
+
+    term.focus();
+    startApple1();
+    workerReady = true;
+  }
   </script>
-<p id="copyright" style="font-size:12px;color:#555;margin:6px 0 0;">&copy; 2026 <a href="https://github.com/tommie-jp" target="_blank" rel="noopener" style="color:#666;">tommie.jp</a>
-  &nbsp;&mdash;&nbsp;
-  <a href="04-6502-QR.png" target="_blank" rel="noopener" style="color:#666;">QR</a>
-</p>
-  <script src="js/sft-6502-la-defs.js"></script>
-  <script src="js/rtlscope-la.js"></script>
-  <script src="js/sft-la-toolbar.js"></script>
-  <script src="js/sft-la-ctrl.js"></script>
-  <script src="js/sft-la-glue.js"></script>
-  <script src="sim.js"></script>
 </body>
 </html>

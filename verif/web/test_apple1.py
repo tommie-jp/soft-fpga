@@ -103,10 +103,8 @@ def loaded_page(browser, base_url: str) -> Page:
     ctx = browser.new_context()
     page = ctx.new_page()
     page.goto(base_url)
-    page.wait_for_function(
-        "typeof Module !== 'undefined' && typeof Module._sim_init === 'function'",
-        timeout=20_000,
-    )
+    # シミュレーションは Web Worker で動く。Worker の初期化と UI の組み立てが済むまで待つ。
+    page.wait_for_function("workerReady === true", timeout=30_000)
     page.wait_for_function(
         "window._sftTerm !== null && window._sftTerm !== undefined",
         timeout=10_000,
@@ -248,3 +246,69 @@ class TestBasic:
         send_cmd(loaded_page, "FOR I=1 TO 3: PRINT I: NEXT I")
         assert wait_for_new(loaded_page, "3", prev, 15.0), \
             "FOR I=1 TO 3 → 3 が出力されない"
+
+
+# ── Worker 化で入った経路: トリガー停止 → Run、Dormann の PASS 判定 ──────────────
+
+@pytest.fixture
+def fresh_page(browser, base_url: str) -> Page:
+    """テストごとに新しいページ。モード切替やトリガー設定を他のテストへ持ち越さない。"""
+    ctx = browser.new_context()
+    page = ctx.new_page()
+    page.goto(base_url)
+    page.wait_for_function("workerReady === true", timeout=30_000)
+    yield page
+    ctx.close()
+
+
+_TRIGGER_JS = """async () => {
+    const g = id => document.getElementById(id);
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const cyc = () => g('cycle-info').textContent;
+    // WozMon は KBDCR($D011) を繰り返しポーリングするので、addr == D011 で必ず停止する
+    g('trig-sig').value = '0';  g('trig-sig').dispatchEvent(new Event('change'));
+    g('trig-mode').value = 'eq'; g('trig-mode').dispatchEvent(new Event('change'));
+    g('trig-val').value = 'D011';
+    g('trig-post').value = '20';
+    g('btn-trig-set').click();
+    await sleep(700);
+    const first  = { run: g('btn-run').textContent, freeze: g('btn-freeze').textContent, cyc: cyc() };
+    await sleep(500);
+    const still  = { cyc: cyc() };
+    // トリガー停止後の Run: Worker が Thaw して再武装し、また進んでまた停止する
+    g('btn-run').click();
+    await sleep(700);
+    const second = { run: g('btn-run').textContent, freeze: g('btn-freeze').textContent, cyc: cyc() };
+    return { first, still, second };
+}"""
+
+
+class TestWorkerControl:
+    def test_trigger_stop_then_run_rearms(self, fresh_page: Page) -> None:
+        assert wait_for(fresh_page, "\\", BOOT_TIMEOUT)
+        r = fresh_page.evaluate(_TRIGGER_JS)
+        assert r["first"]["run"] == "Run", "トリガーで停止していない"
+        assert "Thaw" in r["first"]["freeze"], "トリガー停止で Freeze 表示になっていない"
+        assert r["still"]["cyc"] == r["first"]["cyc"], "停止中にサイクル数が進んでいる"
+        assert r["second"]["cyc"] != r["first"]["cyc"], "Run しても再開しない（Thaw されていない）"
+
+    def test_dormann_reaches_pass(self, fresh_page: Page) -> None:
+        fresh_page.evaluate(
+            """() => {
+                const r = document.querySelector('input[name="rom"][value="dormann"]');
+                r.checked = true; r.dispatchEvent(new Event('change'));
+                const sp = document.getElementById('d-speed');
+                sp.value = 500000; sp.dispatchEvent(new Event('input'));
+                document.getElementById('d-btn-run').click();
+            }"""
+        )
+        deadline = time.monotonic() + 60.0
+        status = ""
+        while time.monotonic() < deadline:
+            status = fresh_page.evaluate("document.getElementById('d-status-box').textContent")
+            if status.startswith(("PASS", "FAIL")):
+                break
+            time.sleep(0.5)
+        assert status.startswith("PASS"), f"Dormann が PASS しない: {status!r}"
+        cycles = fresh_page.evaluate("document.getElementById('d-m-cycles').textContent")
+        assert cycles.startswith("96.24 M"), f"成功までのサイクル数が想定と違う: {cycles!r}"
