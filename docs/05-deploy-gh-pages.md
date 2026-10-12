@@ -65,6 +65,7 @@ scripts/doDeployPages.sh
 | `examples/06-8080/web/{index.html,sim.js,sim.wasm,*.png,*.svg}` | `/examples/06-8080/web/` (旧 URL `/06-8080/` にはリダイレクトだけを置く) |
 | `examples/09-pdp11/web/{index.html,sim.js,sim.wasm,sim-worker.js,*.png,*.svg}`・`disk/` | `/examples/09-pdp11/web/` |
 | `js/*.js`・`js/*.css` (rtlscope-la.js など) | `/js/` |
+| 各エグザンプルの `index.html` が `src="js/…"` で読む js だけ (`web/js` のリンクがあればそこから、無ければルートの `js/` から) | `/<エグザンプル>/js/` (読まない js は消す。読む js が無いエグザンプルは `web/js/` を全部写す) |
 | `docs/` | `/docs/` (各エグザンプルの `docs/` にも、対応する章の Markdown と `img/`・`en/` を写す) |
 
 `index.html` の `<!-- DEPLOY_DATETIME -->` は、デプロイ時に `Ver.<版> <日時>` へ置き換わる。
