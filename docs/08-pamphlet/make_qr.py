@@ -13,6 +13,7 @@ QR_TARGETS = {
     "qrnote": "https://qr-demo.tommie.jp",
     "fence": "https://tommie-jp.github.io/tommie-fence/",
     "profile": "https://github.com/tommie-jp",  # プロフィール README が表示されるページ
+    "pamphlet": "https://tommie-jp.github.io/soft-fpga/docs/08-pamphlet/pamphlet.pdf",  # このパンフレット自身の PDF
 }
 
 OUT_DIR = Path(__file__).resolve().parent / "qr"
