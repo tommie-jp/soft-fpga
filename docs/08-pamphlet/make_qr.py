@@ -12,6 +12,7 @@ QR_TARGETS = {
     "softfpga": "https://tommie-jp.github.io/soft-fpga/",
     "qrnote": "https://qr-demo.tommie.jp",
     "fence": "https://tommie-jp.github.io/tommie-fence/",
+    "profile": "https://github.com/tommie-jp",  # プロフィール README が表示されるページ
 }
 
 OUT_DIR = Path(__file__).resolve().parent / "qr"

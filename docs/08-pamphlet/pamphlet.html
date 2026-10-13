@@ -14,7 +14,7 @@
   }
   .page { width: 210mm; height: 297mm; padding: 9mm 13mm 7mm; page-break-after: always; overflow: hidden; position: relative; }
   .page:last-child { page-break-after: auto; }
-  h1 { margin: 0; font-size: 19pt; line-height: 1.25; }
+  h1 { margin: 0; font-size: 19pt; line-height: 1.25; white-space: nowrap; }
   h2 { margin: 0 0 1.5mm; font-size: 11.5pt; border-left: 3mm solid #2b6cb0; padding-left: 2.2mm; line-height: 1.3; }
   p { margin: 0 0 1.6mm; }
   .sub { margin: 1mm 0 0; font-size: 11pt; color: #2b6cb0; font-weight: 700; }
@@ -24,35 +24,64 @@
   ul { margin: 0 0 1.6mm; padding-left: 4.6mm; }
   li { margin-bottom: 0.8mm; }
   .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; margin-bottom: 4mm; }
+  .cols.lead { margin-bottom: 3mm; font-size: 9.2pt; line-height: 1.4; }
+  .cols.lead ul { margin-bottom: 0; }
   table.flow { background: #1d2330; color: #e8edf5; border-radius: 1.5mm; font-family: "DejaVu Sans Mono", monospace; font-size: 8.3pt; }
-  table.flow td { border: 0; padding: 0.3mm 2mm; white-space: nowrap; }
+  table.flow td { border: 0; padding: 0.3mm 1.6mm; white-space: nowrap; vertical-align: top; }
   table.flow .pc { color: #9ec5ff; } table.flow .cpu { color: #ffd479; }
-  table.flow .dim { color: #8c97a8; font-family: "Noto Sans CJK JP", sans-serif; font-size: 7.8pt; }
+  table.flow .dim { color: #8c97a8; font-family: "Noto Sans CJK JP", sans-serif; font-size: 7.4pt; white-space: normal; }
+  .flowkey { margin: 0.8mm 0 0; font-size: 7.2pt; color: #5a6578; white-space: nowrap; }
   table { border-collapse: collapse; width: 100%; font-size: 8.5pt; margin-bottom: 1.5mm; }
   th, td { border: 0.25mm solid #c5ccd8; padding: 0.7mm 1.8mm; text-align: left; vertical-align: top; }
   th { background: #eef2f7; }
-  .fig { text-align: center; margin-bottom: 3mm; }
-  .fig img { width: 100%; max-width: 118mm; }
+  .figrow { display: flex; align-items: flex-start; justify-content: center; gap: 5mm; margin-bottom: 3mm; }
+  .fig { text-align: center; }
+  .fig img { display: block; height: 57mm; width: auto; }
+  .shotbox { text-align: center; }
+  .shotbox img { display: block; height: 50mm; width: auto; border: 0.25mm solid #c5ccd8; border-radius: 1mm; }
+  .shotbox .cap { margin-top: 1mm; font-size: 7.4pt; color: #5a6578; }
   .fig .cap { font-size: 8.2pt; color: #5a6578; }
   .ask { border: 0.4mm solid #dd6b20; border-radius: 2mm; background: #fffaf0; padding: 2mm 3.5mm; margin-bottom: 3mm; }
   .ask h2 { border-color: #dd6b20; }
   .ask ol { margin: 0; padding-left: 5mm; }
   .link { display: flex; align-items: center; gap: 4mm; border-top: 0.3mm solid #c5ccd8; padding-top: 3mm; }
   .link img.qr { width: 23mm; height: 23mm; }
-  .link .url { font-size: 10.5pt; font-weight: 700; word-break: break-all; }
+  .link .url { font-size: 10.5pt; font-weight: 700; overflow-wrap: anywhere; }
   .note { font-size: 7.6pt; color: #5a6578; }
-  .footer { margin: 1.5mm 0 0; }
+  .head { display: flex; align-items: flex-start; justify-content: space-between; gap: 4mm; }
+  .avatar { width: 21mm; height: 21mm; border-radius: 50%; border: 0.9mm solid #2b6cb0; object-fit: cover; flex: none; background: #fff; }
+  .author { display: flex; align-items: center; gap: 3mm; flex: none; }
+  .author .who { font-size: 8.2pt; line-height: 1.4; text-align: right; }
+  .author .who strong { font-size: 10pt; }
+  .author .qr { width: 21mm; height: 21mm; }
+  .head.top { align-items: center; margin-bottom: 2mm; }
+  .head.top .meta { margin: 0; }
+  .page.front .avatar, .page.front .author .qr { width: 17mm; height: 17mm; }
+  .link.top img.qr { width: 20mm; height: 20mm; }
+  .link.top { border-top: 0; border-bottom: 0.3mm solid #c5ccd8; padding: 0 0 2.6mm; margin-bottom: 3mm; }
+  .illust { display: block; width: 78%; margin: 1.5mm auto 0; }
+  .askhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5mm; }
+  .askhead h2 { margin: 0; }
+  .askhead img { width: 40mm; height: auto; }
+  .mascot { height: 20mm; margin-left: auto; flex: none; }
+  .footer { margin: 1.5mm 0 0; display: flex; justify-content: space-between; gap: 4mm; }
+  .pagedate { white-space: nowrap; }
 
   /* 裏面 */
-  .card { display: grid; grid-template-columns: 62mm 1fr; gap: 5mm; padding: 4mm 0; border-bottom: 0.3mm solid #c5ccd8; min-height: 82mm; }
+  .card { display: grid; grid-template-columns: 62mm 1fr; gap: 5mm; padding: 3mm 0; border-bottom: 0.3mm solid #c5ccd8; min-height: 78mm; }
+  .card.compact { min-height: 0; }
   .card:first-of-type { border-top: 0.3mm solid #c5ccd8; }
   .card .shot { display: flex; align-items: flex-start; justify-content: center; overflow: hidden; background: #f4f6fa; border-radius: 1.5mm; height: 78mm; }
   .card .shot img { max-width: 100%; max-height: 100%; }
-  .card .shot.wide { align-items: flex-start; justify-content: flex-start; }
-  .card .shot.wide img { width: 130%; max-width: none; max-height: none; }
-  .card .shot.two { flex-direction: column; gap: 1.5mm; padding: 1.5mm; }
-  .card .shot.two img { max-height: none; width: 100%; }
-  .card .shot.two .crop { width: 100%; height: 29mm; overflow: hidden; }
+  .card .shot.short { display: grid; grid-template-columns: 1fr 1fr; gap: 1mm; height: 74mm; padding: 0; background: none; border-radius: 0; }
+  .card .shot.short img { width: 100%; height: 100%; max-width: none; max-height: none; object-fit: cover; object-position: top; border: 0.2mm solid #d5dae3; border-radius: 1mm; }
+  .card .shot.stack { flex-direction: column; justify-content: flex-start; gap: 1.5mm; padding: 0; height: auto; align-self: flex-start; background: none; overflow: visible; }
+  .card .shot.stack .tile { width: 100%; border-radius: 1.5mm; overflow: hidden; background: #fff; border: 0.2mm solid #d5dae3; }
+  .card .shot.stack .tile img { display: block; width: 100%; max-width: none; max-height: none; height: auto; }
+  .card .shot.stack .tile.art { height: 36mm; border: 0; }
+  .card .shot.stack .tile.art img { height: 100%; object-fit: cover; object-position: 50% 47%; }
+  .card .shot.four { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 1mm; height: 78mm; padding: 0; background: none; border-radius: 0; }
+  .card .shot.four img { width: 100%; height: 100%; max-width: none; max-height: none; object-fit: cover; background: #fff; border: 0.2mm solid #d5dae3; border-radius: 1mm; }
   .card h2 { font-size: 12.5pt; }
   .card .body { display: flex; flex-direction: column; }
   .card .body .link { margin-top: auto; }
@@ -62,33 +91,61 @@
 <body>
 
 <!-- 表面: RUP -->
-<section class="page">
+<section class="page front">
+  <div class="head top">
+    <p class="meta">自作CPUを語る会　自作CPUオセロ大会2（2026-11-28）</p>
+    <div class="author">
+      <div class="who"><strong>tommie.jp</strong><br>GitHub プロフィール<br>github.com/tommie-jp</div>
+      <img class="avatar" src="img/avatar-tommie-jp.png" alt="tommie.jp の GitHub アイコン">
+      <img class="qr" src="qr/profile.png" alt="tommie.jp の GitHub プロフィール">
+    </div>
+  </div>
   <h1>Reversi UART Protocol (RUP) v0.2 ドラフト</h1>
   <p class="sub">自作 CPU を PC につなぐ、UART 上の約束事</p>
-  <p class="meta">自作CPUを語る会 自作CPUオセロ大会2（2026-11-28）　tommie.jp（<a href="https://github.com/tommie-jp">@tommie-jp</a>）</p>
 
-  <h2>何を決めたか</h2>
-  <ul>
-    <li>コマンドは<strong>大文字 2 文字</strong>、行末は <code>CR+LF</code>。シリアル端末で手打ちしてそのまま試せる。</li>
-    <li>CPU からの応答は<strong><code>+</code>（成功）／<code>-</code>（エラー）</strong>の 1 文字で見分ける。何も付かない行は CPU 自身の通知（着手など）。</li>
-    <li>必須は<strong>受信 9 種・送信 4 種</strong>だけ。<code>BO</code> など残りは任意で、受けても読み飛ばしてよい。FPGA の最小実装でも適合できる。</li>
-  </ul>
+  <div class="link top">
+    <img class="qr" src="qr/rup.png" alt="RUP の GitHub">
+    <div>
+      <div class="url">github.com/tommie-jp/reversi-uart-protocol</div>
+      <div>仕様書（日本語・英語）、状態遷移図、設計判断の背景、検討事項。Issue でも意見を受け付けます。</div>
+    </div>
+  </div>
+
+  <div class="cols lead">
+    <div>
+      <h2>何を決めたか</h2>
+      <ul>
+        <li>コマンドは<strong>大文字 2 文字</strong>、行末は <code>CR+LF</code>。シリアル端末で手打ちして試せる。</li>
+        <li>応答は<strong><code>+</code>（成功）／<code>-</code>（エラー）</strong>の 1 文字で見分ける。印のない行は CPU 自身の通知（着手など）。</li>
+        <li>必須は<strong>受信 9 種・送信 4 種</strong>だけ。<code>BO</code> など残りは任意で、読み飛ばしてよい。</li>
+      </ul>
+    </div>
+    <div>
+      <h2>プロトコルを決めるとできること</h2>
+      <ul>
+        <li>大会に持ち寄った自作 CPU を、<strong>同じ PC 側プログラムにつないで</strong>対局できる。</li>
+        <li>CPU 側と PC 側を、<strong>別々の人が仕様書だけで</strong>作れる。</li>
+        <li>端末ソフトで手打ちして確かめられ、pyserial などで<strong>自動試験</strong>もできる。</li>
+      </ul>
+    </div>
+  </div>
 
   <div class="cols">
     <div>
-      <h2>1 局の流れ</h2>
+      <h2>1 局の流れ（仕様書 §10 の抜粋）</h2>
 <table class="flow">
-        <tr><td class="pc">PC</td><td>PI</td><td class="dim">生存確認</td></tr>
-        <tr><td class="cpu">CPU</td><td>+PI</td><td class="dim"></td></tr>
-        <tr><td class="pc">PC</td><td>VE</td><td class="dim">バージョン</td></tr>
-        <tr><td class="cpu">CPU</td><td>+VE02MyCPU-v1</td><td class="dim"></td></tr>
-        <tr><td class="pc">PC</td><td>SB</td><td class="dim">あなたは黒</td></tr>
-        <tr><td class="cpu">CPU</td><td>MOf5</td><td class="dim">f5 に置く</td></tr>
-        <tr><td class="pc">PC</td><td>MOd6</td><td class="dim">相手は d6</td></tr>
-        <tr><td class="cpu">CPU</td><td>MOc3</td><td class="dim"></td></tr>
-        <tr><td class="dim" colspan="3">… 交互に続く …</td></tr>
-        <tr><td class="cpu">CPU</td><td>EN</td><td class="dim">投了</td></tr>
+        <tr><td class="pc">&lt;</td><td>PI</td><td class="dim">PING（起動・生存確認）</td></tr>
+        <tr><td class="cpu">&gt;</td><td>+PI</td><td class="dim">PI 成功応答</td></tr>
+        <tr><td class="pc">&lt;</td><td>VE</td><td class="dim">VERSION 問い合わせ</td></tr>
+        <tr><td class="cpu">&gt;</td><td>+VE02MyCPU-v1</td><td class="dim">VE 成功応答（先頭 2 桁はプロトコルバージョン）</td></tr>
+        <tr><td class="pc">&lt;</td><td>SB</td><td class="dim">START BLACK（黒先攻・初手要求）</td></tr>
+        <tr><td class="cpu">&gt;</td><td>MOf5</td><td class="dim">MOVE f5（CPU 自発の着手）</td></tr>
+        <tr><td class="pc">&lt;</td><td>MOd6</td><td class="dim">MOVE d6（相手着手通知）</td></tr>
+        <tr><td class="dim" colspan="3">…（以下、手番ごとに交互）</td></tr>
+        <tr><td class="cpu">&gt;</td><td>EN</td><td class="dim">END（CPU 自発の投了・終局）</td></tr>
       </table>
+      <p class="flowkey"><b>&lt;</b> PC→CPU　<b>&gt;</b> CPU→PC　行末の CR LF は省略</p>
+      <img class="illust" src="img/illust-pc-cpu.svg" alt="PC くんと CPU ちゃんが PI と +PI をやりとりするイラスト">
     </div>
     <div>
       <h2>必須コマンド</h2>
@@ -106,12 +163,21 @@
     </div>
   </div>
 
-  <div class="fig">
-    <img src="img/rup-minimal-impl.ja.png" alt="FPGA 向け最小実装のブロック図">
+  <div class="figrow">
+    <div class="fig">
+      <img src="img/rup-minimal-impl.ja.png" alt="FPGA 向け最小実装のブロック図">
+    </div>
+    <div class="shotbox">
+      <img src="img/tommiechat-reversi.png" alt="tommieChat のオセロ対戦画面">
+      <div class="cap">PC 側の例: tommieChat のオセロ対戦画面</div>
+    </div>
   </div>
 
   <div class="ask">
-    <h2>意見をください（仕様はまだ決まっていません）</h2>
+    <div class="askhead">
+      <h2>意見をください（仕様はまだ決まっていません）</h2>
+      <img src="img/illust-discs.svg" alt="顔のついたオセロ石のイラスト">
+    </div>
     <ol>
       <li>合法手があるのに CPU が <code>PA</code> を返してきた。PC はパスとして通すか、不正応答にするか。</li>
       <li>対局中に <code>SB</code> / <code>SW</code> が届いた。現対局を捨てて新規にするか、無視するか。</li>
@@ -119,24 +185,29 @@
     </ol>
   </div>
 
-  <div class="link">
-    <img class="qr" src="qr/rup.png" alt="RUP の GitHub">
-    <div>
-      <div class="url">github.com/tommie-jp/reversi-uart-protocol</div>
-      <div>仕様書（日本語・英語）、状態遷移図、設計判断の背景、検討事項。Issue でも意見を受け付けます。</div>
-    </div>
-  </div>
-
-  <p class="note footer">「オセロ」は株式会社メガハウスの登録商標です。本書では一般名詞の「リバーシ」を使っています。</p>
+  <p class="note footer"><span>「オセロ」は株式会社メガハウスの登録商標です。本書では一般名詞の「リバーシ」を使っています。</span><span class="pagedate">作成日 2026-10-13</span></p>
 </section>
 
 <!-- 裏面: ほかに作っている物 -->
 <section class="page">
-  <h1>ほかに作っている物</h1>
-  <p class="meta">自作 CPU まわりで作った道具です。どれも公開しています。</p>
+  <div class="head">
+    <div>
+      <h1>ほかに作っている物</h1>
+      <p class="meta">自作 CPU まわりで作った道具です。どれも公開しています。</p>
+    </div>
+    <div class="author">
+      <div class="who"><strong>tommie.jp</strong><br>GitHub プロフィール<br>github.com/tommie-jp</div>
+      <img class="avatar" src="img/avatar-tommie-jp.png" alt="tommie.jp の GitHub アイコン">
+      <img class="qr" src="qr/profile.png" alt="GitHub プロフィール README">
+    </div>
+  </div>
 
   <div class="card">
-    <div class="shot wide"><img src="img/softfpga-6502-basic.png" alt="6502 / Apple-I のブラウザ画面"></div>
+    <div class="shot stack">
+      <div class="tile art"><img src="img/softfpga-illust.png" alt="soft FPGA のイラスト（雷雲の下の青いチップ）"></div>
+      <div class="tile"><img src="img/softfpga-8080-cpm.png" alt="8080 / CP/M 2.2 の端末画面（BDS C で Hello, CP/M!）"></div>
+      <div class="tile"><img src="img/softfpga-8080-la.png" alt="8080 のロジックアナライザ画面（M サイクル、T ステート、バス信号）"></div>
+    </div>
     <div class="body">
       <h2><span class="tag">デモ机</span>soft‑FPGA × WebAssembly</h2>
       <p>Verilog で書いたレトロ CPU を Verilator で C++ にし、WebAssembly にしてブラウザで動かします。命令エミュレータでは見えない内部信号（T‑state、バスサイクル、状態遷移）をリアルタイムに観測できるのが取り柄です。</p>
@@ -148,13 +219,17 @@
       <p>デモ机では 6502 / Apple‑I を Raspberry Pi Pico 2 の実機でも動かします（当日の状況により Wasm 版）。</p>
       <div class="link">
         <img class="qr" src="qr/softfpga.png" alt="soft-FPGA のデモ">
-        <div><div class="url">tommie-jp.github.io/soft-fpga</div><div class="note">GitHub: tommie-jp/soft-fpga</div></div>
+        <div><div class="url">tommie-jp.github.io/<br>soft-fpga</div><div class="note">GitHub: tommie-jp/soft-fpga</div></div>
+        <img class="mascot" src="img/illust-chip-wave.svg" alt="手を振るチップのイラスト">
       </div>
     </div>
   </div>
 
-  <div class="card">
-    <div class="shot"><img src="img/qr-note-hero-search.png" alt="QR Note のタグ検索と特性表"></div>
+  <div class="card compact">
+    <div class="shot short">
+      <img src="img/qr-note-hero-search.png" alt="QR Note のタグ検索と特性表">
+      <img src="img/qr-note-hero-circuit.png" alt="QR Note のノート（回路図の記法）">
+    </div>
     <div class="body">
       <h2><span class="tag">部品管理</span>QR Note</h2>
       <p>部品に貼った QR シールをスマホで読むと、その部品のノート（特性表、回路図、メモ）が開きます。部品が増えても、読み取るだけで該当ノートにたどり着けます。</p>
@@ -166,18 +241,21 @@
       <div class="link">
         <img class="qr" src="qr/qrnote.png" alt="QR Note のデモ">
         <div><div class="url">qr-demo.tommie.jp</div><div class="note">GitHub: tommie-jp/qr-note</div></div>
+        <img class="mascot" src="img/illust-qr-sticker.svg" alt="QR シールのキャラクター">
       </div>
     </div>
   </div>
 
   <div class="card">
-    <div class="shot two">
-      <img src="img/fence-circuit-rc.png" alt="回路図の例（RC ローパス）">
-      <div class="crop"><img src="img/fence-breadboard-led.png" alt="ブレッドボードの実体配線図の例"></div>
+    <div class="shot four">
+      <img src="img/fence-circuit-rc.png" alt="回路図の例（RC ローパス）" style="object-position: 0% 0%">
+      <img src="img/fence-perf-attenuator.png" alt="ユニバーサル基板の配線図の例（10 dB アッテネータ）" style="object-position: 50% 0%">
+      <img src="img/fence-breadboard-radio.svg" alt="ブレッドボードの実体配線図の例（2 石ラジオ）" style="object-position: 35% 50%">
+      <img src="img/fence-copper-attenuator-top.png" alt="銅張り基板の寸法図の例（π 型アッテネータ）" style="object-position: 50% 50%">
     </div>
     <div class="body">
       <h2><span class="tag">回路図</span>tommie‑fence</h2>
-      <p>Markdown のコードフェンスに YAML で部品と配線を書くと、回路図、ブレッドボードの実体配線図、ユニバーサル基板の配線図になります。回路図と実体配線図を同じ記法で並べて描けます。</p>
+      <p>Markdown のコードフェンスに YAML で部品と配線を書くと、回路図、ブレッドボードの実体配線図、ユニバーサル基板の配線図、銅張り基板の寸法図になります。回路図と実体配線図を同じ記法で並べて描けます。</p>
       <ul>
         <li>何も入れずにブラウザで試せる playground</li>
         <li>VS Code 拡張（.vsix）をリリースで配布</li>
@@ -185,10 +263,13 @@
       <p>図の流儀（信号は左から右、電位の高いほうが上、など）を Claude 用の skill 集にもしています。</p>
       <div class="link">
         <img class="qr" src="qr/fence.png" alt="tommie-fence の playground">
-        <div><div class="url">tommie-jp.github.io/tommie-fence</div><div class="note">GitHub: tommie-jp/tommie-fence</div></div>
+        <div><div class="url">tommie-jp.github.io/<br>tommie-fence</div><div class="note">GitHub: tommie-jp/tommie-fence</div></div>
+        <img class="mascot" src="img/illust-led.svg" alt="光る LED のキャラクター">
       </div>
     </div>
   </div>
+
+  <p class="note footer"><span></span><span class="pagedate">作成日 2026-10-13</span></p>
 </section>
 
 </body>
