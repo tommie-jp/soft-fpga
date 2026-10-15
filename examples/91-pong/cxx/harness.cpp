@@ -11,6 +11,7 @@
 //           [   12] up_l [13] dn_l [14] up_r [15] dn_r   ボタン
 //           [   16] auto_l [17] auto_r                   AUTO のスイッチ
 //           [   18] frame_end   [19] line_end
+//           [   20] sound (スピーカーへの矩形波)   [22:21] snd_kind (0 無音・1 ヒット 450 Hz・2 壁と点 225 Hz)
 //   word 2: [ 7: 0] h  いま出している画素の横   [14: 8] v  縦   [15] pixel
 //
 // 記録のしかたは 2 通り (set_la_mode)。
@@ -30,6 +31,8 @@ static uint8_t  fb[160 * 120];     // 1 画素 1 バイト (0 か 1)
 static uint32_t keys   = 0;        // bit0 左上 bit1 左下 bit2 右上 bit3 右下 bit4 左 auto bit5 右 auto
 static uint32_t frames = 0;
 static int      la_mode = 1;       // 上の 2 通りのどちらか
+static bool     snd_prev = false;  // 直前のクロックの sound (画面をまたいで覚える)
+static uint32_t snd_edges = 0, snd_clocks = 0;   // この画面で sound が 0 → 1 になった数・1 だったクロックの数
 
 static rtlscope::Ring<4096, 3> ring;
 
@@ -56,7 +59,9 @@ static void record_sample() {
          | (uint32_t)(r->pong__DOT__out_r & 1) << 11
          | (uint32_t)(keys & 0x3Fu) << 12
          | (uint32_t)(top->frame_end & 1) << 18
-         | (uint32_t)(top->line_end  & 1) << 19;
+         | (uint32_t)(top->line_end  & 1) << 19
+         | (uint32_t)(top->sound     & 1) << 20
+         | (uint32_t)(top->snd_kind  & 3) << 21;
     w[2] = (uint32_t)(top->hpos)
          | (uint32_t)(top->vpos)  << 8
          | (uint32_t)(top->pixel & 1) << 15;
@@ -71,7 +76,7 @@ EMSCRIPTEN_KEEPALIVE void sim_init() {
     top = new Vpong();
     top->rst = 1; tick();
     top->rst = 0; top->clk = 0; top->eval();
-    frames = 0;
+    frames = 0; snd_prev = false;
     ring.start_session();
 }
 
@@ -90,9 +95,14 @@ EMSCRIPTEN_KEEPALIVE void run_frame() {
     top->up_l = keys & 1;         top->dn_l = (keys >> 1) & 1;
     top->up_r = (keys >> 2) & 1;  top->dn_r = (keys >> 3) & 1;
     top->auto_l = (keys >> 4) & 1; top->auto_r = (keys >> 5) & 1;
+    snd_edges = snd_clocks = 0;
     for (int i = 0; i < 160 * 120; i++) {
         top->clk = 0; top->eval();
         fb[top->vpos * 160 + top->hpos] = top->pixel;
+        const bool snd = top->sound;
+        snd_clocks += snd;
+        if (snd && !snd_prev) snd_edges++;
+        snd_prev = snd;
         const bool last = top->frame_end;
         if (la_mode == 0) record_sample();
         top->clk = 1; top->eval();
@@ -113,5 +123,9 @@ EMSCRIPTEN_KEEPALIVE void sim_run_n(int n) {
 EMSCRIPTEN_KEEPALIVE uint8_t* get_fb()      { return fb; }
 EMSCRIPTEN_KEEPALIVE uint32_t get_score()   { return (uint32_t)top->score_l << 4 | top->score_r; }
 EMSCRIPTEN_KEEPALIVE uint32_t get_frames()  { return frames; }
+// 音。JS は画面ごとに get_snd_kind() を読み、次の 1 画面ぶんの音を鳴らす (0 無音・1 ヒット 450 Hz・2 壁と点 225 Hz)
+EMSCRIPTEN_KEEPALIVE uint32_t get_snd_kind()   { return top->snd_kind; }
+EMSCRIPTEN_KEEPALIVE uint32_t get_snd_edges()  { return snd_edges; }
+EMSCRIPTEN_KEEPALIVE uint32_t get_snd_clocks() { return snd_clocks; }
 
 } // extern "C"
