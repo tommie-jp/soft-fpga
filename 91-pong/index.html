@@ -28,7 +28,8 @@
   左 <button id="ul">上 (W)</button><button id="dl">下 (S)</button><button id="al">AUTO</button>
   右 <button id="ur">上 (↑)</button><button id="dr">下 (↓)</button><button id="ar">AUTO</button>
 </div>
-<div><button id="run">Pause</button> 点 <span id="score">0 - 0</span> / <span id="frames">0</span> 画面</div>
+<div><button id="run">Pause</button> <button id="snd">音 OFF</button> 点 <span id="score">0 - 0</span> / <span id="frames">0</span> 画面
+  <span id="note" style="color:#fc8"></span></div>
 </div>
 
 <aside id="about">
@@ -39,7 +40,12 @@
   <h2>このページに出ているもの</h2>
   <ul>
     <li><b>左のゲーム画面</b>: 回路が出した画素を並べたもの。上の数字が点 (左 0〜9・右 0〜9)、中央の点線がネット。</li>
-    <li><b>下の Logic Analyzer</b>: 回路の中の信号の波形。球の位置 <code>bx</code>・<code>by</code>、ラケット <code>pl</code>・<code>pr</code>、点 <code>sl</code>・<code>sr</code>、当たり <code>hit_l</code>・<code>hit_r</code>、端を越えた <code>out_l</code>・<code>out_r</code>、走査 <code>h</code>・<code>v</code>・<code>pixel</code>。</li>
+    <li><b>下の Logic Analyzer</b>: 回路の中の信号の波形。球の位置 <code>bx</code>・<code>by</code>、ラケット <code>pl</code>・<code>pr</code>、点 <code>sl</code>・<code>sr</code>、当たり <code>hit_l</code>・<code>hit_r</code>、端を越えた <code>out_l</code>・<code>out_r</code>、音 <code>snd_kind</code>・<code>sound</code>、走査 <code>h</code>・<code>v</code>・<code>pixel</code>。</li>
+  </ul>
+  <h2>音</h2>
+  <ul>
+    <li>1972 年の Pong と同じ手で、<b>垂直カウンタの 1 ビットを、出来事の間だけスピーカーへ通します</b> (発振器は足していません)。ヒットは <code>v[3]</code> の 450 Hz、壁で返したときと点が入ったときは <code>v[4]</code> の 225 Hz (元の Pong は 491 Hz と 246 Hz)。</li>
+    <li>「音 ON」を押すと鳴ります (ブラウザは、操作のあとでないと音を出せません)。ヒットと壁は 1 画面 (約 16 ms)、点は 16 画面 (約 0.27 秒) です。</li>
   </ul>
   <h2>操作</h2>
   <ul>
@@ -80,6 +86,31 @@ var Module = { onRuntimeInitialized: function () {
   }
   hold('ul', 1, 'w'); hold('dl', 2, 's'); hold('ur', 4, 'ArrowUp'); hold('dr', 8, 'ArrowDown');
 
+  // ---- 音: 回路の snd_kind (0 無音、1 ヒット 450 Hz、2 壁・点 225 Hz) を画面ごとに読み、その 1 画面ぶんの矩形波を鳴らす ----
+  // ブラウザは、利用者の操作 (クリック) のあとでないと音を出せないので、ボタンで AudioContext を作る
+  const TONE = [0, 450, 225];
+  let ac = null, osc = null, amp = null, soundOn = false;
+  document.getElementById('snd').addEventListener('click', function () {
+    soundOn = !soundOn;
+    this.textContent = soundOn ? '音 ON' : '音 OFF';
+    if (soundOn && !ac) {
+      ac = new AudioContext();
+      osc = ac.createOscillator(); osc.type = 'square';
+      amp = ac.createGain(); amp.gain.value = 0;
+      osc.connect(amp).connect(ac.destination); osc.start();
+    }
+    if (ac && ac.state === 'suspended') ac.resume();
+    if (!soundOn && amp) amp.gain.value = 0;
+  });
+  function play(kind) {
+    const label = kind === 1 ? '♪ ヒット 450 Hz' : kind === 2 ? '♪ 壁・点 225 Hz' : '';
+    document.getElementById('note').textContent = label;
+    if (!soundOn || !amp) return;
+    const t = ac.currentTime;
+    if (kind) osc.frequency.setValueAtTime(TONE[kind], t);
+    amp.gain.setTargetAtTime(kind ? 0.06 : 0, t, 0.002);
+  }
+
   // ---- Run / Pause。LA のトリガーで Freeze したら止まる ----
   let running = true;
   let stoppedByTrigger = false;               // トリガーで止まった (手で Pause したのとは区別する)
@@ -95,8 +126,8 @@ var Module = { onRuntimeInitialized: function () {
     const o = document.createElement('option'); o.value = m; o.textContent = PONG_LA_MODES[m].label; modeSel.appendChild(o);
   });
   const NOTES = {
-    1: '1 画面に 1 サンプル。リングは 4096 サンプルなので約 68 秒ぶん。トリガーに hit_l・out_l などを選べる。',
-    0: '1 クロックに 1 サンプル。1 画面は 19 200 クロックで、リングは 4096 なので約 25 行ぶん。pixel の立ち上がりでトリガーすると、形の縁が見える。'
+    1: '1 画面に 1 サンプル。リングは 4096 サンプルなので約 68 秒ぶん。トリガーに hit_l・out_l・snd_kind などを選べる。',
+    0: '1 クロックに 1 サンプル。1 画面は 19 200 クロックで、リングは 4096 なので約 25 行ぶん。pixel の立ち上がりや sound の立ち上がりでトリガーすると、形の縁や音の矩形波が見える。'
   };
   function applyMode(m) {                      // 記録のしかたを替え、そのモードの信号の組に表示を揃える
     Module._set_la_mode(parseInt(m, 10));
@@ -122,6 +153,7 @@ var Module = { onRuntimeInitialized: function () {
     Module._set_keys(held | sw);
     if (running) {
       Module._run_frame();                    // 1 画面 = 19 200 クロック
+      play(Module._get_snd_kind());           // 次の 1 画面ぶんの音
       if (lag.triggerHit()) { stoppedByTrigger = true; setRunning(false); } // トリガーで Freeze
     } else if (stoppedByTrigger && !Module._sim_ring_frozen()) {
       stoppedByTrigger = false;               // LA の「Thaw」で凍結を解いたら、ゲームも続ける

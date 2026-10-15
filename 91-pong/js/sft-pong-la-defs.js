@@ -6,8 +6,11 @@
 //   word 0: [7:0] bx  [14:8] by  [21:15] pl  [28:22] pr  [29] left  [30] up  [31] fast
 //   word 1: [3:0] sl  [7:4] sr  [8] hit_l [9] hit_r [10] out_l [11] out_r
 //           [12] up_l [13] dn_l [14] up_r [15] dn_r [16] auto_l [17] auto_r [18] frame_end [19] line_end
+//           [20] sound  [22:21] snd_kind (0 無音・1 ヒット・2 壁と点)
 //   word 2: [7:0] h  [14:8] v  [15] pixel
 var PONG_RING_WORDS = 3;
+
+var PONG_SND_NAMES = ['-', 'HIT', 'LOW'];
 
 var PONG_LA_SIGNALS = [
   // ---- 球 ----
@@ -40,6 +43,11 @@ var PONG_LA_SIGNALS = [
     tip:'球が左の端を越えた。右の点 (sr) が 1 増え、球は真ん中から打ち直される。' },
   { id:'out_r', label:'out_r', word:1, bit:11, type:'bit', width:1, color:'#cc3333', on:true,
     tip:'球が右の端を越えた。左の点 (sl) が 1 増える。' },
+  // ---- 音 ----
+  { id:'snd_kind', label:'snd_kind', word:1, bit:21, type:'hex', width:2, color:'#aa3377', on:true, fmt:'snd',
+    tip:'いま鳴らす音 (次の画面から鳴る)。0 = 無音、1 = ヒット (v[3]、450 Hz)、2 = 壁で返した・点が入った (v[4]、225 Hz)。ヒットと壁は 1 画面、点は 16 画面。' },
+  { id:'sound', label:'sound', word:1, bit:20, type:'bit', width:1, color:'#aa3377', on:false,
+    tip:'スピーカーへ出る矩形波。鳴らす間だけ、垂直カウンタの 1 ビット (ヒットは v[3]、壁と点は v[4]) がそのまま出る。1 クロックごとのモードで見える。' },
   // ---- 入力 ----
   { id:'up_l', label:'up_l', word:1, bit:12, type:'bit', width:1, color:'#5566cc', on:false,
     tip:'左のラケットを上へ (W キー)。押している間 1。' },
@@ -71,6 +79,7 @@ var PONG_LA_GROUPS = [
   { label:'Paddle', color:'#2e8b3e', ids:['pl','pr'] },
   { label:'Score',  color:'#b89600', ids:['sl','sr'] },
   { label:'Event',  color:'#0077cc', ids:['hit_l','hit_r','out_l','out_r'] },
+  { label:'Sound',  color:'#aa3377', ids:['snd_kind','sound'] },
   { label:'Input',  color:'#5566cc', ids:['up_l','dn_l','up_r','dn_r','auto_l','auto_r'] },
   { label:'Scan',   color:'#7744cc', ids:['h','v','pixel','line_end','frame_end'] },
 ];
@@ -78,9 +87,9 @@ var PONG_LA_GROUPS = [
 // 記録のしかた (set_la_mode) ごとに最初に出す信号。切り替えると、この組に表示を揃える。
 var PONG_LA_MODES = {
   1: { label: '1 画面ごと (球・ラケット・点の動き)',
-       on: ['bx','by','left','pl','pr','sl','sr','hit_l','hit_r','out_l','out_r'] },
+       on: ['bx','by','left','pl','pr','sl','sr','hit_l','hit_r','out_l','out_r','snd_kind'] },
   0: { label: '1 クロックごと (走査線: h・v・pixel)',
-       on: ['h','v','pixel','line_end','frame_end'] },
+       on: ['h','v','pixel','line_end','frame_end','sound'] },
 };
 
 var PONG_LA_CONFIG = {
@@ -96,4 +105,7 @@ var PONG_LA_CONFIG = {
   trackH:         26,
   numberedLabels: false,
   decodeLane:     null,
+  formatters: {
+    snd: function (v) { return PONG_SND_NAMES[v & 3] || String(v); }
+  },
 };
