@@ -48,13 +48,14 @@ var Module = { onRuntimeInitialized: function () {
 
   // ---- Run / Pause。LA のトリガーで Freeze したら止まる ----
   let running = true;
+  let stoppedByTrigger = false;               // トリガーで止まった (手で Pause したのとは区別する)
   const runBtn = document.getElementById('run');
   function setRunning(on) { running = on; runBtn.textContent = on ? 'Pause' : 'Run'; }
 
   // ---- Logic Analyzer（js/rtlscope-la.js。06-8080 などと同じ UI） ----
   const lag = setupLa({ Module: Module, rootId: 'la-root', config: PONG_LA_CONFIG, signals: PONG_LA_SIGNALS,
                         zoomIdx: 2, onArm: function () { setRunning(true); } });
-  runBtn.addEventListener('click', function () { if (!running) lag.resume(); setRunning(!running); });
+  runBtn.addEventListener('click', function () { if (!running) lag.resume(); stoppedByTrigger = false; setRunning(!running); });
   const modeSel = document.getElementById('la-mode');
   Object.keys(PONG_LA_MODES).sort().reverse().forEach(function (m) {
     const o = document.createElement('option'); o.value = m; o.textContent = PONG_LA_MODES[m].label; modeSel.appendChild(o);
@@ -87,7 +88,10 @@ var Module = { onRuntimeInitialized: function () {
     Module._set_keys(held | sw);
     if (running) {
       Module._run_frame();                    // 1 画面 = 19 200 クロック
-      if (lag.triggerHit()) setRunning(false); // トリガーで Freeze
+      if (lag.triggerHit()) { stoppedByTrigger = true; setRunning(false); } // トリガーで Freeze
+    } else if (stoppedByTrigger && !Module._sim_ring_frozen()) {
+      stoppedByTrigger = false;               // LA の「Thaw」で凍結を解いたら、ゲームも続ける
+      setRunning(true);
     }
     lag.draw();
     const fb = new Uint8Array(Module.HEAPU8.buffer, Module._get_fb(), 160 * 120);
