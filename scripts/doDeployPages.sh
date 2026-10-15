@@ -36,6 +36,7 @@ declare -a EXAMPLES=(
     "05:build-wasm-05.sh:examples/05-dormann/web:05-dormann:"
     "06:build-wasm-06.sh:examples/06-8080/web:examples/06-8080/web:06-8080"
     "09:build-wasm-09.sh:examples/09-pdp11/web:examples/09-pdp11/web:09-PDP11"
+    "91:build-wasm-91.sh:examples/91-pong/web:91-pong:"
 )
 
 # ---------- filter by targets ----------
