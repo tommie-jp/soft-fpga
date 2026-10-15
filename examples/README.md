@@ -9,4 +9,4 @@ Build with `scripts/build-wasm-XX.sh`, then open `web/index.html` in a browser.
 | [02-traffic-fsm](02-traffic-fsm/) | Traffic light FSM | State Diagram view |
 | [03-uart](03-uart/) | UART transceiver | Logic Analyzer view |
 | [04-6502](04-6502/) | 6502 + Apple-I | xterm.js (wozmon → Integer BASIC) |
-| [91-pong](91-pong/) | Pong (counters and comparators only, no CPU) | Canvas 160×120 (1 clock = 1 pixel) + Logic Analyzer (ball, paddles, score, scan) |
+| [91-pong](91-pong/) | Pong (counters and comparators only, no CPU). [Textbook 12-3](https://github.com/tommie-jp/tommie-circuit-workbook/blob/main/06-fpga/12-projects/03-pong.md) | Canvas 160×120 (1 clock = 1 pixel) + Logic Analyzer (ball, paddles, score, scan) |
