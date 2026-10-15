@@ -11,15 +11,49 @@
   #la-bar { margin: 10px 0 4px; font-size: 13px; }
   #la-note { color: #999; font-size: 12px; }
   #la-root canvas { max-width: 100%; height: auto; }
+  #top { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+  #about { max-width: 380px; font-size: 13px; line-height: 1.65; color: #ccc; }
+  #about h1 { font-size: 16px; margin: 0 0 6px; color: #eee; }
+  #about h2 { font-size: 13px; margin: 12px 0 2px; color: #9ad; }
+  #about ul { margin: 2px 0; padding-left: 18px; }
+  #about a { color: #8cf; }
+  #about code { color: #fc8; }
 </style>
 </head>
 <body>
+<div id="top">
+<div id="game">
 <canvas id="screen" width="160" height="120" style="width:480px;height:360px"></canvas>
 <div>
   左 <button id="ul">上 (W)</button><button id="dl">下 (S)</button><button id="al">AUTO</button>
   右 <button id="ur">上 (↑)</button><button id="dr">下 (↓)</button><button id="ar">AUTO</button>
 </div>
 <div><button id="run">Pause</button> 点 <span id="score">0 - 0</span> / <span id="frames">0</span> 画面</div>
+</div>
+
+<aside id="about">
+  <h1>Pong — カウンタと比較器だけ (CPU なし)</h1>
+  <p>横 160 × 縦 120 画素の白黒の画面を、1 クロックで 1 画素ずつ出す回路 (Verilog) です。
+     いまの (<code>h</code>, <code>v</code>) が壁・ネット・ラケット・球・点の形に入ったかを比べ、入っていれば白にします。
+     1 画面は 19 200 クロックで、画面の最後に球とラケットを 1 回動かします。</p>
+  <h2>このページに出ているもの</h2>
+  <ul>
+    <li><b>左のゲーム画面</b>: 回路が出した画素を並べたもの。上の数字が点 (左 0〜9・右 0〜9)、中央の点線がネット。</li>
+    <li><b>下の Logic Analyzer</b>: 回路の中の信号の波形。球の位置 <code>bx</code>・<code>by</code>、ラケット <code>pl</code>・<code>pr</code>、点 <code>sl</code>・<code>sr</code>、当たり <code>hit_l</code>・<code>hit_r</code>、端を越えた <code>out_l</code>・<code>out_r</code>、走査 <code>h</code>・<code>v</code>・<code>pixel</code>。</li>
+  </ul>
+  <h2>操作</h2>
+  <ul>
+    <li>左のラケットは W・S、右は ↑・↓。AUTO を入れると回路が球を追います。</li>
+    <li>記録のしかた (1 画面ごと / 1 クロックごと) は、LA の上の選択で切り替えます。</li>
+    <li>Trigger で条件 (例 <code>sr == 3</code>) を決めて Set すると、その瞬間に止まります。<b>Run</b> か <b>Thaw</b> で再開します。</li>
+  </ul>
+  <h2>くわしく</h2>
+  <ul>
+    <li><a href="https://github.com/tommie-jp/tommie-circuit-workbook/blob/main/06-fpga/12-projects/03-pong.md" target="_blank" rel="noopener">教科書 12-3「Pong — ゲートだけで動くゲーム」(GitHub)</a>: 回路の作り方・試験・この波形の見方</li>
+    <li><a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/91-pong" target="_blank" rel="noopener">ソース (soft-fpga の examples/91-pong)</a></li>
+  </ul>
+</aside>
+</div>
 
 <div id="la-bar">
   Logic Analyzer の記録:
