@@ -2,12 +2,15 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>91-pong</title>
+<title>91-pong — rtlscope</title>
 <style>
   body { background: #222; color: #ddd; font-family: sans-serif; }
   canvas { image-rendering: pixelated; border: 1px solid #555; }
   button { min-width: 4em; margin: 2px; }
   button.on { background: #6c6; }
+  #la-bar { margin: 10px 0 4px; font-size: 13px; }
+  #la-note { color: #999; font-size: 12px; }
+  #la-root canvas { max-width: 100%; height: auto; }
 </style>
 </head>
 <body>
@@ -16,7 +19,14 @@
   左 <button id="ul">上 (W)</button><button id="dl">下 (S)</button><button id="al">AUTO</button>
   右 <button id="ur">上 (↑)</button><button id="dr">下 (↓)</button><button id="ar">AUTO</button>
 </div>
-<div>点 <span id="score">0 - 0</span> / <span id="frames">0</span> 画面</div>
+<div><button id="run">Pause</button> 点 <span id="score">0 - 0</span> / <span id="frames">0</span> 画面</div>
+
+<div id="la-bar">
+  Logic Analyzer の記録:
+  <select id="la-mode"></select>
+  <span id="la-note"></span>
+</div>
+<div id="la-root"></div>
 <script>
 var Module = { onRuntimeInitialized: function () {
   Module._sim_init();
@@ -36,6 +46,37 @@ var Module = { onRuntimeInitialized: function () {
   }
   hold('ul', 1, 'w'); hold('dl', 2, 's'); hold('ur', 4, 'ArrowUp'); hold('dr', 8, 'ArrowDown');
 
+  // ---- Run / Pause。LA のトリガーで Freeze したら止まる ----
+  let running = true;
+  const runBtn = document.getElementById('run');
+  function setRunning(on) { running = on; runBtn.textContent = on ? 'Pause' : 'Run'; }
+
+  // ---- Logic Analyzer（js/rtlscope-la.js。06-8080 などと同じ UI） ----
+  const lag = setupLa({ Module: Module, rootId: 'la-root', config: PONG_LA_CONFIG, signals: PONG_LA_SIGNALS,
+                        zoomIdx: 2, onArm: function () { setRunning(true); } });
+  runBtn.addEventListener('click', function () { if (!running) lag.resume(); setRunning(!running); });
+  const modeSel = document.getElementById('la-mode');
+  Object.keys(PONG_LA_MODES).sort().reverse().forEach(function (m) {
+    const o = document.createElement('option'); o.value = m; o.textContent = PONG_LA_MODES[m].label; modeSel.appendChild(o);
+  });
+  const NOTES = {
+    1: '1 画面に 1 サンプル。リングは 4096 サンプルなので約 68 秒ぶん。トリガーに hit_l・out_l などを選べる。',
+    0: '1 クロックに 1 サンプル。1 画面は 19 200 クロックで、リングは 4096 なので約 25 行ぶん。pixel の立ち上がりでトリガーすると、形の縁が見える。'
+  };
+  function applyMode(m) {                      // 記録のしかたを替え、そのモードの信号の組に表示を揃える
+    Module._set_la_mode(parseInt(m, 10));
+    const want = new Set(PONG_LA_MODES[m].on);
+    document.querySelectorAll('#la-toggles label.sig-tog').forEach(function (chip) {
+      const cb = chip.querySelector('input[type=checkbox]');
+      const sig = PONG_LA_SIGNALS.find(function (s) { return s.label === chip.textContent.trim(); });
+      if (!cb || !sig) return;
+      if (cb.checked !== want.has(sig.id)) { cb.checked = want.has(sig.id); cb.dispatchEvent(new Event('change')); }
+    });
+    document.getElementById('la-note').textContent = NOTES[m];
+  }
+  modeSel.addEventListener('change', function () { applyMode(modeSel.value); });
+  applyMode(modeSel.value);
+
   function toggle(id, bit) {                  // スイッチ: 押すたびに入れ替わり、そのまま残る
     const el = document.getElementById(id);
     el.addEventListener('click', () => { sw ^= bit; el.classList.toggle('on', (sw & bit) !== 0); });
@@ -44,7 +85,11 @@ var Module = { onRuntimeInitialized: function () {
 
   function loop() {
     Module._set_keys(held | sw);
-    Module._run_frame();                      // 1 画面 = 19 200 クロック
+    if (running) {
+      Module._run_frame();                    // 1 画面 = 19 200 クロック
+      if (lag.triggerHit()) setRunning(false); // トリガーで Freeze
+    }
+    lag.draw();
     const fb = new Uint8Array(Module.HEAPU8.buffer, Module._get_fb(), 160 * 120);
     for (let i = 0; i < fb.length; i++) {
       const c = fb[i] ? 255 : 0;
@@ -60,6 +105,11 @@ var Module = { onRuntimeInitialized: function () {
   requestAnimationFrame(loop);
 } };
 </script>
+<script src="js/sft-pong-la-defs.js"></script>
+<script src="js/rtlscope-la.js"></script>
+<script src="js/sft-la-toolbar.js"></script>
+<script src="js/sft-la-ctrl.js"></script>
+<script src="js/sft-la-glue.js"></script>
 <script src="sim.js"></script>
 </body>
 </html>

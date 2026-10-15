@@ -7,6 +7,7 @@ ROOT="$SCRIPT_DIR/.."
 EXAMPLE="$ROOT/examples/91-pong"
 OBJ_DIR="$ROOT/obj_dir_91"
 source "$SCRIPT_DIR/_build-wasm-common.sh"
+source "$SCRIPT_DIR/_la-exports.inc.sh"   # LA_EXPORTS（Logic Analyzer 共通 API）
 wasm_sync_verilated_cpp if-missing
 wasm_require_emsdk
 
@@ -20,8 +21,8 @@ em++ $COMMON_FLAGS \
     "$OBJ_DIR"/V*.cpp \
     "$OBJ_DIR/verilated.wasm.o" \
     "$EXAMPLE/cxx/harness.cpp" \
-    -s EXPORTED_FUNCTIONS="[\"_sim_init\",\"_set_keys\",\"_run_frame\",\"_get_fb\",\"_get_score\",\"_get_frames\"]" \
-    -s EXPORTED_RUNTIME_METHODS='["HEAPU8"]' \
+    -s EXPORTED_FUNCTIONS="[\"_sim_init\",\"_set_keys\",\"_set_la_mode\",\"_run_frame\",\"_get_fb\",\"_get_score\",\"_get_frames\",\"_get_ring_ptr\",\"_get_head\",\"_get_ring_size\",${LA_EXPORTS}]" \
+    -s EXPORTED_RUNTIME_METHODS='["HEAPU8","HEAPU32"]' \
     -s ALLOW_MEMORY_GROWTH=1 \
     -s EXIT_RUNTIME=0 \
     -o "$EXAMPLE/web/sim.js"
