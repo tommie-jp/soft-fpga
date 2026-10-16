@@ -142,7 +142,8 @@ function initTriggerUI() {
         }
         workerSend({ type: 'setValueTrigger', word: word, mask: mask >>> 0, cmp: cmp >>> 0 });
       } else {
-        workerSend({ type: 'setTrigger', trigType: type, port: addrVal || 0xFF, addr: addrVal });
+        // I/O のポートは、空欄なら任意 (0xFF)。00 (CONIN) も指定できる
+        workerSend({ type: 'setTrigger', trigType: type, port: addrStr ? (addrVal & 0xFF) : 0xFF, addr: addrVal });
       }
       if (type > 0 && !running) {
         running = true;

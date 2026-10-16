@@ -561,8 +561,8 @@ var PDP11_LA_CONFIG = {
 
 // 既知の PDP-11 / Unix V6 アドレス（トリガー補完用）
 var PDP11_KNOWN_PCS = [
-  { label: 'bootrom entry',     pc: 0o173000, tip: 'bootrom.v エントリ' },
-  { label: 'kernel entry',      pc: 0o000000, tip: 'Unix V6 カーネル m40.s エントリ' },
+  { label: 'bootrom entry',     pc: 0o173000, tip: 'bootrom.v エントリ', boot: true },
+  { label: 'kernel entry',      pc: 0o000000, tip: 'Unix V6 カーネル m40.s エントリ', boot: true },
   { label: 'printf(mem=)',      pc: 0o004014, tip: 'main.c: printf("mem=")' },
   { label: 'user mode RTT',     pc: 0o003512, tip: 'ユーザプロセスへの RTT 命令' },
   { label: 'login wait',        pc: 0o015670, tip: 'getty/login キー入力待ちループ' },
@@ -573,7 +573,9 @@ var PDP11_KNOWN_PCS = [
 
 // トリガーのテーマ (Trigger の「Theme」から選ぶと欄に入る。Set は自分で押す)
 // fields は #trig-body の欄の id → 値 (trig-type を先に書く)。expr は式の欄 (CodeMirror) に入れる文字列
-// PC の一致のテーマは、上の PDP11_KNOWN_PCS から作る (番地は 8 進)
+// 番地のテーマは、上の PDP11_KNOWN_PCS から式で作る。「PC Match」(種類 1) は仮想アドレスだけで比べ、
+// ユーザープロセスの同じ番地でも当たるので、カーネルモードで読んだときに絞る。
+// boot: true の番地はブートの間にしか通らず、Reset でトリガーも消えるので、テーマにしない (Known address の一覧には残る)
 var PDP11_TRIGGER_PRESETS = [
   { label: 'TRAP (incl. system call)', tip: 'TRAP 系の命令・例外で止まる (Unix の sys 呼び出しは TRAP 命令)',
     fields: { 'trig-type': '4' } },
@@ -583,8 +585,9 @@ var PDP11_TRIGGER_PRESETS = [
     fields: { 'trig-type': '7' }, expr: 'INT.rising' },
   { label: 'User-mode fetch', tip: '式: Mode == "USER" && istate == "F1" — ユーザーモードで命令をフェッチした瞬間',
     fields: { 'trig-type': '7' }, expr: 'Mode == "USER" && istate == "F1"' },
-].concat(PDP11_KNOWN_PCS.map(function (k) {
+].concat(PDP11_KNOWN_PCS.filter(function (k) { return !k.boot; }).map(function (k) {
   var oct = '0o' + k.pc.toString(8);
-  return { label: 'PC = ' + k.label + (k.label.indexOf(oct) >= 0 ? '' : ' (' + oct + ')'), tip: k.tip,
-           fields: { 'trig-type': '1', 'trig-pc': k.pc.toString(8) } };
+  var expr = 'Mode == "KERNEL" && VA == ' + oct + ' && RD == 1';
+  return { label: 'Kernel reads ' + k.label + (k.label.indexOf(oct) >= 0 ? '' : ' (' + oct + ')'),
+           tip: k.tip + ' — 式: ' + expr, fields: { 'trig-type': '7' }, expr: expr };
 }));
