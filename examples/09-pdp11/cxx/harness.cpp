@@ -237,6 +237,9 @@ static int      g_triggered         = 0;
 static int      g_trigger_once      = 1;  // 1 回ヒットしたら停止
 static uint8_t  g_prev_istate       = 0xFFu; // istate エッジ検出用
 static uint32_t g_trig_fire_head    = 0;     // トリガー発火時の ring_head
+// トリガー発火の瞬間の番地。PC 一致 (TRIG_PC・TRIG_PC_DATA) は一致した仮想アドレス (= 命令の番地)、
+// ほかはその瞬間の PC。停止は POST_TRIG_SAMPLES 後なので、get_pc() は発火の位置より先へ進んでいる
+static uint32_t g_trig_fire_pc      = 0;
 static int      g_post_trig_remain  = 0;     // 発火後に収集する残りサンプル数
 #define POST_TRIG_SAMPLES 100
 
@@ -323,6 +326,7 @@ EMSCRIPTEN_KEEPALIVE void sim_init() {
     g_triggered        = 0;
     g_prev_istate      = 0xFFu;
     g_trig_fire_head   = 0;
+    g_trig_fire_pc     = 0;
     g_post_trig_remain = 0;
     ring_tick_mask     = 3u;   // Unix V6 ブート: 4tick/sample
 
@@ -352,6 +356,7 @@ EMSCRIPTEN_KEEPALIVE void sim_init_bare(uint32_t start_pc) {
     g_triggered        = 0;
     g_prev_istate      = 0xFFu;
     g_trig_fire_head   = 0;
+    g_trig_fire_pc     = 0;
     g_post_trig_remain = 0;
     ring_tick_mask     = 0u;   // ベアメタル タイミング図: 1tick/sample
 
@@ -497,6 +502,8 @@ EMSCRIPTEN_KEEPALIVE void step_n(int n) {
             if (hit && g_trigger_once) {
                 // 発火位置を記録し、ポストトリガー収集を開始する
                 g_trig_fire_head   = ring_head;
+                g_trig_fire_pc     = (g_trig_type == TRIG_PC || g_trig_type == TRIG_PC_DATA)
+                                   ? (uint32_t)(OBS_ADDR_V & 0xFFFFu) : (uint32_t)OBS_PC;
                 g_post_trig_remain = POST_TRIG_SAMPLES;
             }
         }
@@ -550,6 +557,7 @@ EMSCRIPTEN_KEEPALIVE void sim_set_pc_trigger(uint32_t pc) {
 // トリガーヒット確認（1 = ヒット）
 EMSCRIPTEN_KEEPALIVE int      sim_trigger_hit()      { return g_triggered; }
 EMSCRIPTEN_KEEPALIVE uint32_t get_trig_fire_head()   { return g_trig_fire_head; }
+EMSCRIPTEN_KEEPALIVE uint32_t get_trig_fire_pc()     { return g_trig_fire_pc; }
 
 // トリガー解除
 EMSCRIPTEN_KEEPALIVE void sim_clear_trigger() {
@@ -558,6 +566,7 @@ EMSCRIPTEN_KEEPALIVE void sim_clear_trigger() {
     g_triggered        = 0;
     g_prev_istate      = 0xFFu;
     g_trig_fire_head   = 0;
+    g_trig_fire_pc     = 0;
     g_post_trig_remain = 0;
 }
 

@@ -406,7 +406,9 @@ self.onmessage = function (e) {
       // data.trigType: 0=off 1=io_req 2=call 3=ret
       // data.port: ポートフィルタ (0xFF=any)
       // data.addr: ターゲットアドレスフィルタ (0=any)
-      Module._sim_set_trigger(data.trigType, data.port || 0xFF, data.addr || 0);
+      // port 0 (CONIN) を「任意」(0xFF) と取り違えないよう、省略のときだけ 0xFF にする
+      Module._sim_set_trigger(data.trigType, (data.port === undefined || data.port === null) ? 0xFF : data.port,
+                              data.addr || 0);
       break;
 
     case 'clearTrigger':

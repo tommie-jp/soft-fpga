@@ -77,10 +77,12 @@ function getMachineType(s) {
 // シグナルグループ定義（color: アクティブバー・ピッカーで使うグループ単位の色）
 // トリガーのテーマ (Trigger の「Theme」から選ぶと欄に入る。Set は自分で押す)
 // fields は index.html の #dbg-trig-detail の欄の id → 値。trig-type を先に書く (種類に応じた欄の表示が先に切り替わる)
-// I/O ポートは cpm_top.v の表 ($01 CONOUT・$10 DCMD など)。ポート 00 (CONIN) は UI で「任意のポート」(空欄) と区別できないので置かない
+// I/O ポートは cpm_top.v の表 ($00 CONIN・$01 CONOUT・$10 DCMD など)。欄が空なら任意のポート
 var CPM8080_TRIGGER_PRESETS = [
   { label: 'Console out (OUT 01h)', tip: 'CONOUT: 1 文字をコンソールへ出した瞬間',
     fields: { 'trig-type': '1', 'trig-addr': '01', 'trig-post': '200' } },
+  { label: 'Console in (IN 00h)', tip: 'CONIN: キーボードから 1 文字を読んだ瞬間 (キーを押すと止まる)',
+    fields: { 'trig-type': '1', 'trig-addr': '00', 'trig-post': '200' } },
   { label: 'BDOS call (CALL 0005h)', tip: 'CP/M のシステムコール (BDOS) の入口へ CALL した瞬間。関数番号は C レジスタ',
     fields: { 'trig-type': '2', 'trig-addr': '0005', 'trig-post': '200' } },
   { label: 'Program start (PC = 0100h)', tip: 'TPA の先頭 0100h の命令をフェッチした瞬間 (.COM の実行開始)',

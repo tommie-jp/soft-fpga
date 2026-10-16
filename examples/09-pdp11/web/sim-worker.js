@@ -188,7 +188,9 @@ function simLoop() {
   // ハードウェアトリガーヒット確認
   if (Module._sim_trigger_hit && Module._sim_trigger_hit()) {
     running = false;
-    var pc       = Module._get_pc ? Module._get_pc() : 0;
+    // 状態欄に出す PC は発火の瞬間の番地 (停止は post の分だけ後なので、_get_pc() は先へ進んでいる)
+    var pc       = Module._get_trig_fire_pc ? (Module._get_trig_fire_pc() >>> 0)
+                 : (Module._get_pc ? Module._get_pc() : 0);
     var fireHead = Module._get_trig_fire_head ? (Module._get_trig_fire_head() >>> 0) : -1;
     postMessage({ type: 'triggered', pc: pc, trigType: _curTrigType, fireHead: fireHead });
     _sendRing();
@@ -215,7 +217,7 @@ function simLoop() {
       )) {
         _exprEval = null;
         running   = false;
-        var _xPc  = Module._get_pc ? Module._get_pc() : 0;
+        var _xPc  = _h[_xb + 2] & 0xFFFF;   // 一致したサンプルの PC (word2 の下位 16 ビット。LA の PC と同じ)
         var _xFh  = (_xabs + 1) >>> 0;
         // 'triggered' を先に送り、後続 'ring' で UI がアンカー処理できるようにする
         postMessage({ type: 'triggered', pc: _xPc, trigType: 7, fireHead: _xFh });

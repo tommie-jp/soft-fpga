@@ -34,6 +34,7 @@ function workerRequest(msg, transferables) {
 var pendingChars = [];
 var latestFrame  = null;
 var frameCount   = 0;
+var lastFrozen   = false;   // 直前のフレームの凍結の状態 (Freeze ボタンの表示を変わり目だけ書き換える)
 var freqHead0 = 0, freqTime0 = performance.now(), freqDisp = '';
 var dirtyState = [false, false, false, false];
 
@@ -118,6 +119,13 @@ function loop() {
     // ── フリーズバッジ ──
     var frozenBadge = document.getElementById('r-frozen-badge');
     if (frozenBadge) frozenBadge.style.display = f.frozen ? 'inline' : 'none';
+    // Freeze ボタンの表示を実際の凍結に合わせる (トリガーで凍結したときも「▶ Thaw」にする)。
+    // 押した直後の表示と競合しないよう、Worker の凍結の状態が変わったときだけ書き換える
+    if (f.frozen !== lastFrozen) {
+      lastFrozen = f.frozen;
+      var btnFreeze = document.getElementById('btn-freeze');
+      if (btnFreeze) btnFreeze.textContent = f.frozen ? '▶ Thaw' : '❄ Freeze';
+    }
 
     frameCount++;
     if (frameCount % 60 === 0) {
