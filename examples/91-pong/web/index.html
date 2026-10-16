@@ -24,6 +24,16 @@
   #game { width: 480px; max-width: 100%; }
   #screen { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; }
   #pads { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
+  /* 状態の行: 音の札が出ても消えても、幅も高さも変わらないように場所を取っておく */
+  #status { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 4px; }
+  .srow { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+  #score, #frames, #fps { display: inline-block; text-align: right; font-variant-numeric: tabular-nums; }
+  #score { min-width: 3.5ch; }
+  #frames { min-width: 6ch; }
+  #fps { min-width: 3em; color: #999; }
+  #note { display: inline-block; min-width: 7.5em; color: #fc8; overflow: hidden; text-overflow: ellipsis; }
+  #snd-err { color: #fc8; font-size: 13px; margin-top: 2px; }
+  #snd-err:empty { display: none; }
   /* スマホ: 長押しで文字選択・メニュー・拡大が出て、押したままになるのを防ぐ */
   #pads button, #run, #snd { touch-action: manipulation; user-select: none; -webkit-user-select: none;
     -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
@@ -44,7 +54,7 @@
     .pad button { min-height: 52px; min-width: 88px; margin: 0; font-size: 16px; }
     .pad .auto { min-height: 36px; font-size: 13px; }
     #run, #snd { min-height: 44px; font-size: 15px; }
-    #status { margin-top: 8px; }
+    #status { margin-top: 8px; flex-direction: column; align-items: flex-start; }
   }
 </style>
 </head>
@@ -57,8 +67,11 @@
   <div class="pad">左 <button id="ul"><span class="arw">▲ </span>上<span class="key"> (W)</span></button><button id="dl"><span class="arw">▼ </span>下<span class="key"> (S)</span></button><button id="al" class="auto">AUTO</button></div>
   <div class="pad">右 <button id="ur"><span class="arw">▲ </span>上<span class="key"> (↑)</span></button><button id="dr"><span class="arw">▼ </span>下<span class="key"> (↓)</span></button><button id="ar" class="auto">AUTO</button></div>
 </div>
-<div id="status"><button id="run">Pause</button> <button id="snd">音 OFF</button> 点 <span id="score">0 - 0</span> / <span id="frames">0</span> 画面
-  <span id="note" style="color:#fc8"></span></div>
+<div id="status">
+  <div class="srow"><button id="run">Pause</button> <button id="snd">音 OFF</button> <span id="fps">– fps</span></div>
+  <div class="srow">点 <span id="score">0 - 0</span> / <span id="frames">0</span> 画面 <span id="note"></span></div>
+</div>
+<div id="snd-err"></div>
 </div>
 
 <aside id="about">
@@ -134,10 +147,11 @@ var Module = { onRuntimeInitialized: function () {
               || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);   // iPadOS は Mac を名乗る
   const sndBtn = document.getElementById('snd');
   const noteEl = document.getElementById('note');
+  const sndErrEl = document.getElementById('snd-err');
   let ac = null, osc = null, amp = null, keepAlive = null, soundOn = false;
 
   function audioError(what, e) {
-    noteEl.textContent = '音を出せません (' + what + ')。音 OFF → ON を押し直してください';
+    sndErrEl.textContent = '音を出せません (' + what + ')。音 OFF → ON を押し直してください';
     console.warn('91-pong: ' + what, e);
   }
   function silentWavUrl() {                   // 0.5 秒・8 kHz・8 ビットの無音の WAV
@@ -151,7 +165,7 @@ var Module = { onRuntimeInitialized: function () {
     return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
   }
   function unlockAudio() {                    // 必ずタップ (利用者の操作) の中から呼ぶ
-    if (noteEl.textContent.startsWith('音を出せません')) noteEl.textContent = '';
+    sndErrEl.textContent = '';
     if (navigator.audioSession) {
       try { navigator.audioSession.type = 'playback'; } catch (e) { audioError('audioSession', e); }
     }
@@ -195,7 +209,7 @@ var Module = { onRuntimeInitialized: function () {
   });
   function play(kind) {
     const label = kind === 1 ? '♪ ヒット 450 Hz' : kind === 2 ? '♪ 壁・点 225 Hz' : '';
-    if (!noteEl.textContent.startsWith('音を出せません')) noteEl.textContent = label;
+    noteEl.textContent = label;
     if (!soundOn || !amp || ac.state !== 'running') return;
     const t = ac.currentTime;
     if (kind) osc.frequency.setValueAtTime(TONE[kind], t);
@@ -249,7 +263,16 @@ var Module = { onRuntimeInitialized: function () {
   }
   toggle('al', 16); toggle('ar', 32);
 
-  function loop() {
+  // FPS: 描き替えの回数を 1 秒ごとに数える。Pause 中以外は、回路が 1 秒に進む画面数でもある
+  const fpsEl = document.getElementById('fps');
+  let fpsCount = 0, fpsT0 = performance.now();
+
+  function loop(now) {
+    fpsCount++;
+    if (now - fpsT0 >= 1000) {
+      fpsEl.textContent = Math.round(fpsCount * 1000 / (now - fpsT0)) + ' fps';
+      fpsCount = 0; fpsT0 = now;
+    }
     Module._set_keys(held | sw);
     if (running) {
       Module._run_frame();                    // 1 画面 = 19 200 クロック
