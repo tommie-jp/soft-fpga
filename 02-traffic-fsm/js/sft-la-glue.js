@@ -10,7 +10,8 @@
 //   Run ボタン: if (!running) lag.resume();   // トリガー停止後の再開（Thaw して再武装）
 //
 // 前提: Module が cxx/rtlscope_ring.h の RTLSCOPE_EXPORT_RING を公開していること。
-// 読み込み順: *-la-defs.js → rtlscope-la.js → sft-la-toolbar.js → sft-la-ctrl.js → sft-la-glue.js
+// 読み込み順: *-la-defs.js → rtlscope-la.js → sft-la-toolbar.js → (sft-trigger-presets.js) → sft-la-ctrl.js → sft-la-glue.js
+// トリガーのテーマ: opts.triggerPresets と opts.onPreset (sft-la-ctrl.js の initLaCtrl と同じ形)
 
 function setupLa(opts) {
   'use strict';
@@ -46,7 +47,9 @@ function setupLa(opts) {
       setEdgeTrigger:  function (word, bit, dir) { M._sim_set_edge_trigger(word, bit, dir); },
       setValueTrigger: function (word, mask, cmp) { M._sim_set_value_trigger(word, mask, cmp); }
     },
-    onArm: opts.onArm
+    onArm: opts.onArm,
+    triggerPresets: opts.triggerPresets,
+    onPreset: opts.onPreset
   });
 
   // ring 全体を指す TypedArray ビュー。メモリ拡張で HEAPU32 が差し替わるため毎回取り直す。

@@ -14,6 +14,9 @@
 //     },
 //     onArm(),               // トリガー設定後（実行を再開したいとき）に呼ばれる
 //     storagePrefix,         // localStorage キー接頭辞
+//     triggerPresets,        // トリガーのテーマ (省略可。sft-trigger-presets.js が要る)
+//                            //   [{ label, tip, sig: 信号の id, mode: 'eq'|'rise'|'fall', value, post }, ...]
+//     onPreset(preset, restored),   // テーマを欄に入れた後に呼ぶ (省略可。記録モードの切り替えなど)
 //   });
 //   ctrl.sync(frozen);       // 毎フレーム呼ぶ: Freeze ボタン表示を実状態に合わせる
 //
@@ -115,12 +118,15 @@ function initLaCtrl(opts) {
   });
   trigSigs.forEach(function(s, i) {
     var o = document.createElement('option');
-    o.value = String(i);
+    o.value = s.id;                // テーマ (triggerPresets) が信号を id で指せるように
     o.textContent = s.label + (s.width > 1 ? '[' + (s.bit + s.width - 1) + ':' + s.bit + ']' : '');
     selSig.appendChild(o);
   });
 
-  function curSig() { return trigSigs[parseInt(selSig.value, 10)]; }
+  function curSig() {
+    for (var i = 0; i < trigSigs.length; i++) if (trigSigs[i].id === selSig.value) return trigSigs[i];
+    return undefined;
+  }
 
   // 1 ビット信号のみ rise/fall を許可。複数ビットは == のみ。
   function syncModeOptions() {
@@ -186,6 +192,29 @@ function initLaCtrl(opts) {
   need('btn-goto-trig').addEventListener('click', function() {
     la.gotoTrig();
   });
+
+  // ---- トリガーのテーマ (典型的な設定) ----
+  var presets = opts.triggerPresets || [];
+  if (presets.length && typeof mountTriggerPresets !== 'function') {
+    console.warn('[la-ctrl] triggerPresets があるが sft-trigger-presets.js が読み込まれていません');
+  } else if (presets.length) {
+    mountTriggerPresets({
+      host: detail,
+      storageKey: prefix + 'trig_theme',
+      presets: presets.map(function (p) {
+        if (!trigSigs.some(function (s) { return s.id === p.sig; }))
+          console.warn('[la-ctrl] テーマ「' + p.label + '」の信号 ' + p.sig + ' がトリガーの選択肢にありません');
+        var f = { 'trig-sig': p.sig, 'trig-mode': p.mode || 'eq' };
+        if (p.value !== undefined) f['trig-val'] = p.value;
+        f['trig-post'] = p.post !== undefined ? p.post : 0;
+        return Object.assign({}, p, { fields: f });
+      }),
+      onApply: function (p, restored) {
+        showMsg('テーマ「' + p.label + '」を入れました。Set で設定します');
+        if (opts.onPreset) opts.onPreset(p, restored);
+      }
+    });
+  }
 
   return { sync: syncFreeze };
 }

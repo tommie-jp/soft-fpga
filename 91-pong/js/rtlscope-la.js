@@ -75,7 +75,7 @@
     self._LABEL_W         = c.labelWidth      || 56;
     self._numberedLabels  = c.numberedLabels  || false;  // 信号レーン名に連番を付加
     self._fillEnabled     = c.fillEnabled    !== false; // 塗りつぶし（デフォルト ON）
-    self._hatchEnabled    = c.hatchEnabled   !== false; // 網目パターン（デフォルト ON）
+    self._hatchEnabled    = c.hatchEnabled   === true;  // 網目パターン（デフォルト OFF。描画が重いので明示したときだけ）
     self._TRACK_H         = c.trackH          || 28;
     self._TIME_RULER_H    = c.timeRulerH      || 14;
     self._MARKER_LANE_H = c.markerLaneH   || 18;  // マーカーラベル専用帯の高さ
@@ -190,7 +190,31 @@
     this._lastHeapu32 = heapu32;          // RAF 再描画用にキャッシュ
     this._lastHead    = head >>> 0;
     if (!this._on || !this._ctx) return;
+    if (this._inView === false) return;   // 画面の外: 見えるようになったら描く (_bindEvents の IntersectionObserver)
+    var key = this._drawKey(heapu32, head >>> 0);
+    if (key === this._lastDrawKey) return; // 前回と同じ絵になる: 描き直さない (Freeze 中・Pause 中)
+    this._lastDrawKey = key;
     this._draw(heapu32, head >>> 0);
+  };
+
+  /**
+   * 絵を決める状態をまとめた鍵。update() はこれが前回と同じなら描画を飛ばす。
+   * head が同じでもリングが書き換わっている場合に備え、最新サンプルの word も入れる。
+   * ここに無い状態を変える操作は、自分で _schedDraw() するか _lastDrawKey を null にすること。
+   */
+  RTLScopeLA.prototype._drawKey = function(heapu32, head) {
+    var RW = this._RW, last = [];
+    if (head > 0 && heapu32) {
+      var base = ((head - 1) & (this._ringSize - 1)) * RW;
+      for (var w = 0; w < RW; w++) last.push(heapu32[base + w]);
+    }
+    var vis = [];
+    for (var i = 0; i < this._sigOrder.length; i++) if (this._sigVisible[this._sigOrder[i]]) vis.push(this._sigOrder[i]);
+    return [head, last.join(','), this._frozen, this._trigHead, this._trigOn, this._pan, this._zoom,
+            this._cursorViewX, this._markerA, this._markerB, this._markerC,
+            this._markerAOn, this._markerBOn, this._markerCOn, this._markerDrag, this._tDragIdx, this._tDragY,
+            this._fillEnabled, this._hatchEnabled, this._showDec, this._LA_W, this._laH, this._dpr,
+            vis.join(',')].join('|');
   };
 
   /**
@@ -251,6 +275,7 @@
   /** ON/OFF を設定する */
   RTLScopeLA.prototype.setEnabled = function(b) {
     this._on = !!b;
+    this._lastDrawKey = null;               // OFF の表示から戻ったら必ず描き直す
   };
 
   /** 信号塗りつぶし ON/OFF */
@@ -532,6 +557,7 @@
 
     self._ctx = canvas.getContext('2d');
     self._ctx.setTransform(self._dpr, 0, 0, self._dpr, 0, 0);
+    self._lastDrawKey = null;               // canvas の大きさを設定すると中身が消えるので、次は必ず描く
   };
 
   // ==================== 内部: イベントバインド ====================
@@ -544,6 +570,16 @@
     window.addEventListener('resize', function() {
       self._updateCanvas();
     });
+
+    // ---- 画面の外にあるあいだは描かない（スマホでは LA がゲームの下にあり、ふだん見えない）----
+    var laCanvas = document.getElementById(self._canvasId);
+    if (laCanvas && typeof IntersectionObserver !== 'undefined') {
+      new IntersectionObserver(function(entries) {
+        var vis = entries[entries.length - 1].isIntersecting;
+        if (vis && self._inView === false) { self._lastDrawKey = null; self._inView = true; self._schedDraw(); }
+        self._inView = vis;
+      }).observe(laCanvas);
+    }
 
     // ---- ズームボタン ----
     var btnZoomIn  = document.getElementById('la-zoom-in');
@@ -1329,6 +1365,18 @@
             if (v !== pv) { segs.push({ x: ss, w: xn - ss, val: pv, s0: ps, s1: i }); ss = xn; ps = i; pv = v; }
           }
           segs.push({ x: ss, w: SIG_X + samples * laZoom - ss, val: pv, s0: ps, s1: samples });
+          // 1 px より狭い区間が続く所は、1 つの「変化の多い帯」(busy) にまとめる。
+          // 画面には 1 px しか出ないので失う物は無く、縮小表示で区間が数千に増えても描く数が増えない
+          var _merged = [];
+          for (var si = 0; si < segs.length; si++) {
+            var sg = segs[si], prev = _merged[_merged.length - 1];
+            if (sg.w < 1 && prev && (prev.busy || prev.w < 1)) {
+              _merged[_merged.length - 1] = { x: prev.x, w: sg.x + sg.w - prev.x, val: null, s0: prev.s0, s1: sg.s1, busy: true };
+            } else {
+              _merged.push(sg);
+            }
+          }
+          segs = _merged;
 
           // ── 左端縦棒抑制: view 外にデータがあり値が連続している場合は縦棒なし ──
           var v0h = (gw0h >> sig.bit) & MASK;
@@ -1374,35 +1422,42 @@
             ctx.restore();
           }
 
-          ctx.lineWidth = 1;
+          // 線は種類ごとに 1 本の path に積み、レーンごとに stroke を 1 回にする。
+          // 区間ごとに stroke すると、値が毎サンプル変わる信号 (Pong の球の位置など) で 1 画面に数万回になり、
+          // 描き替えが 60 fps に間に合わない。区間が細い所は上で busy の帯にまとめてある
+          // (1) 値変化点の縦補助線（レーン全体の高さ・薄く）
+          ctx.save();
+          ctx.strokeStyle = sig.color; ctx.globalAlpha = 0.30; ctx.lineWidth = 0.5;
+          ctx.beginPath();
           for (var si = 0; si < segs.length; si++) {
             var s = segs[si];
             if (s.w < 0.5) continue;
-            ctx.strokeStyle = sig.color;
-            var drawL = (si > 0) || hasLeftTrans;
-            var drawR = (si < segs.length - 1) || hasRightTrans;
-            // 値変化点の縦補助線（レーン全体高さ）
-            ctx.save();
-            ctx.strokeStyle = sig.color;
-            ctx.globalAlpha = 0.30;
-            ctx.lineWidth = 0.5;
-            if (drawL) {
-              ctx.beginPath(); ctx.moveTo(s.x, yBase); ctx.lineTo(s.x, yBase + tH); ctx.stroke();
-            }
-            if (drawR) {
-              ctx.beginPath(); ctx.moveTo(s.x + s.w, yBase); ctx.lineTo(s.x + s.w, yBase + tH); ctx.stroke();
-            }
-            ctx.restore();
-            (function(seg, dL, dR) {
-              [[yTop,yTop],[yBot,yBot],[yTop,yBot],[yTop,yBot]].forEach(function(ys, ii) {
-                ctx.beginPath();
-                if (ii < 2)        { ctx.moveTo(seg.x, ys[0]);         ctx.lineTo(seg.x + seg.w, ys[0]); }
-                else if (ii === 2) { if (!dL) return; ctx.moveTo(seg.x, yTop);         ctx.lineTo(seg.x, yBot); }
-                else               { if (!dR) return; ctx.moveTo(seg.x + seg.w, yTop); ctx.lineTo(seg.x + seg.w, yBot); }
-                ctx.stroke();
-              });
-            })(s, drawL, drawR);
-
+            if ((si > 0) || hasLeftTrans)               { ctx.moveTo(s.x, yBase);       ctx.lineTo(s.x, yBase + tH); }
+            if ((si < segs.length - 1) || hasRightTrans) { ctx.moveTo(s.x + s.w, yBase); ctx.lineTo(s.x + s.w, yBase + tH); }
+          }
+          ctx.stroke();
+          // (2) busy の帯: 値が 1 px より細かく変わる所は、塗りつぶした帯で示す
+          ctx.globalAlpha = 0.45; ctx.fillStyle = sig.color;
+          for (var si = 0; si < segs.length; si++) {
+            if (segs[si].busy) ctx.fillRect(segs[si].x, yTop, segs[si].w, yBot - yTop);
+          }
+          ctx.restore();
+          // (3) 区間の枠（上下の横線と、値が変わる所の縦線）
+          ctx.strokeStyle = sig.color; ctx.lineWidth = 1;
+          ctx.beginPath();
+          for (var si = 0; si < segs.length; si++) {
+            var s = segs[si];
+            if (s.w < 0.5) continue;
+            ctx.moveTo(s.x, yTop); ctx.lineTo(s.x + s.w, yTop);
+            ctx.moveTo(s.x, yBot); ctx.lineTo(s.x + s.w, yBot);
+            if ((si > 0) || hasLeftTrans)               { ctx.moveTo(s.x, yTop);       ctx.lineTo(s.x, yBot); }
+            if ((si < segs.length - 1) || hasRightTrans) { ctx.moveTo(s.x + s.w, yTop); ctx.lineTo(s.x + s.w, yBot); }
+          }
+          ctx.stroke();
+          // (4) 値の文字（区間が広い所だけ）
+          for (var si = 0; si < segs.length; si++) {
+            var s = segs[si];
+            if (s.w < 0.5 || s.busy) continue;
             // テキスト描画: 文字列・フォントを決定してから白背景 → 文字の順に描く
             var _str = null, _fnt = '11px monospace';
             if (sig.fmt === 'dec') {
