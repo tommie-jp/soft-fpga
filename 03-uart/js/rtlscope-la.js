@@ -9,14 +9,62 @@
  *   1.0.0  最初の版
  *   1.1.0  描画を軽くする (バス信号の線をまとめる・細かい区間を帯に・変化なし/画面外で描かない)。Hatch の既定を OFF
  *   1.2.0  画面の Freeze / Thaw を Hold / Resume に改名する (関数名・回路側の API は freeze / thaw のまま)
+ *   1.2.1  1x で値が毎サンプル変わるバス信号 (区間がちょうど 1 px) も busy の帯にまとめ、描く命令を減らす (91-pong の 1x で 23 fps → 60 fps)
+ *   1.3.0  波形の左の信号名にツールチップ (信号名・フルネーム・幅と形式・説明) を出す。name / tip は文字列か { ja, en }。設定 lang / labelTooltips
  */
 (function(global) {
   'use strict';
 
-  var VERSION = '1.2.0';
+  var VERSION = '1.3.0';
 
   // ---- ズームレベル定義 ----
   var LA_ZOOM_LEVELS = [0.25, 0.5, 1, 2, 4, 8, 16, 32, 64];
+
+  // ---- 信号名ツールチップの部品（DOM に触れない純粋関数。試験できるよう静的に公開する） ----
+  var TIP_WORDS = { ja: { bit: 'ビット' }, en: { bit: 'bit' } };
+
+  /** 使う言語。設定 lang → <html lang> → ブラウザの言語 → 'ja'。'ja' か 'en' に丸める */
+  function _pickLang(cfg) {
+    var l = cfg || (typeof document !== 'undefined' && document.documentElement && document.documentElement.lang) ||
+            (typeof navigator !== 'undefined' && navigator.language) || 'ja';
+    return String(l).slice(0, 2).toLowerCase() === 'en' ? 'en' : 'ja';
+  }
+
+  /** 文字列か { ja, en } を、言語に合わせて文字列にする。無い側は ja → en の順に探す */
+  function _tr(v, lang) {
+    if (v == null) return '';
+    if (typeof v === 'string') return v;
+    return v[lang] || v.ja || v.en || '';
+  }
+
+  /** ラベル欄の縦位置 ly（canvas の論理 px）から、アクティブ信号の番号を返す。レーンの外は -1 */
+  function _laneIndex(ly, g) {
+    if (g.n <= 0) return -1;
+    var sigH = g.laH - g.markerLaneH - 2 * g.rulerH - g.decOff;
+    var tH   = sigH / g.n;
+    var idx  = Math.floor((ly - g.rulerH - g.decOff) / tH);
+    return (idx >= 0 && idx < g.n && ly < g.rulerH + g.decOff + sigH) ? idx : -1;
+  }
+
+  /** 値の形式名（ラベル欄の右下に出す Bin / Dec / Hex …） */
+  function _formatName(sig, cbFmt) {
+    if (sig.type === 'bit')                            return 'Bin';
+    if (sig.fmt === 'oct')                             return 'Oct';
+    if (sig.fmt === 'dec' || sig.type === 'dec')       return 'Dec';
+    if (sig.fmt && cbFmt && cbFmt[sig.fmt])            return sig.fmt;
+    return 'Hex';
+  }
+
+  /** ツールチップの 3 段: { title: 信号名 + フルネーム, meta: 幅と形式, body: 説明 } */
+  function _tipContent(sig, lang, cbFmt) {
+    var name  = _tr(sig.name, lang);
+    var width = sig.width || 1;
+    return {
+      title: (name && name !== sig.label) ? sig.label + '  ' + name : sig.label,
+      meta:  width + ' ' + TIP_WORDS[lang].bit + ' · ' + _formatName(sig, cbFmt),
+      body:  _tr(sig.tip, lang)
+    };
+  }
 
   /**
    * 網目（ハッチング）描画ヘルパー。
@@ -84,6 +132,8 @@
     self._LA_W          = self._initLA_W;            // 実効幅（_updateCanvas で更新）
     self._LABEL_W         = c.labelWidth      || 56;
     self._numberedLabels  = c.numberedLabels  || false;  // 信号レーン名に連番を付加
+    self._labelTooltips   = c.labelTooltips   !== false; // 信号名のツールチップ（デフォルト ON）
+    self._lang            = _pickLang(c.lang);           // 'ja' | 'en'（name / tip が { ja, en } のとき選ぶ）
     self._fillEnabled     = c.fillEnabled    !== false; // 塗りつぶし（デフォルト ON）
     self._hatchEnabled    = c.hatchEnabled   === true;  // 網目パターン（デフォルト OFF。描画が重いので明示したときだけ）
     self._TRACK_H         = c.trackH          || 28;
@@ -128,6 +178,10 @@
     self._markerBtnApply = { A: null, B: null, C: null };  // toggles ボタンのスタイル更新 ref
     self._lastHeapu32  = null;    // update() でキャッシュした WASM メモリビュー（RAF 再描画用）
     self._rafPending   = false;   // requestAnimationFrame 発行済みフラグ
+    self._tipIdx       = -1;      // ツールチップを出している (出す予定の) 信号の番号
+    self._tipTimer     = null;
+    self._tipPress     = null;
+    self._tipEl        = null;
 
     // ナビゲーションボタン ID (config で上書き可能)
     self._navLL    = c.navLL    || 'la-nav-ll';
@@ -172,6 +226,74 @@
     self._updateCanvas();
     self._bindEvents();
   }
+
+  // ==================== 信号名ツールチップ ====================
+
+  var TIP_DELAY_MS = 300;    // マウス: 乗せてから出るまで
+  var TIP_PRESS_MS = 500;    // タッチ: 長押しで出るまで
+
+  /** いまの画面の、ラベル欄の縦位置 → アクティブ信号の番号 */
+  RTLScopeLA.prototype._labelLaneAt = function(ly) {
+    var sigs = this._getActiveSigs();
+    return _laneIndex(ly, {
+      laH: this._laH, markerLaneH: this._MARKER_LANE_H, rulerH: this._TIME_RULER_H,
+      decOff: (this._showDec && this._cbDec) ? this._DEC_LANE_H : 0, n: sigs.length
+    });
+  };
+
+  RTLScopeLA.prototype._tipHide = function() {
+    if (this._tipTimer) { clearTimeout(this._tipTimer); this._tipTimer = null; }
+    this._tipIdx = -1;
+    if (this._tipEl) this._tipEl.style.display = 'none';
+  };
+
+  /** 信号 sig の説明を (x, y) の近くに出す。画面の端ではみ出すなら反対側へ寄せる */
+  RTLScopeLA.prototype._tipShow = function(sig, x, y) {
+    var c = _tipContent(sig, this._lang, this._cbFmt);
+    var el = this._tipEl;
+    if (!el) {
+      el = this._tipEl = document.createElement('div');
+      el.setAttribute('role', 'tooltip');
+      el.style.cssText = 'position:fixed;z-index:10000;display:none;pointer-events:none;max-width:320px;' +
+        'padding:6px 9px;border-radius:4px;background:rgba(30,30,40,0.95);color:#eee;font:12px/1.5 sans-serif;' +
+        'box-shadow:0 2px 8px rgba(0,0,0,0.35);';
+      document.body.appendChild(el);
+    }
+    el.textContent = '';
+    var t = document.createElement('div');
+    t.style.cssText = 'font-weight:bold;font-family:monospace;color:#fff;';
+    t.textContent = c.title;
+    var m = document.createElement('div');
+    m.style.cssText = 'font-size:10px;color:#9ab;margin-bottom:2px;';
+    m.textContent = c.meta;
+    el.appendChild(t); el.appendChild(m);
+    if (c.body) { var b = document.createElement('div'); b.textContent = c.body; el.appendChild(b); }
+    el.style.display = 'block';
+    var w = el.offsetWidth, h = el.offsetHeight;
+    var left = x + 14, top = y + 16;
+    if (left + w > window.innerWidth  - 4) left = Math.max(4, x - w - 10);
+    if (top  + h > window.innerHeight - 4) top  = Math.max(4, y - h - 10);
+    el.style.left = left + 'px'; el.style.top = top + 'px';
+  };
+
+  /**
+   * ポインタがラベル欄の (lx, ly) にある。lx < 0 は「ラベル欄の外」。
+   * 同じレーンの上なら動かさず、別のレーンに移ったら出し直す。
+   */
+  RTLScopeLA.prototype._tipHover = function(lx, ly, cx, cy) {
+    if (!this._labelTooltips || this._tDragIdx !== null || this._markerDrag) { this._tipHide(); return; }
+    var idx = (lx >= 0 && lx < this._LABEL_W) ? this._labelLaneAt(ly) : -1;
+    if (idx < 0) { this._tipHide(); return; }
+    if (idx === this._tipIdx) return;
+    this._tipHide();
+    this._tipIdx = idx;
+    var self = this;
+    this._tipTimer = setTimeout(function() {
+      self._tipTimer = null;
+      var sig = self._getActiveSigs()[idx];
+      if (sig && self._tipIdx === idx) self._tipShow(sig, cx, cy);
+    }, TIP_DELAY_MS);
+  };
 
   // ==================== パブリック API ====================
 
@@ -672,6 +794,7 @@
     var laDragPan0 = 0;
 
     canvas.addEventListener('mousedown', function(e) {
+      self._tipHide();
       var rect = canvas.getBoundingClientRect();
       var lx   = e.clientX - rect.left;
       var ly   = e.clientY - rect.top;
@@ -702,6 +825,7 @@
       var rect = canvas.getBoundingClientRect();
       var lx   = e.clientX - rect.left;
       var ly   = e.clientY - rect.top;
+      self._tipHover(lx, ly, e.clientX, e.clientY);
 
       // マーカードラッグ中
       var _mmEffLW = self._LABEL_W + (self._valColsW || 0);
@@ -840,6 +964,7 @@
       laDragX = null;
     });
     canvas.addEventListener('mouseleave', function() {
+      self._tipHide();
       self._markerDrag = null;
       commitTrackDrag();
       laDragX            = null;
@@ -877,9 +1002,22 @@
 
     canvas.addEventListener('touchstart', function(e) {
       var sc = _touchScale();
+      self._tipHide();                       // どこかに触れたら、出ている説明は消す
       if (e.touches.length === 1) {
         var tx = (e.touches[0].clientX - sc.rect.left) * sc.x;  // canvas logical px
         var ty = (e.touches[0].clientY - sc.rect.top)  * sc.y;
+        // 信号名の長押し: TIP_PRESS_MS 動かさなければ説明を出す（動いたら touchmove で取り消す）
+        if (self._labelTooltips && tx < self._LABEL_W) {
+          var pidx = self._labelLaneAt(ty), px0 = e.touches[0].clientX, py0 = e.touches[0].clientY;
+          if (pidx >= 0) {
+            self._tipPress = { x: px0, y: py0 };
+            self._tipTimer = setTimeout(function() {
+              self._tipTimer = null; self._tipPress = null;
+              var psig = self._getActiveSigs()[pidx];
+              if (psig) { self._tipIdx = pidx; self._tipShow(psig, px0, py0); }
+            }, TIP_PRESS_MS);
+          }
+        }
         // マーカードラッグ判定（タッチは SNAP を広く取る）
         var _tsEffLW = self._LABEL_W + (self._valColsW || 0);
         if (tx >= _tsEffLW) {
@@ -927,6 +1065,10 @@
     }, { passive: false });
 
     canvas.addEventListener('touchmove', function(e) {
+      if (self._tipPress && e.touches.length) {   // 8 px 以上動いたら長押しではなくドラッグ
+        var ddx = e.touches[0].clientX - self._tipPress.x, ddy = e.touches[0].clientY - self._tipPress.y;
+        if (ddx * ddx + ddy * ddy > 64) { clearTimeout(self._tipTimer); self._tipTimer = null; self._tipPress = null; }
+      }
       // マーカードラッグ中
       if (self._markerDrag) {
         if (e.cancelable) e.preventDefault();
@@ -968,6 +1110,7 @@
     }, { passive: false });
 
     canvas.addEventListener('touchend', function() {
+      if (self._tipPress) { clearTimeout(self._tipTimer); self._tipTimer = null; self._tipPress = null; }  // 長押しに満たない
       // マーカードラッグ終了
       if (self._markerDrag) {
         self._markerDrag  = null;
@@ -1161,12 +1304,7 @@
         ? (String(t + 1 + (cbDec ? 1 : 0)).padStart(2, '0') + ' ' + _sig.label) : _sig.label;
       ctx.fillText(_lbl, 3, _yb + tH * 0.65);
       // 値の形式をラベルエリア右寄せで表示
-      var _fmtStr = '';
-      if (_sig.type === 'bit')                              _fmtStr = 'Bin';
-      else if (_sig.fmt === 'oct')                          _fmtStr = 'Oct';
-      else if (_sig.fmt === 'dec' || _sig.type === 'dec')   _fmtStr = 'Dec';
-      else if (_sig.fmt && cbFmt[_sig.fmt])                 _fmtStr = _sig.fmt;
-      else                                                  _fmtStr = 'Hex';
+      var _fmtStr = RTLScopeLA.formatName(_sig, cbFmt);
       ctx.font = '8px monospace'; ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(0,0,0,0.35)';
       ctx.fillText(_fmtStr, LABEL_W - 2, _yb + tH * 0.88);
 
@@ -1375,12 +1513,12 @@
             if (v !== pv) { segs.push({ x: ss, w: xn - ss, val: pv, s0: ps, s1: i }); ss = xn; ps = i; pv = v; }
           }
           segs.push({ x: ss, w: SIG_X + samples * laZoom - ss, val: pv, s0: ps, s1: samples });
-          // 1 px より狭い区間が続く所は、1 つの「変化の多い帯」(busy) にまとめる。
+          // 1 px 以下の区間が続く所は、1 つの「変化の多い帯」(busy) にまとめる (1x で毎サンプル変わる値は、ちょうど 1 px)。
           // 画面には 1 px しか出ないので失う物は無く、縮小表示で区間が数千に増えても描く数が増えない
           var _merged = [];
           for (var si = 0; si < segs.length; si++) {
             var sg = segs[si], prev = _merged[_merged.length - 1];
-            if (sg.w < 1 && prev && (prev.busy || prev.w < 1)) {
+            if (sg.w <= 1 && prev && (prev.busy || prev.w <= 1)) {
               _merged[_merged.length - 1] = { x: prev.x, w: sg.x + sg.w - prev.x, val: null, s0: prev.s0, s1: sg.s1, busy: true };
             } else {
               _merged.push(sg);
@@ -1795,6 +1933,11 @@
   // ==================== エクスポート ====================
 
   RTLScopeLA.VERSION = VERSION;
+  RTLScopeLA.pickLang    = _pickLang;
+  RTLScopeLA.tr          = _tr;
+  RTLScopeLA.laneIndex   = _laneIndex;
+  RTLScopeLA.formatName  = _formatName;
+  RTLScopeLA.tipContent  = _tipContent;
   global.RTLScopeLA = RTLScopeLA;
 
 })(window);
