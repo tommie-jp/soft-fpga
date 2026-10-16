@@ -10,8 +10,6 @@
 //   word 2: [7:0] h  [14:8] v  [15] pixel
 var PONG_RING_WORDS = 3;
 
-var PONG_SND_NAMES = ['-', 'HIT', 'LOW'];
-
 // トリガーのテーマ (Trigger の「テーマ」から選ぶと、下の欄に入る。Set は自分で押す)
 //   la: そのテーマが意味を持つ記録のしかた (1 = 1 画面ごと、0 = 1 クロックごと)。選ぶとページがそれに切り替える
 var PONG_TRIGGER_PRESETS = [
@@ -63,7 +61,7 @@ var PONG_LA_SIGNALS = [
   { id:'out_r', label:'out_r', word:1, bit:11, type:'bit', width:1, color:'#cc3333', on:true,
     tip:'球が右の端を越えた。左の点 (sl) が 1 増える。' },
   // ---- 音 ----
-  { id:'snd_kind', label:'snd_kind', word:1, bit:21, type:'hex', width:2, color:'#aa3377', on:true, fmt:'snd',
+  { id:'snd_kind', label:'snd_kind', word:1, bit:21, type:'hex', width:2, color:'#aa3377', on:true, fmt:'dec',
     tip:'いま鳴らす音 (次の画面から鳴る)。0 = 無音、1 = ヒット (v[3]、450 Hz)、2 = 壁で返した・点が入った (v[4]、225 Hz)。ヒットと壁は 1 画面、点は 16 画面。' },
   { id:'sound', label:'sound', word:1, bit:20, type:'bit', width:1, color:'#aa3377', on:false,
     tip:'スピーカーへ出る矩形波。鳴らす間だけ、垂直カウンタの 1 ビット (ヒットは v[3]、壁と点は v[4]) がそのまま出る。1 クロックごとのモードで見える。' },
@@ -124,7 +122,5 @@ var PONG_LA_CONFIG = {
   trackH:         26,
   numberedLabels: false,
   decodeLane:     null,
-  formatters: {
-    snd: function (v) { return PONG_SND_NAMES[v & 3] || String(v); }
-  },
+  formatters: {},            // snd_kind は名前にせず、値 (0・1・2) をそのまま出す
 };
