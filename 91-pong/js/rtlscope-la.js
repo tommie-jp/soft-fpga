@@ -9,11 +9,12 @@
  *   1.0.0  最初の版
  *   1.1.0  描画を軽くする (バス信号の線をまとめる・細かい区間を帯に・変化なし/画面外で描かない)。Hatch の既定を OFF
  *   1.2.0  画面の Freeze / Thaw を Hold / Resume に改名する (関数名・回路側の API は freeze / thaw のまま)
+ *   1.2.1  1x で値が毎サンプル変わるバス信号 (区間がちょうど 1 px) も busy の帯にまとめ、描く命令を減らす (91-pong の 1x で 23 fps → 60 fps)
  */
 (function(global) {
   'use strict';
 
-  var VERSION = '1.2.0';
+  var VERSION = '1.2.1';
 
   // ---- ズームレベル定義 ----
   var LA_ZOOM_LEVELS = [0.25, 0.5, 1, 2, 4, 8, 16, 32, 64];
@@ -1375,12 +1376,12 @@
             if (v !== pv) { segs.push({ x: ss, w: xn - ss, val: pv, s0: ps, s1: i }); ss = xn; ps = i; pv = v; }
           }
           segs.push({ x: ss, w: SIG_X + samples * laZoom - ss, val: pv, s0: ps, s1: samples });
-          // 1 px より狭い区間が続く所は、1 つの「変化の多い帯」(busy) にまとめる。
+          // 1 px 以下の区間が続く所は、1 つの「変化の多い帯」(busy) にまとめる (1x で毎サンプル変わる値は、ちょうど 1 px)。
           // 画面には 1 px しか出ないので失う物は無く、縮小表示で区間が数千に増えても描く数が増えない
           var _merged = [];
           for (var si = 0; si < segs.length; si++) {
             var sg = segs[si], prev = _merged[_merged.length - 1];
-            if (sg.w < 1 && prev && (prev.busy || prev.w < 1)) {
+            if (sg.w <= 1 && prev && (prev.busy || prev.w <= 1)) {
               _merged[_merged.length - 1] = { x: prev.x, w: sg.x + sg.w - prev.x, val: null, s0: prev.s0, s1: sg.s1, busy: true };
             } else {
               _merged.push(sg);
