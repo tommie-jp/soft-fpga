@@ -3,7 +3,7 @@ set -euo pipefail
 
 # コンテナ内で実行される。直接呼ばず scripts/flash.sh から呼び出す。
 
-ELF="${1:-firmware/build/firmware.elf}"
+ELF="${1:-firmware/build/apple1_hello.elf}"
 
 if [[ ! -f "${ELF}" ]]; then
     echo "ELF が見つからない: ${ELF}" >&2

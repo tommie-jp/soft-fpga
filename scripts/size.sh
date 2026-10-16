@@ -18,7 +18,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${REPO_ROOT}"
 
-ELF="firmware/build/firmware.elf"
+ELF="firmware/build/apple1.elf"
 MODE="default"
 TOP_N=20
 DIFF_ELF=""

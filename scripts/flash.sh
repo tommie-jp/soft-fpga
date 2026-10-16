@@ -9,14 +9,14 @@ set -euo pipefail
 #   - Probe SWD/UART is wired to Pico 2
 #
 # Usage:
-#   scripts/flash.sh                               # firmware_lsb (default)
-#   scripts/flash.sh firmware/build/firmware_max_gain.elf
+#   scripts/flash.sh                               # firmware/build/apple1_hello.elf (default)
+#   scripts/flash.sh firmware/build/apple1.elf
 #   scripts/flash.sh path/to/other.elf             # any ELF
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${REPO_ROOT}"
 
-ELF="${1:-firmware/build/firmware_lsb.elf}"
+ELF="${1:-firmware/build/apple1_hello.elf}"
 if [[ ! -f "${ELF}" ]]; then
     echo "ELF not found: ${ELF}" >&2
     echo "Run scripts/build-pico.sh first." >&2
@@ -81,5 +81,5 @@ fi
 docker compose -f docker/compose.yml run --rm flash
 
 echo ""
-echo "Flash complete: firmware.elf written to Pico 2."
+echo "Flash complete: ${ELF} written to Pico 2."
 echo "  Pico 2 has auto-reset and is booting the new firmware."

@@ -7,6 +7,12 @@
 
 static Vapple1_top* top;
 
+#ifdef SFA_PICO
+// Pico 2 の LED パネル用。毎サイクル、write_ring() と同じ観測値を渡す（firmware/apple1/led_panel.cpp）。
+// pc は SYNC=1 のとき「実行する命令の次の番地」を指す（命令の番地は pc - 1）。
+extern "C" void sim_bus_observe(uint16_t ab, uint8_t db, bool we, bool sync, uint16_t pc);
+#endif
+
 // ring buffer: 2 uint32_t per sample（記録・Freeze・トリガーは cxx/rtlscope_ring.h）
 // Word0: [15:0]=AB  [23:16]=DB  [24]=WE  [25]=SYNC  [26]=reset
 // Word1: [7:0]=A  [15:8]=X  [23:16]=Y  [31:24]=SP
@@ -382,6 +388,9 @@ static void write_ring() {
             | ((uint32_t)(top->o_sp) << 24)
     };
     ring.record(w);
+#ifdef SFA_PICO
+    sim_bus_observe((uint16_t)top->o_ab, db, top->o_we & 1u, top->o_sync & 1u, (uint16_t)top->o_pc);
+#endif
 }
 
 extern "C" {
@@ -489,8 +498,10 @@ EMSCRIPTEN_KEEPALIVE void dormann_init() {
     passed       = false;
 
     memset(ram, 0, sizeof(ram));
+#ifndef SFA_PICO  // Pico 2 にはファイルシステムが無い（Dormann テストは Wasm / Linux のみ）
     FILE* f = fopen("/6502_functional_test.bin", "rb");
     if (f) { fread(ram, 1, sizeof(ram), f); fclose(f); }
+#endif
     ram[0xFFFC] = 0x00;
     ram[0xFFFD] = 0x04;
 
