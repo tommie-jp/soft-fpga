@@ -12,6 +12,25 @@ var PONG_RING_WORDS = 3;
 
 var PONG_SND_NAMES = ['-', 'HIT', 'LOW'];
 
+// トリガーのテーマ (Trigger の「テーマ」から選ぶと、下の欄に入る。Set は自分で押す)
+//   la: そのテーマが意味を持つ記録のしかた (1 = 1 画面ごと、0 = 1 クロックごと)。選ぶとページがそれに切り替える
+var PONG_TRIGGER_PRESETS = [
+  { label: 'ヒット (ラケットで返した音)', sig: 'snd_kind', mode: 'eq', value: '1', post: 3, la: 1,
+    tip: 'snd_kind == 1。球がラケットに当たった次の画面で止まる。' },
+  { label: '壁・点の音', sig: 'snd_kind', mode: 'eq', value: '2', post: 3, la: 1,
+    tip: 'snd_kind == 2。上下の壁で返したか、点が入った次の画面で止まる (この 2 つは同じ音)。' },
+  { label: '左のラケットで返した', sig: 'hit_l', mode: 'rise', post: 3, la: 1,
+    tip: 'hit_l の立ち上がり。' },
+  { label: '右が点を取った (球が左の端を越えた)', sig: 'out_l', mode: 'rise', post: 5, la: 1,
+    tip: 'out_l の立ち上がり。打ち直しの動きまで記録する。' },
+  { label: '左の点が 9 になった', sig: 'sl', mode: 'eq', value: '9', post: 0, la: 1,
+    tip: 'sl == 9。左の点が 9 になった画面で止まる。' },
+  { label: '音の矩形波 (1 クロックごと)', sig: 'sound', mode: 'rise', post: 2000, la: 0,
+    tip: 'sound の立ち上がり。記録を 1 クロックごとに切り替え、矩形波そのものを見る。' },
+  { label: '画面の最初 (1 クロックごと)', sig: 'frame_end', mode: 'rise', post: 2000, la: 0,
+    tip: 'frame_end の立ち上がり。画面の最後の画素から、次の画面の最初の行を見る。' },
+];
+
 var PONG_LA_SIGNALS = [
   // ---- 球 ----
   { id:'bx', label:'bx', word:0, bit:0, type:'hex', width:8, color:'#cc5500', on:true, fmt:'dec',

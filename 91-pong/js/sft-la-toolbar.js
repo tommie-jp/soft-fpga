@@ -31,6 +31,7 @@ function mountLaToolbar(rootId, opts) {
       '#trig-detail select, #trig-detail input { font-family:monospace; font-size:13px; padding:1px 3px;',
       '  border:1px solid #aaa; background:#fff; color:#111; }',
       '#trig-val { width:90px; } #trig-post { width:80px; }',
+      '.trig-theme { font-size:13px; margin-right:6px; }',
       '#trig-msg { font-size:12px; color:#555; }',
       '#la-nav { display:flex; align-items:center; padding:2px 0; margin-top:2px; }',
       '.la-nav-left { display:flex; align-items:center; gap:3px; flex:1; }',

@@ -75,6 +75,26 @@ function getMachineType(s) {
 }
 
 // シグナルグループ定義（color: アクティブバー・ピッカーで使うグループ単位の色）
+// トリガーのテーマ (Trigger の「Theme」から選ぶと欄に入る。Set は自分で押す)
+// fields は index.html の #dbg-trig-detail の欄の id → 値。trig-type を先に書く (種類に応じた欄の表示が先に切り替わる)
+// I/O ポートは cpm_top.v の表 ($01 CONOUT・$10 DCMD など)。ポート 00 (CONIN) は UI で「任意のポート」(空欄) と区別できないので置かない
+var CPM8080_TRIGGER_PRESETS = [
+  { label: 'Console out (OUT 01h)', tip: 'CONOUT: 1 文字をコンソールへ出した瞬間',
+    fields: { 'trig-type': '1', 'trig-addr': '01', 'trig-post': '200' } },
+  { label: 'BDOS call (CALL 0005h)', tip: 'CP/M のシステムコール (BDOS) の入口へ CALL した瞬間。関数番号は C レジスタ',
+    fields: { 'trig-type': '2', 'trig-addr': '0005', 'trig-post': '200' } },
+  { label: 'Program start (PC = 0100h)', tip: 'TPA の先頭 0100h の命令をフェッチした瞬間 (.COM の実行開始)',
+    fields: { 'trig-type': 'instr', 'trig-instr-pc': '0100', 'trig-instr-opc': '', 'trig-post': '100' } },
+  { label: 'Warm boot (PC = 0000h)', tip: '0000h の命令をフェッチした瞬間 (プログラム終了後の JMP 0 = ウォームブート)',
+    fields: { 'trig-type': 'instr', 'trig-instr-pc': '0000', 'trig-instr-opc': '', 'trig-post': '100' } },
+  { label: 'HLT instruction (76h)', tip: 'どこかで HLT 命令 (76h) をフェッチした瞬間',
+    fields: { 'trig-type': 'instr', 'trig-instr-pc': '', 'trig-instr-opc': '76', 'trig-post': '50' } },
+  { label: 'Disk command (OUT 10h)', tip: 'DCMD: ディスクの読み書きを指示した瞬間',
+    fields: { 'trig-type': '1', 'trig-addr': '10', 'trig-post': '200' } },
+  { label: 'Any I/O (IN / OUT)', tip: 'どのポートでも、IN か OUT を実行した瞬間',
+    fields: { 'trig-type': '1', 'trig-addr': '', 'trig-post': '100' } },
+];
+
 var LA_SIGNAL_GROUPS = [
   { label:'I/O',      color:'#0066bb', ids:['port','data','io_req','io_wr','t_state'] },
   { label:'Control',  color:'#7722aa', ids:['dbin','sync','wr_n','hlda','wait','inte','f1','f2'] },

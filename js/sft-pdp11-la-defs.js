@@ -570,3 +570,21 @@ var PDP11_KNOWN_PCS = [
   { label: 'RK11 vec (0o220)',  pc: 0o000220, tip: 'RK11 ディスク割り込みベクタ' },
   { label: 'TTY RX vec (0o60)', pc: 0o000060, tip: 'DL11 受信割り込みベクタ' },
 ];
+
+// トリガーのテーマ (Trigger の「Theme」から選ぶと欄に入る。Set は自分で押す)
+// fields は #trig-body の欄の id → 値 (trig-type を先に書く)。expr は式の欄 (CodeMirror) に入れる文字列
+// PC の一致のテーマは、上の PDP11_KNOWN_PCS から作る (番地は 8 進)
+var PDP11_TRIGGER_PRESETS = [
+  { label: 'TRAP (incl. system call)', tip: 'TRAP 系の命令・例外で止まる (Unix の sys 呼び出しは TRAP 命令)',
+    fields: { 'trig-type': '4' } },
+  { label: 'Bus error', tip: 'バスエラー (存在しない番地など) で止まる', fields: { 'trig-type': '5' } },
+  { label: 'I/O page access', tip: 'I/O ページ (17760000 以上) を読み書きした瞬間', fields: { 'trig-type': '3' } },
+  { label: 'Interrupt request (INT rising)', tip: '式: INT.rising — 割り込み要求が立った瞬間',
+    fields: { 'trig-type': '7' }, expr: 'INT.rising' },
+  { label: 'User-mode fetch', tip: '式: Mode == "USER" && istate == "F1" — ユーザーモードで命令をフェッチした瞬間',
+    fields: { 'trig-type': '7' }, expr: 'Mode == "USER" && istate == "F1"' },
+].concat(PDP11_KNOWN_PCS.map(function (k) {
+  var oct = '0o' + k.pc.toString(8);
+  return { label: 'PC = ' + k.label + (k.label.indexOf(oct) >= 0 ? '' : ' (' + oct + ')'), tip: k.tip,
+           fields: { 'trig-type': '1', 'trig-pc': k.pc.toString(8) } };
+}));
