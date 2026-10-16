@@ -21,6 +21,7 @@ function mountLaToolbar(rootId, opts) {
       '  cursor:pointer; font-family:monospace; font-size:13px; }',
       '.la-panel button:hover { background:#d0d0d0; }',
       '.la-panel .sig-label { font-size:13px; color:#111; white-space:nowrap; }',
+      '.la-ver { font-size:11px; color:#888; font-weight:normal; margin-left:4px; }',
       '.la-bar { display:flex; align-items:flex-start; gap:8px; flex-wrap:wrap; margin-bottom:4px; }',
       '.la-panel .chk { display:inline-flex; align-items:center; gap:4px; cursor:pointer; font-size:13px;',
       '  padding:2px 7px; border:1px solid #aaa; border-radius:3px; background:#f8f8f8; user-select:none; color:#111; }',
@@ -55,7 +56,7 @@ function mountLaToolbar(rootId, opts) {
   root.innerHTML = [
     '<div class="la-panel">',
     '  <div class="la-bar">',
-    '    <span class="sig-label">Logic Analyzer</span>',
+    '    <span class="sig-label">Logic Analyzer<span id="la-ver" class="la-ver"></span></span>',
     '    <button id="btn-la-toggle" title="Logic Analyzer ON/OFF。OFF の間は ring buffer への書き込みを止めます。">LA ON</button>',
     '    <label class="chk" title="信号レーンの塗りつぶし ON/OFF"><input type="checkbox" id="la-fill-chk" checked> Fill</label>',
     '    <label class="chk" title="信号レーンの網目パターン ON/OFF"><input type="checkbox" id="la-hatch-chk"> Hatch</label>',
