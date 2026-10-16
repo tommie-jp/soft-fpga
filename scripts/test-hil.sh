@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Docker 内で HIL テスト (verif/tb_hil) を実行する。
+# Docker 内で HIL テスト (verif/hil) を実行する。
 #
 # 前提:
 #   - usbipd attach で Probe (2e8a:000c) と Pico CDC (2e8a:000a) が WSL2 から見える
 #       scripts/wsl-attach.sh
-#   - firmware/build/firmware.elf が存在する
+#   - firmware/build/apple1_hello.elf が存在する
 #       scripts/build-pico.sh
 #
 # 使い方:

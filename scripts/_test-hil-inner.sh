@@ -12,7 +12,7 @@ if [[ ! -x "${VENV}/bin/pytest" ]]; then
 fi
 
 # requirements が更新されていれば差分のみ install (pip キャッシュ /ccache/pip 経由)
-"${VENV}/bin/pip" install -q -r verif/tb_hil/requirements.txt
+"${VENV}/bin/pip" install -q -r verif/hil/requirements.txt
 
 # Probe / Pico の存在を早期検出
 if ! lsusb 2>/dev/null | grep -qi 'cmsis\|2e8a:000c'; then
@@ -23,5 +23,5 @@ if ! lsusb 2>/dev/null | grep -qi '2e8a:000a\|2e8a:000f'; then
     echo "INFO: Pico 2 が lsusb に見えない (--no-flash 指定なら無視可)" >&2
 fi
 
-# pytest は verif/tb_hil をデフォルトの testpaths に持つ (pytest.ini)
-exec "${VENV}/bin/pytest" verif/tb_hil "$@"
+# pytest は verif/hil をデフォルトの testpaths に持つ (pytest.ini)
+exec "${VENV}/bin/pytest" verif/hil "$@"
