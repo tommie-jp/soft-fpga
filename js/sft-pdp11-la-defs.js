@@ -298,145 +298,198 @@ var LA_SIGNALS_PDP11 = [
   // === バスアドレス ===
   {
     id:'addr_p', label:'PhysAddr', word:0, bit:0, type:'hex', width:18, color:'#c86820', on:true,
-    fmt:'oct', tip:'Unibus 物理アドレス（MMU 変換後 18 ビット）。I/O ページ = 0o760000–0o777777'
+    fmt:'oct',
+    name:{ ja:'Unibus 物理アドレス (18 ビット)', en:'Unibus physical address' },
+    tip:'Unibus 物理アドレス（MMU 変換後 18 ビット）。I/O ページ = 0o760000–0o777777'
   },
   {
     id:'addr_v', label:'VA', word:2, bit:16, type:'hex', width:16, color:'#a07020', on:false,
-    fmt:'oct', tip:'仮想アドレス（MMU 変換前 CPU 側アドレス）'
+    fmt:'oct',
+    name:{ ja:'CPU 仮想アドレス (MMU 変換前)', en:'Virtual address (pre-MMU)' },
+    tip:'仮想アドレス（MMU 変換前 CPU 側アドレス）'
   },
   // === バスデータ ===
   {
     id:'data', label:'Data', word:1, bit:0, type:'hex', width:16, color:'#0a7858', on:true,
-    fmt:'oct', tip:'バスデータ（RD なら読み値、WR なら書き値）'
+    fmt:'oct',
+    name:{ ja:'バスデータ (読み出し・書き込み値)', en:'Bus data' },
+    tip:'バスデータ（RD なら読み値、WR なら書き値）'
   },
   // === バス制御 ===
   {
     id:'bus_wr', label:'WR', word:0, bit:18, type:'bit', width:1, color:'#cc2020', on:true,
+    name:{ ja:'バス書き込みストローブ', en:'Bus write strobe' },
     tip:'バス書き込みストローブ（メモリ・I/O への書き込みサイクルで High）'
   },
   {
     id:'bus_rd', label:'RD', word:0, bit:19, type:'bit', width:1, color:'#1a8820', on:true,
+    name:{ ja:'バス読み出しストローブ', en:'Bus read strobe' },
     tip:'バス読み出しストローブ（メモリ・I/O からの読み出しサイクルで High）'
   },
   {
     id:'byte_op', label:'BYTE', word:0, bit:22, type:'bit', width:1, color:'#4048c8', on:false,
+    name:{ ja:'バイト操作フラグ', en:'Byte operation flag' },
     tip:'バイト操作フラグ（MOVB/CMPB 等のバイト命令で High）'
   },
   // === CPU 状態 ===
   {
     id:'pc', label:'PC', word:2, bit:0, type:'hex', width:16, color:'#0898a8', on:true,
-    fmt:'oct', tip:'プログラムカウンタ（8 進表示）'
+    fmt:'oct',
+    name:{ ja:'プログラムカウンタ (PC)', en:'Program counter (PC)' },
+    tip:'プログラムカウンタ（8 進表示）'
   },
   {
     id:'psw', label:'PSW', word:1, bit:16, type:'hex', width:16, color:'#2868b0', on:false,
-    fmt:'psw11', tip:'プロセッサステータスワード。フォーマット: CM PM P# TNZVC'
+    fmt:'psw11',
+    name:{ ja:'プロセッサ状態語 (PSW)', en:'Processor status word (PSW)' },
+    tip:'プロセッサステータスワード。フォーマット: CM PM P# TNZVC'
   },
   {
     id:'cm', label:'Mode', word:0, bit:20, type:'hex', width:2, color:'#208828', on:true,
-    fmt:'mode11', tip:'CPU 現在モード (00=Kernel, 11=User)'
+    fmt:'mode11',
+    name:{ ja:'CPU 現在モード (Kernel/User)', en:'CPU current mode' },
+    tip:'CPU 現在モード (00=Kernel, 11=User)'
   },
   {
     id:'pri', label:'Pri', word:1, bit:21, type:'dec', width:3, color:'#986010', on:false,
-    fmt:'dec', tip:'割り込み優先レベル（PSW[7:5]）。KW11=6, RK11=5'
+    fmt:'dec',
+    name:{ ja:'プロセッサ優先レベル (PSW[7:5])', en:'Processor priority level' },
+    tip:'割り込み優先レベル（PSW[7:5]）。KW11=6, RK11=5'
   },
   // === トラップ / ホルト ===
   {
     id:'trapped', label:'TRAP', word:0, bit:23, type:'bit', width:1, color:'#c04010', on:true,
+    name:{ ja:'トラップ発生フラグ', en:'Trap flag' },
     tip:'トラップ発生フラグ（バストラップ・奇数アドレス・未定義命令）'
   },
   {
     id:'halted', label:'HALT', word:0, bit:24, type:'bit', width:1, color:'#cc0000', on:true,
+    name:{ ja:'CPU ホルトフラグ', en:'CPU halt flag' },
     tip:'CPU ホルトフラグ（HALT 命令実行でアサート）'
   },
   // === 割り込み ===
   {
     id:'bus_int', label:'INT', word:0, bit:25, type:'bit', width:1, color:'#887010', on:true,
+    name:{ ja:'割り込みリクエストフラグ', en:'Interrupt request flag' },
     tip:'割り込みリクエスト中フラグ（KW11/RK11 等から）'
   },
   {
     id:'int_vec', label:'Vec', word:3, bit:0, type:'hex', width:8, color:'#706010', on:false,
-    fmt:'oct', tip:'割り込みベクタ（8 進）。KW11=0o100, RK11=0o220, TTY RX=0o60, TX=0o64'
+    fmt:'oct',
+    name:{ ja:'割り込みベクタ番地', en:'Interrupt vector address' },
+    tip:'割り込みベクタ（8 進）。KW11=0o100, RK11=0o220, TTY RX=0o60, TX=0o64'
   },
   {
     id:'int_ipl', label:'IPL', word:3, bit:8, type:'dec', width:8, color:'#706010', on:false,
-    fmt:'dec', tip:'割り込み優先レベル'
+    fmt:'dec',
+    name:{ ja:'割り込み優先レベル (IPL)', en:'Interrupt priority level (IPL)' },
+    tip:'割り込み優先レベル'
   },
   // === RK11 ディスク ===
   {
     id:'rk_state', label:'RK', word:0, bit:26, type:'hex', width:5, color:'#9020a0', on:true,
+    name:{ ja:'RK11 ディスク転送ステート', en:'RK11 disk transfer state' },
     tip:'RK11 ステート（0=Idle、非 0 でディスク転送中）'
   },
   // === CPU マイクロステート / 命令 ===
   {
     id:'istate', label:'istate', word:4, bit:0, type:'hex', width:5, color:'#803870', on:false,
-    fmt:'istate11', tip:'CPU マイクロステート（記号表示: f1=fetch c1=decode s*/d*=オペランド e1=execute w1=writeback o*=pop p1=push t*=trap i1=wait h1=halt）'
+    fmt:'istate11',
+    name:{ ja:'CPU マイクロステート', en:'CPU micro-state' },
+    tip:'CPU マイクロステート（記号表示: f1=fetch c1=decode s*/d*=オペランド e1=execute w1=writeback o*=pop p1=push t*=trap i1=wait h1=halt）'
   },
   {
     id:'isn', label:'ISN', word:4, bit:5, type:'hex', width:16, color:'#704828', on:false,
-    fmt:'isn11', tip:'現在命令（オペコードを逆アセンブルしたニモニック表示。例: MOV R2,(R1)）'
+    fmt:'isn11',
+    name:{ ja:'現在実行中の命令 (ニモニック)', en:'Current instruction mnemonic' },
+    tip:'現在命令（オペコードを逆アセンブルしたニモニック表示。例: MOV R2,(R1)）'
   },
   // === バスエラー / NXM / トラップ詳細 ===
   {
     id:'bus_error',  label:'BUSERR',  word:3, bit:17, type:'bit', width:1, color:'#cc2020', on:false,
+    name:{ ja:'バスエラー', en:'Bus error' },
     tip:'バスエラー（アクセスタイムアウト・NXM）'
   },
   {
     id:'nxm_access', label:'NXM',     word:3, bit:19, type:'bit', width:1, color:'#b02828', on:false,
+    name:{ ja:'存在しないメモリへのアクセス (NXM)', en:'Non-existent memory access (NXM)' },
     tip:'存在しないメモリアクセス（Non-eXistent Memory）'
   },
   {
     id:'trap_bus',   label:'TBUS',    word:3, bit:21, type:'bit', width:1, color:'#b03810', on:false,
+    name:{ ja:'バストラップ', en:'Bus trap' },
     tip:'バストラップ（bus abort / bus error trap）'
   },
   {
     id:'trap_abort', label:'TABORT',  word:3, bit:22, type:'bit', width:1, color:'#b03810', on:false,
+    name:{ ja:'アボートトラップ', en:'Abort trap' },
     tip:'アボートトラップ（スタックオーバーフロー等）'
   },
   {
     id:'trap_odd',   label:'TODD',    word:3, bit:23, type:'bit', width:1, color:'#b03810', on:false,
+    name:{ ja:'奇数アドレストラップ', en:'Odd-address trap' },
     tip:'奇数アドレスアクセストラップ'
   },
   // === 汎用レジスタ (GPR) ===
   {
     id:'r0', label:'R0', word:5, bit:0,  type:'hex', width:16, color:'#2848a8', on:false,
-    fmt:'oct', tip:'R0 汎用レジスタ（8 進表示）'
+    fmt:'oct',
+    name:{ ja:'汎用レジスタ R0', en:'General register R0' },
+    tip:'R0 汎用レジスタ（8 進表示）'
   },
   {
     id:'r1', label:'R1', word:5, bit:16, type:'hex', width:16, color:'#2848a8', on:false,
-    fmt:'oct', tip:'R1 汎用レジスタ（8 進表示）'
+    fmt:'oct',
+    name:{ ja:'汎用レジスタ R1', en:'General register R1' },
+    tip:'R1 汎用レジスタ（8 進表示）'
   },
   {
     id:'r2', label:'R2', word:6, bit:0,  type:'hex', width:16, color:'#2848a8', on:false,
-    fmt:'oct', tip:'R2 汎用レジスタ（8 進表示）'
+    fmt:'oct',
+    name:{ ja:'汎用レジスタ R2', en:'General register R2' },
+    tip:'R2 汎用レジスタ（8 進表示）'
   },
   {
     id:'r3', label:'R3', word:6, bit:16, type:'hex', width:16, color:'#2848a8', on:false,
-    fmt:'oct', tip:'R3 汎用レジスタ（8 進表示）'
+    fmt:'oct',
+    name:{ ja:'汎用レジスタ R3', en:'General register R3' },
+    tip:'R3 汎用レジスタ（8 進表示）'
   },
   {
     id:'r4', label:'R4', word:7, bit:0,  type:'hex', width:16, color:'#2848a8', on:false,
-    fmt:'oct', tip:'R4 汎用レジスタ（8 進表示）'
+    fmt:'oct',
+    name:{ ja:'汎用レジスタ R4', en:'General register R4' },
+    tip:'R4 汎用レジスタ（8 進表示）'
   },
   {
     id:'r5', label:'R5', word:7, bit:16, type:'hex', width:16, color:'#2848a8', on:false,
-    fmt:'oct', tip:'R5 汎用レジスタ / フレームポインタ（8 進表示）'
+    fmt:'oct',
+    name:{ ja:'汎用レジスタ R5 (フレームポインタ)', en:'General register R5 (frame pointer)' },
+    tip:'R5 汎用レジスタ / フレームポインタ（8 進表示）'
   },
   {
     id:'sp', label:'SP',  word:8, bit:0,  type:'hex', width:16, color:'#2878a0', on:false,
-    fmt:'oct', tip:'SP = r6[current_mode] スタックポインタ（8 進表示）'
+    fmt:'oct',
+    name:{ ja:'スタックポインタ (SP / R6)', en:'Stack pointer (SP / R6)' },
+    tip:'SP = r6[current_mode] スタックポインタ（8 進表示）'
   },
   // === メモリプローブ（M1） ===
   {
     id:'mem_m1', label:'M1', word:8, bit:16, type:'hex', width:16, color:'#507030', on:false,
-    fmt:'oct', tip:'メモリプローブ値: sim_set_mem_probe(addr) で指定アドレスの RAM 内容を毎サンプル記録'
+    fmt:'oct',
+    name:{ ja:'メモリプローブ値 M1', en:'Memory probe value M1' },
+    tip:'メモリプローブ値: sim_set_mem_probe(addr) で指定アドレスの RAM 内容を毎サンプル記録'
   },
   // === プロセスコンテキスト（Word9） ===
   {
     id:'uipar0', label:'UIPAR0', word:9, bit:0, type:'hex', width:12, color:'#8020c0', on:false,
-    fmt:'oct', tip:'User I-space PAR0 — コンテキストスイッチで変化するプロセス識別子（8 進表示）'
+    fmt:'oct',
+    name:{ ja:'ユーザ I 空間ページアドレスレジスタ 0 (PAR0)', en:'User I-space PAR0' },
+    tip:'User I-space PAR0 — コンテキストスイッチで変化するプロセス識別子（8 進表示）'
   },
   {
     id:'ctx_new', label:'CTX', word:9, bit:12, type:'bit', width:1, color:'#c040a0', on:false,
+    name:{ ja:'コンテキストスイッチ検出フラグ', en:'Context switch flag' },
     tip:'プロセスコンテキスト変化フラグ（UIPAR0 が前サンプルから変わった瞬間 = コンテキストスイッチ）'
   },
 ];
