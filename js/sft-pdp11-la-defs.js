@@ -624,11 +624,11 @@ var PDP11_KNOWN_PCS = [
   { label: 'TTY RX vec (0o60)', pc: 0o000060, tip: 'DL11 受信割り込みベクタ' },
 ];
 
-// トリガーのテーマ (Trigger の「Theme」から選ぶと欄に入る。Set は自分で押す)
+// トリガーのプリセット (Trigger の「Preset」から選ぶと欄に入る。Set は自分で押す)
 // fields は #trig-body の欄の id → 値 (trig-type を先に書く)。expr は式の欄 (CodeMirror) に入れる文字列
-// 番地のテーマは、上の PDP11_KNOWN_PCS から式で作る。「PC Match」(種類 1) は仮想アドレスだけで比べ、
+// 番地のプリセットは、上の PDP11_KNOWN_PCS から式で作る。「PC Match」(種類 1) は仮想アドレスだけで比べ、
 // ユーザープロセスの同じ番地でも当たるので、カーネルモードで読んだときに絞る。
-// boot: true の番地はブートの間にしか通らず、Reset でトリガーも消えるので、テーマにしない (Known address の一覧には残る)
+// boot: true の番地はブートの間にしか通らず、Reset でトリガーも消えるので、プリセットにしない (Known address の一覧には残る)
 var PDP11_TRIGGER_PRESETS = [
   { label: 'TRAP (incl. system call)', tip: 'TRAP 系の命令・例外で止まる (Unix の sys 呼び出しは TRAP 命令)',
     fields: { 'trig-type': '4' } },

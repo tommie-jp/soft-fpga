@@ -95,7 +95,7 @@
   <ul>
     <li><b>最初は左右とも AUTO が入っていて</b>、回路どうしが打ち合います。AUTO を切ると手で打てます (左は W・S、右は ↑・↓。スマホでは ▲・▼ のボタンを押している間だけ動きます)。</li>
     <li>記録のしかた (1 画面ごと / 1 クロックごと) は、LA の上の選択で切り替えます。</li>
-    <li>Trigger の<b>テーマ</b> (ヒット・壁と点の音・点が入った・音の矩形波など) を選ぶと、条件が欄に入ります。<b>Set</b> を押すと、その瞬間に止まります。<b>Run</b> か <b>Resume</b> で再開します。条件は手でも書けます (例 <code>sr == 3</code>)。</li>
+    <li>Trigger の<b>プリセット</b> (ヒット・壁と点の音・点が入った・音の矩形波など) を選ぶと、条件が欄に入ります。<b>Set</b> を押すと、その瞬間に止まります。<b>Run</b> か <b>Resume</b> で再開します。条件は手でも書けます (例 <code>sr == 3</code>)。</li>
   </ul>
   <h2>くわしく</h2>
   <ul>
@@ -226,7 +226,7 @@ var Module = { onRuntimeInitialized: function () {
   const lag = setupLa({ Module: Module, rootId: 'la-root', config: PONG_LA_CONFIG, signals: PONG_LA_SIGNALS,
                         zoomIdx: 2, onArm: function () { setRunning(true); },
                         triggerPresets: PONG_TRIGGER_PRESETS,
-                        // テーマに合わせて記録のしかたを切り替える (起動時の復元では、下の modeSel ができてから)
+                        // プリセットに合わせて記録のしかたを切り替える (起動時の復元では、下の modeSel ができてから)
                         onPreset: function (p) { setTimeout(function () { switchMode(p.la); }, 0); } });
   runBtn.addEventListener('click', function () { if (!running) lag.resume(); stoppedByTrigger = false; setRunning(!running); });
   const modeSel = document.getElementById('la-mode');

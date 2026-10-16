@@ -75,7 +75,7 @@ function getMachineType(s) {
 }
 
 // シグナルグループ定義（color: アクティブバー・ピッカーで使うグループ単位の色）
-// トリガーのテーマ (Trigger の「Theme」から選ぶと欄に入る。Set は自分で押す)
+// トリガーのプリセット (Trigger の「Preset」から選ぶと欄に入る。Set は自分で押す)
 // fields は index.html の #dbg-trig-detail の欄の id → 値。trig-type を先に書く (種類に応じた欄の表示が先に切り替わる)
 // I/O ポートは cpm_top.v の表 ($00 CONIN・$01 CONOUT・$10 DCMD など)。欄が空なら任意のポート
 var CPM8080_TRIGGER_PRESETS = [

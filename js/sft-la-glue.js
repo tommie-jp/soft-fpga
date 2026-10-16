@@ -14,7 +14,7 @@
 //
 // 前提: Module が cxx/rtlscope_ring.h の RTLSCOPE_EXPORT_RING を公開していること。
 // 読み込み順: *-la-defs.js → rtlscope-la.js → sft-la-toolbar.js → (sft-trigger-presets.js) → sft-la-ctrl.js → sft-la-glue.js
-// トリガーのテーマ: opts.triggerPresets と opts.onPreset (sft-la-ctrl.js の initLaCtrl と同じ形)
+// トリガーのプリセット: opts.triggerPresets と opts.onPreset (sft-la-ctrl.js の initLaCtrl と同じ形)
 
 // DOM・RTLScopeLA・コントロールを組み立てる（setupLa / setupLaWorker 共通）。
 function _buildLa(opts, ringSize, ringWords, backend) {
