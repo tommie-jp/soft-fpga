@@ -119,12 +119,12 @@ function loop() {
     // ── フリーズバッジ ──
     var frozenBadge = document.getElementById('r-frozen-badge');
     if (frozenBadge) frozenBadge.style.display = f.frozen ? 'inline' : 'none';
-    // Freeze ボタンの表示を実際の凍結に合わせる (トリガーで凍結したときも「▶ Thaw」にする)。
+    // Freeze ボタンの表示を実際の凍結に合わせる (トリガーで凍結したときも「▶ Resume」にする)。
     // 押した直後の表示と競合しないよう、Worker の凍結の状態が変わったときだけ書き換える
     if (f.frozen !== lastFrozen) {
       lastFrozen = f.frozen;
       var btnFreeze = document.getElementById('btn-freeze');
-      if (btnFreeze) btnFreeze.textContent = f.frozen ? '▶ Thaw' : '❄ Freeze';
+      if (btnFreeze) btnFreeze.textContent = f.frozen ? '▶ Resume' : '⏸ Hold';
     }
 
     frameCount++;

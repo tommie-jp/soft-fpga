@@ -633,7 +633,7 @@
         <span class="r-sep">|</span>
         <span class="r-lbl" title="Program counter (address of next instruction)">PC:</span><span class="r-val" id="r-pc" title="Program counter">----</span><span class="pc-region" id="r-pc-region" title="Current execution region (TPA / CCP / BDOS / BIOS)"></span>
         <span id="r-disasm" title="Instruction at PC (disassembly)"></span>
-        <span id="r-frozen-badge" title="Ring Buffer frozen. Bus Analyzer waveform is paused.">FROZEN</span>
+        <span id="r-frozen-badge" title="Ring Buffer on hold. Bus Analyzer waveform is paused.">HOLD</span>
       </div>
     </div>
 
@@ -707,7 +707,7 @@
       <!-- トリガーバー（常時表示）: Freeze / Next I/O / Step + Trigger 折りたたみトグル -->
       <div id="dbg-trig-bar">
         <button id="btn-freeze"
-          title="Freeze/unfreeze the Ring Buffer. While frozen, the Bus Analyzer waveform pauses; CPU continues running.">❄ Freeze</button>
+          title="Hold / resume the Ring Buffer. While on hold, the Bus Analyzer waveform pauses; CPU continues running.">⏸ Hold</button>
         <button id="btn-run-to-io"
           title="Auto-pause when the next IN or OUT instruction executes. If paused, resumes execution first.">▶ Next I/O</button>
         <button id="dbg-step" title="Step one instruction (only works when simulation is paused)">▶ Step</button>

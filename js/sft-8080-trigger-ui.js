@@ -24,18 +24,18 @@ function initTriggerUI() {
       });
     })();
 
-    // ---- Freeze / Thaw ----
+    // ---- Hold / Resume (内部の名前は freeze / thaw のまま) ----
     document.getElementById('btn-freeze').addEventListener('click', function() {
-      // '❄ Freeze' 表示中 = 未凍結 → 凍結する
-      // '▶ Thaw'   表示中 = 凍結中 → 解除する
-      var isFreezable = this.textContent.indexOf('❄') >= 0;
+      // '⏸ Hold'   表示中 = 記録中 → 止める
+      // '▶ Resume' 表示中 = 止めている → 再開する
+      var isFreezable = this.textContent.indexOf('⏸') >= 0;
       if (isFreezable) {
         workerSend({ type: 'freezeRing' });
-        this.textContent = '▶ Thaw';
+        this.textContent = '▶ Resume';
       } else {
         // フリーズ解除
         workerSend({ type: 'thawRing' });
-        this.textContent = '❄ Freeze';
+        this.textContent = '⏸ Hold';
       }
     });
 
@@ -154,7 +154,7 @@ function initTriggerUI() {
 
     document.getElementById('btn-trig-clear').addEventListener('click', function() {
       workerSend({ type: 'clearTrigger' });
-      document.getElementById('btn-freeze').textContent = '❄ Freeze';
+      document.getElementById('btn-freeze').textContent = '⏸ Hold';
       la.setTrigFireHead(-1);
     });
 

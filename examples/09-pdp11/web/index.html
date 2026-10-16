@@ -134,7 +134,7 @@
       <span class="r-sep">|</span>
       <span class="r-val" id="r-mode-bar">------</span>
       <span id="r-disasm"></span>
-      <span id="r-frozen-badge">FROZEN</span>
+      <span id="r-frozen-badge">HOLD</span>
     </div>
     <div id="terminal"></div>
     <div id="ctrl-zone" class="ctrl-bar">
@@ -294,7 +294,7 @@
       <button id="la-nav-l">&#8249;</button>
       <button id="la-nav-r">&#8250;</button>
       <button id="la-nav-rr">&#187;</button>
-      <button id="btn-step" title="Single step (Freeze mode only)">▶ Step</button>
+      <button id="btn-step" title="Single step (Hold mode only)">▶ Step</button>
       <button id="btn-goto-trig" title="Jump to trigger position">⊙Trig</button>
       <span class="la-smpl-wrap" title="Sampling interval&#10;4tick/smpl: fast, default (Unix V6)&#10;1tick/smpl: auto-switched for expr trigger, prevents sample loss"><span class="la-smpl-label">Smpl:</span><select id="la-sample-sel">
         <option value="3">4tick/smpl</option>
@@ -319,8 +319,8 @@
       <label class="sig-tog" id="la-hatch-lbl" title="Hatch pattern ON/OFF">
         <input type="checkbox" id="la-hatch-chk"><span class="sw-track"></span> Hatch
       </label>
-      <button class="la-zoom-btn" id="btn-la-freeze">Freeze</button>
-      <span id="frozen-badge" style="display:none;">FROZEN</span>
+      <button class="la-zoom-btn" id="btn-la-freeze">Hold</button>
+      <span id="frozen-badge" style="display:none;">HOLD</span>
       <a id="la-ss-link" href="../../../test/ss/pdp11/index.html" target="_blank"
          rel="noopener" title="PDP-11 Timing Diagram Screenshots">&#x1F4F7; SS</a>
     </div>
