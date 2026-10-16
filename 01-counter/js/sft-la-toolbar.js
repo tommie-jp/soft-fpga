@@ -63,7 +63,7 @@ function mountLaToolbar(rootId, opts) {
     '    <div id="la-toggles"></div>',
     '  </div>',
     '  <div class="trig-bar">',
-    '    <button id="btn-freeze" title="ring buffer を凍結／再開します。凍結中も回路は動き続けます。">❄ Freeze</button>',
+    '    <button id="btn-freeze" title="波形の記録を止めて、いまの波形を保ちます (Hold)。もう一度押すと記録を再開します (Resume)。止めている間も回路は動き続けます。">⏸ Hold</button>',
     '    <button id="btn-trig-toggle" title="トリガー設定の表示／非表示">⚙ Trigger ▸</button>',
     '  </div>',
     '  <div id="trig-detail">',

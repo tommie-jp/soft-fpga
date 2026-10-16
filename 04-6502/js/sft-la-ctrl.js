@@ -59,9 +59,9 @@ function initLaCtrl(opts) {
     msg.style.color = isError ? '#cc3333' : '#555';
   }
 
-  // ---- Freeze / Thaw ----
-  var FREEZE_LABEL = '❄ Freeze';
-  var THAW_LABEL   = '▶ Thaw';
+  // ---- Hold / Resume (内部の名前は freeze / thaw のまま) ----
+  var FREEZE_LABEL = '⏸ Hold';
+  var THAW_LABEL   = '▶ Resume';
   function syncFreeze(frozen) {
     var want = frozen ? THAW_LABEL : FREEZE_LABEL;
     if (btnFreeze.textContent !== want) btnFreeze.textContent = want;

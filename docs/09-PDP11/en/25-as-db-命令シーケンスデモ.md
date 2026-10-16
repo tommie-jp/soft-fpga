@@ -34,7 +34,7 @@ Related: [14 db Debugger Guide](?doc=14-db-デバッガー-使い方.md) /
 3. Assemble with `as loop.s` to produce `a.out`
 4. Disassemble with `db a.out` to read the **virtual address** and **instruction word** of the target instruction
 5. In the Web UI `Trigger` panel, set `PC + data match` (recommended) with the VA and instruction word, then press `Set`
-6. Run `./a.out` — the LA freezes at that instruction (the `FROZEN` badge lights up)
+6. Run `./a.out` — the LA holds at that instruction (the `HOLD` badge lights up)
 7. Read the instruction sequence diagram (T-state, istate, Unibus bus cycles)
 
 ---
@@ -265,7 +265,7 @@ Execute the program from the shell.
 ```
 
 The moment the PC reaches the loop body (virtual address `0o6`), the LA stops writing to the ring buffer,
-the `FROZEN` badge lights up, and `⏸ Triggered!` is displayed.
+the `HOLD` badge lights up, and `⏸ Triggered!` is displayed.
 The LA canvas at that point is the **instruction sequence diagram for the `add r0,r1` instruction**.
 
 ### 5.1 Reading the Waveform
@@ -374,7 +374,7 @@ Subsequent words are sizes in octal bytes.
 ### 8.2 Checking Physical Addresses (via MMU PAR)
 
 The physical start address of a user process is **PAR0 × 64 bytes**.
-While the program is running (either as `./a.out &` in the background, or while the LA is frozen),
+While the program is running (either as `./a.out &` in the background, or while the LA is on hold),
 read the **User APR0** value in the Web UI `MMU — Page Address Registers` panel.
 
 ```text

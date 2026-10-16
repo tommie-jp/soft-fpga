@@ -8,11 +8,12 @@
  * 版 (RTLScopeLA.VERSION)。描画や既定値を変えたら上げる。画面の「Logic Analyzer」の右 (#la-ver) に出る。
  *   1.0.0  最初の版
  *   1.1.0  描画を軽くする (バス信号の線をまとめる・細かい区間を帯に・変化なし/画面外で描かない)。Hatch の既定を OFF
+ *   1.2.0  画面の Freeze / Thaw を Hold / Resume に改名する (関数名・回路側の API は freeze / thaw のまま)
  */
 (function(global) {
   'use strict';
 
-  var VERSION = '1.1.0';
+  var VERSION = '1.2.0';
 
   // ---- ズームレベル定義 ----
   var LA_ZOOM_LEVELS = [0.25, 0.5, 1, 2, 4, 8, 16, 32, 64];

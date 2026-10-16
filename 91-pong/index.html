@@ -95,7 +95,7 @@
   <ul>
     <li><b>最初は左右とも AUTO が入っていて</b>、回路どうしが打ち合います。AUTO を切ると手で打てます (左は W・S、右は ↑・↓。スマホでは ▲・▼ のボタンを押している間だけ動きます)。</li>
     <li>記録のしかた (1 画面ごと / 1 クロックごと) は、LA の上の選択で切り替えます。</li>
-    <li>Trigger の<b>テーマ</b> (ヒット・壁と点の音・点が入った・音の矩形波など) を選ぶと、条件が欄に入ります。<b>Set</b> を押すと、その瞬間に止まります。<b>Run</b> か <b>Thaw</b> で再開します。条件は手でも書けます (例 <code>sr == 3</code>)。</li>
+    <li>Trigger の<b>テーマ</b> (ヒット・壁と点の音・点が入った・音の矩形波など) を選ぶと、条件が欄に入ります。<b>Set</b> を押すと、その瞬間に止まります。<b>Run</b> か <b>Resume</b> で再開します。条件は手でも書けます (例 <code>sr == 3</code>)。</li>
   </ul>
   <h2>くわしく</h2>
   <ul>
@@ -279,7 +279,7 @@ var Module = { onRuntimeInitialized: function () {
       play(Module._get_snd_kind());           // 次の 1 画面ぶんの音
       if (lag.triggerHit()) { stoppedByTrigger = true; setRunning(false); } // トリガーで Freeze
     } else if (stoppedByTrigger && !Module._sim_ring_frozen()) {
-      stoppedByTrigger = false;               // LA の「Thaw」で凍結を解いたら、ゲームも続ける
+      stoppedByTrigger = false;               // LA の「Resume」で記録を再開したら、ゲームも続ける
       setRunning(true);
     }
     lag.draw();

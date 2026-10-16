@@ -204,15 +204,15 @@ worker.onmessage = function(e) {
     // ── Freeze ─────────────────────────────────────────────────────────
     case 'frozen':
       laFrozen = true;
-      document.getElementById('btn-la-freeze').textContent = 'Unfreeze';
+      document.getElementById('btn-la-freeze').textContent = 'Resume';
       document.getElementById('frozen-badge').style.display = '';
       document.getElementById('r-frozen-badge').style.display = '';
-      setStatus('Frozen');
+      setStatus('Hold');
       break;
 
     case 'unfrozen':
       laFrozen = false;
-      document.getElementById('btn-la-freeze').textContent = 'Freeze';
+      document.getElementById('btn-la-freeze').textContent = 'Hold';
       document.getElementById('frozen-badge').style.display = 'none';
       document.getElementById('r-frozen-badge').style.display = 'none';
       setStatus('Running');
