@@ -51,7 +51,7 @@
   <ul>
     <li><b>最初は左右とも AUTO が入っていて</b>、回路どうしが打ち合います。AUTO を切ると手で打てます (左は W・S、右は ↑・↓)。</li>
     <li>記録のしかた (1 画面ごと / 1 クロックごと) は、LA の上の選択で切り替えます。</li>
-    <li>Trigger で条件 (例 <code>sr == 3</code>) を決めて Set すると、その瞬間に止まります。<b>Run</b> か <b>Thaw</b> で再開します。</li>
+    <li>Trigger の<b>テーマ</b> (ヒット・壁と点の音・点が入った・音の矩形波など) を選ぶと、条件が欄に入ります。<b>Set</b> を押すと、その瞬間に止まります。<b>Run</b> か <b>Thaw</b> で再開します。条件は手でも書けます (例 <code>sr == 3</code>)。</li>
   </ul>
   <h2>くわしく</h2>
   <ul>
@@ -119,7 +119,10 @@ var Module = { onRuntimeInitialized: function () {
 
   // ---- Logic Analyzer（js/rtlscope-la.js。06-8080 などと同じ UI） ----
   const lag = setupLa({ Module: Module, rootId: 'la-root', config: PONG_LA_CONFIG, signals: PONG_LA_SIGNALS,
-                        zoomIdx: 2, onArm: function () { setRunning(true); } });
+                        zoomIdx: 2, onArm: function () { setRunning(true); },
+                        triggerPresets: PONG_TRIGGER_PRESETS,
+                        // テーマに合わせて記録のしかたを切り替える (起動時の復元では、下の modeSel ができてから)
+                        onPreset: function (p) { setTimeout(function () { switchMode(p.la); }, 0); } });
   runBtn.addEventListener('click', function () { if (!running) lag.resume(); stoppedByTrigger = false; setRunning(!running); });
   const modeSel = document.getElementById('la-mode');
   Object.keys(PONG_LA_MODES).sort().reverse().forEach(function (m) {
@@ -141,6 +144,11 @@ var Module = { onRuntimeInitialized: function () {
     document.getElementById('la-note').textContent = NOTES[m];
   }
   modeSel.addEventListener('change', function () { applyMode(modeSel.value); });
+  function switchMode(m) {
+    if (m === undefined || modeSel.value === String(m)) return;
+    modeSel.value = String(m);
+    applyMode(modeSel.value);
+  }
   applyMode(modeSel.value);
 
   function toggle(id, bit) {                  // スイッチ: 押すたびに入れ替わり、そのまま残る
@@ -179,6 +187,7 @@ var Module = { onRuntimeInitialized: function () {
 <script src="js/sft-pong-la-defs.js"></script>
 <script src="js/rtlscope-la.js"></script>
 <script src="js/sft-la-toolbar.js"></script>
+<script src="js/sft-trigger-presets.js"></script>
 <script src="js/sft-la-ctrl.js"></script>
 <script src="js/sft-la-glue.js"></script>
 <script src="sim.js"></script>

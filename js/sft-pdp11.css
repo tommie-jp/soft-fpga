@@ -95,6 +95,8 @@ button.active  { background:#446; border-color:#88a; color:#ccf; }
 .trig-panel.collapsed #btn-trig-collapse { transform:rotate(-90deg); }
 #trig-body { overflow:hidden; transition:height 0.2s ease; }
 .trig-row { display:flex; gap:6px; align-items:center; margin-bottom:4px; }
+.trig-theme { display:flex; gap:6px; align-items:center; margin-bottom:4px; color:#446; font-size:11px; }
+.trig-theme select { flex:1; min-width:0; background:#eef; border:1px solid #aab; color:#446; font-size:11px; padding:2px 4px; }
 .trig-row label { color:#446; font-size:11px; width:40px; }
 .trig-row input[type=text] { background:#eef; border:1px solid #aab; color:#224;
                               padding:2px 6px; font-size:12px; font-family:monospace;

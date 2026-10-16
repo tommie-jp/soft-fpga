@@ -189,4 +189,15 @@ function initTriggerUI() {
       la.setHatchEnabled(this.checked);
       la._updateCanvas();
     });
+
+    // ---- トリガーのテーマ (典型的な設定。選ぶと欄に入り、Set は自分で押す) ----
+    // 上の trig-type の change の処理を付けた後に置く (テーマが trig-type を替えると、欄の表示も切り替わる)
+    if (typeof mountTriggerPresets === 'function' && typeof CPM8080_TRIGGER_PRESETS !== 'undefined') {
+      mountTriggerPresets({
+        host: document.getElementById('dbg-trig-detail'),
+        presets: CPM8080_TRIGGER_PRESETS,
+        storageKey: 'la_trig_theme',
+        text: { label: 'Theme', manual: '(manual)', tip: 'Pick a typical trigger. It fills the fields below; press Set to arm it.' }
+      });
+    }
 }
