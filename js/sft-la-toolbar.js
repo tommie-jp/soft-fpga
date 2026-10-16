@@ -58,7 +58,7 @@ function mountLaToolbar(rootId, opts) {
     '    <span class="sig-label">Logic Analyzer</span>',
     '    <button id="btn-la-toggle" title="Logic Analyzer ON/OFF。OFF の間は ring buffer への書き込みを止めます。">LA ON</button>',
     '    <label class="chk" title="信号レーンの塗りつぶし ON/OFF"><input type="checkbox" id="la-fill-chk" checked> Fill</label>',
-    '    <label class="chk" title="信号レーンの網目パターン ON/OFF"><input type="checkbox" id="la-hatch-chk" checked> Hatch</label>',
+    '    <label class="chk" title="信号レーンの網目パターン ON/OFF"><input type="checkbox" id="la-hatch-chk"> Hatch</label>',
     '    <div id="la-toggles"></div>',
     '  </div>',
     '  <div class="trig-bar">',
