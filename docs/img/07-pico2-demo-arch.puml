@@ -1,0 +1,52 @@
+@startuml 07-pico2-demo-arch
+left to right direction
+skinparam backgroundColor white
+skinparam defaultFontColor #222222
+skinparam ArrowColor #444444
+skinparam componentStyle rectangle
+skinparam component {
+    BackgroundColor #f5f5f5
+    BorderColor #555555
+}
+
+component [Bluetooth キーボード] as kbd
+
+package "Android タブレット" #EEFFEE {
+    package "Chrome (Web Serial)" #DDFFDD {
+        component [xterm.js\nwozmon / BASIC 端末] as xterm
+        component [RTLScopeLA\n(Canvas)] as la
+        component [Register Panel\nPC / A / X / Y / SP] as rp
+    }
+}
+
+package "ブレッドボード" #FFF8EE {
+    package "Pico 2 (RP2350)" #FFEEDD {
+        component [core0\nUSB-CDC / COBS\nコマンド解釈] as core0
+        component [core1\neval() ループ\nGPIO 出力] as core1
+        component [apple1_top\n(Verilator → C++)] as rtl
+        component [SRAM\nRAM/ROM 64KB\nLA ring buffer] as sram
+    }
+    component [LED x26 + 1kΩ\nA0-15 赤 / D0-7 緑\nRW, SYNC 黄] as led
+    component [GP25 基板 LED\nφ2] as phi2
+    component [$C000 出力ポート\n(8bit ラッチ → D0-7 LED)] as port
+}
+
+component [AD3 + 借用 PC\n(余力・任意)] as ad3 #EEEEEE
+
+kbd --> xterm : BT HID\n(toupper / CR / BS→_)
+
+xterm <--> core0 : USB ケーブル\nCOBS フレーム多重\n0x01 文字 / 0x02 LA / 0x03 レジスタ
+la <.. core0
+rp <.. core0
+
+core0 <--> core1 : FIFO\n(key / char / LA)
+core1 --> rtl : eval()
+rtl --> sram : AB / DI / DO
+sram --> core0 : LA 読出し
+rtl --> core1 : AB / DB / RW / SYNC
+core1 --> led : gpio_put_masked\n(SYNC サンプル / STEP / 実速)
+core1 --> phi2
+sram --> port : write $C000
+led ..> ad3 : DIO 16 本\nφ2 / RW / SYNC / A0-3 / D0-7
+
+@enduml
