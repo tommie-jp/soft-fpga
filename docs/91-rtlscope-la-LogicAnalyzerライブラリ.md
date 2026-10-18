@@ -85,6 +85,8 @@ window.la = new RTLScopeLA({
   trackH:        28,            // 1トラック高さ (px)
   timeRulerH:    14,            // 時間ルーラー高さ (px)
   decodeLaneH:   22,            // デコードレーン高さ (px)
+  lang:          'ja',          // 信号名ツールチップの言語 'ja' | 'en'（省略時は <html lang>、無ければブラウザの言語）
+  labelTooltips: true,          // 波形の左の信号名にツールチップを出す（false で出さない）
 
   // ── コールバック ──
   decodeLane:        { label: 'M-CYC', render: fn(ctx, p) },
@@ -99,7 +101,9 @@ window.la = new RTLScopeLA({
 
 ```javascript
 { id:'addr', label:'AB', word:0, bit:0, type:'hex', width:16,
-  color:'#88ccff', on:true, fmt:'dec', tip:'ツールチップ文字列' }
+  color:'#88ccff', on:true, fmt:'dec',
+  name:{ ja:'アドレスバス', en:'Address bus' },
+  tip:'ツールチップ文字列' }
 ```
 
 | フィールド | 意味 |
@@ -108,6 +112,19 @@ window.la = new RTLScopeLA({
 | `word` | ring buffer の何ワード目か（0-based） |
 | `bit` | そのワード内のビットシフト量 |
 | `fmt` | `'dec'` → 10進表示、`'flags8080'` → カスタム formatter 名 |
+| `name` | フルネーム。文字列か `{ ja, en }`。省略可（省略すると `label` だけが出る） |
+| `tip` | 説明。文字列か `{ ja, en }`。省略可。チップの `title` にも使う |
+
+### 信号名のツールチップ
+
+波形の左の信号名にマウスを 300 ms 乗せると（タッチなら 500 ms 長押し）、
+信号名とフルネーム・幅と値の形式（例 `8 ビット · Dec`）・`tip` の説明が出る。
+
+- 出る場所は信号名の欄だけ。波形・ルーラー・マーカー欄では出ない。ドラッグ（並べ替え）の開始・クリック・指が 8 px 以上動いたときは出ない
+- タッチで出した説明は、どこかに触れると消える
+- 言語は `lang`。`name` / `tip` が `{ ja, en }` で片方しか無ければ、無い側は `ja` → `en` の順に探す
+- DOM の `<div role="tooltip">` を 1 つ使い回す。canvas の描き直しには関わらない
+- 純粋関数を `RTLScopeLA.tr` / `pickLang` / `laneIndex` / `formatName` / `tipContent` として公開（試験用: `examples/09-pdp11/tests/la-label-tooltip.test.mjs`）
 
 ---
 
@@ -210,7 +227,8 @@ CPU ごとに書くのは「信号定義」と「1 クロックぶんの観測�
 | [`scripts/_la-exports.inc.sh`](../scripts/_la-exports.inc.sh) | 上記 API の EXPORTED_FUNCTIONS 一覧（`build-wasm-*.sh` から `source`） |
 | [`js/sft-la-toolbar.js`](../js/sft-la-toolbar.js) | ツールバー・トリガー欄・ナビ・canvas の HTML と CSS を `#la-root` に描く |
 | [`js/sft-la-ctrl.js`](../js/sft-la-ctrl.js) | Freeze/Thaw・トリガー設定・LA ON/OFF・Fill/Hatch の配線（backend 注入で CPU 非依存） |
-| [`js/sft-la-glue.js`](../js/sft-la-glue.js) | 上 3 つと RTLScopeLA の組み立て（`setupLa()`）。Wasm 直呼び・メインスレッド用 |
+| [`js/sft-la-glue.js`](../js/sft-la-glue.js) | 上 3 つと RTLScopeLA の組み立て。`setupLa()` は Wasm 直呼び・メインスレッド用、`setupLaWorker()` / `openLaWorker()` は Web Worker 用 |
+| [`js/sft-la-worker-core.js`](../js/sft-la-worker-core.js) | Worker 側の共通部分（`SftLaWorker.start`）。実行ループ・ring 送信・LA 制御・トリガー停止 |
 
 ### 8.1 各 example の構成
 
@@ -268,7 +286,8 @@ const head = lag.draw();
 
 ## 9. 今後の拡張予定
 
-- **Worker 化**: 01〜05 はメインスレッド実行のまま。Worker 化は 93 の方針に従い、`setupLa()` の
-  backend を worker 経由に差し替える形で別フェーズに行う
+- **Worker 化**: 02・03・04 は Worker 化済み（Worker 側は `js/sft-la-worker-core.js`、メインスレッド側は
+  `openLaWorker()` と `setupLaWorker()`。メッセージの約束は各ファイルのヘッダ）。01・05 は
+  93 の方針に従い、同じ形で順次移す
 - **6502 サイクル デコードレーン**: FETCH/READ/WRITE の色分け（現状は命令単位のニーモニックのみ）
 - **レジスタ値トリガー**: PC / A / X / Y を条件にするトリガー（現状は ring に載る信号のみ）

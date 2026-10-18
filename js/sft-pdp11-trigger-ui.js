@@ -235,14 +235,14 @@ document.getElementById('btn-trig-set').addEventListener('click', function() {
   hideTrigHit();
 });
 
-// ── トリガーのテーマ (典型的な設定。選ぶと欄に入り、Set は自分で押す) ──────────
-// trig-type の change の処理 (上) を付けた後に置く。式のテーマは、式の欄 (CodeMirror) に文字列を入れる
+// ── トリガーのプリセット (典型的な設定。選ぶと欄に入り、Set は自分で押す) ──────────
+// trig-type の change の処理 (上) を付けた後に置く。式のプリセットは、式の欄 (CodeMirror) に文字列を入れる
 if (typeof mountTriggerPresets === 'function' && typeof PDP11_TRIGGER_PRESETS !== 'undefined') {
   mountTriggerPresets({
     host: document.getElementById('trig-body'),
     presets: PDP11_TRIGGER_PRESETS,
     storageKey: 'pdp11_trig_theme',
-    text: { label: 'Theme', manual: '(manual)', tip: 'Pick a typical trigger. It fills the fields below; press Set to arm it.' },
+    text: { label: 'Preset', manual: '(manual)', tip: 'Pick a typical trigger. It fills the fields below; press Set to arm it.' },
     onApply: function (p) {
       if (p.expr === undefined) return;
       var view = window._trigExprView;

@@ -1,19 +1,19 @@
-// sft-trigger-presets.js — トリガーの「テーマ」(典型的な設定) をドロップダウンから選ぶ部品
+// sft-trigger-presets.js — トリガーの「プリセット」(典型的な設定) をドロップダウンから選ぶ部品
 //
-// テーマを選ぶと、トリガーのフォームの各欄に値を入れる。Set は押さない (入った値を見てから Set する)。
-// フォームの作りは例ごとに違う (共通 LA・06-8080・09-PDP11) ので、テーマは「欄の id → 値」の組で書く。
+// プリセットを選ぶと、トリガーのフォームの各欄に値を入れる。Set は押さない (入った値を見てから Set する)。
+// フォームの作りは例ごとに違う (共通 LA・06-8080・09-PDP11) ので、プリセットは「欄の id → 値」の組で書く。
 //
 //   mountTriggerPresets({
 //     host:       document.getElementById('trig-detail'),  // この要素の先頭にドロップダウンを置く
 //     before:     null,                // 置く位置を変えたいとき、この子要素の前に置く (省略可)
 //     presets:    [{ label: 'ヒット', tip: '説明', fields: { 'trig-sig': 'snd_kind', 'trig-val': '1' } }, ...],
-//     storageKey: 'pong_la_trig_theme',// 最後に選んだテーマを覚える localStorage のキー (省略可)
+//     storageKey: 'pong_la_trig_theme',// 最後に選んだプリセットを覚える localStorage のキー (省略可)
 //     onApply:    function (preset, restored) {},   // 欄に入れた後に呼ぶ (省略可。restored = 起動時の復元)
-//     text:       { label: 'Theme', manual: '(manual)', tip: '...' },   // 文言 (省略可。英語の UI 向け)
+//     text:       { label: 'Preset', manual: '(manual)', tip: '...' },   // 文言 (省略可。英語の UI 向け)
 //   });
 //
 // - fields は書いた順に入れ、欄ごとに 'change' を送る (種類の欄を先に書くと、その欄に応じた表示の切り替えが先に済む)
-// - 人がフォームを触ったら、テーマの表示を「(手で指定)」に戻す
+// - 人がフォームを触ったら、プリセットの表示を「(手で指定)」に戻す
 // - 欄が無い、またはドロップダウンに無い値のときは console.warn で言い、その欄は飛ばす
 
 function mountTriggerPresets(opts) {
@@ -23,7 +23,7 @@ function mountTriggerPresets(opts) {
   if (!host || presets.length === 0) return null;
 
   var text = Object.assign({
-    label:  'テーマ',
+    label:  'プリセット',
     manual: '(手で指定)',
     tip:    '典型的なトリガーの設定を選ぶと、欄に値が入ります。Set で設定します。'
   }, opts.text || {});
@@ -59,7 +59,7 @@ function mountTriggerPresets(opts) {
     catch (e) { console.warn('[trig-theme] localStorage 書き込み失敗:', e); }
   }
 
-  var applied = {};   // いまのテーマで入れた値 (欄の id → 値)。手で触ったかの判定に使う
+  var applied = {};   // いまのプリセットで入れた値 (欄の id → 値)。手で触ったかの判定に使う
 
   function setField(id, value) {
     var el = document.getElementById(id);
@@ -92,8 +92,8 @@ function mountTriggerPresets(opts) {
     apply(i, false);
   });
 
-  // 人がフォームを触ったら「(手で指定)」に戻す (テーマを入れたときの change は bubbles: false で、ここに来ない)。
-  // 値がテーマで入れたままなら触っていないと見なす (手で書いていた欄からフォーカスが外れると、遅れて change が来るため)
+  // 人がフォームを触ったら「(手で指定)」に戻す (プリセットを入れたときの change は bubbles: false で、ここに来ない)。
+  // 値がプリセットで入れたままなら触っていないと見なす (手で書いていた欄からフォーカスが外れると、遅れて change が来るため)
   function onManual(e) {
     if (e.target === sel || sel.value === MANUAL) return;
     var id = e.target && e.target.id;
@@ -105,7 +105,7 @@ function mountTriggerPresets(opts) {
   host.addEventListener('input', onManual);
   host.addEventListener('change', onManual);
 
-  // 起動時: 前に選んだテーマを (ラベルで探して) 欄に入れ直す。Set はしない
+  // 起動時: 前に選んだプリセットを (ラベルで探して) 欄に入れ直す。Set はしない
   var saved = lsGet();
   if (saved) {
     var j = presets.findIndex(function (p) { return p.label === saved; });
