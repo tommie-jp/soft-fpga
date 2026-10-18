@@ -189,10 +189,13 @@ for ex in "${EXAMPLES[@]}"; do
                 echo "  Removed unreferenced js: /${deploy_subdir}/js/$(basename "$_old")"
             fi
         done
-    elif [ -d "$src/js" ]; then
-        mkdir -p "$dst/js"
-        cp "$src/js/"*.js "$dst/js/" 2>/dev/null && \
-            echo "  Copied js/ → /${deploy_subdir}/js/" || true
+    else
+        # index.html / sim-worker.js が相対の js/ を読まない例 (06・09 は ../../../js/ = 根の js/ を読む)。
+        # 例ごとの js/ は使われないので置かない。旧デプロイの残りがあれば消す (git add -A で削除として記録される)。
+        if [ -d "$dst/js" ]; then
+            rm -rf "$dst/js"
+            echo "  Removed unused js/ → /${deploy_subdir}/js/"
+        fi
     fi
     # disk/ ディレクトリ（ディスクイメージ: 例 unix_v6_rk05.dsk）
     if [ -d "$src/disk" ]; then
