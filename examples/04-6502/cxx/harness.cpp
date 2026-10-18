@@ -26,6 +26,9 @@ static uint8_t   ram[0x10000];
 // PIA emulation
 static uint8_t   kbd_data    = 0;
 static uint8_t   kbd_cr      = 0;
+// DSPCR (B 側の制御レジスタ)。ビット 2 が 0 の間、$D012 への書き込みは方向レジスタ (DDRB) で字ではない。
+// wozmon はリセットで LDY #$7F / STY $D012 (方向の設定) のあと DSPCR に $A7 を書く。
+static uint8_t   dsp_cr      = 0;
 static uint8_t   kbd_queue[256];
 static int       kbd_q_head  = 0;
 static int       kbd_q_tail  = 0;
@@ -342,7 +345,7 @@ static uint8_t memory_read(uint16_t addr) {
             }
             case 1: return kbd_cr;
             case 2: return 0x00;  // DSP: always ready (bit7=0)
-            case 3: return 0x00;
+            case 3: return dsp_cr;
         }
     }
     return ram[addr];
@@ -350,7 +353,11 @@ static uint8_t memory_read(uint16_t addr) {
 
 static void memory_write(uint16_t addr, uint8_t data) {
     if (!dormann_mode && is_pia(addr)) {
-        if ((addr & 3u) == 2u) {  // DSP write
+        if ((addr & 3u) == 3u) {  // DSPCR write
+            dsp_cr = data;
+            return;
+        }
+        if ((addr & 3u) == 2u && (dsp_cr & 0x04u)) {  // DSP write (DDRB への書き込みは字にしない)
             uint8_t ch = data & 0x7F;
             if (ch == 0x0D) ch = 0x0A;  // CR → LF for xterm.js
             if (ch >= 0x20 || ch == 0x0A) {
@@ -406,7 +413,7 @@ EMSCRIPTEN_KEEPALIVE void sim_init() {
     memset(ram, 0x00, 0xD000);       // RAM area = 0
     load_rom();
 
-    kbd_data    = 0; kbd_cr = 0;
+    kbd_data    = 0; kbd_cr = 0; dsp_cr = 0;
     kbd_q_head  = 0; kbd_q_tail = 0;
     disp_q_head = 0; disp_q_tail = 0;
     disp_count  = 0;
@@ -469,7 +476,7 @@ EMSCRIPTEN_KEEPALIVE void reset_sim() {
     memset(ram, 0x00, 0xD000);
     load_rom();
 
-    kbd_data    = 0; kbd_cr = 0;
+    kbd_data    = 0; kbd_cr = 0; dsp_cr = 0;
     kbd_q_head  = 0; kbd_q_tail = 0;
     disp_q_head = 0; disp_q_tail = 0;
     disp_count  = 0;
@@ -505,7 +512,7 @@ EMSCRIPTEN_KEEPALIVE void dormann_init() {
     ram[0xFFFC] = 0x00;
     ram[0xFFFD] = 0x04;
 
-    kbd_data    = 0; kbd_cr = 0;
+    kbd_data    = 0; kbd_cr = 0; dsp_cr = 0;
     kbd_q_head  = 0; kbd_q_tail = 0;
     disp_q_head = 0; disp_q_tail = 0;
     disp_count  = 0;
