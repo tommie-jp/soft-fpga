@@ -53,6 +53,16 @@
   <!-- Logic Analyzer（js/rtlscope-la.js: 06-8080 と同じ UI） -->
   <div id="la-root" style="margin-top:12px;"></div>
 
+  <p id="copyright" style="font-size:12px;color:#555;margin:6px 0 0;">&copy; 2026 <a href="https://github.com/tommie-jp" target="_blank" rel="noopener" style="color:#666;">tommie.jp</a>
+  &nbsp;&mdash;&nbsp;
+  <a href="02-traffic-fsm-QR.png" target="_blank" rel="noopener" style="color:#666;">QR</a>
+  </p>
+
+  <script src="js/sft-fsm-la-defs.js"></script>
+  <script src="js/rtlscope-la.js"></script>
+  <script src="js/sft-la-toolbar.js"></script>
+  <script src="js/sft-la-ctrl.js"></script>
+  <script src="js/sft-la-glue.js"></script>
   <script>
   // ── 定数 ────────────────────────────────────────────────
   const STATE_NAMES  = ['GREEN', 'YELLOW', 'RED', 'WALK'];
@@ -151,81 +161,110 @@
   }
 
   // ── メイン ──────────────────────────────────────────────
-  var Module = {
-    onRuntimeInitialized: function () {
-      Module._sim_init();
+  // シミュレーション本体は Web Worker（sim-worker.js）で回す。ここは UI と描画だけを持つ。
+  const $ = id => document.getElementById(id);
 
-      const sdCanvas = document.getElementById('sd');
-      const sdCtx    = sdCanvas.getContext('2d');
-
-      let running = false;
-      function setRunning(on) {
-        running = on;
-        document.getElementById('btn-run').textContent = running ? 'Pause' : 'Run';
-      }
-
-      const lag = setupLa({
-        Module: Module, rootId: 'la-root',
-        config: FSM_LA_CONFIG, signals: FSM_LA_SIGNALS,
-        zoomIdx: 0,   // 1/4x: 状態遷移（数百クロック）全体が見える倍率で開始する
-        onArm: function () { setRunning(true); }
-      });
-
-      function loop() {
-        if (running) {
-          Module._sim_run_n(parseInt(document.getElementById('speed').value, 10));
-          if (lag.triggerHit()) setRunning(false);   // トリガー停止
-        }
-
-        // Logic Analyzer（Freeze 中は ring が止まるので、head は表示用の総数）
-        const head = lag.draw();
-
-        // 最新サンプルを読む
-        const latest = lag.latestWord(0);
-        const state  = (latest >> BIT_STATE)  & 0x3;
-        const timer  = (latest >> BIT_TIMER)  & 0x3FF;
-        const btnreq = (latest >> BIT_BTNREQ) & 0x1;
-
-        // State Diagram
-        drawStateDiagram(sdCtx, head > 0 ? state : -1);
-
-        // Register Panel
-        document.getElementById('r-state').textContent  = head > 0 ? STATE_NAMES[state] : '-';
-        document.getElementById('r-timer').textContent  = head > 0 ? timer : '-';
-        document.getElementById('r-btnreq').textContent = head > 0 ? btnreq : '-';
-
-        document.getElementById('cycle-info').textContent = head + ' cycles';
-
-        requestAnimationFrame(loop);
-      }
-
-      document.getElementById('btn-run').addEventListener('click', function () {
-        if (!running) lag.resume();   // トリガー停止後は Thaw して再武装する
-        setRunning(!running);
-      });
-
-      document.getElementById('btn-reset').addEventListener('click', function () {
-        Module._reset_sim();
-        setRunning(false);
-      });
-
-      document.getElementById('btn-ped').addEventListener('click', function () {
-        Module._press_btn();
-      });
-
-      requestAnimationFrame(loop);
+  let onFrame         = null;   // boot() が設定する
+  let onWorkerStopped = null;
+  let epoch           = 0;      // Reset のたびに増やす。古いフレームを捨てる目印
+  const worker = openLaWorker('sim-worker.js', {
+    onReady: function (m) { boot(m.ringSize, m.ringWords); },
+    onFrame: function (m) { if (onFrame) onFrame(m); },
+    onFault: function (text) {
+      $('cycle-info').textContent = text;
+      if (onWorkerStopped) onWorkerStopped();
     }
-  };
+  });
+  function send(msg) { worker.postMessage(msg); }
+
+  function boot(ringSize, ringWords) {
+    const sdCtx = $('sd').getContext('2d');
+
+    let running    = false;
+    let rafPending = false;
+    let seen       = false;   // 最初のフレームを受けたか
+
+    function setRunning(on) {
+      running = on;
+      $('btn-run').textContent = running ? 'Pause' : 'Run';
+    }
+    function applySteps() {
+      send({ type: 'setSteps', steps: parseInt($('speed').value, 10) });
+    }
+    function startRun() {
+      applySteps();
+      setRunning(true);
+      send({ type: 'setRunning', running: true });   // トリガー停止後は Worker が Thaw して再武装する
+    }
+
+    const lag = setupLaWorker({
+      worker: worker, ringSize: ringSize, ringWords: ringWords,
+      rootId: 'la-root',
+      config: FSM_LA_CONFIG, signals: FSM_LA_SIGNALS,
+      zoomIdx: 0,   // 1/4x: 状態遷移（数百クロック）全体が見える倍率で開始する
+      onArm: startRun
+    });
+
+    onWorkerStopped = function () { setRunning(false); };
+
+    function render() {
+      rafPending = false;
+      if (!seen) return;
+
+      // Logic Analyzer（Freeze 中は ring が止まるので、head は表示用の総数）
+      const head = lag.draw();
+
+      // 最新サンプルを読む
+      const latest = lag.latestWord(0);
+      const state  = (latest >> BIT_STATE)  & 0x3;
+      const timer  = (latest >> BIT_TIMER)  & 0x3FF;
+      const btnreq = (latest >> BIT_BTNREQ) & 0x1;
+
+      // State Diagram
+      drawStateDiagram(sdCtx, head > 0 ? state : -1);
+
+      // Register Panel
+      $('r-state').textContent  = head > 0 ? STATE_NAMES[state] : '-';
+      $('r-timer').textContent  = head > 0 ? timer : '-';
+      $('r-btnreq').textContent = head > 0 ? btnreq : '-';
+
+      $('cycle-info').textContent = head + ' cycles';
+    }
+
+    onFrame = function (m) {
+      if (m.epoch !== epoch) return;   // Reset より前に作られたフレームは捨てる
+      lag.frame(m);
+      seen = true;
+      if (m.trigPause && running) setRunning(false);   // トリガー停止
+      if (!rafPending) {
+        rafPending = true;
+        requestAnimationFrame(render);
+      }
+    };
+
+    $('speed').addEventListener('input', applySteps);
+
+    $('btn-run').addEventListener('click', function () {
+      if (running) {
+        setRunning(false);
+        send({ type: 'setRunning', running: false });
+      } else {
+        startRun();
+      }
+    });
+
+    $('btn-reset').addEventListener('click', function () {
+      epoch++;
+      send({ type: 'reset', epoch: epoch });
+      setRunning(false);
+    });
+
+    $('btn-ped').addEventListener('click', function () {
+      send({ type: 'pressBtn' });
+    });
+
+    applySteps();
+  }
   </script>
-<p id="copyright" style="font-size:12px;color:#555;margin:6px 0 0;">&copy; 2026 <a href="https://github.com/tommie-jp" target="_blank" rel="noopener" style="color:#666;">tommie.jp</a>
-  &nbsp;&mdash;&nbsp;
-  <a href="02-traffic-fsm-QR.png" target="_blank" rel="noopener" style="color:#666;">QR</a>
-</p>
-  <script src="js/sft-fsm-la-defs.js"></script>
-  <script src="js/rtlscope-la.js"></script>
-  <script src="js/sft-la-toolbar.js"></script>
-  <script src="js/sft-la-ctrl.js"></script>
-  <script src="js/sft-la-glue.js"></script>
-  <script src="sim.js"></script>
 </body>
 </html>
