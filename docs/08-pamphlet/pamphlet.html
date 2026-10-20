@@ -19,6 +19,8 @@
   p { margin: 0 0 1.6mm; }
   .sub { margin: 1mm 0 0; font-size: 11pt; color: #2b6cb0; font-weight: 700; }
   .meta { margin: 1mm 0 3mm; font-size: 8.4pt; color: #5a6578; }
+  .nw { white-space: nowrap; }
+  a { color: inherit; text-decoration: none; }
   code, pre { font-family: "DejaVu Sans Mono", "Noto Sans Mono CJK JP", monospace; }
   code { background: #eef2f7; padding: 0 1mm; border-radius: 1mm; font-size: 0.95em; }
   ul { margin: 0 0 1.6mm; padding-left: 4.6mm; }
@@ -36,14 +38,15 @@
   th { background: #eef2f7; }
   .figrow { display: flex; align-items: flex-start; justify-content: center; gap: 5mm; margin-bottom: 3mm; }
   .fig { text-align: center; }
-  .fig img { display: block; height: 57mm; width: auto; }
+  .fig img { display: block; height: 44mm; width: auto; }
   .shotbox { text-align: center; }
-  .shotbox img { display: block; height: 50mm; width: auto; border: 0.25mm solid #c5ccd8; border-radius: 1mm; }
+  .shotbox img { display: block; height: 44mm; width: auto; border: 0.25mm solid #c5ccd8; border-radius: 1mm; }
   .shotbox .cap { margin-top: 1mm; font-size: 7.4pt; color: #5a6578; }
   .fig .cap { font-size: 8.2pt; color: #5a6578; }
   .ask { border: 0.4mm solid #dd6b20; border-radius: 2mm; background: #fffaf0; padding: 2mm 3.5mm; margin-bottom: 3mm; }
   .ask h2 { border-color: #dd6b20; }
   .ask ol { margin: 0; padding-left: 5mm; }
+  .ask .how { margin: 1.2mm 0 0; font-size: 8.8pt; font-weight: 700; }
   .link { display: flex; align-items: center; gap: 4mm; border-top: 0.3mm solid #c5ccd8; padding-top: 3mm; }
   .link img.qr { width: 23mm; height: 23mm; }
   .link .url { font-size: 10.5pt; font-weight: 700; overflow-wrap: anywhere; }
@@ -59,7 +62,7 @@
   .page.front .avatar, .page.front .author .qr { width: 17mm; height: 17mm; }
   .link.top img.qr { width: 20mm; height: 20mm; }
   .link.top { border-top: 0; border-bottom: 0.3mm solid #c5ccd8; padding: 0 0 2.6mm; margin-bottom: 3mm; }
-  .illust { display: block; width: 78%; margin: 1.5mm auto 0; }
+  .illust { display: block; width: 68%; margin: 1.5mm auto 0; }
   .askhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5mm; }
   .askhead h2 { margin: 0; }
   .askhead img { width: 40mm; height: auto; }
@@ -67,7 +70,7 @@
   .footer { margin: 1.5mm 0 0; display: flex; justify-content: space-between; gap: 4mm; }
   .pagedate { white-space: nowrap; }
   .selflink { display: flex; align-items: center; gap: 3mm; }
-  .selflink .qr { width: 17mm; height: 17mm; flex: none; }
+  .selflink .qr { width: 22mm; height: 22mm; flex: none; }
   .selflink .meta { margin: 0 0 0.6mm; }
   .selflink .selfttl { font-size: 9.4pt; font-weight: 700; line-height: 1.3; }
   .selflink .selfurl { font-size: 6.8pt; color: #5a6578; line-height: 1.3; white-space: nowrap; }
@@ -99,27 +102,27 @@
 <section class="page front">
   <div class="head top">
     <div class="selflink">
-      <img class="qr" src="qr/pamphlet.png" alt="このパンフレットの PDF">
+      <a href="https://tommie-jp.github.io/soft-fpga/docs/08-pamphlet/pamphlet.pdf"><img class="qr" src="qr/pamphlet.png" alt="このパンフレットの PDF"></a>
       <div>
         <div class="meta">自作CPUを語る会　自作CPUオセロ大会2（2026-11-28）</div>
         <div class="selfttl">このパンフレットの PDF（最新版）</div>
-        <div class="selfurl">tommie-jp.github.io/soft-fpga/docs/08-pamphlet/pamphlet.pdf</div>
+        <div class="selfurl"><a href="https://tommie-jp.github.io/soft-fpga/docs/08-pamphlet/pamphlet.pdf">tommie-jp.github.io/soft-fpga/docs/08-pamphlet/pamphlet.pdf</a></div>
       </div>
     </div>
     <div class="author">
-      <div class="who"><strong>tommie.jp</strong><br>GitHub プロフィール<br>github.com/tommie-jp</div>
-      <img class="avatar" src="img/avatar-tommie-jp.png" alt="tommie.jp の GitHub アイコン">
-      <img class="qr" src="qr/profile.png" alt="tommie.jp の GitHub プロフィール">
+      <div class="who"><strong>tommie.jp</strong><br>GitHub プロフィール<br><a href="https://github.com/tommie-jp">github.com/tommie-jp</a></div>
+      <img class="avatar" src="img/avatar-tommie-jp.jpg" alt="tommie.jp の GitHub アイコン">
+      <a href="https://github.com/tommie-jp"><img class="qr" src="qr/profile.png" alt="tommie.jp の GitHub プロフィール"></a>
     </div>
   </div>
   <h1>Reversi UART Protocol (RUP) v0.2 ドラフト</h1>
   <p class="sub">自作 CPU を PC につなぐ、UART 上の約束事</p>
 
   <div class="link top">
-    <img class="qr" src="qr/rup.png" alt="RUP の GitHub">
+    <a href="https://github.com/tommie-jp/reversi-uart-protocol"><img class="qr" src="qr/rup.png" alt="RUP の GitHub"></a>
     <div>
-      <div class="url">github.com/tommie-jp/reversi-uart-protocol</div>
-      <div>仕様書（日本語・英語）、状態遷移図、設計判断の背景、検討事項。Issue でも意見を受け付けます。</div>
+      <div class="url"><a href="https://github.com/tommie-jp/reversi-uart-protocol">github.com/tommie-jp/reversi-uart-protocol</a></div>
+      <div>仕様書（日本語・英語）、状態遷移図、設計判断の背景、検討事項。<a href="https://github.com/tommie-jp/reversi-uart-protocol/issues">Issue</a> でも意見を受け付けます。</div>
     </div>
   </div>
 
@@ -144,7 +147,7 @@
 
   <div class="cols">
     <div>
-      <h2>1 局の流れ（仕様書 §10 の抜粋）</h2>
+      <h2>1 局の流れ（<a href="https://github.com/tommie-jp/reversi-uart-protocol/blob/main/README.ja.md#10-正常フロー">仕様書 §10</a> の抜粋）</h2>
 <table class="flow">
         <tr><td class="pc">&lt;</td><td>PI</td><td class="dim">PING（起動・生存確認）</td></tr>
         <tr><td class="cpu">&gt;</td><td>+PI</td><td class="dim">PI 成功応答</td></tr>
@@ -163,14 +166,13 @@
       <h2>必須コマンド</h2>
       <table>
         <tr><th>方向</th><th>書式</th><th>意味</th></tr>
-        <tr><td rowspan="4">PC→CPU</td><td><code>SB</code> <code>SW</code></td><td>あなたは黒（先攻）／白</td></tr>
+        <tr><td rowspan="5">PC→CPU</td><td><code>SB</code> <code>SW</code></td><td>あなたは黒（先攻）／白</td></tr>
         <tr><td><code>MOd3</code></td><td>相手が d3 に置いた</td></tr>
         <tr><td><code>PA</code></td><td>相手がパス</td></tr>
         <tr><td><code>EB</code> <code>EW</code> <code>ED</code></td><td>終局（黒勝ち／白勝ち／引分）</td></tr>
-        <tr><td></td><td><code>VE</code> <code>PI</code></td><td>バージョン／生存の問い合わせ</td></tr>
-        <tr><td rowspan="3">CPU→PC</td><td><code>MOd3</code> <code>PA</code></td><td>着手／パス</td></tr>
+        <tr><td><code>VE</code> <code>PI</code></td><td>バージョン／生存の問い合わせ</td></tr>
+        <tr><td rowspan="2">CPU→PC</td><td><code>MOd3</code> <code>PA</code></td><td>着手／パス</td></tr>
         <tr><td><code>+PI</code> <code>+VE02…</code></td><td>問い合わせへの成功応答</td></tr>
-        <tr><td><code>-00</code></td><td>仕様違反を受けたときの応答（固定で可）</td></tr>
       </table>
     </div>
   </div>
@@ -180,7 +182,7 @@
       <img src="img/rup-minimal-impl.ja.png" alt="FPGA 向け最小実装のブロック図">
     </div>
     <div class="shotbox">
-      <img src="img/tommiechat-reversi.png" alt="tommieChat のオセロ対戦画面">
+      <img src="img/tommiechat-reversi.jpg" alt="tommieChat のオセロ対戦画面">
       <div class="cap">PC 側の例: tommieChat のオセロ対戦画面</div>
     </div>
   </div>
@@ -195,9 +197,10 @@
       <li>対局中に <code>SB</code> / <code>SW</code> が届いた。現対局を捨てて新規にするか、無視するか。</li>
       <li>自分の手番中に <code>PA</code>（相手パス通知）が届いた。無視するか、<code>-06</code> を返すか。</li>
     </ol>
+    <p class="how">ご意見は、当日その場で声をかけるか、<a href="https://github.com/tommie-jp/reversi-uart-protocol/issues">GitHub の Issue</a>（最上段の QR のリポジトリから）へどうぞ。</p>
   </div>
 
-  <p class="note footer"><span>「オセロ」は株式会社メガハウスの登録商標です。本書では一般名詞の「リバーシ」を使っています。</span><span class="pagedate">作成日 2026-10-13</span></p>
+  <p class="note footer"><span>「オセロ」は株式会社メガハウスの登録商標です。本書では一般名詞の「リバーシ」を使っています。</span><span class="pagedate">作成日 2026-10-20</span></p>
 </section>
 
 <!-- 裏面: ほかに作っている物 -->
@@ -205,33 +208,34 @@
   <div class="head">
     <div>
       <h1>ほかに作っている物</h1>
+      <p class="meta">自作CPUを語る会　自作CPUオセロ大会2（2026-11-28）</p>
       <p class="meta">自作 CPU まわりで作った道具です。どれも公開しています。</p>
     </div>
     <div class="author">
-      <div class="who"><strong>tommie.jp</strong><br>GitHub プロフィール<br>github.com/tommie-jp</div>
-      <img class="avatar" src="img/avatar-tommie-jp.png" alt="tommie.jp の GitHub アイコン">
-      <img class="qr" src="qr/profile.png" alt="GitHub プロフィール README">
+      <div class="who"><strong>tommie.jp</strong><br>GitHub プロフィール<br><a href="https://github.com/tommie-jp">github.com/tommie-jp</a></div>
+      <img class="avatar" src="img/avatar-tommie-jp.jpg" alt="tommie.jp の GitHub アイコン">
+      <a href="https://github.com/tommie-jp"><img class="qr" src="qr/profile.png" alt="GitHub プロフィール README"></a>
     </div>
   </div>
 
   <div class="card">
     <div class="shot stack">
-      <div class="tile art"><img src="img/softfpga-illust.png" alt="soft FPGA のイラスト（雷雲の下の青いチップ）"></div>
+      <div class="tile art"><img src="img/softfpga-illust.jpg" alt="soft FPGA のイラスト（雷雲の下の青いチップ）"></div>
       <div class="tile"><img src="img/softfpga-8080-cpm.png" alt="8080 / CP/M 2.2 の端末画面（BDS C で Hello, CP/M!）"></div>
       <div class="tile"><img src="img/softfpga-8080-la.png" alt="8080 のロジックアナライザ画面（M サイクル、T ステート、バス信号）"></div>
     </div>
     <div class="body">
-      <h2><span class="tag">デモ机</span>soft‑FPGA × WebAssembly</h2>
-      <p>Verilog で書いたレトロ CPU を Verilator で C++ にし、WebAssembly にしてブラウザで動かします。命令エミュレータでは見えない内部信号（T‑state、バスサイクル、状態遷移）をリアルタイムに観測できるのが取り柄です。</p>
+      <h2><span class="tag">デモ机</span><span class="nw">soft-FPGA</span> × WebAssembly</h2>
+      <p>Verilog で書いたレトロ CPU を Verilator で C++ にし、WebAssembly にしてブラウザで動かします。命令エミュレータでは見えない内部信号（<span class="nw">T-state</span>、バスサイクル、状態遷移）をリアルタイムに観測できるのが取り柄です。</p>
       <ul>
-        <li>6502 / Apple‑I（wozmon → Integer BASIC）</li>
+        <li>6502 / <span class="nw">Apple-I</span>（wozmon → Integer BASIC）</li>
         <li>8080 / CP/M 2.2（MBASIC、BDS C、ゲーム）</li>
-        <li>PDP‑11 / Unix V6（MMU、ロジックアナライザ表示）</li>
+        <li><span class="nw">PDP-11</span> / Unix V6（MMU、ロジックアナライザ表示）</li>
       </ul>
-      <p>デモ机では 6502 / Apple‑I を Raspberry Pi Pico 2 の実機でも動かします（当日の状況により Wasm 版）。</p>
+      <p>デモ机では 6502 / <span class="nw">Apple-I</span> を Raspberry Pi Pico 2 の実機でも動かします（当日の状況により Wasm 版）。</p>
       <div class="link">
-        <img class="qr" src="qr/softfpga.png" alt="soft-FPGA のデモ">
-        <div><div class="url">tommie-jp.github.io/<br>soft-fpga</div><div class="note">GitHub: tommie-jp/soft-fpga</div></div>
+        <a href="https://tommie-jp.github.io/soft-fpga/"><img class="qr" src="qr/softfpga.png" alt="soft-FPGA のデモ"></a>
+        <div><div class="url"><a href="https://tommie-jp.github.io/soft-fpga/">tommie-jp.github.io/<br>soft-fpga</a></div><div class="note">GitHub: <a href="https://github.com/tommie-jp/soft-fpga">tommie-jp/soft-fpga</a></div></div>
         <img class="mascot" src="img/illust-chip-wave.svg" alt="手を振るチップのイラスト">
       </div>
     </div>
@@ -251,8 +255,8 @@
       </ul>
       <p>デモはログイン <code>demo</code> / <code>demo</code>。データは毎時 0 分にすべてリセットされます。</p>
       <div class="link">
-        <img class="qr" src="qr/qrnote.png" alt="QR Note のデモ">
-        <div><div class="url">qr-demo.tommie.jp</div><div class="note">GitHub: tommie-jp/qr-note</div></div>
+        <a href="https://qr-demo.tommie.jp"><img class="qr" src="qr/qrnote.png" alt="QR Note のデモ"></a>
+        <div><div class="url"><a href="https://qr-demo.tommie.jp">qr-demo.tommie.jp</a></div><div class="note">GitHub: <a href="https://github.com/tommie-jp/qr-note">tommie-jp/qr-note</a></div></div>
         <img class="mascot" src="img/illust-qr-sticker.svg" alt="QR シールのキャラクター">
       </div>
     </div>
@@ -266,7 +270,7 @@
       <img src="img/fence-copper-attenuator-top.png" alt="銅張り基板の寸法図の例（π 型アッテネータ）" style="object-position: 50% 50%">
     </div>
     <div class="body">
-      <h2><span class="tag">回路図</span>tommie‑fence</h2>
+      <h2><span class="tag">回路図</span><span class="nw">tommie-fence</span></h2>
       <p>Markdown のコードフェンスに YAML で部品と配線を書くと、回路図、ブレッドボードの実体配線図、ユニバーサル基板の配線図、銅張り基板の寸法図になります。回路図と実体配線図を同じ記法で並べて描けます。</p>
       <ul>
         <li>何も入れずにブラウザで試せる playground</li>
@@ -274,14 +278,14 @@
       </ul>
       <p>図の流儀（信号は左から右、電位の高いほうが上、など）を Claude 用の skill 集にもしています。</p>
       <div class="link">
-        <img class="qr" src="qr/fence.png" alt="tommie-fence の playground">
-        <div><div class="url">tommie-jp.github.io/<br>tommie-fence</div><div class="note">GitHub: tommie-jp/tommie-fence</div></div>
+        <a href="https://tommie-jp.github.io/tommie-fence/"><img class="qr" src="qr/fence.png" alt="tommie-fence の playground"></a>
+        <div><div class="url"><a href="https://tommie-jp.github.io/tommie-fence/">tommie-jp.github.io/<br>tommie-fence</a></div><div class="note">GitHub: <a href="https://github.com/tommie-jp/tommie-fence">tommie-jp/tommie-fence</a></div></div>
         <img class="mascot" src="img/illust-led.svg" alt="光る LED のキャラクター">
       </div>
     </div>
   </div>
 
-  <p class="note footer"><span></span><span class="pagedate">作成日 2026-10-13</span></p>
+  <p class="note footer"><span></span><span class="pagedate">作成日 2026-10-20</span></p>
 </section>
 
 </body>
