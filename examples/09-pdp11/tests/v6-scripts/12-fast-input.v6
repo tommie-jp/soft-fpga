@@ -1,0 +1,31 @@
+# 12-fast-input.v6 — 速い入力（ペースト相当）で文字が落ちないこと
+#
+# 検証内容:
+#   gap 0 で 1 行をまとめて送り、カーネルのエコーが送った通りであること
+#   （UART RX の取りこぼし・二重読みの回帰テスト）。
+#
+# 背景: wasm_uart.v が、CPU が前の文字を読む前に rx_data を次の文字で
+#       上書きしていたため、"who" が "woo" になるなど文字が落ちていた。
+#
+# 注: expect の直後に expect # を置かない。settle 待ちの間にプロンプトが
+#     出てしまい、マークより前になって一致しないため。
+#     送る行に @ と # を入れない。V6 の tty では @ が行取り消し、# が 1 文字消去。
+
+wait @
+send rkunix\r
+expect login:
+send root\r
+expect #
+
+gap 0
+send echo the quick brown fox jumps over the lazy dog 0123456789\r
+expect the quick brown fox jumps over the lazy dog 0123456789
+
+send echo 9876543210 zyxwvutsrqponmlkjihgfedcba ,.-:+=/% the end\r
+expect 9876543210 zyxwvutsrqponmlkjihgfedcba ,.-:+=/% the end
+
+send who am i\r
+expect root
+
+send ls -l /etc/passwd\r
+expect passwd

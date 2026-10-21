@@ -113,8 +113,10 @@ static void capture_putc(char c) {
 //   expect <文字列>   その文字列が現れるまで待つ。タイムアウトしたら FAIL
 //   send <文字列>     文字列をコンソールへ送る（\r \n \t \\ \e \NNN(8進) \xHH 対応）
 //   timeout <cycles>  以降の wait/expect のタイムアウト（クロック数）を変更
+//   gap <cycles>      以降の send の 1 文字あたりの間隔（クロック数）を変更。
+//                     0 にすると UART が受け取れる最速で流す（ペースト相当）
 //   # ...             コメント / 空行は無視
-enum ScType { SC_WAIT, SC_EXPECT, SC_SEND, SC_TIMEOUT };
+enum ScType { SC_WAIT, SC_EXPECT, SC_SEND, SC_TIMEOUT, SC_GAP };
 struct ScCmd { ScType type; std::string arg; };
 
 static std::vector<ScCmd> g_script;
@@ -126,7 +128,8 @@ static uint64_t g_sc_deadline = 0;        // wait/expect のタイムアウト�
 static uint64_t g_sc_settle   = 0;        // マッチ後に送信を始めるまでの待ち時刻
 static uint64_t g_sc_timeout  = 80000000; // wait/expect 既定タイムアウト（クロック）
 static int      g_sc_failed   = 0;
-static const uint64_t SC_CHAR_GAP = 9000;    // 送信 1 文字あたりの間隔（UART RX 余裕）
+static const uint64_t SC_CHAR_GAP = 9000;    // 送信 1 文字あたりの間隔の既定（UART RX 余裕）
+static uint64_t g_sc_char_gap = SC_CHAR_GAP;   // gap ディレクティブで変更できる
 static const uint64_t SC_SETTLE   = 400000;  // プロンプト検出後、送信開始までの落ち着き
 
 // エスケープ展開（send / wait / expect の引数）
@@ -185,6 +188,10 @@ extern "C" int dpi_tty_getc() {
             g_sc_timeout = strtoull(c.arg.c_str(), nullptr, 10);
             g_sc_idx++; return -1;
         }
+        if (c.type == SC_GAP) {
+            g_sc_char_gap = strtoull(c.arg.c_str(), nullptr, 10);
+            g_sc_idx++; return -1;
+        }
         if (c.type == SC_SEND) {
             if (g_sc_send_pos >= c.arg.size()) {       // 送信完了 → 次へ
                 g_sc_idx++; g_sc_send_pos = 0; g_sc_mark = g_capture_len;
@@ -192,7 +199,7 @@ extern "C" int dpi_tty_getc() {
                 return -1;
             }
             if (sim_time < g_sc_char_next) return -1;  // ペーシング（UART RX ガード合わせ）
-            g_sc_char_next = sim_time + SC_CHAR_GAP;
+            g_sc_char_next = sim_time + g_sc_char_gap;
             return (unsigned char)c.arg[g_sc_send_pos++];
         }
         // SC_WAIT / SC_EXPECT
@@ -437,6 +444,7 @@ static bool sc_parse(const char* file) {
         else if (strncmp(p, "expect ",  7) == 0) g_script.push_back({SC_EXPECT, sc_unescape(p + 7)});
         else if (strncmp(p, "send ",    5) == 0) g_script.push_back({SC_SEND,   sc_unescape(p + 5)});
         else if (strncmp(p, "timeout ", 8) == 0) g_script.push_back({SC_TIMEOUT, std::string(p + 8)});
+        else if (strncmp(p, "gap ",     4) == 0) g_script.push_back({SC_GAP,     std::string(p + 4)});
         else { tty_msg("[v6-script] %s:%d unknown directive: %s\r\n", file, lineno, p); fclose(f); return false; }
     }
     fclose(f);

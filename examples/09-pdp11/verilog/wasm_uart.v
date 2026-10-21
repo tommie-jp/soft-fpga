@@ -114,11 +114,21 @@ module fake_uart(clk, reset,
 
    // RX バッファ: DPI ポーリングで文字を受け取る
    //
-   // fake_uart.v と同様に、uld_rx_data 後すぐに次の文字をポーリングすると
-   // tt_regs の handshake が完了する前に rx_data が上書きされる競合が発生する。
-   // rx_guard_cnt による 64 クロックの待機で CPU が文字を読むまで rx_data を保護する。
+   // tt_regs.v は rx_data を自分では保持せず、CPU が 17562 (RBUF) を読む瞬間に
+   // この rx_data をそのまま返す。そのため、CPU が前の文字を読み終える前に
+   // rx_data を次の文字で上書きすると、前の文字が消え、次の文字が 2 回読まれる
+   // ("who" → "woo")。ペーストや自動入力のように文字が連続して届くと起きる。
+   //
+   // 対策: DPI から取り出した文字はいったん rx_stage に置き、tt_regs が
+   // uld_rx_req で取りに来た瞬間 (uld_rx_data) に rx_data へ移す。tt_regs は
+   // CPU の読み取りを終えてから次の uld_rx_req を出すので、rx_data は
+   // CPU が読み終わるまで変わらない。
+   //
+   // rx_guard_cnt は 1 文字分の時間 (fake_uart.v の fake_char_delay と同じ
+   // 3000 クロック) を模した、文字と文字の最小間隔。
    reg     rx_empty;
-   reg [7:0] rx_data;
+   reg [7:0] rx_data;    // tt_regs / CPU が読む文字。次の uld_rx_data まで保持する
+   reg [7:0] rx_stage;   // DPI から受け取り、tt_regs に渡すのを待っている文字
    reg [11:0] rx_guard_cnt;  // 最大 4096 クロックガード（uld_rx_data 後のクールダウン）
    integer   _rx_char;
 
@@ -126,20 +136,23 @@ module fake_uart(clk, reset,
      if (reset) begin
         rx_empty     <= 1;
         rx_data      <= 8'h00;
+        rx_stage     <= 8'h00;
         rx_guard_cnt <= 12'd0;
         _rx_char      = -1;
      end else begin
         if (uld_rx_data) begin
-           // ハンドシェイク開始: rx_empty=1 にしてガードカウンタをセット
+           // ハンドシェイク開始: 待たせていた文字を rx_data に移し、
+           // rx_empty=1 にしてガードカウンタをセット
+           rx_data      <= rx_stage;
            rx_empty     <= 1;
-           rx_guard_cnt <= 12'd3000;  // fake_uart.v の fake_char_delay と同じ
+           rx_guard_cnt <= 12'd3000;
         end else if (rx_guard_cnt > 0) begin
            rx_guard_cnt <= rx_guard_cnt - 1;
         end else if (rx_empty) begin
-           // ガード終了 & バッファ空: 次の文字をポーリング
+           // ガード終了 & バッファ空: 次の文字をポーリングして rx_stage に置く
            _rx_char = dpi_tty_getc();
            if (_rx_char >= 0) begin
-              rx_data  <= _rx_char[7:0];
+              rx_stage <= _rx_char[7:0];
               rx_empty <= 0;
            end
         end
