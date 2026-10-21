@@ -244,7 +244,9 @@ Phase 4 V6 自動化 → Phase 5 Vitest。
 ### 1. Unix V6 シナリオ（`--v6-script`）
 
 `main_linux.cpp` に `--v6-script <file>` モードを追加。`wait` / `expect` / `send` /
-`timeout` ディレクティブで V6 を起動して操作し、PASS/FAIL を返す。
+`timeout` / `gap` ディレクティブで V6 を起動して操作し、PASS/FAIL を返す。
+`gap <clocks>` は `send` の 1 文字あたりの間隔（既定 9000 クロック）で、`gap 0` にすると
+UART が受け取れる最速で流す（ペースト相当。`12-fast-input.v6` が使う）。
 
 ```bash
 bash scripts/build-host-09.sh          # ネイティブ sim をビルド
