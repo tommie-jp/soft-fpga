@@ -16,6 +16,7 @@ CP/M が正常に起動して "A>" プロンプトが表示されることを確
     0 = A> が表示され、コンソールエラーなし
     1 = タイムアウト / コンソールエラーあり / その他エラー
     2 = playwright 未インストール（スキップ扱い）
+    3 = Chromium 未インストール（playwright install chromium が必要。スキップ扱い）
 """
 
 import sys
@@ -84,7 +85,14 @@ def check_cpm_prompt(url: str, timeout_sec: int) -> tuple[bool, BrowserIssues]:
     issues = BrowserIssues()
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        try:
+            browser = p.chromium.launch(headless=True)
+        except Exception as e:  # noqa: BLE001 — playwright の Error は launch 失敗を 1 種類に包む
+            if "Executable doesn't exist" not in str(e):
+                raise
+            print("ERROR: Playwright の Chromium がインストールされていません", file=sys.stderr)
+            print("  .venv/bin/playwright install chromium", file=sys.stderr)
+            sys.exit(3)
         ctx     = browser.new_context()
         page    = ctx.new_page()
 

@@ -12,7 +12,8 @@
 #
 # 前提:
 #   - gh CLI がインストール済み（未インストールの場合はフェーズ1をスキップ）
-#   - .venv に playwright がインストール済み（未インストールの場合はフェーズ3をスキップ）
+#   - .venv に playwright と Chromium がインストール済み
+#     （どちらかが無い場合はフェーズ3を案内つきでスキップ）
 #
 # 終了コード: 0 = 全フェーズ合格, 1 = いずれかのフェーズが失敗
 
@@ -229,6 +230,8 @@ else
     case $py_exit in
         0) : ;;   # ok() は smoke_cpm_boot.py が出力済み
         2) warn "playwright 未インストール — フェーズ3をスキップします" ;;
+        3) warn "Playwright の Chromium 未インストール — フェーズ3をスキップします"
+           warn "セットアップ: .venv/bin/playwright install chromium" ;;
         *) fail "A> プロンプトが表示されませんでした"; overall_ok=false ;;
     esac
 fi

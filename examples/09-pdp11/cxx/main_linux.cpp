@@ -112,10 +112,16 @@ static void capture_putc(char c) {
 //   wait <文字列>     その文字列が出力に現れるまで待つ（タイムアウトで FAIL せず進む）
 //   expect <文字列>   その文字列が現れるまで待つ。タイムアウトしたら FAIL
 //   send <文字列>     文字列をコンソールへ送る（\r \n \t \\ \e \NNN(8進) \xHH 対応）
+//                     注: V6 の tty では @ が行取り消し、# が 1 文字消去なので、
+//                     送る行に入れるとその通りに扱われる
 //   timeout <cycles>  以降の wait/expect のタイムアウト（クロック数）を変更
 //   gap <cycles>      以降の send の 1 文字あたりの間隔（クロック数）を変更。
 //                     0 にすると UART が受け取れる最速で流す（ペースト相当）
 //   # ...             コメント / 空行は無視
+//
+// wait / expect は、直前のディレクティブが終わった位置 (マーク) から後の出力を探す。
+// マークは一致した文字列の直後に置くので、settle 待ちの間に出たプロンプトも
+// 次の expect で見つかる (expect の直後に expect # を置ける)。
 enum ScType { SC_WAIT, SC_EXPECT, SC_SEND, SC_TIMEOUT, SC_GAP };
 struct ScCmd { ScType type; std::string arg; };
 
@@ -203,16 +209,22 @@ extern "C" int dpi_tty_getc() {
             return (unsigned char)c.arg[g_sc_send_pos++];
         }
         // SC_WAIT / SC_EXPECT
+        if (g_sc_settle != 0) {
+            // 一致済み。V6 のプロンプト印字直後は getty/sh が入力待ちに入る前なので
+            // 少し待ってから次のディレクティブへ進む (マークは一致時に置いてある)
+            if (sim_time < g_sc_settle) return -1;
+            g_sc_settle = 0;
+            g_sc_idx++; g_sc_send_pos = 0; g_sc_deadline = 0;
+            return -1;
+        }
         if (g_sc_deadline == 0) g_sc_deadline = sim_time + g_sc_timeout;
         g_capture_buf[g_capture_len] = '\0';
         // NUL バイトを含む出力でも 'Z' 等を見つけられるよう memmem を使う
-        if (memmem(g_capture_buf + g_sc_mark, g_capture_len - g_sc_mark,
-                   c.arg.c_str(), c.arg.size())) {   // マッチ
-            // V6 のプロンプト印字直後は getty/sh が入力待ちに入る前なので少し待つ
-            if (g_sc_settle == 0) g_sc_settle = sim_time + SC_SETTLE;
-            if (sim_time < g_sc_settle) return -1;
-            g_sc_settle = 0;
-            g_sc_idx++; g_sc_send_pos = 0; g_sc_mark = g_capture_len; g_sc_deadline = 0;
+        const char* hit = (const char*)memmem(g_capture_buf + g_sc_mark, g_capture_len - g_sc_mark,
+                                              c.arg.c_str(), c.arg.size());
+        if (hit) {   // マッチ: マークを一致した文字列の直後に置き、settle 待ちに入る
+            g_sc_mark   = (int)(hit - g_capture_buf) + (int)c.arg.size();
+            g_sc_settle = sim_time + SC_SETTLE;
             return -1;
         }
         if (sim_time >= g_sc_deadline) {               // タイムアウト

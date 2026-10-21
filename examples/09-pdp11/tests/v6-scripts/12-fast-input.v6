@@ -7,9 +7,7 @@
 # 背景: wasm_uart.v が、CPU が前の文字を読む前に rx_data を次の文字で
 #       上書きしていたため、"who" が "woo" になるなど文字が落ちていた。
 #
-# 注: expect の直後に expect # を置かない。settle 待ちの間にプロンプトが
-#     出てしまい、マークより前になって一致しないため。
-#     送る行に @ と # を入れない。V6 の tty では @ が行取り消し、# が 1 文字消去。
+# 注: 送る行に @ と # を入れない。V6 の tty では @ が行取り消し、# が 1 文字消去。
 
 wait @
 send rkunix\r
@@ -20,12 +18,15 @@ expect #
 gap 0
 send echo the quick brown fox jumps over the lazy dog 0123456789\r
 expect the quick brown fox jumps over the lazy dog 0123456789
+expect #
 
 send echo 9876543210 zyxwvutsrqponmlkjihgfedcba ,.-:+=/% the end\r
 expect 9876543210 zyxwvutsrqponmlkjihgfedcba ,.-:+=/% the end
+expect #
 
 send who am i\r
 expect root
+expect #
 
 send ls -l /etc/passwd\r
 expect passwd
