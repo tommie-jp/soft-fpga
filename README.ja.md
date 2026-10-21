@@ -155,6 +155,9 @@ scripts/doDeployPages.sh 09
 # Pico 2 ファームウェア
 scripts/build-pico.sh       # Docker でビルド → firmware/build/*.uf2
 scripts/flash.sh            # Debug Probe 経由で書き込み
+
+# README のスクリーンショットと GIF を、公開ページから 2 倍解像度で作り直す
+.venv/bin/python3 scripts/gen-readme-ss.py --install
 ```
 
 手順の詳細は [docs/04](docs/04-docker-ビルド手順.md)（Docker）と [docs/05](docs/05-deploy-gh-pages.md)（Pages）にあります。

@@ -155,6 +155,9 @@ scripts/doDeployPages.sh 09
 # Pico 2 firmware
 scripts/build-pico.sh       # build in Docker → firmware/build/*.uf2
 scripts/flash.sh            # flash via Debug Probe
+
+# Regenerate the README screenshots and GIFs (2x resolution, from the live pages)
+.venv/bin/python3 scripts/gen-readme-ss.py --install
 ```
 
 Details are in [docs/04](docs/04-docker-ビルド手順.md) (Docker) and [docs/05](docs/05-deploy-gh-pages.md) (Pages), both in Japanese.
