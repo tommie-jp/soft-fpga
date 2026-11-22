@@ -176,9 +176,9 @@ Unix V6 TTY ドライバが cooked モード（デフォルト）で解釈する
 | 文字 | コード | 名称 | 変更 | 説明 |
 |------|--------|------|------|------|
 | `@` | 0x40 | kill-line | `stty kill X` | 入力中の行全体を破棄 |
-| DEL | 0x7F | erase | `stty erase X` | 直前の 1 文字を削除 |
+| `#` | 0x23 | erase | `stty erase X` | 直前の 1 文字を削除（この端末では Backspace キーが `#` を送る） |
 | `^D` | 0x04 | CEOT (EOF) | 不可 | `read()` を 0 返却（EOF）|
-| `^C` | 0x03 | CINTR | 不可 | フォアグラウンドプロセスに SIGINT |
+| DEL | 0x7F | CINTR | 不可 | 端末のプロセスに SIGINT（この端末では Delete キーが DEL を送る。[32 章](?doc=32-signal-asks-the-process-to-do-something-to-itself.md)） |
 | `^\` | 0x1C | CQUIT | 不可 | SIGQUIT + コアダンプ |
 
 `kill` と `erase` の 2 つだけが `stty` で変更できる。残り 3 つはカーネルにハードコードされている。
@@ -188,7 +188,7 @@ Unix V6 TTY ドライバが cooked モード（デフォルト）で解釈する
 ```text
 stty               ← 現在の TTY 設定を表示
 stty kill @        ← kill-line を @ に戻す（デフォルト）
-stty erase ^?      ← erase を DEL（0x7F）に戻す
+stty erase #       ← erase を # に戻す（デフォルト）
 ```
 
 kill/erase を一時的に無効化する場合は、未使用の制御文字（例: `^A` = 0x01）を設定する。
