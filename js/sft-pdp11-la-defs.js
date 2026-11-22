@@ -666,6 +666,23 @@ var PDP11_TRIGGER_PRESETS = [
     tip: 'sys1.c fork(): newproc() を呼んだ直後の命令（035004 tst r0）。R0 が 1 なら子プロセス、0 なら親',
     fields: { 'trig-type': '6', 'trig-pc': '35004', 'trig-data': '5700', 'trig-post': '0',
               'la-sample-sel': '0' } },
+  // C のプログラムの最初の命令 SETD（170011、crt0.s の先頭）。FPU の無いこの CPU では不正命令のトラップに
+  // なり、trap.c が黙って無視する。Post = 1600 で、トラップの入口からユーザーへ戻るまで（1477 tick）を
+  // 1 回の取り込みに収める。アセンブラで書かれたコマンド（cat など）では止まらない。
+  { label: 'V6 crt0: SETD at user 0 (trap ignored)',
+    tip: 'crt0.s の先頭の setd（170011）をユーザーの 0 番地でフェッチした瞬間。' +
+         'C で書かれたコマンド（ls・date など）を実行すると止まる。トラップは無視され、2 番地へ戻る',
+    fields: { 'trig-type': '6', 'trig-pc': '0', 'trig-data': '170011', 'trig-post': '1600',
+              'la-sample-sel': '0' } },
+  // 浮動小数点の模擬ルーチン fptrap の入口（/usr/bin/units の 007100 dec reenter）。fcrt0.s は SETD の前に
+  // signal(4, fptrap) を呼ぶので、SETD のトラップは無視されず、psig() がユーザースタックに PS と PC を
+  // 積んでここへ来る。Post = 0 で入口に止め、積まれた 2 語を Stack パネルで見る。▶ Step 2 回（600 tick）で
+  // fptrap が rti で 000010 へ戻るまで進む。
+  { label: 'V6 units: fptrap entry (SIGINS caught)',
+    tip: '/usr/bin/units の fptrap の入口（007100 dec reenter）。units を実行すると、' +
+         '先頭の setd のトラップがシグナル SIGINS としてここへ届く',
+    fields: { 'trig-type': '6', 'trig-pc': '7100', 'trig-data': '5367', 'trig-post': '0',
+              'la-sample-sel': '0' } },
 ].concat(PDP11_KNOWN_PCS.filter(function (k) { return !k.boot; }).map(function (k) {
   var oct = '0o' + k.pc.toString(8);
   var expr = 'Mode == "KERNEL" && VA == ' + oct + ' && RD == 1';

@@ -34,6 +34,22 @@ var PDP11_SCENARIOS = {
     signals: ['addr_v', 'data', 'bus_rd', 'pc', 'sp', 'r5', 'kisa6'],
     arm:     true,
   },
+  // docs/09-PDP11/28 章 3 節: C のプログラムの最初の命令 SETD のトラップ（無視される側）
+  'setd-crt0': {
+    label:   'V6 crt0: SETD trap ignored',
+    panels:  ['btn-la-collapse'],
+    preset:  'V6 crt0: SETD at user 0 (trap ignored)',
+    signals: ['addr_v', 'data', 'bus_rd', 'bus_wr', 'pc', 'cm', 'trapped', 'sp'],
+    arm:     true,
+  },
+  // docs/09-PDP11/28 章 6 節: SIGINS を捕まえているプログラム（units）では、同じトラップが fptrap へ届く
+  'setd-fcrt0': {
+    label:   'V6 units: SETD trap delivered to fptrap',
+    panels:  ['btn-la-collapse', 'btn-stack-collapse'],
+    preset:  'V6 units: fptrap entry (SIGINS caught)',
+    signals: ['addr_v', 'data', 'bus_rd', 'bus_wr', 'pc', 'cm', 'trapped', 'sp'],
+    arm:     true,
+  },
 };
 
 function _scenarioOpenPanel(btnId) {
