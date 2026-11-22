@@ -3,7 +3,7 @@
 Playwright + headless Chromium で以下を検証する:
   - CP/M 起動テスト (A> プロンプト)
   - 8080EX1 実行テスト (全命令テスト合格)
-  - Logic Analyzer テスト (キャンバス描画・Freeze/Thaw・LA ON/OFF・ズーム)
+  - Logic Analyzer テスト (キャンバス描画・Hold/Resume・LA ON/OFF・ズーム)
   - WASM FS テスト (ファイル書き込み・一覧表示・テキストエディタ開閉)
 
 実行方法:
@@ -34,6 +34,10 @@ _ALL_REGS = (
 # タイムアウト定数
 BOOT_TIMEOUT = 25.0    # CP/M 起動・A> 待ち (秒)
 CMD_TIMEOUT = 30.0     # 通常コマンド応答 (秒)
+
+# Logic Analyzer の Hold / Resume ボタン (#btn-freeze) の表示。v1.2.0 で Freeze / Thaw から改名した
+LA_HOLD_LABEL = "Hold"
+LA_RESUME_LABEL = "Resume"
 EX1_TIMEOUT = 360.0    # 8080EX1 完了待ち (最大 6 分)
 
 # xterm.js バッファからテキストを取り出す JS スニペット (window._sftTerm 使用)
@@ -184,25 +188,25 @@ class TestLogicAnalyzer:
         assert has_pixels, "Logic Analyzer キャンバスに描画されていない"
 
     def test_freeze_thaw_toggle(self, loaded_page: Page) -> None:
-        """❄ Freeze → ▶ Thaw → ❄ Freeze とトグルする。"""
+        """⏸ Hold → ▶ Resume → ⏸ Hold とトグルする（ボタンの id は btn-freeze のまま）。"""
         btn = loaded_page.locator("#btn-freeze")
         initial = btn.text_content()
-        assert "Freeze" in initial, \
-            f"初期テキストに 'Freeze' が含まれない: {initial!r}"
+        assert LA_HOLD_LABEL in initial, \
+            f"初期テキストに {LA_HOLD_LABEL!r} が含まれない: {initial!r}"
 
-        # 凍結
+        # 記録を止める
         btn.click()
         time.sleep(0.3)
-        after_freeze = btn.text_content()
-        assert "Thaw" in after_freeze, \
-            f"Freeze クリック後に 'Thaw' が表示されない: {after_freeze!r}"
+        after_hold = btn.text_content()
+        assert LA_RESUME_LABEL in after_hold, \
+            f"Hold クリック後に {LA_RESUME_LABEL!r} が表示されない: {after_hold!r}"
 
-        # 解除 (元に戻す)
+        # 再開 (元に戻す)
         btn.click()
         time.sleep(0.3)
         restored = btn.text_content()
-        assert "Freeze" in restored, \
-            f"Thaw クリック後に 'Freeze' に戻らない: {restored!r}"
+        assert LA_HOLD_LABEL in restored, \
+            f"Resume クリック後に {LA_HOLD_LABEL!r} に戻らない: {restored!r}"
 
     def test_la_toggle(self, loaded_page: Page) -> None:
         """LA ON → LA OFF → LA ON とトグルする。"""
@@ -236,24 +240,24 @@ class TestLogicAnalyzer:
             f"ズームセレクタの選択肢が少なすぎる: {opt_count}"
 
     def test_freeze_and_add_all_signals(self, loaded_page: Page) -> None:
-        """Freeze → 全信号チップを ON → #la-toggles のONチップ数確認 → キャンバス描画確認。
+        """Hold → 全信号チップを ON → #la-toggles のONチップ数確認 → キャンバス描画確認。
 
         手順:
-          1. Freeze ボタンを押して波形を固定する
+          1. Hold ボタンを押して波形を固定する
           2. #la-toggles の未チェック信号チップを全て ON にする（常時全表示チップバー UI）
           3. #la-toggles の ON チップ数が全信号数以上であることを確認
           4. キャンバスに描画ピクセルがあることを確認
-          5. Thaw して元の状態に戻す
+          5. Resume して元の状態に戻す
         """
         freeze_btn = loaded_page.locator("#btn-freeze")
 
-        # 1. Freeze（まだ Freeze 状態でなければ押す）
+        # 1. Hold（まだ止めていなければ押す）
         btn_text = freeze_btn.text_content() or ""
-        if "Freeze" in btn_text and "Thaw" not in btn_text:
+        if LA_HOLD_LABEL in btn_text:
             freeze_btn.click()
             time.sleep(0.3)
-        assert "Thaw" in (freeze_btn.text_content() or ""), \
-            "Freeze ボタンをクリックしても Thaw 表示にならない"
+        assert LA_RESUME_LABEL in (freeze_btn.text_content() or ""), \
+            "Hold ボタンをクリックしても Resume 表示にならない"
 
         # 2. 未チェックの信号チップを全て ON にする（change イベントを dispatch）
         added_count = loaded_page.evaluate("""() => {
@@ -296,8 +300,8 @@ class TestLogicAnalyzer:
         }""")
         assert has_pixels, "全信号追加後もキャンバスに描画ピクセルがない"
 
-        # 5. Thaw して元の状態に戻す
-        if "Thaw" in (freeze_btn.text_content() or ""):
+        # 5. Resume して元の状態に戻す
+        if LA_RESUME_LABEL in (freeze_btn.text_content() or ""):
             freeze_btn.click()
             time.sleep(0.2)
 

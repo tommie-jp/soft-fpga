@@ -266,7 +266,8 @@ _TRIGGER_JS = """async () => {
     const sleep = ms => new Promise(r => setTimeout(r, ms));
     const cyc = () => g('cycle-info').textContent;
     // WozMon は KBDCR($D011) を繰り返しポーリングするので、addr == D011 で必ず停止する
-    g('trig-sig').value = '0';  g('trig-sig').dispatchEvent(new Event('change'));
+    // 信号の選択肢の値は信号の id（プリセットが id で指せるよう、番号から変わった）
+    g('trig-sig').value = 'addr';  g('trig-sig').dispatchEvent(new Event('change'));
     g('trig-mode').value = 'eq'; g('trig-mode').dispatchEvent(new Event('change'));
     g('trig-val').value = 'D011';
     g('trig-post').value = '20';
@@ -275,7 +276,7 @@ _TRIGGER_JS = """async () => {
     const first  = { run: g('btn-run').textContent, freeze: g('btn-freeze').textContent, cyc: cyc() };
     await sleep(500);
     const still  = { cyc: cyc() };
-    // トリガー停止後の Run: Worker が Thaw して再武装し、また進んでまた停止する
+    // トリガー停止後の Run: Worker が記録を再開（Resume）して再武装し、また進んでまた停止する
     g('btn-run').click();
     await sleep(700);
     const second = { run: g('btn-run').textContent, freeze: g('btn-freeze').textContent, cyc: cyc() };
@@ -288,9 +289,9 @@ class TestWorkerControl:
         assert wait_for(fresh_page, "\\", BOOT_TIMEOUT)
         r = fresh_page.evaluate(_TRIGGER_JS)
         assert r["first"]["run"] == "Run", "トリガーで停止していない"
-        assert "Thaw" in r["first"]["freeze"], "トリガー停止で Freeze 表示になっていない"
+        assert "Resume" in r["first"]["freeze"], "トリガー停止で Hold 中（Resume 表示）になっていない"
         assert r["still"]["cyc"] == r["first"]["cyc"], "停止中にサイクル数が進んでいる"
-        assert r["second"]["cyc"] != r["first"]["cyc"], "Run しても再開しない（Thaw されていない）"
+        assert r["second"]["cyc"] != r["first"]["cyc"], "Run しても再開しない（記録が再開されていない）"
 
     def test_dormann_reaches_pass(self, fresh_page: Page) -> None:
         fresh_page.evaluate(
