@@ -185,6 +185,14 @@ Object.assign(window.sim, {
     if (sel) sel.value = String(clocks >>> 0);   // 選択肢に無い値なら空欄になる
   },
 
+  /**
+   * デバッグパネルの設定一式（シナリオ）を入れる。名前は PDP11_SCENARIOS のキー（例: 'swtch-sswap'）。
+   * @returns {string} 'applied' / 'failed'（未知の名前・起動前）
+   */
+  applyScenario: function(name) {
+    return applyPdp11Scenario(name);
+  },
+
   /** LA の M1 信号用メモリプローブアドレスを設定（0xFFFFFFFF で無効） */
   setMemProbe: function(addr) {
     worker.postMessage({ type: 'set_mem_probe', addr: addr >>> 0 });

@@ -86,12 +86,16 @@
   //   idSelect   : 'doc-select',
   //   idLangBtn  : 'doc-lang-btn', // optional language toggle button id
   //   useHash    : false,          // true = use ?doc= query param for deep links
+  //   linkHandlers : { scenario: function (value) { ...; return true; } },
+  //                                // optional: a link "?scenario=x" in a document calls the handler
+  //                                // instead of navigating; returning true closes the viewer
   // }
   function SftDocViewer(list, opts) {
     opts = opts || {};
     this.list         = list || [];
     this.docsPath     = opts.docsPath    || 'docs/';
     this._docsPathEn  = opts.docsPathEn  || this.docsPath + 'en/';
+    this._linkHandlers = opts.linkHandlers || {};
     this._idModal     = opts.idModal     || 'doc-modal';
     this._idContent   = opts.idContent   || 'doc-content';
     this._idOverlay   = opts.idOverlay   || 'doc-overlay';
@@ -270,6 +274,18 @@
             });
             return;
           }
+          // Action link: "?<key>=<value>" whose key has a handler in opts.linkHandlers.
+          // The handler runs on click; when it returns true the viewer closes so the page shows the result.
+          var actionKey = self._actionKeyOf(href);
+          if (actionKey) {
+            a.classList.add('doc-action');
+            a.addEventListener('click', function (e) {
+              e.preventDefault();
+              var value = new URLSearchParams(href.slice(1)).get(actionKey);
+              if (self._linkHandlers[actionKey](value) === true) self.close();
+            });
+            return;
+          }
           if (href.charAt(0) === '?' && href.indexOf('doc=') !== -1) {
             // Internal doc link: open within viewer
             a.addEventListener('click', function (e) {
@@ -289,6 +305,17 @@
       .catch(function (e) {
         alert('Failed to load document: ' + file + '\n' + e);
       });
+  };
+
+  // Returns the first query key of an in-page link ("?key=value") that has a link handler, or ''.
+  SftDocViewer.prototype._actionKeyOf = function (href) {
+    if (href.charAt(0) !== '?') return '';
+    var handlers = this._linkHandlers;
+    var found = '';
+    new URLSearchParams(href.slice(1)).forEach(function (v, k) {
+      if (!found && typeof handlers[k] === 'function') found = k;
+    });
+    return found;
   };
 
   SftDocViewer.prototype.close = function () {

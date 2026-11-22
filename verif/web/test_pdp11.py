@@ -208,3 +208,69 @@ class TestSimAPI:
         running = booted_page.evaluate("() => !sim.isPaused")
         assert running, "再開後も Paused のまま"
         assert isinstance(pc1, int) and isinstance(pc2, int)
+
+
+class TestScenario:
+    """シナリオ（sft-pdp11-scenarios.js）: デバッグパネルの設定一式を 1 回の操作で入れる。
+
+    TestSimAPI の後に実行され、booted_page は実行中の状態を共有する。
+    """
+
+    _SIGNALS = ["addr_v", "data", "bus_rd", "pc", "sp", "r5", "kisa6"]
+
+    def test_unknown_scenario_fails(self, booted_page: Page) -> None:
+        result = booted_page.evaluate("() => sim.applyScenario('no-such-scenario')")
+        assert result == "failed"
+
+    def test_swtch_sswap_applies_all_settings(self, booted_page: Page) -> None:
+        # Arrange: 発火済みのトリガーが残っていても入ることを確かめるため、先に 1 つ発火させておく
+        booted_page.evaluate("() => { sim.clearTrigger(); sim.setTrigger({type: 'fetch'}); sim.run(); }")
+        booted_page.wait_for_function("() => sim.isPaused", timeout=10_000)
+
+        # Act
+        result = booted_page.evaluate("() => sim.applyScenario('swtch-sswap')")
+        booted_page.wait_for_timeout(300)
+
+        # Assert
+        assert result == "applied"
+        state = booted_page.evaluate(
+            """() => ({
+                rk:      document.getElementById('rk-delay-sel').value,
+                type:    document.getElementById('trig-type').value,
+                pc:      document.getElementById('trig-pc').value,
+                data:    document.getElementById('trig-data').value,
+                post:    document.getElementById('trig-post').value,
+                smpl:    document.getElementById('la-sample-sel').value,
+                laOpen:  !document.querySelector('.la-section').classList.contains('collapsed'),
+                stkOpen: !document.getElementById('stack-panel').classList.contains('collapsed'),
+                armed:   _trigArmed,
+                frozen:  _laFreezeHead >= 0,
+                visible: la._signals.filter(s => la._sigVisible[s.id]).map(s => s.id).sort(),
+                chipsOn: document.querySelectorAll('#la-toggles .sig-tog.on').length,
+            })"""
+        )
+        assert state["rk"] == "4096"
+        assert (state["type"], state["pc"], state["data"], state["post"]) == ("6", "16000", "142762", "0")
+        assert state["smpl"] == "0", "1tick/smpl になっていない"
+        assert state["laOpen"] and state["stkOpen"], "パネルが開いていない"
+        assert state["armed"] and not state["frozen"], "トリガーが待ち受けになっていない"
+        assert not booted_page.evaluate("() => sim.isPaused"), "止まったままで、端末に入力できない"
+        assert state["visible"] == sorted(self._SIGNALS)
+        assert state["chipsOn"] >= len(self._SIGNALS), "信号のトグルの表示が合っていない"
+
+    def test_scenario_link_in_document_is_a_button(self, booted_page: Page) -> None:
+        """27 章の "?scenario=" のリンクが操作ボタンになり、押すと設定が入って文書が閉じる。"""
+        booted_page.evaluate(
+            "() => { sim.clearTrigger(); openDoc('27-swtch-You-are-not-expected-to-understand-this.md'); }"
+        )
+        link = booted_page.locator('#doc-content a.doc-action[href="?scenario=swtch-sswap"]')
+        link.wait_for(state="visible", timeout=10_000)
+        link.click()
+        booted_page.wait_for_function(
+            "() => document.getElementById('doc-modal').style.display === 'none'", timeout=5_000
+        )
+        assert booted_page.evaluate("() => _trigArmed"), "ボタンを押してもトリガーが待ち受けにならない"
+        # 後始末: 以降のテストや手動確認に設定を残さない
+        booted_page.evaluate(
+            "() => { sim.clearTrigger(); sim.setRkSeekDelay(0); if (sim.isPaused) sim.run(); }"
+        )

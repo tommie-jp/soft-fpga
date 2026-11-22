@@ -258,7 +258,8 @@ document.getElementById('btn-trig-set').addEventListener('click', function() {
 // ── トリガーのプリセット (典型的な設定。選ぶと欄に入り、Set は自分で押す) ──────────
 // trig-type の change の処理 (上) を付けた後に置く。式のプリセットは、式の欄 (CodeMirror) に文字列を入れる
 if (typeof mountTriggerPresets === 'function' && typeof PDP11_TRIGGER_PRESETS !== 'undefined') {
-  mountTriggerPresets({
+  // シナリオ（sft-pdp11-scenarios.js）がプリセットを名前で入れられるよう、戻り値を持っておく
+  window._pdp11TrigPresets = mountTriggerPresets({
     host: document.getElementById('trig-body'),
     presets: PDP11_TRIGGER_PRESETS,
     storageKey: 'pdp11_trig_theme',
