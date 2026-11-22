@@ -21,6 +21,8 @@ importScripts('sim.js');
 // Unix V6 FS パーサ/ライタ（純粋関数ライブラリ）: v6ReadBlock, v6FindPath,
 // v6DskWriteFile, v6DirAddEntry など。単体テストは tests/v6fs/。
 importScripts('../../../js/sft-v6fs.js');
+// a.out シンボル表とスタックフレームの読み取り（純粋関数）: v6ParseNamelist, pdp11WalkFrames など。
+importScripts('../../../js/sft-pdp11-ksym.js');
 
 var RING_SIZE     = 0;
 var RING_WORDS    = 5;
@@ -41,6 +43,64 @@ var _curTrigType = 0;
 // 式トリガー: コンパイル済み Wasm エクスポート関数（null = 未設定）
 // シグネチャ: eval(w0..w9: i32[10], pw0..pw9: i32[10]) → i32
 var _exprEval = null;
+
+// ── スタック / メモリ表示 ─────────────────────────────────────────────────
+// main の Stack パネルが開いている間だけ、設定（set_mem_view）に従って 'mem' を送る。
+//   mode: 'auto'（現在のモード）| 0（Kernel）| 3（User）
+//   base: 'sp'（SP から）| 仮想アドレス（数値）
+//   count: 並べる語数
+var _memView = null;
+var MEM_VIEW_MAX_WORDS = 64;
+var PEEK_INVALID       = 0xFFFFFFFF;
+var KERNEL_FILES       = ['/rkunix', '/unix'];   // シンボル表を探す順
+
+function _peekVirt(mode, va) {
+  var v = Module._sim_peek_virt(mode, va & 0xFFFE) >>> 0;
+  return (v === PEEK_INVALID) ? -1 : (v & 0xFFFF);
+}
+
+function _sendMem() {
+  // diskReady 前は sim_init が済んでおらず、ハーネスの信号を読めない
+  if (!_memView || !diskReady || !Module._sim_peek_virt) return;
+  var psw  = Module._get_psw ? (Module._get_psw() & 0xFFFF) : 0;
+  var cur  = (psw >>> 14) & 3;
+  var mode = (_memView.mode === 'auto') ? cur : (_memView.mode | 0);
+  var u16  = Module.HEAPU16;
+  var r5   = u16[gprBase16 + 5];
+  var sp   = u16[gprBase16 + 6];
+  var base = (_memView.base === 'sp') ? sp : (_memView.base & 0xFFFE);
+  var n    = Math.min(_memView.count | 0, MEM_VIEW_MAX_WORDS);
+  var words = [];
+  for (var i = 0; i < n; i++) {
+    var va = base + i * 2;
+    words.push(va > 0xFFFE ? -1 : _peekVirt(mode, va));
+  }
+  // フレームの鎖は「いま動いているモード」の R5 からしかたどれない
+  var frames = (mode === cur)
+    ? pdp11WalkFrames(function (va) { return _peekVirt(mode, va); }, r5, {})
+    : [];
+  Module._sim_update_mmu();
+  var kisa6 = (Module.HEAPU32[mmuBase32 + 6] >>> 16) & 0x0FFF;
+  postMessage({ type: 'mem', mode: mode, curMode: cur, base: base, words: words, frames: frames,
+                sp: sp, r5: r5, pc: Module._get_pc() & 0xFFFF, psw: psw, kisa6: kisa6 });
+}
+
+// 起動に使うカーネルの a.out からテキストのシンボル表を取り出して送る。
+function _sendKernelSyms() {
+  v6SyncDiskFromFS();
+  if (!diskData) { postMessage({ type: 'ksyms', file: null, syms: [], error: 'ディスクが未ロードです' }); return; }
+  for (var i = 0; i < KERNEL_FILES.length; i++) {
+    try {
+      var ino = v6FindPath(diskData, KERNEL_FILES[i]);
+      if (ino <= 0) continue;
+      var table = v6TextSymbols(v6ParseNamelist(v6ReadFile(diskData, v6ReadInode(diskData, ino))));
+      if (table.length > 0) { postMessage({ type: 'ksyms', file: KERNEL_FILES[i], syms: table }); return; }
+    } catch (e) {
+      postMessage({ type: 'scriptWarn', msg: 'シンボル表の読み取りに失敗: ' + KERNEL_FILES[i] + ': ' + e.message });
+    }
+  }
+  postMessage({ type: 'ksyms', file: null, syms: [], error: 'カーネルのシンボル表が見つかりません' });
+}
 
 // ── キー入力キュー（ペースト文字化け防止）─────────────────────────────────
 // onmessage から受け取った文字をここにバッファし、simLoop で少しずつ
@@ -141,6 +201,28 @@ function _autoBootV6() {
   for (var i = 0; i < cmd.length; i++) Module._send_key(cmd.charCodeAt(i));
 }
 
+// 発火済みのハードウェアトリガーを解除する（トリガーは 1 回きり）。
+// 止まっている間に新しくセットしたトリガーは、発火フラグが下りているので残る
+// （例: 1 か所目で止めた後、2 か所目のトリガーをセットして Resume する）。
+function _clearFiredTrigger() {
+  if (Module._sim_trigger_hit && Module._sim_trigger_hit() && Module._sim_clear_trigger) {
+    Module._sim_clear_trigger();
+    _curTrigType = 0;
+  }
+}
+
+// ハードウェアトリガーが発火していれば main へ 'triggered' を送り、true を返す。
+// 'triggered' は、発火位置を使う後続の 'ring' より先に送る。
+function _reportHardwareTrigger() {
+  if (!Module._sim_trigger_hit || !Module._sim_trigger_hit()) return false;
+  // 状態欄に出す PC は発火の瞬間の番地 (停止は post の分だけ後なので、_get_pc() は先へ進んでいる)
+  var pc       = Module._get_trig_fire_pc ? (Module._get_trig_fire_pc() >>> 0)
+               : (Module._get_pc ? Module._get_pc() : 0);
+  var fireHead = Module._get_trig_fire_head ? (Module._get_trig_fire_head() >>> 0) : -1;
+  postMessage({ type: 'triggered', pc: pc, trigType: _curTrigType, fireHead: fireHead });
+  return true;
+}
+
 // ── シミュレーションループ ────────────────────────────────────────────────
 function scheduleNext() { setTimeout(simLoop, 0); }
 
@@ -186,15 +268,11 @@ function simLoop() {
   }
 
   // ハードウェアトリガーヒット確認
-  if (Module._sim_trigger_hit && Module._sim_trigger_hit()) {
+  if (_reportHardwareTrigger()) {
     running = false;
-    // 状態欄に出す PC は発火の瞬間の番地 (停止は post の分だけ後なので、_get_pc() は先へ進んでいる)
-    var pc       = Module._get_trig_fire_pc ? (Module._get_trig_fire_pc() >>> 0)
-                 : (Module._get_pc ? Module._get_pc() : 0);
-    var fireHead = Module._get_trig_fire_head ? (Module._get_trig_fire_head() >>> 0) : -1;
-    postMessage({ type: 'triggered', pc: pc, trigType: _curTrigType, fireHead: fireHead });
     _sendRing();
     _sendGPR();
+    _sendMem();
     return;
   }
 
@@ -223,6 +301,7 @@ function simLoop() {
         postMessage({ type: 'triggered', pc: _xPc, trigType: 7, fireHead: _xFh });
         _sendRing();
         _sendGPR();
+        _sendMem();
         return;
       }
     }
@@ -233,7 +312,7 @@ function simLoop() {
 
   // MMU は 15 フレームに 1 回（~250ms 間隔）
   mmuFrameCnt++;
-  if ((mmuFrameCnt & 15) === 0) _sendMMU();
+  if ((mmuFrameCnt & 15) === 0) { _sendMMU(); _sendMem(); }
 
   // フレームレート自動調整（setSpeed で固定の場合、または式トリガーで _effSteps が上書き中はスキップ）
   // 式トリガー有効時は _effSteps が RING_SIZE-1 に固定されるため elapsed が常に短くなり
@@ -325,11 +404,12 @@ self.onmessage = function (e) {
     case 'pause':
       running = false;
       postMessage({ type: 'paused' });
+      _sendMem();
       break;
 
     case 'resume':
       if (!running && diskReady) {
-        if (Module._sim_clear_trigger) Module._sim_clear_trigger();
+        _clearFiredTrigger();
         running = true;
         postMessage({ type: 'resumed' });
         scheduleNext();
@@ -455,17 +535,46 @@ self.onmessage = function (e) {
       _sendMMU();
       break;
 
+    // ── スタック / メモリ表示・シンボル表 ─────────────────────────────────
+    case 'set_mem_view':
+      _memView = d.enabled
+        ? { mode: (d.mode === 0 || d.mode === 3) ? d.mode : 'auto',
+            base: (d.base === 'sp' || d.base === undefined) ? 'sp' : (d.base >>> 0),
+            count: d.count || 24 }
+        : null;
+      if (diskReady) _sendMem();
+      break;
+
+    case 'get_ksyms':
+      _sendKernelSyms();
+      break;
+
+    // ── トリガー発火後に採るサンプル数（0 = 即停止）───────────────────────
+    case 'set_post_trig':
+      if (Module._sim_set_post_trig) Module._sim_set_post_trig(d.samples >>> 0);
+      break;
+
+    // ── RK11 シーク遅延（クロック数。0 = 遅延なし）────────────────────────
+    case 'set_rk_delay':
+      if (Module._sim_set_rk_delay) Module._sim_set_rk_delay(d.clocks >>> 0);
+      break;
+
     // ── Freeze 機能 ───────────────────────────────────────────────────────
     // LA の表示を一時停止するためにシミュレーションを止める
     case 'step':
       if (!running) {
+        // トリガーで止まった直後は発火フラグが立ったままで、step_n が 1 tick も進まない。
+        _clearFiredTrigger();
         Module._step_n(d.n || 300);
         var _sc = [];
         var _sch;
         while ((_sch = Module._get_display_char()) !== -1) _sc.push(_sch & 0x7F);
         if (_sc.length > 0) postMessage({ type: 'tty', chars: _sc });
+        // 止まっている間にセットしたトリガーが、この Step の中で発火したら知らせる
+        _reportHardwareTrigger();
         _sendRing();
         _sendGPR();
+        _sendMem();
         postMessage({ type: 'stepped' });
       }
       break;
@@ -474,6 +583,7 @@ self.onmessage = function (e) {
       running = false;
       _sendRing();
       postMessage({ type: 'frozen' });
+      _sendMem();
       break;
 
     case 'unfreeze':

@@ -132,6 +132,8 @@ _trigTypeEl.addEventListener('change', function() {
     (v === '6') ? '' : 'none';
   document.getElementById('trig-expr-row').style.display =
     (v === '7') ? '' : 'none';
+  document.getElementById('trig-post-row').style.display =
+    (v === '7') ? 'none' : '';
   if (v === '7') {
     if (window._initTrigExprCM) window._initTrigExprCM();
     if (window._renderExprHistory) window._renderExprHistory();
@@ -158,6 +160,17 @@ document.getElementById('trig-expr-hist').addEventListener('change', function() 
   }
   this.value = '';
 });
+
+// Post 欄（発火後に採るサンプル数）を読む。空欄は既定値。範囲外・数字以外は null。
+var TRIG_POST_DEFAULT = 100;
+var TRIG_POST_MAX     = 4095;   // ring の大きさ - 1（これ以上だと発火の瞬間が押し出される）
+function _readTrigPost() {
+  var raw = document.getElementById('trig-post').value.trim();
+  if (raw === '') return TRIG_POST_DEFAULT;
+  if (!/^[0-9]+$/.test(raw)) return null;
+  var n = parseInt(raw, 10);
+  return (n > TRIG_POST_MAX) ? null : n;
+}
 
 function _doClearTrigger() {
   _laFreezeHead = -1;
@@ -205,6 +218,13 @@ document.getElementById('btn-trig-set').addEventListener('click', function() {
     hideTrigHit();
     return;
   }
+  // 発火後に採るサンプル数（ハードウェアトリガー用）。式トリガーは Worker が走査して止めるので使わない
+  var postSamples = _readTrigPost();
+  if (postSamples === null) {
+    alert('Post は 0〜' + TRIG_POST_MAX + ' の整数（サンプル数）で入力してください');
+    return;
+  }
+  worker.postMessage({ type: 'set_post_trig', samples: postSamples });
   if (trigType === 1) {
     var raw = document.getElementById('trig-pc').value.trim();
     if (!raw) return;

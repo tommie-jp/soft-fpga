@@ -27,7 +27,7 @@
   </div>
 </div>
 
-<h2><a href="https://tommie-jp.github.io/soft-fpga/" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.1 2026/10/21 16:51</span></h2>
+<h2><a href="https://tommie-jp.github.io/soft-fpga/" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.1 2026/11/22 10:33</span></h2>
 <p style="font-size:12px;color:#777;margin:0 0 5px;"><a href="https://github.com/lisper/cpus-pdp11" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">cpus-pdp11</a> (Brad Parker RTL) → <a href="https://www.veripool.org/verilator/" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Verilator</a> → <a href="https://en.wikipedia.org/wiki/WebAssembly" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">WASM</a> &nbsp;|&nbsp; <a href="https://en.wikipedia.org/wiki/History_of_Unix" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Unix V6</a> + custom RK11 BIOS</p>
 
 <!-- docs パネル -->
@@ -48,6 +48,7 @@
   <a href="?doc=24-%E5%85%A8%E5%91%BD%E4%BB%A4%E3%82%BF%E3%82%A4%E3%83%9F%E3%83%B3%E3%82%B0%E5%9B%B3-%E8%A7%A3%E8%AA%AC.md" onclick="openDoc('24-全命令タイミング図-解説.md');return false;">24 Timing Diagram Case Explanations</a>
   <a href="?doc=25-as-db-%E5%91%BD%E4%BB%A4%E3%82%B7%E3%83%BC%E3%82%B1%E3%83%B3%E3%82%B9%E3%83%87%E3%83%A2.md" onclick="openDoc('25-as-db-命令シーケンスデモ.md');return false;">25 as/db Instruction Sequence Demo</a>
   <a href="?doc=26-%E5%BC%8F%E3%83%88%E3%83%AA%E3%82%AC%E3%83%BC-%E3%83%AA%E3%83%95%E3%82%A1%E3%83%AC%E3%83%B3%E3%82%B9.md" onclick="openDoc('26-式トリガー-リファレンス.md');return false;">26 Expression Trigger Reference</a>
+  <a href="?doc=27-swtch-You-are-not-expected-to-understand-this.md" onclick="openDoc('27-swtch-You-are-not-expected-to-understand-this.md');return false;">27 "You are not expected to understand this"</a>
   <a href="?doc=30-linux-%E8%B5%B7%E5%8B%95%E3%82%B9%E3%82%AF%E3%83%AA%E3%83%97%E3%83%88.md" onclick="openDoc('30-linux-起動スクリプト.md');return false;">30 Linux Boot Scripts</a>
   <a href="?doc=31-lcase-%E5%A4%A7%E6%96%87%E5%AD%97%E3%83%A2%E3%83%BC%E3%83%89.md" onclick="openDoc('31-lcase-大文字モード.md');return false;">31 Uppercase Mode (lcase)</a>
   <a href="?doc=42-as-%E3%82%A2%E3%82%BB%E3%83%B3%E3%83%96%E3%83%A9%E5%88%B6%E7%B4%84.md" onclick="openDoc('42-as-アセンブラ制約.md');return false;">42 as Assembler Constraints</a>
@@ -217,6 +218,42 @@
       </div>
     </div>
 
+    <!-- Stack / Memory パネル -->
+    <div class="stack-panel collapsed" id="stack-panel">
+      <div class="stack-header">
+        <button id="btn-stack-collapse" title="Collapse / expand">&#x25BC;</button>
+        <h3>Stack / Memory</h3>
+        <select id="stack-mode" title="Address space used to read memory&#10;Auto: the mode the CPU is running in">
+          <option value="auto" selected>Auto</option>
+          <option value="0">Kernel</option>
+          <option value="3">User</option>
+        </select>
+        <input type="text" id="stack-base" placeholder="SP" maxlength="6"
+               title="Start address (octal). Empty = from SP">
+        <select id="stack-preset" title="Typical start addresses (Unix V6 kernel)">
+          <option value="" selected>— Known address —</option>
+          <option value="sp">SP (stack top)</option>
+          <option value="140000">u.u_rsav (140000)</option>
+          <option value="140332">u.u_qsav (140332)</option>
+          <option value="140336">u.u_ssav (140336)</option>
+        </select>
+      </div>
+      <div id="stack-body">
+        <div id="stack-info"></div>
+        <div id="stack-content">
+          <div class="stack-col">
+            <div class="stack-col-hdr">Call chain (R5): frame / return to</div>
+            <div id="stack-chain"></div>
+          </div>
+          <div class="stack-col">
+            <div class="stack-col-hdr">Memory: address / word</div>
+            <div id="stack-words"></div>
+          </div>
+        </div>
+        <div id="stack-symsrc"></div>
+      </div>
+    </div>
+
     <!-- Event Log パネル -->
     <div id="debug-panel" class="collapsed">
       <div id="dbg-header">
@@ -282,6 +319,12 @@
             <option value="" disabled selected>— History —</option>
           </select>
         </div>
+        <div class="trig-row" id="trig-post-row">
+          <label title="Samples to record after the trigger fires (0 = stop at once, max 4095).&#10;Applies to the hardware triggers (PC Match, PC + Data, Fetch, I/O Page, TRAP, Bus Error).">Post</label>
+          <input type="text" id="trig-post" value="100" maxlength="4"
+                 title="Samples to record after the trigger fires (0 = stop at once, max 4095)">
+          <span class="trig-post-unit">smpl after trigger</span>
+        </div>
         <div class="trig-row">
           <button id="btn-trig-set" class="sig-tog" disabled><span class="sw-track"></span> Set</button>
           <button id="btn-trig-resume" disabled>Resume</button>
@@ -294,11 +337,17 @@
       <button id="la-nav-l">&#8249;</button>
       <button id="la-nav-r">&#8250;</button>
       <button id="la-nav-rr">&#187;</button>
-      <button id="btn-step" title="Single step (Hold mode only)">▶ Step</button>
+      <button id="btn-step" title="Run 300 ticks, then stop again (while stopped: Hold, Pause or after a trigger)">▶ Step</button>
       <button id="btn-goto-trig" title="Jump to trigger position">⊙Trig</button>
       <span class="la-smpl-wrap" title="Sampling interval&#10;4tick/smpl: fast, default (Unix V6)&#10;1tick/smpl: auto-switched for expr trigger, prevents sample loss"><span class="la-smpl-label">Smpl:</span><select id="la-sample-sel">
         <option value="3">4tick/smpl</option>
         <option value="0">1tick/smpl</option>
+      </select></span>
+      <span class="la-smpl-wrap" title="RK11 seek delay: clocks to wait between GO and the first transferred word.&#10;Off: the transfer starts at once (fast, default).&#10;A real RK05 needs tens of ms, so the CPU runs far ahead before the first word moves.&#10;Turn this on to see code that depends on that order (Unix V6 swtch / u_ssav)."><span class="la-smpl-label">RK seek:</span><select id="rk-delay-sel">
+        <option value="0" selected>Off</option>
+        <option value="4096">4K clk (1.2 ms)</option>
+        <option value="65536">64K clk (20 ms)</option>
+        <option value="262144">256K clk (79 ms)</option>
       </select></span>
       <button class="la-zoom-btn" id="la-zoom-out">−</button>
       <select id="la-zoom-sel" title="Zoom level">
@@ -384,9 +433,11 @@
 <script src="../../../js/sft-xterm-util.js"></script>
 <script src="../../../js/xterm-jp106.js"></script>
 <script src="../../../js/sft-pdp11-disk.js"></script>
-<script src="../../../js/sft-pdp11-debug-panel.js?v=9"></script>
+<script src="../../../js/sft-pdp11-ksym.js"></script>
+<script src="../../../js/sft-pdp11-debug-panel.js?v=10"></script>
 <script src="../../../js/sft-pdp11-fs-panel.js"></script>
 <script src="../../../js/sft-pdp11-worker-bridge.js"></script>
+<script src="../../../js/sft-pdp11-stack-panel.js"></script>
 <script src="../../../js/sft-trigger-presets.js"></script>
 <script src="../../../js/sft-pdp11-trigger-ui.js"></script>
 <script src="../../../js/sft-pdp11-sim-api.js"></script>
@@ -527,8 +578,10 @@ la._updateCanvas();
 })();
 
 // ── Step / ⊙Trig (#9 / #10) ──────────────────────────────────────────────
+// 止まっている間（Hold・Pause・トリガー停止）だけ、STEP_TICKS tick 進める
+var STEP_TICKS = 300;
 document.getElementById('btn-step').addEventListener('click', function() {
-  if (laFrozen) worker.postMessage({ type: 'step', n: 300 });
+  if (laFrozen || simPaused) worker.postMessage({ type: 'step', n: STEP_TICKS });
 });
 document.getElementById('btn-goto-trig').addEventListener('click', function() {
   if (la.gotoTrig) { la.gotoTrig(0.3); _laDirty = true; _scheduleRafRender(); }
@@ -541,6 +594,12 @@ function _applySampleRate() {
   worker.postMessage({ type: 'set_ring_tick_mask', mask: mask });
 }
 document.getElementById('la-sample-sel').addEventListener('change', _applySampleRate);
+
+// ── RK11 シーク遅延 ───────────────────────────────────────────────────────
+// 0 = 遅延なし（既定）。Reset をまたいでハーネスが値を保つので、選び直したときだけ送る。
+document.getElementById('rk-delay-sel').addEventListener('change', function() {
+  worker.postMessage({ type: 'set_rk_delay', clocks: parseInt(this.value, 10) >>> 0 });
+});
 
 // ── KBD バー bindLayoutBar (E) ────────────────────────────────────────────
 _jp106.bindLayoutBar(document.querySelectorAll('input[name="kbd-layout"]'));
@@ -558,7 +617,8 @@ document.getElementById('btn-reset').addEventListener('click', function() {
 });
 
 document.getElementById('btn-pause').addEventListener('click', function() {
-  if (simPaused) _laFreezeHead = -1;   // 再開時はフリーズ解除
+  // 表示の固定（_laFreezeHead）は 'resumed' を受けた側で解く。ここで先に解くと、
+  // 「発火して止まっていたトリガー」と「止まっている間にセットし直したトリガー」を見分けられない
   worker.postMessage({ type: simPaused ? 'resume' : 'pause' });
 });
 
