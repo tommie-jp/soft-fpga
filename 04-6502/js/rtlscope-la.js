@@ -628,6 +628,21 @@
     });
   };
 
+  // 表示する信号を ids だけにする（ほかは隠す）。トグルの表示と、保存してある選択も合わせる。
+  // 定義に無い id は無視する。
+  RTLScopeLA.prototype.setVisibleSignals = function(ids) {
+    var self = this;
+    var want = {};
+    (ids || []).forEach(function(id) { want[id] = true; });
+    self._signals.forEach(function(s) {
+      var on = !!want[s.id];
+      self._sigVisible[s.id] = on;
+      localStorage.setItem(self._prefix + 'sig_' + s.id, on ? '1' : '0');
+    });
+    self.buildToggles();
+    self._updateCanvas();
+  };
+
   // ==================== LA OFF 表示 ====================
 
   RTLScopeLA.prototype._drawOff = function() {

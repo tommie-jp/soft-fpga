@@ -14,9 +14,9 @@
 //     },
 //     onArm(),               // トリガー設定後（実行を再開したいとき）に呼ばれる
 //     storagePrefix,         // localStorage キー接頭辞
-//     triggerPresets,        // トリガーのテーマ (省略可。sft-trigger-presets.js が要る)
+//     triggerPresets,        // トリガーのプリセット (省略可。sft-trigger-presets.js が要る)
 //                            //   [{ label, tip, sig: 信号の id, mode: 'eq'|'rise'|'fall', value, post }, ...]
-//     onPreset(preset, restored),   // テーマを欄に入れた後に呼ぶ (省略可。記録モードの切り替えなど)
+//     onPreset(preset, restored),   // プリセットを欄に入れた後に呼ぶ (省略可。記録モードの切り替えなど)
 //   });
 //   ctrl.sync(frozen);       // 毎フレーム呼ぶ: Freeze ボタン表示を実状態に合わせる
 //
@@ -118,7 +118,7 @@ function initLaCtrl(opts) {
   });
   trigSigs.forEach(function(s, i) {
     var o = document.createElement('option');
-    o.value = s.id;                // テーマ (triggerPresets) が信号を id で指せるように
+    o.value = s.id;                // プリセット (triggerPresets) が信号を id で指せるように
     o.textContent = s.label + (s.width > 1 ? '[' + (s.bit + s.width - 1) + ':' + s.bit + ']' : '');
     selSig.appendChild(o);
   });
@@ -193,7 +193,7 @@ function initLaCtrl(opts) {
     la.gotoTrig();
   });
 
-  // ---- トリガーのテーマ (典型的な設定) ----
+  // ---- トリガーのプリセット (典型的な設定) ----
   var presets = opts.triggerPresets || [];
   if (presets.length && typeof mountTriggerPresets !== 'function') {
     console.warn('[la-ctrl] triggerPresets があるが sft-trigger-presets.js が読み込まれていません');
@@ -203,14 +203,14 @@ function initLaCtrl(opts) {
       storageKey: prefix + 'trig_theme',
       presets: presets.map(function (p) {
         if (!trigSigs.some(function (s) { return s.id === p.sig; }))
-          console.warn('[la-ctrl] テーマ「' + p.label + '」の信号 ' + p.sig + ' がトリガーの選択肢にありません');
+          console.warn('[la-ctrl] プリセット「' + p.label + '」の信号 ' + p.sig + ' がトリガーの選択肢にありません');
         var f = { 'trig-sig': p.sig, 'trig-mode': p.mode || 'eq' };
         if (p.value !== undefined) f['trig-val'] = p.value;
         f['trig-post'] = p.post !== undefined ? p.post : 0;
         return Object.assign({}, p, { fields: f });
       }),
       onApply: function (p, restored) {
-        showMsg('テーマ「' + p.label + '」を入れました。Set で設定します');
+        showMsg('プリセット「' + p.label + '」を入れました。Set で設定します');
         if (opts.onPreset) opts.onPreset(p, restored);
       }
     });
