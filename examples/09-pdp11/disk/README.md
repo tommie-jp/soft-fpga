@@ -127,7 +127,36 @@ python3 scripts/patch-v6-disk-ps.py examples/09-pdp11/disk/unix_v6_rk05.dsk
 
 ---
 
-## 3. 配置後の確認
+## 3. 空きリストを作り直すパッチ（ビルドで自動適用）
+
+素の RK05 イメージは、スーパーブロックの空きリストが inode と食い違っています。
+
+1. 同じブロック番号が空きリストに 2〜4 回入っている（11 個）。`alloc()` が同じブロックを 2 回渡すので、
+   作ったばかりのファイルが自分自身を上書きする（`cc` で作った数ブロックの `a.out` が `Illegal instruction` で落ちる）。
+2. ファイルが使っているブロックが空きリストにも入っている（19 個）。ファイルを作ると、他のファイルを上書きする。
+   最初に渡されるブロックは `/bin/db` の一部。
+3. どのファイルにも空きリストにも属さないブロックがある（272 個）。
+
+[`scripts/patch-v6-disk-freelist.py`](../../../scripts/patch-v6-disk-freelist.py) は、V6 の `icheck -s` と同じ方法で直します。
+全 inode をたどって使用中のブロックを集め、残りのブロックだけで空きリストを書き直します。
+`ps` のパッチと同じく冪等で、`bash scripts/build-wasm-09.sh` が `disk/` と `web/disk/` の両方へ自動で当てます。
+
+```bash
+# 調べるだけ（書き込まない。作り直しが要るなら終了コード 1）
+python3 scripts/patch-v6-disk-freelist.py --check examples/09-pdp11/disk/unix_v6_rk05.dsk
+
+# 作り直す（2 回目以降は "already consistent" で skip）
+python3 scripts/patch-v6-disk-freelist.py examples/09-pdp11/disk/unix_v6_rk05.dsk
+```
+
+> 注: このパッチで直るのは空きリストだけです。イメージを作った時点で上書きされていたファイルは直りません。
+> `/bin/dc` と `/usr/fort/fc1` は間接ブロックが別の内容で上書きされており、スクリプトは警告を出して、そのままにします。
+
+単体テストは `.venv/bin/python -m pytest verif/scripts` で走ります。
+
+---
+
+## 4. 配置後の確認
 
 ```bash
 # ネイティブシミュレーションで動作確認
@@ -144,7 +173,7 @@ cd examples/09-pdp11/web && python3 -m http.server 8080
 
 ---
 
-## 4. ライセンス
+## 5. ライセンス
 
 Unix V6 は 2002 年に Caldera International（現 SCO）から
 **歴史的目的のための非商用利用**が許可されました。
@@ -157,7 +186,7 @@ Unix V6 は 2002 年に Caldera International（現 SCO）から
 
 ---
 
-## 5. 参考リンク
+## 6. 参考リンク
 
 - [TUHS Unix Heritage Society](https://www.tuhs.org/)
 - [TUHS Unix V6 アーカイブ](https://www.tuhs.org/Archive/Distributions/Research/Ken_Thompson_s_Unix_V6/)

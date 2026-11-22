@@ -94,8 +94,19 @@ TEST_DISK="$ROOT/examples/09-pdp11/disk/unix_v6_rk05.dsk"
 # /dev に swap ブロックノードが無い）。upstream から再生成しても失われないよう、
 # ビルドのたびに冪等パッチを当てる。詳細は scripts/patch-v6-disk-ps.py のヘッダ。
 PATCH_PS="$ROOT/scripts/patch-v6-disk-ps.py"
+# ── V6 ディスクの空きリストを作り直す（冪等）──────────────────────────────
+# 素の RK05 イメージは空きリストが inode と食い違っている（同じブロックの重複、
+# 使用中のブロックの混入）。ファイルを作ると他のファイルを上書きし、cc で作った
+# a.out が壊れる。ps パッチが inode を割り当てたあとに当てる。
+# 詳細は scripts/patch-v6-disk-freelist.py のヘッダ。
+PATCH_FREELIST="$ROOT/scripts/patch-v6-disk-freelist.py"
+patch_v6_disk() {
+    local disk="$1"
+    python3 "$PATCH_PS" "$disk" || echo "WARNING: ps パッチ失敗 ($disk)" >&2
+    python3 "$PATCH_FREELIST" "$disk" || echo "WARNING: 空きリストの作り直し失敗 ($disk)" >&2
+}
 if [ -f "$TEST_DISK" ]; then
-    python3 "$PATCH_PS" "$TEST_DISK" || echo "WARNING: ps パッチ失敗 ($TEST_DISK)" >&2
+    patch_v6_disk "$TEST_DISK"
 fi
 
 if [ -f "$TEST_DISK" ]; then
@@ -167,9 +178,10 @@ else
     rm -rf "$TMP_DIR"
 fi
 
-# ステージングしたディスク（既存/コピー/ダウンロードのいずれでも）に ps 修正を適用。
+# ステージングしたディスク（既存/コピー/ダウンロードのいずれでも）に ps 修正と
+# 空きリストの作り直しを適用。
 if [ -f "$DISK_WEB" ]; then
-    python3 "$PATCH_PS" "$DISK_WEB" || echo "WARNING: ps パッチ失敗 ($DISK_WEB)" >&2
+    patch_v6_disk "$DISK_WEB"
 fi
 
 echo ""
