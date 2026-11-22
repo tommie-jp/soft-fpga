@@ -50,6 +50,67 @@ var PDP11_SCENARIOS = {
     signals: ['addr_v', 'data', 'bus_rd', 'bus_wr', 'pc', 'cm', 'trapped', 'sp'],
     arm:     true,
   },
+  // docs/09-PDP11/29 章: fork は戻り番地で親と子を分ける。親は 010002、子は 010000 へ戻る
+  'fork-parent': {
+    label:   'V6 fork: parent returns to bec',
+    panels:  ['btn-la-collapse'],
+    preset:  'V6 sh: fork returns in parent (bec 2f)',
+    signals: ['addr_v', 'data', 'bus_rd', 'bus_wr', 'pc', 'cm', 'r0', 'sp'],
+    arm:     true,
+  },
+  'fork-child': {
+    label:   'V6 fork: child returns to br',
+    panels:  ['btn-la-collapse'],
+    preset:  'V6 sh: fork returns in child (br 1f)',
+    signals: ['addr_v', 'data', 'bus_rd', 'bus_wr', 'pc', 'cm', 'r0', 'sp'],
+    arm:     true,
+  },
+  'fork-child-kernel': {
+    label:   'V6 fork: kernel stores parent pid for child',
+    panels:  ['btn-la-collapse'],
+    preset:  'V6 fork: child gets parent pid (fork+52)',
+    signals: ['addr_v', 'data', 'bus_rd', 'bus_wr', 'pc', 'cm', 'r0', 'kisa6'],
+    arm:     true,
+  },
+  // docs/09-PDP11/32 章: シグナルは p_sig に書くだけ（psignal）。配るのはプロセス自身（psig）
+  'sig-psignal': {
+    label:   'V6 signal: DEL key sets p_sig',
+    panels:  ['btn-la-collapse'],
+    preset:  'V6 psignal: signal number written to p_sig',
+    signals: ['addr_v', 'data', 'bus_rd', 'bus_wr', 'byte_op', 'pc', 'cm', 'bus_int', 'int_vec'],
+    arm:     true,
+  },
+  'sig-psig': {
+    label:   'V6 signal: psig pushes PS and PC on user stack',
+    panels:  ['btn-la-collapse'],
+    preset:  'V6 psig: frame pushed on user stack',
+    signals: ['addr_v', 'data', 'bus_rd', 'bus_wr', 'pc', 'cm', 'psw', 'sp'],
+    arm:     true,
+  },
+  'sig-handler': {
+    label:   'V6 signal: handler returns with rtt',
+    panels:  ['btn-la-collapse'],
+    preset:  'V6 sig.c: SIGINT handler entry (tvect+20)',
+    signals: ['addr_v', 'data', 'bus_rd', 'bus_wr', 'pc', 'cm', 'psw', 'sp'],
+    arm:     true,
+  },
+  // docs/09-PDP11/33 章: 最初のユーザープロセス。'@' が出たあと、rkunix を打つ前に入れる
+  'icode': {
+    label:   'V6 icode: first user instruction',
+    panels:  ['btn-la-collapse'],
+    preset:  'V6 icode: first user instruction (sys exec)',
+    signals: ['addr_v', 'addr_p', 'data', 'bus_rd', 'bus_wr', 'pc', 'cm', 'trapped', 'sp'],
+    arm:     true,
+  },
+  // docs/09-PDP11/34 章: sync は bflush() の書き込みを待たずに戻る。RK seek を遅くして順序を見せる
+  'sync-bflush': {
+    label:   'V6 sync: bflush does not wait',
+    panels:  ['btn-la-collapse'],
+    fields:  { 'rk-delay-sel': '4096' },
+    preset:  'V6 bflush: B_ASYNC set (write not awaited)',
+    signals: ['pc', 'cm', 'rk_state', 'bus_int', 'int_vec', 'addr_v', 'data', 'bus_wr'],
+    arm:     true,
+  },
 };
 
 function _scenarioOpenPanel(btnId) {

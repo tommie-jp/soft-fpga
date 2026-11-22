@@ -774,6 +774,9 @@ function _executeHostCmd(cmd) {
 }
 
 // ── キーボード入力（! コマンド + 履歴 対応）──────────────────────────────
+var DELETE_KEY_SEQ = '\x1b[3~';   // xterm.js が Delete キーで出す並び
+var V6_CINTR       = 0x7F;        // tty.h の CINTR（DEL）
+
 term.onData(function(data) {
   for (var i = 0; i < data.length; i++) {
     var ch   = data[i];
@@ -786,6 +789,15 @@ term.onData(function(data) {
       } else if (code === 0x0D) {
         _preQueue.push(0x0D);
       }
+      continue;
+    }
+
+    // Delete キー（ESC [ 3 ~）は DEL (0177) として送る。Unix V6 では DEL が CINTR（割り込みキー）で、
+    // 端末のプロセスに SIGINT を送る。Backspace は下で '#'（文字消去）に変換するので、DEL を送る道はここだけ。
+    if (data.startsWith(DELETE_KEY_SEQ, i)) {
+      _inputBuf = '';
+      worker.postMessage({ type: 'key', ch: V6_CINTR });
+      i += DELETE_KEY_SEQ.length - 1;
       continue;
     }
 
