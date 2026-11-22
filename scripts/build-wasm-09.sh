@@ -103,7 +103,11 @@ PATCH_FREELIST="$ROOT/scripts/patch-v6-disk-freelist.py"
 patch_v6_disk() {
     local disk="$1"
     python3 "$PATCH_PS" "$disk" || echo "WARNING: ps パッチ失敗 ($disk)" >&2
-    python3 "$PATCH_FREELIST" "$disk" || echo "WARNING: 空きリストの作り直し失敗 ($disk)" >&2
+    # 空きリストが直っていないディスクを埋め込む・公開すると、cc の a.out がまた壊れる。失敗はビルドを止める。
+    if ! python3 "$PATCH_FREELIST" "$disk"; then
+        echo "ERROR: 空きリストの作り直し失敗 ($disk)。V6 の RK05 イメージか確かめてください。" >&2
+        exit 1
+    fi
 }
 if [ -f "$TEST_DISK" ]; then
     patch_v6_disk "$TEST_DISK"

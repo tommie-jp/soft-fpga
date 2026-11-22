@@ -4,6 +4,7 @@ Shared by the offline disk patches (patch-v6-disk-ps.py,
 patch-v6-disk-freelist.py). The whole image is held in memory; nothing is
 written until save() is called.
 """
+import os
 import struct
 
 BS = 512
@@ -102,5 +103,9 @@ class V6Disk:
             return None
 
     def save(self):
-        with open(self.path, 'wb') as f:
+        # Write a sibling temp file and rename it, so an interrupted or failed
+        # write (disk full) never leaves a truncated image behind.
+        tmp = self.path + '.tmp'
+        with open(tmp, 'wb') as f:
             f.write(self.img)
+        os.replace(tmp, self.path)

@@ -176,3 +176,38 @@ def test_main_returns_1_in_check_mode_when_a_rebuild_is_needed(tmp_path):
     assert freelist.main(['prog', '--check', str(path)]) == 0
     assert freelist.main(['prog']) == 2
     assert freelist.main(['prog', str(tmp_path / 'none.dsk')]) == 2
+
+
+def test_truncated_image_is_reported_not_raised(tmp_path, capsys):
+    path = tmp_path / 'short.dsk'
+    path.write_bytes(bytes(100))
+
+    status = freelist.main(['prog', str(path)])
+
+    assert status == 2
+    assert '[fail]' in capsys.readouterr().err
+
+
+def test_damage_is_reported_again_on_a_consistent_image(tmp_path, capsys):
+    # Arrange: inode 2 has a clobbered indirect block; the free list is rebuilt once
+    path = make_image(tmp_path, [0, 30])
+    img = bytearray(path.read_bytes())
+    struct.pack_into('<3H', img, INDIRECT_BLOCK * BS, 12876, 40, 2)
+    path.write_bytes(img)
+    freelist.patch(str(path))
+    capsys.readouterr()
+
+    changed = freelist.patch(str(path))
+
+    out = capsys.readouterr().out
+    assert changed is False
+    assert 'already consistent' in out
+    assert 'out-of-range block pointers' in out
+
+
+def test_rebuild_leaves_no_temp_file_behind(tmp_path):
+    path = make_image(tmp_path, [0, 30, 30])
+
+    freelist.patch(str(path))
+
+    assert [p.name for p in tmp_path.iterdir()] == ['v6.dsk']

@@ -17,7 +17,9 @@ of all the other blocks. alloc() then hands blocks out in ascending order.
 
 It does NOT repair files that were already overwritten before the image was
 taken (/bin/dc and /usr/fort/fc1 have a clobbered indirect block). Those are
-reported and left alone. Blocks they still point to stay off the free list.
+reported and left alone. In-range block numbers found in a clobbered indirect
+block stay off the free list; data blocks the file used to reach through it
+can no longer be found and are treated as free.
 
 It is IDEMPOTENT: an image whose free list already matches is left untouched.
 
@@ -211,6 +213,11 @@ def describe(path: str, report: dict) -> None:
     print(f'       on the list twice or more: {len(report["duplicated"])}, '
           f'on the list but in use: {len(report["free_and_used"])}, '
           f'free but not on the list: {len(report["missing"])}')
+    warn_damage(report)
+
+
+def warn_damage(report: dict) -> None:
+    """Report file damage the rebuild cannot repair (shown on every run)."""
     if report['bad_inodes']:
         inos = ', '.join(str(i) for i in sorted(report['bad_inodes']))
         print(f'       WARNING: inodes with out-of-range block pointers '
@@ -226,6 +233,7 @@ def patch(path: str, check_only: bool = False) -> bool:
     report = analyse(disk)
     if report['clean']:
         print(f'[skip] free list already consistent: {path}')
+        warn_damage(report)
         return False
     if check_only:
         print(f'[need] free list is inconsistent: {path}')
@@ -248,7 +256,7 @@ def main(argv: list[str]) -> int:
     for path in args:
         try:
             needed = patch(path, check_only)
-        except (OSError, ValueError) as exc:
+        except (OSError, ValueError, struct.error) as exc:
             print(f'[fail] {path}: {exc}', file=sys.stderr)
             status = 2
             continue
