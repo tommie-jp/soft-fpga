@@ -17,6 +17,8 @@ const VA_SWTCH       = 0o15562;   // swtch の入口（jsr r5,csv = 004567）
 const VA_SSWAP_CLEAR = 0o16000;   // bicb $10,1(r2) — SSWAP が立っているときだけ通る
 const OP_SSWAP_CLEAR = 0o142762;
 const VA_AFTER_ARETU = 0o16016;   // aretu から戻った先（mov $1,r0 = return(1)）
+const VA_FORK_AFTER_NEWPROC = 0o35004;   // fork+46: newproc() を呼んだ直後の tst r0
+const OP_FORK_AFTER_NEWPROC = 0o005700;
 const VA_U_RSAV      = 0o140000;
 const VA_U_SSAV      = 0o140336;
 const TRIG_PC_DATA   = 6;
@@ -61,11 +63,11 @@ describe('Unix V6 swtch() の SSWAP 経路の観測', () => {
   }, 300000);
 
   /** a.out を走らせ、SSWAP 経路のトリガーで止める。 */
-  function runToSswap(seekDelay) {
+  function runToSswap(seekDelay, postSamples = POST_SAMPLES) {
     const M = sim.M;
     M._sim_set_rk_delay(seekDelay);
     M._sim_set_ring_tick_mask(0);            // 1tick/smpl: バスサイクルを取りこぼさない
-    M._sim_set_post_trig(POST_SAMPLES);
+    M._sim_set_post_trig(postSamples);
     M._sim_clear_trigger();
     M._sim_set_trigger(TRIG_PC_DATA, ((OP_SSWAP_CLEAR << 16) | VA_SSWAP_CLEAR) >>> 0);
     sim.sendLine('a.out\r', null);
@@ -177,6 +179,37 @@ describe('Unix V6 swtch() の SSWAP 経路の観測', () => {
 
     it('それでも swtch の return(1) は fork へ戻る', () => {
       expect(v6NearestSym(symbols, obs.landing.addr_v).name).toBe('fork');
+    });
+  });
+
+  describe('SSWAP 経路で止めた後、fork+46 のトリガーで復帰先に止める', () => {
+    let ssav;
+    let hitFork;
+    beforeAll(() => {
+      sim.M._sim_clear_trigger();              // 前の場面で発火したままだと 1 tick も進まない
+      const r = sim.runTo('# ', { maxCycles: 900_000_000 });
+      expect(r.timeout, '前の操作が終わらない').toBeFalsy();
+      // Arrange: Post 0 で aretu の手前に止め、u_ssav を控えてから復帰先のトリガーに付け替える
+      expect(runToSswap(SEEK_DELAY, 0), 'SSWAP 経路で止まらない').toBe(true);
+      ssav = [sim.peekVirt(KERNEL, VA_U_SSAV), sim.peekVirt(KERNEL, VA_U_SSAV + 2)];
+      const M = sim.M;
+      M._sim_clear_trigger();
+      M._sim_set_trigger(TRIG_PC_DATA, ((OP_FORK_AFTER_NEWPROC << 16) | VA_FORK_AFTER_NEWPROC) >>> 0);
+      // Act: 時計割り込みが間に入っても届くよう、余裕を持って進める
+      hitFork = sim.runUntilTrigger({ maxCycles: 5_000_000, chunk: 1_000 });
+    }, 300000);
+
+    it('Post 0 では、発火した tick の SP・R5 のまま止まる', () => {
+      expect(ssav[0]).toBeGreaterThan(0);
+      expect(hitFork).toBe(true);
+    });
+
+    it('止まるのは子が fork へ戻った最初の命令で、R0 は 1', () => {
+      const g = sim.gpr();
+      expect(g.r0).toBe(1);
+      // newproc の枠（u_ssav の R5）を cret が片付けた後: SP は R5 の置き場の 2 語上
+      expect(g.sp).toBe(ssav[1] + 4);
+      expect(g.r5).toBe(sim.peekVirt(KERNEL, ssav[1]));
     });
   });
 });
