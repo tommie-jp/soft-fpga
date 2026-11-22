@@ -660,6 +660,12 @@ var PDP11_TRIGGER_PRESETS = [
          'RK seek を On にし、メモリ不足で fork するプログラムを走らせると止まる',
     fields: { 'trig-type': '6', 'trig-pc': '16000', 'trig-data': '142762', 'trig-post': '0',
               'la-sample-sel': '0' } },
+  // newproc() から fork() へ戻った最初の命令（035004 tst r0）。swtch の SSWAP 経路で止めた後、
+  // aretu の直後に割り込みが入っても、復帰先で確実に止められる。R0 = 1 なら子、0 なら親。
+  { label: 'V6 fork: back from newproc (fork+46)',
+    tip: 'sys1.c fork(): newproc() を呼んだ直後の命令（035004 tst r0）。R0 が 1 なら子プロセス、0 なら親',
+    fields: { 'trig-type': '6', 'trig-pc': '35004', 'trig-data': '5700', 'trig-post': '0',
+              'la-sample-sel': '0' } },
 ].concat(PDP11_KNOWN_PCS.filter(function (k) { return !k.boot; }).map(function (k) {
   var oct = '0o' + k.pc.toString(8);
   var expr = 'Mode == "KERNEL" && VA == ' + oct + ' && RD == 1';
