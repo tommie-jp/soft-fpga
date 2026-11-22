@@ -35,5 +35,9 @@ var _pdp11DocViewer = new SftDocViewer(PDP11_DOC_LIST, {
   docsPathEn: 'docs/en/',
   idLangBtn:  'doc-lang-btn',
   useHash:    true,
+  // 文書の中の "?scenario=名前" のリンクで、デバッグパネルの設定一式を入れる（sft-pdp11-scenarios.js）
+  linkHandlers: {
+    scenario: function (name) { return applyPdp11Scenario(name) !== SCENARIO_FAILED; },
+  },
 });
 function openDoc(file) { _pdp11DocViewer.openDoc(file); }

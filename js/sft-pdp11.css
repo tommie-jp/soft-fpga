@@ -572,3 +572,9 @@ button.flash { background:#664 !important; }
 .fv-lbl  { color: #555; font-weight: bold; }
 .fv-file { color: #444; white-space: nowrap; }
 .fv-date { color: #444; white-space: nowrap; text-align: right; }
+
+/* 文書の中の操作リンク（"?scenario=..." など。sft-doc-viewer.js が doc-action を付ける）をボタンに見せる */
+#doc-content a.doc-action { display:inline-block; padding:4px 14px; border:1px solid #6a8;
+  border-radius:4px; background:#e8f4ec; color:#164; font-weight:bold; text-decoration:none;
+  cursor:pointer; }
+#doc-content a.doc-action:hover { background:#d4ecdc; }

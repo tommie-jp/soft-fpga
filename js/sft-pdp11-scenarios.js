@@ -1,0 +1,90 @@
+'use strict';
+// sft-pdp11-scenarios.js — シナリオ: 記事で案内する「デバッグパネルの設定一式」を 1 回の操作で入れる
+//
+// 入口は 2 つあり、どちらも applyPdp11Scenario(name) を呼ぶ。
+//   - 文書の中のリンク "?scenario=名前"（sft-pdp11-docs.js の linkHandlers）
+//   - sim.applyScenario('名前')（DevTools / Playwright）
+//
+// 起動のときに自動で入れる入口（ページの URL など）は設けない。トリガーを待ち受けにするシナリオは、
+// 入れる時機が結果を左右する（例: swtch-sswap は、ログインや cc の exec でも同じ経路を通って止まる）。
+//
+// 設定は、人が画面でする操作と同じ道を通す（欄に値を入れて change を出す・Set を押す）。
+// 画面の表示と実際の設定が食い違わないようにするため。
+//
+// 依存（グローバル）:
+//   worker / simStarted / simPaused / _trigArmed / _laFreezeHead / setStatus（sft-pdp11-worker-bridge.js）,
+//   _doClearTrigger / window._pdp11TrigPresets（sft-pdp11-trigger-ui.js）,
+//   PDP11_TRIGGER_PRESETS（sft-pdp11-la-defs.js）, window.la（RTLScopeLA）
+
+var SCENARIO_APPLIED = 'applied';
+var SCENARIO_FAILED  = 'failed';
+
+// panels:  開くパネル（折りたたみボタンの id）
+// fields:  欄の id → 値（change を出す）
+// preset:  Trigger のプリセットのラベル（PDP11_TRIGGER_PRESETS）
+// signals: LA に出す信号の id（これ以外は隠す）
+// arm:     true なら最後に Set を押してトリガーを待ち受けにする
+var PDP11_SCENARIOS = {
+  // docs/09-PDP11/27 章 3.2: swtch() の SSWAP 経路（aretu(u.u_ssav) の手前）で止める
+  'swtch-sswap': {
+    label:   'V6 swtch: SSWAP path',
+    panels:  ['btn-la-collapse', 'btn-stack-collapse'],
+    fields:  { 'rk-delay-sel': '4096' },
+    preset:  'V6 swtch: SSWAP path (aretu u_ssav)',
+    signals: ['addr_v', 'data', 'bus_rd', 'pc', 'sp', 'r5', 'kisa6'],
+    arm:     true,
+  },
+};
+
+function _scenarioOpenPanel(btnId) {
+  var btn = document.getElementById(btnId);
+  if (!btn) { console.warn('[scenario] パネルのボタン #' + btnId + ' が見つかりません'); return; }
+  if (btn.closest('.collapsed')) btn.click();
+}
+
+function _scenarioSetField(id, value) {
+  var el = document.getElementById(id);
+  if (!el) { console.warn('[scenario] 欄 #' + id + ' が見つかりません'); return; }
+  el.value = String(value);
+  el.dispatchEvent(new Event('change'));
+}
+
+// プリセットをラベルで探して入れる。見つからなければ false。
+function _scenarioApplyPreset(label) {
+  var idx = PDP11_TRIGGER_PRESETS.findIndex(function (p) { return p.label === label; });
+  if (idx < 0 || !window._pdp11TrigPresets) return false;
+  window._pdp11TrigPresets.apply(idx);
+  return true;
+}
+
+function applyPdp11Scenario(name) {
+  var sc = Object.prototype.hasOwnProperty.call(PDP11_SCENARIOS, name) ? PDP11_SCENARIOS[name] : null;
+  if (!sc) {
+    console.warn('[scenario] 未知のシナリオ: ' + name);
+    setStatus('Unknown scenario: ' + name);
+    return SCENARIO_FAILED;
+  }
+  if (!simStarted) {
+    setStatus('Boot Unix V6 first, then apply the scenario');
+    return SCENARIO_FAILED;
+  }
+
+  (sc.panels || []).forEach(_scenarioOpenPanel);
+  Object.keys(sc.fields || {}).forEach(function (id) { _scenarioSetField(id, sc.fields[id]); });
+
+  // 発火済み・待ち受け中のトリガーがあれば先に解除する（Set は押すたびに設定と解除が入れ替わる）
+  if (_trigArmed || _laFreezeHead >= 0) _doClearTrigger();
+  if (sc.preset && !_scenarioApplyPreset(sc.preset)) {
+    console.warn('[scenario] プリセットが見つかりません: ' + sc.preset);
+    setStatus('Scenario failed: preset not found');
+    return SCENARIO_FAILED;
+  }
+  if (sc.signals && window.la && window.la.setVisibleSignals) window.la.setVisibleSignals(sc.signals);
+  if (sc.arm) document.getElementById('btn-trig-set').click();
+
+  // 前のトリガーや Pause で止まっていたら再開する（止まっている間にセットしたトリガーは残る）。
+  // 状態欄は 'resumed' を受けた側が Running に書き換えるので、再開しないときだけここで書く
+  if (simPaused) worker.postMessage({ type: 'resume' });
+  else setStatus('Scenario ready: ' + sc.label);
+  return SCENARIO_APPLIED;
+}

@@ -131,6 +131,11 @@ If the child started from there, it would wait for a disk transfer that finished
 So the same values are also kept in `u.u_ssav`, which nothing overwrites, and the child's `p_flag` is marked with SSWAP.
 The first time the child runs, `swtch` sees the mark and calls `aretu(u.u_ssav)` to put SP and R5 back into `newproc`'s frame.
 
+Two other places set SSWAP: `expand()`, when it finds no room to grow a process, and `xalloc()`, which `exec` uses to load shared text.
+Both write the process itself to swap, call `swtch()`, and wait to be brought back.
+The `xalloc()` path runs the first time each shared-text command is `exec`ed, including `sh` at login.
+This article follows the `newproc()` path, the one the comment's "returns 1 in the new process" refers to.
+
 ## 3. Setting up the observation
 
 Open [09-PDP-11 / Unix V6](https://tommie-jp.github.io/soft-fpga/examples/09-pdp11/web) and log in as `root` at `login:`.
@@ -148,11 +153,21 @@ main(){ int i; sbrk(16000); for(i=0;i<3;i++) fork(); sleep(4); }
 
 ### 3.2 Debug panel settings
 
+After finishing 3.1, press the button below. It applies all the settings and arms the trigger. If the simulation was stopped, it resumes.
+
+[▶ Apply these settings](?scenario=swtch-sswap)
+
+Then run `a.out` in the terminal.
+
+The button does these four things. The order is the same when you set them by hand.
+
 1. Open the **Logic Analyzer** and **Stack / Memory** panels.
 2. Set **RK seek** in the LA bar to `4K clk (1.2 ms)` (chapter 7 explains why).
 3. In **Trigger**, pick the preset `V6 swtch: SSWAP path (aretu u_ssav)` and press **Set**.
-4. Show the LA signals `VA`, `Data`, `RD`, `PC`, `SP`, `R5` and `KISA6`.
-5. Run `a.out` in the terminal.
+4. Show only the LA signals `VA`, `Data`, `RD`, `PC`, `SP`, `R5` and `KISA6`.
+
+If you apply the settings before 3.1, the simulation stops during login or in the middle of `cc`.
+Shared-text commands such as `sh`, `ls` and `cc` take the same path when they are `exec`ed (chapter 2).
 
 The preset stops at the fetch of the instruction at 016000, `bicb $10,1(r2)` (`rp->p_flag =& ~SSWAP`).
 That instruction runs only when SSWAP is set. The trigger also compares the instruction word (142762), so the same address in a user process does not stop it.
