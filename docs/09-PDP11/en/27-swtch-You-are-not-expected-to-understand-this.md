@@ -1,6 +1,6 @@
-# 27. Watching "You are not expected to understand this" on a Logic Analyzer
+# 27. Watching "You are not expected to understand this" on a Logic Analyzer <a class="qr-link" href="../../../docs/09-PDP11/img/27-en-QR.png">QR</a>
 
-UNIX Version 6 (1975) contains the most famous comment in programming history:
+UNIX Version 6 (1975) contains one of the strangest comments in programming history:
 `You are not expected to understand this.`, in `swtch()` in `sys/ken/slp.c`.
 
 The comment is usually introduced like this:
@@ -86,8 +86,8 @@ What the three routines do:
 | `retu(p)` | Writes `p` to KISA6 to switch the u area, then loads SP and R5 from `u.u_rsav` |
 | `aretu(a)` | Keeps the u area and loads SP and R5 from the two words at `a` |
 
-Only SP and R5 are saved. R5 is the C frame pointer. Neither the PC nor R2–R4 is saved.
-That becomes the problem later.
+Only SP and R5 are saved. R5 is the C frame pointer.
+Neither the PC nor R2–R4 is saved, and chapter 8 shows why that is a problem.
 
 The u area is a 1 KB region that holds a process's kernel stack and its `user` structure.
 It appears at kernel virtual address 140000, and KISA6 (kernel page address register 6) selects whose u area is mapped there.
@@ -121,7 +121,7 @@ The write goes like this:
 
 1. `newproc` calls `savu(u.u_rsav)` and `savu(u.u_ssav)`. Both receive the SP and R5 of `newproc`'s frame.
 2. `xswap` → `swap` asks the disk to write and calls `sleep` to wait for it.
-3. `sleep` calls `swtch`. The `savu(u.u_rsav)` at the top of `swtch` overwrites the parent's `u.u_rsav` with the values of **`swtch`'s frame**.
+3. `sleep` calls `swtch`. The `savu(u.u_rsav)` at the top of `swtch` overwrites the parent's `u.u_rsav` with the values of `swtch`'s frame.
 4. The disk reads the parent's memory and writes it out.
 
 The order of steps 3 and 4 matters. Disks are slow, so step 3 finishes first.
@@ -187,7 +187,7 @@ V6 C puts the caller's R5 at `(R5)` and the return address at `2(R5)` on functio
 | 141726 | 022534 `trap1+26` | `fork` (called by the system call entry) |
 
 The running process is the newborn child. It never called `sleep` or `swap`.
-The first four rows are frames **the parent** pushed while it waited for the disk, copied to the child along with the rest of memory.
+The first four rows are frames the parent pushed while it waited for the disk, copied to the child along with the rest of memory.
 The order of steps 3 and 4 in chapter 2 is preserved in the stack.
 
 `retu` loaded this image's `u.u_rsav` (141576 and 141606), so SP and R5 point into the parent's `swtch` frame.
@@ -219,8 +219,11 @@ After the Step, the four frames the parent pushed are gone from the call chain.
 
 ![Stack / Memory panel after stepping through aretu and the return](docs/img/27-02-stack-after-step.png)
 
-`aretu` ends by enabling interrupts again. A pending clock interrupt may come in at that point, and the PC then shows `call` (the interrupt entry).
-Press Step a few more times to get back into `swtch`.
+`aretu` ends by enabling interrupts again. On some runs a pending clock interrupt comes in at that point, and the PC after the Step shows `call`, the interrupt entry.
+
+To stop at the return for certain, use a second trigger.
+Press **Set** to clear the trigger that fired, pick the preset `V6 fork: back from newproc (fork+46)`, and press **Set** again.
+Resume with the **Resume** button in the top bar, and the simulation stops at the first instruction back in `fork`. If R0 is 1, it is the child.
 
 ## 6. `return(1)` returns to `fork`
 
@@ -245,7 +248,7 @@ cret:
         rts     pc
 ```
 
-`cret` finds the registers and the return address **relative to R5**. On the waveform:
+`cret` finds the registers and the return address relative to R5. On the waveform:
 
 | Tick | Address read | Value | Goes to |
 | --- | --- | --- | --- |
@@ -260,10 +263,9 @@ At +230 ticks the CPU fetches the instruction at 035004, right after the call to
 This is how the comment on `newproc`, "It returns 1 in the new process", is carried out.
 The parent returns to `fork` in the ordinary way, through the `return(0)` at the end of `newproc`.
 
-It works because of two rules of the V6 C compiler:
-
-- Every function calls the same `csv` on entry, which pushes R2–R4 just below R5, in the same order.
-- Every function leaves through the same `cret`, which needs nothing but R5 to find the registers and the return address.
+It works because the V6 C compiler builds the same kind of frame for every function.
+Every function calls the same `csv` on entry, which pushes R2–R4 just below R5 in the same order.
+Every function leaves through the same `cret`, which needs nothing but R5 to find the registers and the return address.
 
 Point R5 at another function's frame, execute `return`, and it passes for a `return` from that function.
 This is what the second sentence at the top, "It relied on the way the PDP-11 C compiler saved registers", refers to.
@@ -288,7 +290,7 @@ One tick of this simulator is about 0.3 µs, so even a 4096-clock delay is only 
 That is still enough to put the two steps in the same order as on the real machine, and `aretu` does its job.
 
 `aretu(u.u_ssav)` is a line that only means something on the assumption that the disk is far slower than the CPU.
-With a fast disk it never has work to do, and the system runs without it. We learned this by running it.
+With a fast disk `u_rsav` and `u_ssav` hold the same values and the line changes nothing. We learned this by running it.
 
 ## 8. What Ritchie meant by "broken"
 
@@ -308,9 +310,14 @@ With a compiler that saves different registers for different functions, the fram
 and even the position of the return address shifts.
 The third sentence at the top is about this.
 
-In Version 7, `savu` / `retu` / `aretu` were replaced by `save` / `resume`.
-`save` stores R2–R5 and SP together with the return address, and `resume` returns into the function that saved them, the same shape as C's `setjmp` / `longjmp`.
-Nothing depends on another function's `return` any more, so the comment was no longer needed.
+In Version 7, `savu` / `retu` / `aretu` were replaced by `save` / `resume` ([m40.s](https://github.com/dspinellis/unix-history-repo/blob/Research-V7/usr/sys/40/m40.s)).
+`save` stores six words, R2–R5, SP and the return address, and returns 0.
+`resume` restores those six words and continues as if that call to `save` had returned 1, the same shape as C's `setjmp` / `longjmp`.
+Nothing depends on another function's `return` any more, and the comment is gone.
+
+`u_ssav` and SSWAP are still there in Version 7 ([slp.c](https://github.com/dspinellis/unix-history-repo/blob/Research-V7/usr/sys/sys/slp.c)).
+V7's `swtch` ends with `resume(p->p_addr, n? u.u_ssav: u.u_rsav)` and uses `u_ssav` for a process marked SSWAP.
+What was redone is the way frames are switched. Keeping a second copy in `u_ssav` stayed as it was.
 
 ## 9. Summary
 
@@ -320,10 +327,7 @@ Nothing depends on another function's `return` any more, so the comment was no l
 | It relied on the way the C compiler saved registers | `cret` finds R2–R4 and the return address from R5 alone, so it can tear down another function's frame |
 | It was fundamentally broken and was redesigned | It fails with a compiler whose frames differ per function. V7 uses `save` / `resume` |
 
-Running it showed one more thing.
-The line only does something when the disk is slow enough for `u_rsav` to be overwritten.
-V6 boots on an instruction emulator too, but lining up the moment SP and R5 move with the stack before and after it
-takes a machine whose internal signals can be taken out.
+Running it also showed that the line only does something when the disk is slow enough for `u_rsav` to be overwritten.
 
 ## 10. Related documents
 
