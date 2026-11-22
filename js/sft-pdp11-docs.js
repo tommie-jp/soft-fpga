@@ -19,6 +19,7 @@ var PDP11_DOC_LIST = [
   { file: '25-as-db-命令シーケンスデモ.md',      fileEn: '25-as-db-命令シーケンスデモ.md',      label: '25 as/db で命令シーケンス図',             labelEn: '25 as/db Instruction Sequence Demo' },
   { file: '26-式トリガー-リファレンス.md',       fileEn: '26-式トリガー-リファレンス.md',       label: '26 式トリガー（Expr）リファレンス',        labelEn: '26 Expr Trigger Reference' },
   { file: '27-swtch-You-are-not-expected-to-understand-this.md', fileEn: '27-swtch-You-are-not-expected-to-understand-this.md', label: '27 「You are not expected to understand this」を LA で見る', labelEn: '27 Watching "You are not expected to understand this"' },
+  { file: '28-setd-the-trap-is-ignored.md', fileEn: '28-setd-the-trap-is-ignored.md', label: '28 C プログラムの最初の命令は無視される不正命令', labelEn: '28 The First Instruction of Every C Program Is an Ignored Trap' },
   { file: '30-linux-起動スクリプト.md',         fileEn: '30-linux-起動スクリプト.md',         label: '30 Linux 起動スクリプト',                 labelEn: '30 Linux Boot Script' },
   { file: '31-lcase-大文字モード.md',           fileEn: '31-lcase-大文字モード.md',           label: '31 LCASE 大文字モード',                   labelEn: '31 LCASE Uppercase Mode' },
   { file: '42-as-アセンブラ制約.md',            fileEn: '42-as-アセンブラ制約.md',            label: '42 as アセンブラ制約',                    labelEn: '42 as Assembler Constraints' },
