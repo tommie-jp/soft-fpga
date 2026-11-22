@@ -176,9 +176,9 @@ Special characters interpreted by the Unix V6 TTY driver in cooked mode (the def
 | Character | Code | Name | Change via | Description |
 |-----------|------|------|------------|-------------|
 | `@` | 0x40 | kill-line | `stty kill X` | Discard the entire input line |
-| DEL | 0x7F | erase | `stty erase X` | Delete the previous character |
+| `#` | 0x23 | erase | `stty erase X` | Delete the previous character (in this terminal the Backspace key sends `#`) |
 | `^D` | 0x04 | CEOT (EOF) | not changeable | Makes `read()` return 0 (EOF) |
-| `^C` | 0x03 | CINTR | not changeable | Send SIGINT to the foreground process |
+| DEL | 0x7F | CINTR | not changeable | Send SIGINT to the processes of the terminal (in this terminal the Delete key sends DEL; see [chapter 32](?doc=32-signal-asks-the-process-to-do-something-to-itself.md)) |
 | `^\` | 0x1C | CQUIT | not changeable | SIGQUIT + core dump |
 
 Only `kill` and `erase` can be changed via `stty`. The remaining three are hardcoded in the kernel.
@@ -188,7 +188,7 @@ Only `kill` and `erase` can be changed via `stty`. The remaining three are hardc
 ```text
 stty               ← display current TTY settings
 stty kill @        ← restore kill-line to @ (default)
-stty erase ^?      ← restore erase to DEL (0x7F)
+stty erase #       ← restore erase to # (default)
 ```
 
 To temporarily disable kill/erase, assign an unused control character (e.g., `^A` = 0x01).

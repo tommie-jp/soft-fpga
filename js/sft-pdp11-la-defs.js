@@ -683,6 +683,64 @@ var PDP11_TRIGGER_PRESETS = [
          '先頭の setd のトラップがシグナル SIGINS としてここへ届く',
     fields: { 'trig-type': '6', 'trig-pc': '7100', 'trig-data': '5367', 'trig-post': '0',
               'la-sample-sel': '0' } },
+  // sh の fork()（libc の fork.s）。カーネルは親の戻り番地だけを 2 進めるので、親は sys fork の 2 語あと
+  // （010002 bec 2f）、子はすぐあと（010000 br 1f）へ戻る。Post = 200 で、戻ったあとの数命令を採る。
+  // 親の側は、fork() が R0 と PC を書き換える 2 つの書き込み（約 1000 tick 前）も同じ取り込みに入る。
+  { label: 'V6 sh: fork returns in parent (bec 2f)',
+    tip: '/bin/sh の fork() で、親が sys fork から戻った最初の命令（010002 bec 2f）。' +
+         'コマンドを 1 つ実行すると止まる。R0 は子の pid',
+    fields: { 'trig-type': '6', 'trig-pc': '10002', 'trig-data': '103005', 'trig-post': '200',
+              'la-sample-sel': '0' } },
+  { label: 'V6 sh: fork returns in child (br 1f)',
+    tip: '/bin/sh の fork() で、子が sys fork から戻った最初の命令（010000 br 1f）。' +
+         'コマンドを 1 つ実行すると止まる。R0 は親の pid で、このあと clr r0 が 0 にする',
+    fields: { 'trig-type': '6', 'trig-pc': '10000', 'trig-data': '403', 'trig-post': '200',
+              'la-sample-sel': '0' } },
+  // sys1.c fork() の、子だけが通る行 u.u_ar0[R0] = p1->p_pid（035010 mov 12(r4),*u_ar0）。
+  // 子が sys fork から戻るまでに一度プロセスを切り替えられるので、ユーザー側の取り込みには入らない。
+  { label: 'V6 fork: child gets parent pid (fork+52)',
+    tip: 'sys1.c fork(): 子の側だけが通る u.u_ar0[R0] = p1->p_pid（035010）。' +
+         '直後に 141772 番地（退避した R0）へ親の pid を書く',
+    fields: { 'trig-type': '6', 'trig-pc': '35010', 'trig-data': '16477', 'trig-post': '200',
+              'la-sample-sel': '0' } },
+  // シグナルの 2 段階。psignal() は p_sig に番号を書くだけ（割り込みの中）。配るのは psig() で、
+  // プロセス自身がカーネルを出るときに呼ぶ。psig の Post = 1900 は、ユーザースタックへの 2 語の書き込みを経て
+  // psig を出るまで（1103 tick。途中にクロック割り込みが入ると約 570 tick 延びる）を収める。
+  // このあと再スケジュールが挟まるので、ハンドラは別のプリセットで採る。
+  { label: 'V6 psignal: signal number written to p_sig',
+    tip: 'sig.c psignal() の入口（022644）。端末で Delete キー（DEL, 0177）を押すと、' +
+         '受信割り込み → ttyinput → signal → ここ、の順で来る。p_sig に 1 バイト書くだけで戻る',
+    fields: { 'trig-type': '6', 'trig-pc': '22644', 'trig-data': '4567', 'trig-post': '1000',
+              'la-sample-sel': '0' } },
+  { label: 'V6 psig: frame pushed on user stack',
+    tip: 'sig.c psig() の入口（023144）。シグナルを捕まえているプロセスに配る瞬間。' +
+         'ユーザースタックに PS と PC を積み、戻り先をハンドラに書き換える',
+    fields: { 'trig-type': '6', 'trig-pc': '23144', 'trig-data': '4567', 'trig-post': '1900',
+              'la-sample-sel': '0' } },
+  // 32 章の sig.c を cc した a.out の、libc の signal.s の tvect にある SIGINT の入口（001410 mov r0,-(sp)）。
+  // Post = 400 で、ハンドラ h() を呼び、ユーザーモードの rtt が積まれた 2 語を取り出して戻るまで（316 tick）を採る。
+  // 番地はこのソースの a.out のもの。ソースを変えると変わる。
+  { label: 'V6 sig.c: SIGINT handler entry (tvect+20)',
+    tip: '32 章の sig.c の a.out で、シグナルのハンドラへ入った最初の命令（001410 mov r0,-(sp)）。' +
+         'a.out を走らせて Delete キーを押すと止まる。SP の先に、カーネルが積んだ PC と PS がある',
+    fields: { 'trig-type': '6', 'trig-pc': '1410', 'trig-data': '10046', 'trig-post': '400',
+              'la-sample-sel': '0' } },
+  // 最初のユーザープロセスの最初の命令。main() が icode[] の 11 語を User の 0 番地へ写し、start の rtt が
+  // そこへ「戻る」。ブートの間に 1 回しか通らず、Reset でトリガーは消える。
+  // '@' が出てから Set し、そのあと rkunix を打つ。
+  { label: 'V6 icode: first user instruction (sys exec)',
+    tip: 'main.c icode[] の最初の語（104413 sys exec）を User の 0 番地でフェッチした瞬間。' +
+         'Reset して @ が出たあと、rkunix を打つ前に Set する',
+    fields: { 'trig-type': '6', 'trig-pc': '0', 'trig-data': '104413', 'trig-post': '900',
+              'la-sample-sel': '0' } },
+  // sync システムコールの後半。bflush() が遅延書き込みのバッファに B_ASYNC を立てる命令（046012 bis $400,(r4)）。
+  // このあと RK11 に書き込みを出し、完了を待たずにユーザーへ戻る。4tick/smpl・Post = 4000 で 16000 tick 先まで採り、
+  // 「ユーザーへ戻る → そのあとで RK11 の割り込み」の順を 1 回の取り込みに収める（RK seek = 4K clk のとき）。
+  { label: 'V6 bflush: B_ASYNC set (write not awaited)',
+    tip: 'bio.c bflush(): 遅延書き込みのバッファに B_ASYNC を立てる命令（046012）。' +
+         'date >y; sync のように、ファイルを書いた直後に sync すると止まる',
+    fields: { 'trig-type': '6', 'trig-pc': '46012', 'trig-data': '52714', 'trig-post': '4000',
+              'la-sample-sel': '3' } },
 ].concat(PDP11_KNOWN_PCS.filter(function (k) { return !k.boot; }).map(function (k) {
   var oct = '0o' + k.pc.toString(8);
   var expr = 'Mode == "KERNEL" && VA == ' + oct + ' && RD == 1';

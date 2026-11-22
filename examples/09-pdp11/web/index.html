@@ -27,7 +27,7 @@
   </div>
 </div>
 
-<h2><a href="https://tommie-jp.github.io/soft-fpga/" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.1 2026/11/22 12:02</span></h2>
+<h2><a href="https://tommie-jp.github.io/soft-fpga/" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">soft-FPGA</a> | 09 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/09-pdp11" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #666;">PDP-11 / Unix V6 RTL Simulator</a> <span style="font-size:11px;color:#777;font-weight:normal;"> Ver.1.0.1 2026/11/22 20:42</span></h2>
 <p style="font-size:12px;color:#777;margin:0 0 5px;"><a href="https://github.com/lisper/cpus-pdp11" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">cpus-pdp11</a> (Brad Parker RTL) → <a href="https://www.veripool.org/verilator/" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Verilator</a> → <a href="https://en.wikipedia.org/wiki/WebAssembly" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">WASM</a> &nbsp;|&nbsp; <a href="https://en.wikipedia.org/wiki/History_of_Unix" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #555;text-decoration:none;">Unix V6</a> + custom RK11 BIOS</p>
 
 <!-- docs パネル -->
@@ -50,8 +50,12 @@
   <a href="?doc=26-%E5%BC%8F%E3%83%88%E3%83%AA%E3%82%AC%E3%83%BC-%E3%83%AA%E3%83%95%E3%82%A1%E3%83%AC%E3%83%B3%E3%82%B9.md" onclick="openDoc('26-式トリガー-リファレンス.md');return false;">26 Expression Trigger Reference</a>
   <a href="?doc=27-swtch-You-are-not-expected-to-understand-this.md" onclick="openDoc('27-swtch-You-are-not-expected-to-understand-this.md');return false;">27 "You are not expected to understand this"</a>
   <a href="?doc=28-setd-the-trap-is-ignored.md" onclick="openDoc('28-setd-the-trap-is-ignored.md');return false;">28 The First Instruction of Every C Program</a>
+  <a href="?doc=29-fork-the-return-locations-differ-by-one-word.md" onclick="openDoc('29-fork-the-return-locations-differ-by-one-word.md');return false;">29 fork: Return Addresses Differ by One Word</a>
   <a href="?doc=30-linux-%E8%B5%B7%E5%8B%95%E3%82%B9%E3%82%AF%E3%83%AA%E3%83%97%E3%83%88.md" onclick="openDoc('30-linux-起動スクリプト.md');return false;">30 Linux Boot Scripts</a>
   <a href="?doc=31-lcase-%E5%A4%A7%E6%96%87%E5%AD%97%E3%83%A2%E3%83%BC%E3%83%89.md" onclick="openDoc('31-lcase-大文字モード.md');return false;">31 Uppercase Mode (lcase)</a>
+  <a href="?doc=32-signal-asks-the-process-to-do-something-to-itself.md" onclick="openDoc('32-signal-asks-the-process-to-do-something-to-itself.md');return false;">32 A Signal Is Delivered by the Process Itself</a>
+  <a href="?doc=33-icode-return-goes-to-loc-0.md" onclick="openDoc('33-icode-return-goes-to-loc-0.md');return false;">33 icode: the First Process</a>
+  <a href="?doc=34-sync-not-necessarily-complete-upon-return.md" onclick="openDoc('34-sync-not-necessarily-complete-upon-return.md');return false;">34 sync Returns Before the Writing Is Done</a>
   <a href="?doc=42-as-%E3%82%A2%E3%82%BB%E3%83%B3%E3%83%96%E3%83%A9%E5%88%B6%E7%B4%84.md" onclick="openDoc('42-as-アセンブラ制約.md');return false;">42 as Assembler Constraints</a>
   <a href="?doc=52-%E3%83%A1%E3%83%A2%E3%83%AA%E3%83%9E%E3%83%83%E3%83%97.md" onclick="openDoc('52-メモリマップ.md');return false;">52 Memory Map</a>
   <a href="?doc=53-%E5%8F%82%E8%80%83%E8%B3%87%E6%96%99.md" onclick="openDoc('53-参考資料.md');return false;">53 References</a>
@@ -774,6 +778,9 @@ function _executeHostCmd(cmd) {
 }
 
 // ── キーボード入力（! コマンド + 履歴 対応）──────────────────────────────
+var DELETE_KEY_SEQ = '\x1b[3~';   // xterm.js が Delete キーで出す並び
+var V6_CINTR       = 0x7F;        // tty.h の CINTR（DEL）
+
 term.onData(function(data) {
   for (var i = 0; i < data.length; i++) {
     var ch   = data[i];
@@ -786,6 +793,15 @@ term.onData(function(data) {
       } else if (code === 0x0D) {
         _preQueue.push(0x0D);
       }
+      continue;
+    }
+
+    // Delete キー（ESC [ 3 ~）は DEL (0177) として送る。Unix V6 では DEL が CINTR（割り込みキー）で、
+    // 端末のプロセスに SIGINT を送る。Backspace は下で '#'（文字消去）に変換するので、DEL を送る道はここだけ。
+    if (data.startsWith(DELETE_KEY_SEQ, i)) {
+      _inputBuf = '';
+      worker.postMessage({ type: 'key', ch: V6_CINTR });
+      i += DELETE_KEY_SEQ.length - 1;
       continue;
     }
 
