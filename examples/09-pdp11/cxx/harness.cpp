@@ -95,7 +95,8 @@ static uint64_t        sim_time = 0;
 // Word9 [31:0]:
 //   [11: 0] uipar0        — User I-space PAR0（プロセスコンテキスト識別子）
 //   [12]    ctx_new       — 前サンプルから uipar0 が変化（コンテキストスイッチ）
-//   [31:13] reserved
+//   [24:13] kisa6         — Kernel I-space PAR6（u 領域の物理位置。retu() が書き換える）
+//   [31:25] reserved
 
 #define RING_SIZE  4096
 #define RING_WORDS 11
@@ -122,6 +123,29 @@ static uint8_t  trapped_prev       = 0;
 static uint32_t trapped_word4      = 0;
 static uint16_t trapped_indirect_n = 0xFFFFu; // sys 0 (indir) の .word N（0xFFFF = 非 indir）
 static uint16_t g_prev_uipar0      = 0xFFFFu; // ctx_new エッジ検出用（0xFFFF = 未初期化）
+
+// Kernel I-space PAR[apf]（12 ビット）。par_h/par_l の添字 0-7 が Kernel I-space。
+static inline uint16_t kernel_par(uint32_t apf) {
+    auto& par_h = top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__par_h;
+    auto& par_l = top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__par_l;
+    return (uint16_t)((((uint16_t)par_h[apf & 7u] << 8) | par_l[apf & 7u]) & 0x0FFFu);
+}
+
+// User I-space PAR[apf]（12 ビット）。par_h[48+apf] は Verilator の最適化で定数化されるため、
+// mmu.v で verilator public_flat 宣言した user_i_par0〜7 ワイヤー経由で読む。
+static inline uint16_t user_par(uint32_t apf) {
+    auto* r = top->rootp;
+    switch (apf & 7u) {
+        case 0:  return r->test_top_wasm__DOT__top__DOT__mmu1__DOT__user_i_par0 & 0x0FFFu;
+        case 1:  return r->test_top_wasm__DOT__top__DOT__mmu1__DOT__user_i_par1 & 0x0FFFu;
+        case 2:  return r->test_top_wasm__DOT__top__DOT__mmu1__DOT__user_i_par2 & 0x0FFFu;
+        case 3:  return r->test_top_wasm__DOT__top__DOT__mmu1__DOT__user_i_par3 & 0x0FFFu;
+        case 4:  return r->test_top_wasm__DOT__top__DOT__mmu1__DOT__user_i_par4 & 0x0FFFu;
+        case 5:  return r->test_top_wasm__DOT__top__DOT__mmu1__DOT__user_i_par5 & 0x0FFFu;
+        case 6:  return r->test_top_wasm__DOT__top__DOT__mmu1__DOT__user_i_par6 & 0x0FFFu;
+        default: return r->test_top_wasm__DOT__top__DOT__mmu1__DOT__user_i_par7 & 0x0FFFu;
+    }
+}
 
 static inline void sample_ring() {
     uint32_t* p = &ring[(ring_head % RING_SIZE) * RING_WORDS];
@@ -170,7 +194,8 @@ static inline void sample_ring() {
         // mmu.v で verilator public_flat 宣言した user_i_par0 ワイヤー経由で読む。
         uint16_t _uipar0 = top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__user_i_par0 & 0x0FFFu;
         uint8_t  _ctx_new = (_uipar0 != g_prev_uipar0) ? 1u : 0u;
-        p[9] = (uint32_t)_uipar0 | ((uint32_t)_ctx_new << 12);
+        p[9] = (uint32_t)_uipar0 | ((uint32_t)_ctx_new << 12)
+             | ((uint32_t)(kernel_par(6) & 0x0FFFu) << 13);
         g_prev_uipar0 = _uipar0;
     }
     // Word10: sim_time 下位 32bit（Event Log 相対時刻用）
@@ -241,7 +266,14 @@ static uint32_t g_trig_fire_head    = 0;     // トリガー発火時の ring_he
 // ほかはその瞬間の PC。停止は POST_TRIG_SAMPLES 後なので、get_pc() は発火の位置より先へ進んでいる
 static uint32_t g_trig_fire_pc      = 0;
 static int      g_post_trig_remain  = 0;     // 発火後に収集する残りサンプル数
-#define POST_TRIG_SAMPLES 100
+// 発火後に収集するサンプル数（sim_set_post_trig で変える。0 = 発火した tick で即停止）。
+// 上限は RING_SIZE - 1（それ以上だと発火の瞬間が ring から押し出される）。
+#define POST_TRIG_DEFAULT 100
+static int      g_post_trig_samples = POST_TRIG_DEFAULT;
+
+// RK11 のシーク遅延（クロック数）。0 = 遅延なし（既定）。sim_init をまたいで保つ。
+static uint32_t g_rk_seek_delay     = 0;
+#define RK_SEEK_DELAY_MAX 0xFFFFFFu          // rk_regs.v の rk_seek_delay は 24 ビット
 
 // ── DPI 実装（wasm_uart.v から呼ばれる） ─────────────────────────────────
 
@@ -295,6 +327,14 @@ static void do_reset() {
     for (int i = 0; i < 64; i++) tick();
 }
 
+// ── RK11 シーク遅延の反映 ────────────────────────────────────────────────
+// rk_regs.v の initial が最初の eval() で 0 に戻すため、必ず eval() の後に呼ぶ。
+static void apply_rk_seek_delay() {
+    if (!top) return;
+    top->rootp->test_top_wasm__DOT__top__DOT__bus1__DOT__iopage__DOT__rk_regs__DOT__rk_seek_delay
+        = g_rk_seek_delay & RK_SEEK_DELAY_MAX;
+}
+
 // ── RAM 操作（ram_v5.cpp の extern） ────────────────────────────────────────
 
 extern "C" {
@@ -331,6 +371,7 @@ EMSCRIPTEN_KEEPALIVE void sim_init() {
     ring_tick_mask     = 3u;   // Unix V6 ブート: 4tick/sample
 
     do_reset();
+    apply_rk_seek_delay();
 }
 
 // ── ベアメタル初期化 ─────────────────────────────────────────────────────
@@ -378,6 +419,7 @@ EMSCRIPTEN_KEEPALIVE void sim_init_bare(uint32_t start_pc) {
     // resume でシミュレーションを開始するため、ここではリセット解除のみ行う。
     SIM_BUTTON = (1 << 3);           // リセットアサート
     for (int i = 0; i < 64; i++) tick();
+    apply_rk_seek_delay();
     SIM_BUTTON = 0;                   // リセット解除
     top->eval();                      // 解除伝搬（ティックは走らせない）
 }
@@ -416,20 +458,7 @@ static inline void update_trapped_latch() {
         if (isn == 0x8900u) {
             uint16_t virt_pc = (uint16_t)OBS_PC;
             uint32_t apf     = (virt_pc >> 13) & 7u;
-            uint32_t par;
-            // par_h[48+apf] は verilator 最適化で定数化される問題があるため、
-            // verilator public_flat 宣言した user_i_par0〜par7 ワイヤー経由で取得する。
-            static const uint16_t* const k_user_par[] = {
-                &top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__user_i_par0,
-                &top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__user_i_par1,
-                &top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__user_i_par2,
-                &top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__user_i_par3,
-                &top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__user_i_par4,
-                &top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__user_i_par5,
-                &top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__user_i_par6,
-                &top->rootp->test_top_wasm__DOT__top__DOT__mmu1__DOT__user_i_par7,
-            };
-            par = *k_user_par[apf] & 0x0FFFu;
+            uint32_t par = user_par(apf);
             uint32_t phys_pc = (par << 6u) + (uint32_t)(virt_pc & 0x1FFFu);
             trapped_indirect_n = ram_read_word(phys_pc);
         } else {
@@ -504,7 +533,8 @@ EMSCRIPTEN_KEEPALIVE void step_n(int n) {
                 g_trig_fire_head   = ring_head;
                 g_trig_fire_pc     = (g_trig_type == TRIG_PC || g_trig_type == TRIG_PC_DATA)
                                    ? (uint32_t)(OBS_ADDR_V & 0xFFFFu) : (uint32_t)OBS_PC;
-                g_post_trig_remain = POST_TRIG_SAMPLES;
+                g_post_trig_remain = g_post_trig_samples;
+                if (g_post_trig_remain == 0) g_triggered = 1;   // post = 0: 即停止
             }
         }
     }
@@ -534,6 +564,8 @@ EMSCRIPTEN_KEEPALIVE uint32_t  get_ring_words() { return RING_WORDS; }
 
 // PC 取得
 EMSCRIPTEN_KEEPALIVE uint32_t get_pc() { return OBS_PC; }
+// PSW 取得（[15:14] = 現在のモード: 0 Kernel / 3 User）
+EMSCRIPTEN_KEEPALIVE uint32_t get_psw() { return OBS_PSW & 0xFFFFu; }
 
 // コンソール入力空き容量
 EMSCRIPTEN_KEEPALIVE int sim_con_in_space() {
@@ -568,6 +600,49 @@ EMSCRIPTEN_KEEPALIVE void sim_clear_trigger() {
     g_trig_fire_head   = 0;
     g_trig_fire_pc     = 0;
     g_post_trig_remain = 0;
+}
+
+// ── ポストトリガー数 ──────────────────────────────────────────────────────
+// 発火後に収集する ring サンプル数。範囲外は [0, RING_SIZE-1] に丸める。
+EMSCRIPTEN_KEEPALIVE void sim_set_post_trig(uint32_t samples) {
+    g_post_trig_samples = (samples > RING_SIZE - 1) ? (RING_SIZE - 1) : (int)samples;
+}
+EMSCRIPTEN_KEEPALIVE uint32_t sim_get_post_trig() { return (uint32_t)g_post_trig_samples; }
+
+// ── RK11 シーク遅延 ───────────────────────────────────────────────────────
+// READ/WRITE コマンドの GO から転送開始までを clocks クロック待たせる（0 = 遅延なし）。
+// 実機の RK05 はシークと回転待ちに数十 ms かかる。この順序に頼るコード
+// （Unix V6 の swtch() と u_ssav）を実機と同じ順序で観測するための切り替え。
+EMSCRIPTEN_KEEPALIVE void sim_set_rk_delay(uint32_t clocks) {
+    g_rk_seek_delay = (clocks > RK_SEEK_DELAY_MAX) ? RK_SEEK_DELAY_MAX : clocks;
+    apply_rk_seek_delay();
+}
+EMSCRIPTEN_KEEPALIVE uint32_t sim_get_rk_delay() { return g_rk_seek_delay; }
+
+// ── メモリ読み出し（スタック表示・メモリ表示用）───────────────────────────
+#define PEEK_INVALID 0xFFFFFFFFu
+#define RAM_TOP_ADDR 0760000u                // これ以上は I/O ページ（RAM ではない）
+
+// 物理バイトアドレスの 1 語。RAM の外は PEEK_INVALID。
+EMSCRIPTEN_KEEPALIVE uint32_t sim_peek_phys(uint32_t byte_addr) {
+    if (byte_addr >= RAM_TOP_ADDR) return PEEK_INVALID;
+    return ram_read_word(byte_addr & ~1u);
+}
+
+// 仮想アドレスの物理アドレス。mode: 0 = Kernel、3 = User（I-space の PAR で変換）。
+// 変換先が RAM の外なら PEEK_INVALID。PDR（長さ・アクセス権）は見ない。
+EMSCRIPTEN_KEEPALIVE uint32_t sim_virt_to_phys(uint32_t mode, uint32_t va) {
+    if (!top) return PEEK_INVALID;
+    uint32_t apf  = (va >> 13) & 7u;
+    uint32_t par  = (mode == 3u) ? user_par(apf) : kernel_par(apf);
+    uint32_t phys = (par << 6) + (va & 017777u);
+    return (phys >= RAM_TOP_ADDR) ? PEEK_INVALID : phys;
+}
+
+// 仮想アドレスの 1 語（バスサイクルを起こさず RAM を直接読む）。
+EMSCRIPTEN_KEEPALIVE uint32_t sim_peek_virt(uint32_t mode, uint32_t va) {
+    uint32_t phys = sim_virt_to_phys(mode, va & 0xFFFEu);
+    return (phys == PEEK_INVALID) ? PEEK_INVALID : sim_peek_phys(phys);
 }
 
 // ── GPR アクセス ──────────────────────────────────────────────────────────

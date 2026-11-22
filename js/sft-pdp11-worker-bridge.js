@@ -13,6 +13,7 @@
 //   _fsSelPath / _fsSelNodeId（sft-pdp11-fs-panel.js）,
 //   idbSaveDisk / _idbHasSave（sft-pdp11-disk.js）,
 //   onTriggered / _updateTrigButtons（sft-pdp11-trigger-ui.js）,
+//   updateStackPanel / setKernelSyms / onStackSimStarted（sft-pdp11-stack-panel.js）,
 //   _applySampleRate / openEditorWithContent / laFrozen（index.html）,
 //   RING_WORDS_PDP11 / pdp11TrigAnchorF1（sft-pdp11-la-defs.js）
 
@@ -75,6 +76,8 @@ worker.onmessage = function(e) {
       resetBootProgress();
       // sim_init() が ring_tick_mask=3u にリセットするため UI の選択を再適用する
       _applySampleRate();
+      // Stack パネルが開いていれば、表示設定を送り直す（シンボル表も取り直す）
+      if (typeof onStackSimStarted === 'function') onStackSimStarted();
       // FS パネルの初回取得（ディスクロード後）
       setTimeout(function() { _requestFSList(); }, 500);
       break;
@@ -88,8 +91,10 @@ worker.onmessage = function(e) {
     case 'resumed':
       setStatus('Running');
       simPaused = false;
+      // 発火して止まっていた（表示を固定していた）トリガーは使い切り。止まっている間に
+      // セットし直したトリガー（表示は固定していない）は、再開後も有効なまま残す。
+      if (_laFreezeHead >= 0) _trigArmed = false;
       _laFreezeHead = -1;   // フリーズ解除: live 追従に戻す
-      _trigArmed = false;
       _updateTrigButtons();
       document.getElementById('btn-pause').textContent = 'Pause';
       break;
@@ -166,6 +171,14 @@ worker.onmessage = function(e) {
       updateMMUPanel(new Uint32Array(d.snap));
       break;
 
+    case 'mem':
+      if (typeof updateStackPanel === 'function') updateStackPanel(d);
+      break;
+
+    case 'ksyms':
+      if (typeof setKernelSyms === 'function') setKernelSyms(d);
+      break;
+
     case 'triggered':
       onTriggered(d.pc, d.trigType);
       _pendingTrigHead     = true;
@@ -182,6 +195,13 @@ worker.onmessage = function(e) {
       break;
 
     case 'stepped':
+      // トリガー停止後の Step: 固定していた表示位置を進め、足したぶんの波形を見せる
+      // （T=0 の印は LA が持ったままなので、トリガー位置は動かない）
+      if (_laFreezeHead >= 0) {
+        _laFreezeHead = _latestRingHead;
+        _laDirty = true;
+        _scheduleRafRender();
+      }
       break;
 
     case 'diskExported': {

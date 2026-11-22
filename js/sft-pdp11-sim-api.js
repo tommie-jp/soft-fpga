@@ -167,6 +167,24 @@ Object.assign(window.sim, {
       trigType: trigType | 0, val: val >>> 0 });
   },
 
+  /**
+   * トリガー発火後に採るサンプル数を設定する（0 = 即停止、最大 4095）。
+   * ハードウェアトリガー（PC Match / PC + Data / Fetch / I/O Page / TRAP / Bus Error）に効く。
+   */
+  setPostTrigger: function(samples) {
+    worker.postMessage({ type: 'set_post_trig', samples: samples >>> 0 });
+  },
+
+  /**
+   * RK11 のシーク遅延（GO から転送開始までのクロック数）を設定する。0 = 遅延なし（既定）。
+   * 実機の RK05 と同じく「CPU が先へ進んでから転送が始まる」順序にしたいときに使う。
+   */
+  setRkSeekDelay: function(clocks) {
+    worker.postMessage({ type: 'set_rk_delay', clocks: clocks >>> 0 });
+    var sel = document.getElementById('rk-delay-sel');
+    if (sel) sel.value = String(clocks >>> 0);   // 選択肢に無い値なら空欄になる
+  },
+
   /** LA の M1 信号用メモリプローブアドレスを設定（0xFFFFFFFF で無効） */
   setMemProbe: function(addr) {
     worker.postMessage({ type: 'set_mem_probe', addr: addr >>> 0 });

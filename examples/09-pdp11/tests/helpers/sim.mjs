@@ -32,7 +32,7 @@ export class Sim {
   constructor(M) {
     this.M = M;
     this.ringSize  = M._get_ring_size();
-    this.ringWords = M._get_ring_words();   // 5
+    this.ringWords = M._get_ring_words();   // 11
     M._sim_init();
   }
 
@@ -83,6 +83,7 @@ export class Sim {
       const slot = (head - k) % this.ringSize;
       const p = base + slot * this.ringWords;
       const w0 = h[p], w1 = h[p+1], w2 = h[p+2], w3 = h[p+3];
+      const w4 = h[p+4], w5 = h[p+5], w6 = h[p+6], w7 = h[p+7], w8 = h[p+8], w9 = h[p+9];
       out.push({
         addr_p:  w0 & 0x3FFFF,
         wr:      (w0 >>> 18) & 1,
@@ -99,6 +100,14 @@ export class Sim {
         addr_v:  (w2 >>> 16) & 0xFFFF,
         int_vec: w3 & 0xFF,
         int_ipl: (w3 >>> 8) & 0xFF,
+        istate:  w4 & 0x1F,
+        isn:     (w4 >>> 5) & 0xFFFF,
+        r0: w5 & 0xFFFF, r1: w5 >>> 16,
+        r2: w6 & 0xFFFF, r3: w6 >>> 16,
+        r4: w7 & 0xFFFF, r5: w7 >>> 16,
+        sp:      w8 & 0xFFFF,
+        uipar0:  w9 & 0xFFF,
+        kisa6:   (w9 >>> 13) & 0xFFF,
       });
     }
     return out;
@@ -116,6 +125,35 @@ export class Sim {
       if (out.indexOf(substr) >= 0) return { out, cycles };
     }
     return { out, cycles, timeout: true };
+  }
+
+  /**
+   * 1 行をコンソールへ送り、wait が現れるまで進める（wait が null なら送るだけ）。
+   * 入力バッファ（256 バイト）を溢れさせないよう、空きを見ながら 1 文字ずつ送る。
+   */
+  sendLine(s, wait = '# ', { maxCycles = 600_000_000 } = {}) {
+    for (const ch of s) {
+      while (this.M._sim_con_in_space() < 4) this.step(20_000);
+      this.sendKey(ch.charCodeAt(0));
+      this.step(30_000);
+    }
+    if (wait === null) return { out: '', cycles: 0 };
+    return this.runTo(wait, { maxCycles });
+  }
+
+  /** 仮想アドレスの 1 語（mode: 0 = Kernel / 3 = User）。読めなければ -1。 */
+  peekVirt(mode, va) {
+    const v = this.M._sim_peek_virt(mode, va) >>> 0;
+    return v === 0xFFFFFFFF ? -1 : v & 0xFFFF;
+  }
+
+  /** トリガーが発火して止まるまで進める。止まれば true。 */
+  runUntilTrigger({ maxCycles = 900_000_000, chunk = 100_000 } = {}) {
+    for (let c = 0; c < maxCycles; c += chunk) {
+      this.step(chunk);
+      if (this.M._sim_trigger_hit()) return true;
+    }
+    return false;
   }
 
   /** bootrom @ → rkunix → login: まで進める。 */

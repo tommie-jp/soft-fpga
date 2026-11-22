@@ -389,7 +389,7 @@ var LA_SIGNALS_PDP11 = [
   {
     id:'rk_state', label:'RK', word:0, bit:26, type:'hex', width:5, color:'#9020a0', on:true,
     name:{ ja:'RK11 ディスク転送ステート', en:'RK11 disk transfer state' },
-    tip:'RK11 ステート（0=Idle、非 0 でディスク転送中）'
+    tip:'RK11 ステート（0=Idle、非 0 でディスク転送中。0x17=シーク待ち: RK seek を On にしたときだけ通る）'
   },
   // === CPU マイクロステート / 命令 ===
   {
@@ -492,6 +492,13 @@ var LA_SIGNALS_PDP11 = [
     name:{ ja:'コンテキストスイッチ検出フラグ', en:'Context switch flag' },
     tip:'プロセスコンテキスト変化フラグ（UIPAR0 が前サンプルから変わった瞬間 = コンテキストスイッチ）'
   },
+  {
+    id:'kisa6', label:'KISA6', word:9, bit:13, type:'hex', width:12, color:'#a04080', on:false,
+    fmt:'oct',
+    name:{ ja:'カーネル I 空間ページアドレスレジスタ 6 (PAR6)', en:'Kernel I-space PAR6' },
+    tip:'Kernel PAR6 — u 領域（プロセスごとのカーネルスタックと user 構造体）の物理位置。' +
+        'Unix V6 の retu() が書き換える = カーネル内のプロセス切り替え（8 進表示。物理番地は値 × 0o100）'
+  },
 ];
 
 // ── バスサイクル デコードレーン ──────────────────────────────────────────
@@ -546,7 +553,7 @@ var PDP11_LA_CONFIG = {
     { label: 'GPR',       color: '#2848a8',
       ids: ['r0','r1','r2','r3','r4','r5','sp','mem_m1'] },
     { label: 'Process',   color: '#8020c0',
-      ids: ['uipar0','ctx_new'] },
+      ids: ['uipar0','ctx_new','kisa6'] },
   ],
 
   formatters: {
@@ -622,6 +629,12 @@ var PDP11_KNOWN_PCS = [
   { label: 'KW11 vec (0o100)',  pc: 0o000100, tip: 'KW11 ラインクロック割り込みベクタ' },
   { label: 'RK11 vec (0o220)',  pc: 0o000220, tip: 'RK11 ディスク割り込みベクタ' },
   { label: 'TTY RX vec (0o60)', pc: 0o000060, tip: 'DL11 受信割り込みベクタ' },
+  { label: 'swtch: SSWAP path', pc: 0o016000,
+    tip: 'slp.c swtch(): rp->p_flag =& ~SSWAP — スワップから戻ったプロセスだけが通る。直後が aretu(u.u_ssav)' },
+  { label: 'swtch: call aretu', pc: 0o016012,
+    tip: 'slp.c swtch(): aretu(u.u_ssav) の jsr — "You are not expected to understand this" の箇所' },
+  { label: 'newproc: savu(u_ssav)', pc: 0o016376,
+    tip: 'slp.c newproc(): メモリが足りず子をスワップへ書き出す直前の savu(u.u_ssav)' },
 ];
 
 // トリガーのプリセット (Trigger の「Preset」から選ぶと欄に入る。Set は自分で押す)
@@ -638,6 +651,15 @@ var PDP11_TRIGGER_PRESETS = [
     fields: { 'trig-type': '7' }, expr: 'INT.rising' },
   { label: 'User-mode fetch', tip: '式: Mode == "USER" && istate == "F1" — ユーザーモードで命令をフェッチした瞬間',
     fields: { 'trig-type': '7' }, expr: 'Mode == "USER" && istate == "F1"' },
+  // Unix V6 swtch() の SSWAP 経路（"You are not expected to understand this"）。
+  // PC + Data で命令語まで比べるので、ユーザープロセスの同じ番地には当たらない。Post = 0 で
+  // aretu の手前に止め、▶ Step（300 tick）で aretu → return(1) → cret → 戻り先まで進めて見比べる。
+  // 1tick/smpl にして、u_ssav の読み出しなどのバスサイクルを取りこぼさない。
+  { label: 'V6 swtch: SSWAP path (aretu u_ssav)',
+    tip: 'slp.c swtch(): スワップから戻ったプロセスが aretu(u.u_ssav) へ入る直前（016000 bicb $10,1(r2)）。' +
+         'RK seek を On にし、メモリ不足で fork するプログラムを走らせると止まる',
+    fields: { 'trig-type': '6', 'trig-pc': '16000', 'trig-data': '142762', 'trig-post': '0',
+              'la-sample-sel': '0' } },
 ].concat(PDP11_KNOWN_PCS.filter(function (k) { return !k.boot; }).map(function (k) {
   var oct = '0o' + k.pc.toString(8);
   var expr = 'Mode == "KERNEL" && VA == ' + oct + ' && RD == 1';

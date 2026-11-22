@@ -63,6 +63,7 @@ function resetBootProgress() {
 
 // ── MMU パネル描画 ────────────────────────────────────────────────────────
 var mmuVisible = false;
+var PDP11_PAR_BLOCK_BYTES = 64;   // PAR の 1 単位 = 32 語
 
 function updateMMUPanel(snap32) {
   // snap32: Uint32Array[16] — upper16=PAR, lower16=PDR
@@ -79,8 +80,9 @@ function updateMMUPanel(snap32) {
       var v   = entries[i];
       var par = (v >>> 16) & 0x0FFF;  // 12-bit PAR
       var pdr = v & 0xFFFF;
-      // PDP-11/34 の PAR は 64-word (128 byte) ブロック単位: PA = PAR × 0o200
-      var phys = par * 0x80;           // 18-bit physical byte address
+      // PAR は 32 語 (64 バイト) のブロック単位: PA = PAR × 0o100
+      // （LA の PhysAddr と突き合わせて確認済み: KISA6=3047 のとき u 領域は 304700）
+      var phys = par * PDP11_PAR_BLOCK_BYTES;   // 18-bit physical byte address
 
       var row   = document.createElement('div');
       row.className = 'mmu-row';
