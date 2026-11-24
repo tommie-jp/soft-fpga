@@ -1586,14 +1586,14 @@
   // 主要ファイルの Last-Modified を HEAD リクエストで取得して著作権行に表示する
   (function() {
     var FILES = [
-      { label: 'WASM',   file: 'sim.wasm',        url: 'sim.wasm',                  desc: 'Verilog RTL → Verilator → Emscripten でビルドした WebAssembly バイナリ' },
-      { label: 'worker', file: 'sim-worker.js',  url: 'sim-worker.js',             desc: 'WASM シミュレーションを実行する Web Worker スクリプト' },
-      { label: 'LA',     file: 'rtlscope-la.js', url: '../../../js/rtlscope-la.js',desc: 'Logic Analyzer ライブラリ (RTLScopeLA)' },
-      { label: 'API',    file: 'sft-8080-sim-api.js',      url: '../../../js/sft-8080-sim-api.js',      desc: 'window.sim テスト用 API' },
-      { label: 'bridge', file: 'sft-8080-worker-bridge.js',url: '../../../js/sft-8080-worker-bridge.js',desc: 'Worker 通信・RAF 描画ループ' },
-      { label: 'FS',     file: 'sft-8080-fs.js',           url: '../../../js/sft-8080-fs.js',           desc: 'WASM FS・ドライブ・IndexedDB' },
-      { label: 'trig',   file: 'sft-8080-trigger-ui.js',   url: '../../../js/sft-8080-trigger-ui.js',   desc: 'トリガー UI・Logic Analyzer 制御' },
-      { label: 'UI',     file: 'index.html',     url: '',                          desc: 'ブラウザ UI (HTML / CSS / bootstrap)。UI ロジックは js/sft-8080-*.js に分離' },
+      { label: 'WASM',   file: 'sim.wasm',        url: 'sim.wasm',                  desc: { ja: 'Verilog RTL → Verilator → Emscripten でビルドした WebAssembly バイナリ', en: 'WebAssembly binary built from Verilog RTL → Verilator → Emscripten' } },
+      { label: 'worker', file: 'sim-worker.js',  url: 'sim-worker.js',             desc: { ja: 'WASM シミュレーションを実行する Web Worker スクリプト', en: 'Web Worker script that runs the WASM simulation' } },
+      { label: 'LA',     file: 'rtlscope-la.js', url: '../../../js/rtlscope-la.js',desc: { ja: 'Logic Analyzer ライブラリ (RTLScopeLA)', en: 'Logic Analyzer library (RTLScopeLA)' } },
+      { label: 'API',    file: 'sft-8080-sim-api.js',      url: '../../../js/sft-8080-sim-api.js',      desc: { ja: 'window.sim テスト用 API', en: 'window.sim API for testing' } },
+      { label: 'bridge', file: 'sft-8080-worker-bridge.js',url: '../../../js/sft-8080-worker-bridge.js',desc: { ja: 'Worker 通信・RAF 描画ループ', en: 'Worker messaging and the requestAnimationFrame draw loop' } },
+      { label: 'FS',     file: 'sft-8080-fs.js',           url: '../../../js/sft-8080-fs.js',           desc: { ja: 'WASM FS・ドライブ・IndexedDB', en: 'WASM filesystem, drives and IndexedDB' } },
+      { label: 'trig',   file: 'sft-8080-trigger-ui.js',   url: '../../../js/sft-8080-trigger-ui.js',   desc: { ja: 'トリガー UI・Logic Analyzer 制御', en: 'Trigger UI and Logic Analyzer control' } },
+      { label: 'UI',     file: 'index.html',     url: '',                          desc: { ja: 'ブラウザ UI (HTML / CSS / bootstrap)。UI ロジックは js/sft-8080-*.js に分離', en: 'Browser UI (HTML / CSS / bootstrap). UI logic is split out into js/sft-8080-*.js' } },
     ];
 
     function fmtDate(httpDateStr) {
@@ -1620,7 +1620,8 @@
           if (!el) return;
           // 3列グリッド: ラベル | ファイル名 | 日付 を直接グリッドセルとして並べる
           el.innerHTML = FILES.map(function(f, i) {
-            var escaped = f.desc.replace(/"/g, '&quot;');
+            var desc = (typeof RTLScopeLA !== 'undefined' && RTLScopeLA.pickLang() === 'ja') ? f.desc.ja : f.desc.en;
+            var escaped = desc.replace(/"/g, '&quot;');
             return '<span class="fv-lbl"  title="' + escaped + '">' + f.label    + '</span>' +
                    '<span class="fv-file" title="' + escaped + '">' + f.file     + '</span>' +
                    '<span class="fv-date" title="' + escaped + '">' + results[i] + '</span>';

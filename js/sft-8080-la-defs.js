@@ -21,9 +21,9 @@ const LA_SIGNALS_ALL = [
   { id:'f2',     label:'f2',    word:4, bit:17, type:'bit', width:1,  color:'#dd8822', on:false, name:{ ja:'クロック位相 φ2', en:'Clock phase φ2' }, tip:{ ja:'クロック φ2 フェーズ（cpm_top.f2）。T-state の後半で High。レジスタ確定・バスサンプルのタイミングを確認できます。', en:'Clock phase φ2 (cpm_top.f2). High during the second half of a T-state. Shows when registers settle and the bus is sampled.' } },
   { id:'mcycle', label:'M-CYC', word:4, bit:18, type:'hex', width:3,  color:'#7755aa', on:false, fmt:'dec', name:{ ja:'マシンサイクル番号', en:'Machine cycle number' }, tip:{ ja:'マシンサイクル番号（M1〜M5）。vm80a の m1..m5 を 1〜5 にエンコード（0=該当なし）。命令フェッチ=M1、以降オペランド読み・メモリ/I-O アクセスごとに M2..M5 と進みます。T ステートと組み合わせるとマイクロシーケンサの進行が観測できます。', en:'Machine cycle number (M1 to M5). Encodes vm80a m1..m5 as 1 to 5 (0 = none). The instruction fetch is M1; operand reads and memory/I-O accesses follow as M2..M5. Combined with the T-state, it lets you observe the microsequencer advancing.' } },
   { id:'pc',   label:'PC',   word:5, bit:0,  type:'hex', width:16, color:'#2255aa', on:false,
-    name:{ ja:'プログラムカウンタ', en:'Program counter' }, group:'CPU', desc:'プログラムカウンタ (vm80a r16_pc レジスタ値)' },
+    name:{ ja:'プログラムカウンタ', en:'Program counter' }, group:'CPU', desc:'Program counter (vm80a r16_pc register value)' },
   { id:'sp',   label:'SP',   word:5, bit:16, type:'hex', width:16, color:'#aa5522', on:false,
-    name:{ ja:'スタックポインタ', en:'Stack pointer' }, group:'CPU', desc:'スタックポインタ (vm80a r16_sp レジスタ値)' },
+    name:{ ja:'スタックポインタ', en:'Stack pointer' }, group:'CPU', desc:'Stack pointer (vm80a r16_sp register value)' },
   // --- アドレスバス (Word 1) ---
   { id:'addr',   label:'addr',   word:1, bit:0,  type:'hex', width:16, color:'#880088', on:false, name:{ ja:'アドレスバス', en:'Address bus' }, tip:{ ja:'アドレスバス（16 ビット）。命令フェッチ時は PC、メモリ読み書き時はアクセス先アドレス（HL/SP/BC/DE など）、IN/OUT 時は I/O ポート番号が現れます。MEMR/MEMW/SYNC と組み合わせると各サイクルのアクセス先が読み取れます。', en:'Address bus (16 bits). Shows PC during an instruction fetch, the target address (HL/SP/BC/DE, etc.) during a memory read/write, and the I/O port number during IN/OUT. Combined with MEMR/MEMW/SYNC, it reveals the access target of each cycle.' } },
   // --- バスサイクル制御 (Word 0) ---

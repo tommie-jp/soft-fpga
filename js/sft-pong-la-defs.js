@@ -11,21 +11,22 @@
 var PONG_RING_WORDS = 3;
 
 // トリガーのプリセット (Trigger の「プリセット」から選ぶと、下の欄に入る。Set は自分で押す)
+//   label: 表示名。{ ja, en } (保存の鍵は en)
 //   la: そのプリセットが意味を持つ記録のしかた (1 = 1 画面ごと、0 = 1 クロックごと)。選ぶとページがそれに切り替える
 var PONG_TRIGGER_PRESETS = [
-  { label: 'ヒット (ラケットで返した音)', sig: 'snd_kind', mode: 'eq', value: '1', post: 3, la: 1,
+  { label: { ja: 'ヒット (ラケットで返した音)', en: 'Hit (paddle return sound)' }, sig: 'snd_kind', mode: 'eq', value: '1', post: 3, la: 1,
     tip: { ja: 'snd_kind == 1。球がラケットに当たった次の画面で止まる。', en: 'snd_kind == 1. Stops on the frame after the ball hits a paddle.' } },
-  { label: '壁・点の音', sig: 'snd_kind', mode: 'eq', value: '2', post: 3, la: 1,
+  { label: { ja: '壁・点の音', en: 'Wall / point sound' }, sig: 'snd_kind', mode: 'eq', value: '2', post: 3, la: 1,
     tip: { ja: 'snd_kind == 2。上下の壁で返したか、点が入った次の画面で止まる (この 2 つは同じ音)。', en: 'snd_kind == 2. Stops on the frame after the ball bounces off the top or bottom wall, or a point is scored (both make the same sound).' } },
-  { label: '左のラケットで返した', sig: 'hit_l', mode: 'rise', post: 3, la: 1,
+  { label: { ja: '左のラケットで返した', en: 'Left paddle hit' }, sig: 'hit_l', mode: 'rise', post: 3, la: 1,
     tip: { ja: 'hit_l の立ち上がり。', en: 'Rising edge of hit_l.' } },
-  { label: '右が点を取った (球が左の端を越えた)', sig: 'out_l', mode: 'rise', post: 5, la: 1,
+  { label: { ja: '右が点を取った (球が左の端を越えた)', en: 'Right scored (ball passed the left edge)' }, sig: 'out_l', mode: 'rise', post: 5, la: 1,
     tip: { ja: 'out_l の立ち上がり。打ち直しの動きまで記録する。', en: 'Rising edge of out_l. Records through the re-serve movement.' } },
-  { label: '左の点が 9 になった', sig: 'sl', mode: 'eq', value: '9', post: 0, la: 1,
+  { label: { ja: '左の点が 9 になった', en: 'Left score reached 9' }, sig: 'sl', mode: 'eq', value: '9', post: 0, la: 1,
     tip: { ja: 'sl == 9。左の点が 9 になった画面で止まる。', en: 'sl == 9. Stops on the frame where the left score reaches 9.' } },
-  { label: '音の矩形波 (1 クロックごと)', sig: 'sound', mode: 'rise', post: 2000, la: 0,
+  { label: { ja: '音の矩形波 (1 クロックごと)', en: 'Sound square wave (per clock)' }, sig: 'sound', mode: 'rise', post: 2000, la: 0,
     tip: { ja: 'sound の立ち上がり。記録を 1 クロックごとに切り替え、矩形波そのものを見る。', en: 'Rising edge of sound. Switches recording to per-clock so the square wave itself is visible.' } },
-  { label: '画面の最初 (1 クロックごと)', sig: 'frame_end', mode: 'rise', post: 2000, la: 0,
+  { label: { ja: '画面の最初 (1 クロックごと)', en: 'Frame start (per clock)' }, sig: 'frame_end', mode: 'rise', post: 2000, la: 0,
     tip: { ja: 'frame_end の立ち上がり。画面の最後の画素から、次の画面の最初の行を見る。', en: 'Rising edge of frame_end. Shows the span from the last pixel of the frame to the first line of the next frame.' } },
 ];
 
@@ -129,9 +130,9 @@ var PONG_LA_GROUPS = [
 
 // 記録のしかた (set_la_mode) ごとに最初に出す信号。切り替えると、この組に表示を揃える。
 var PONG_LA_MODES = {
-  1: { label: '1 画面ごと (球・ラケット・点の動き)',
+  1: { label: { ja: '1 画面ごと (球・ラケット・点の動き)', en: 'Per frame (ball, paddle and score motion)' },
        on: ['bx','by','left','pl','pr','sl','sr','hit_l','hit_r','out_l','out_r','snd_kind'] },
-  0: { label: '1 クロックごと (走査線: h・v・pixel)',
+  0: { label: { ja: '1 クロックごと (走査線: h・v・pixel)', en: 'Per clock (scan lines: h, v, pixel)' },
        on: ['h','v','pixel','line_end','frame_end','sound'] },
 };
 
