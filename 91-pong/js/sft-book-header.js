@@ -4,6 +4,7 @@
 //   <script src="js/sft-book-header.js" data-page="91-pong"></script>
 // スクリプトの位置にヘッダーを差し込む。教科書の中の位置 (パンくず) と、このページを使うほかの題を出す。
 // 色はページの背景 (明るい / 暗い) を見て選ぶ。
+// 章と題のパンくずには、同じ階層の別の項目へ移る ▾ メニューを付ける。
 // 右上に EN/JA ボタンの置き場所 (#sft-lang-slot) を作る。ボタンは js/sft-lang-toggle.js を読むと入る。
 (function () {
   'use strict';
@@ -64,9 +65,11 @@
   const EN = isEnglish();
   const T = EN
     ? { chapter: function (no, title) { return 'Chapter ' + no + ': ' + title; }, page: 'Live demo',
-        navLabel: 'Breadcrumb (position in the textbook)', others: 'Also used in: ', sep: ' · ' }
+        navLabel: 'Breadcrumb (position in the textbook)', others: 'Also used in: ', sep: ' · ',
+        chapterMenu: 'Go to another chapter', topicMenu: 'Topics that use this page' }
     : { chapter: function (no, title) { return '第 ' + no + ' 章 ' + title; }, page: '動くページ',
-        navLabel: 'パンくずリスト (教科書の中の位置)', others: 'このページを使うほかの題: ', sep: '・' };
+        navLabel: 'パンくずリスト (教科書の中の位置)', others: 'このページを使うほかの題: ', sep: '・',
+        chapterMenu: 'ほかの章へ移る', topicMenu: 'このページを使う題' };
   function pick(o, key) { return (EN && o[key + 'En']) || o[key]; }
 
   const script = document.currentScript;
@@ -85,8 +88,25 @@
   function link(href, text) {
     return el('a', { href: href, target: '_blank', rel: 'noopener' }, [text]);
   }
+  function topicHref(t) { return REPO + '/blob/main/' + BOOK.dir + '/' + t.path; }
+  function chapterHref(ch) { return REPO + '/blob/main/' + BOOK.dir + '/README.md#' + encodeURIComponent(ch.anchor); }
   function topicLink(t) {
-    return link(REPO + '/blob/main/' + BOOK.dir + '/' + t.path, t.id + ' ' + pick(t, 'title'));
+    return link(topicHref(t), t.id + ' ' + pick(t, 'title'));
+  }
+
+  // パンくずの ▾ メニュー: items = [{ href, text, current }]。選ぶと、リンクと同じく新しいタブで開く。
+  // 先頭の「▾」は表示用の見出しで、選択肢には出ない。開いたあとは見出しに戻す (選びっぱなしにしない)。
+  function crumbMenu(label, items) {
+    const sel = el('select', { class: 'sft-crumb-menu', 'aria-label': label, title: label }, []);
+    sel.append(el('option', { value: '', hidden: '', selected: '' }, ['▾']));
+    items.forEach(function (it) {
+      sel.append(el('option', { value: it.href }, [(it.current ? '✓ ' : '') + it.text]));
+    });
+    sel.addEventListener('change', function () {
+      if (sel.value) window.open(sel.value, '_blank', 'noopener');
+      sel.selectedIndex = 0;
+    });
+    return sel;
   }
 
   // 背景の明るさで色を選ぶ (このページ群には白地と黒地の両方がある)
@@ -102,6 +122,8 @@
 
   const style = el('style', {}, [[
     '.sft-book-header { position: relative; font: 13px/1.6 sans-serif; color: ' + C.text + '; margin: 0 0 12px; padding: 0 4em 6px 0; border-bottom: 1px solid ' + C.line + '; }',
+    '.sft-crumb-menu { appearance: none; -webkit-appearance: none; width: 1.7em; margin: 0 0 0 .3em; padding: 0 0 1px; text-align: center; text-align-last: center; font: inherit; color: ' + C.link + '; background: transparent; border: 1px solid ' + C.line + '; border-radius: 3px; cursor: pointer; color-scheme: ' + (isDarkBackground() ? 'dark' : 'light') + '; }',
+    '.sft-crumb-menu:hover { border-color: ' + C.link + '; }',
     '#sft-lang-slot { position: absolute; top: 0; right: 0; }',
     '#sft-lang-slot button { font: 12px sans-serif; min-width: 2.8em; cursor: pointer; }',
     '.sft-book-header ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; }',
@@ -115,12 +137,17 @@
   const main = topics[0];
   const chapterNo = Number(main.id.split('-')[0]);
   const chapter = CHAPTERS[chapterNo];
-  const readme = REPO + '/blob/main/' + BOOK.dir + '/README.md#' + encodeURIComponent(chapter.anchor);
+  const readme = chapterHref(chapter);
   const crumbs = el('ol', {}, [
     el('li', {}, [link(REPO, 'tommie-circuit-workbook')]),
     el('li', {}, [link(REPO + '/tree/main/' + BOOK.dir, pick(BOOK, 'title'))]),
-    el('li', {}, [link(readme, T.chapter(chapterNo, pick(chapter, 'title')))]),
-    el('li', {}, [topicLink(main)]),
+    el('li', {}, [link(readme, T.chapter(chapterNo, pick(chapter, 'title'))), crumbMenu(T.chapterMenu,
+      Object.keys(CHAPTERS).map(Number).sort(function (a, b) { return a - b; }).map(function (no) {
+        return { href: chapterHref(CHAPTERS[no]), text: T.chapter(no, pick(CHAPTERS[no], 'title')), current: no === chapterNo };
+      }))]),
+    el('li', {}, [topicLink(main)].concat(topics.length > 1 ? [crumbMenu(T.topicMenu, topics.map(function (t, i) {
+      return { href: topicHref(t), text: t.id + ' ' + pick(t, 'title'), current: i === 0 };
+    }))] : [])),
     el('li', { 'aria-current': 'page' }, [T.page]),
   ]);
   const header = el('header', { class: 'sft-book-header' }, [
