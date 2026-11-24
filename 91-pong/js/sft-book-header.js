@@ -4,6 +4,7 @@
 //   <script src="js/sft-book-header.js" data-page="91-pong"></script>
 // スクリプトの位置にヘッダーを差し込む。教科書の中の位置 (パンくず) と、このページを使うほかの題を出す。
 // 色はページの背景 (明るい / 暗い) を見て選ぶ。
+// 右上に EN/JA ボタンの置き場所 (#sft-lang-slot) を作る。ボタンは js/sft-lang-toggle.js を読むと入る。
 (function () {
   'use strict';
 
@@ -100,7 +101,9 @@
     : { text: '#555', link: '#0a58ca', current: '#111', line: '#ccc', sep: '#999' };
 
   const style = el('style', {}, [[
-    '.sft-book-header { font: 13px/1.6 sans-serif; color: ' + C.text + '; margin: 0 0 12px; padding-bottom: 6px; border-bottom: 1px solid ' + C.line + '; }',
+    '.sft-book-header { position: relative; font: 13px/1.6 sans-serif; color: ' + C.text + '; margin: 0 0 12px; padding: 0 4em 6px 0; border-bottom: 1px solid ' + C.line + '; }',
+    '#sft-lang-slot { position: absolute; top: 0; right: 0; }',
+    '#sft-lang-slot button { font: 12px sans-serif; min-width: 2.8em; cursor: pointer; }',
     '.sft-book-header ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; }',
     '.sft-book-header li + li::before { content: "›"; margin: 0 .5em; color: ' + C.sep + '; }',
     '.sft-book-header a { color: ' + C.link + '; text-decoration: none; }',
@@ -123,6 +126,8 @@
   const header = el('header', { class: 'sft-book-header' }, [
     el('nav', { 'aria-label': T.navLabel }, [crumbs]),
   ]);
+  // EN/JA ボタンの置き場所。ボタン本体は js/sft-lang-toggle.js が入れる (読まれていなければ空のまま)
+  header.append(el('span', { id: 'sft-lang-slot' }, []));
   if (topics.length > 1) {
     const others = el('p', {}, [T.others]);
     topics.slice(1).forEach(function (t, i) {

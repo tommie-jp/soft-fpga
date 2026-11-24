@@ -1,6 +1,7 @@
 // sft-lang-toggle.js — ページの右上に出す EN/JA 切り替えボタン (文書ビューアを持たない 01〜05・91 用)
 //
 // 素の <script src> で読み込む。js/rtlscope-la.js のあと (RTLScopeLA.pickLang で現在の言語を知る)。
+// js/sft-book-header.js のヘッダーがあるページでは、ヘッダー右上のボタンになる。無いページは画面の右上に浮かせる。
 // 押すと、言語を localStorage の sft-doc-lang (文書ビューアの EN/JA ボタンと同じ鍵) に覚え、
 // URL の ?lang= も替えて読み込み直す。URL が localStorage より優先されるので、URL も替えておかないと戻らない。
 //   英語 → ?lang=jp、日本語 → ?lang=en
@@ -28,13 +29,15 @@
     btn.type = 'button';
     btn.textContent = next === 'ja' ? 'JA' : 'EN';
     btn.title = next === 'ja' ? 'Switch the page to Japanese' : '表示を英語にする (Switch the page to English)';
-    btn.style.cssText = 'position:fixed;top:6px;right:8px;z-index:1000;min-width:2.6em;opacity:.85;cursor:pointer;';
+    // js/sft-book-header.js のヘッダーがあれば、その右上の置き場所に入れる。無いページは画面の右上に浮かせる
+    var slot = document.getElementById('sft-lang-slot');
+    if (!slot) btn.style.cssText = 'position:fixed;top:6px;right:8px;z-index:1000;min-width:2.6em;opacity:.85;cursor:pointer;';
     btn.addEventListener('click', function () {
       try { localStorage.setItem(STORAGE_KEY, next); }
       catch (e) { console.error('[lang-toggle] localStorage 書き込み失敗:', e); }
       location.replace(nextHref(location.href, next));
     });
-    document.body.appendChild(btn);
+    (slot || document.body).appendChild(btn);
     return btn;
   }
 
