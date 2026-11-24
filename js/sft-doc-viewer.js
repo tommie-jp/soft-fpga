@@ -106,10 +106,20 @@
     this._idLangBtn   = opts.idLangBtn   || null;
     this._useHash     = !!opts.useHash;
     this._idx         = -1;
+    // 既定は英語。日本語は URL の ?lang=jp (?lang=ja も可)、または EN/JA ボタンの選択 (localStorage) で出す。
+    function _normLang(v) {
+      var l = String(v || '').toLowerCase();
+      if (l === 'jp' || l === 'ja') return 'ja';
+      if (l === 'en') return 'en';
+      return null;
+    }
     try {
       var _urlLang = new URLSearchParams(window.location.search).get('lang');
-      this._lang = _urlLang || localStorage.getItem('sft-doc-lang') || 'ja';
-    } catch (e) { this._lang = 'ja'; }
+      this._lang = _normLang(_urlLang) || _normLang(localStorage.getItem('sft-doc-lang')) || 'en';
+    } catch (e) {
+      console.error('SftDocViewer: 表示言語を読めなかった (英語で表示):', e);
+      this._lang = 'en';
+    }
     _injectCSS();
     this._populateSelect();
     this._bindListeners();
@@ -211,7 +221,7 @@
     this._idx = idx;
     if (this._useHash && file) {
       var _qs = '?doc=' + encodeURIComponent(file);
-      if (this._lang === 'en') _qs += '&lang=en';
+      if (this._lang === 'ja') _qs += '&lang=jp';   // 既定 (英語) 以外だけ URL に残す
       history.replaceState(null, '', _qs);
     }
 
