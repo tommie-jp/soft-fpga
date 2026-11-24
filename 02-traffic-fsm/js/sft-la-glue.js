@@ -24,7 +24,7 @@ function _buildLa(opts, ringSize, ringWords, backend) {
   window.__sftLaMounted = true;
 
   var cfg = opts.config;
-  mountLaToolbar(opts.rootId, { canvasWidth: cfg.width });
+  mountLaToolbar(opts.rootId, { canvasWidth: cfg.width, lang: cfg.lang });
 
   var la = new RTLScopeLA(Object.assign({}, cfg, { ringSize: ringSize, ringWords: ringWords }));
   window.la = la;
@@ -127,7 +127,7 @@ function openLaWorker(url, opts) {
   worker.onerror = function (e) {
     console.error('[la-worker] Worker エラー:', e.message, e);
     worker.postMessage({ type: 'setRunning', running: false });
-    opts.onFault('WORKER ERROR — ページを再読み込みしてください');
+    opts.onFault(RTLScopeLA.pickLang() === 'ja' ? 'WORKER ERROR — ページを再読み込みしてください' : 'WORKER ERROR — please reload the page');
   };
 
   worker.onmessage = function (e) {
@@ -199,3 +199,15 @@ function setupLaWorker(opts) {
     }
   };
 }
+
+// ページ内の [data-ja] / [data-ja-placeholder] を、日本語表示 (?lang=jp) のときだけ日本語に差し替える。
+// 既定の英語は index.html にそのまま書いてある。このファイルは <body> の末尾で読むので、DOM は揃っている。
+(function applyPageLang() {
+  'use strict';
+  if (RTLScopeLA.pickLang() !== 'ja') return;
+  var texts = document.querySelectorAll('[data-ja]');
+  var holders = document.querySelectorAll('[data-ja-placeholder]');
+  texts.forEach(function (el) { el.textContent = el.getAttribute('data-ja'); });
+  holders.forEach(function (el) { el.placeholder = el.getAttribute('data-ja-placeholder'); });
+  if (texts.length || holders.length) document.documentElement.lang = 'ja';
+})();

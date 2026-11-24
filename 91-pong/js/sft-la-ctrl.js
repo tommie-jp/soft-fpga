@@ -30,6 +30,8 @@ function initLaCtrl(opts) {
   var backend = opts.backend;
   var prefix  = opts.storagePrefix || 'la_';
   var sigs    = opts.signals || [];
+  // 表示言語は LA 本体と同じ (既定は英語。?lang=jp で日本語)。利用者に見えるメッセージだけ切り替える
+  function T(jaText, enText) { return la._lang === 'ja' ? jaText : enText; }
 
   function need(id) {
     var el = document.getElementById(id);
@@ -147,11 +149,11 @@ function initLaCtrl(opts) {
   // ---- トリガー設定 ----
   function parseValue(s, text) {
     var t = text.trim().replace(/^0x/i, '');
-    if (t === '') throw new Error('比較値を入力してください');
+    if (t === '') throw new Error(T('比較値を入力してください', 'Enter a compare value'));
     var v = (s.width === 1) ? parseInt(t, 2) : parseInt(t, 16);
-    if (!/^[0-9a-f]+$/i.test(t) || isNaN(v)) throw new Error('比較値が不正です: ' + text);
+    if (!/^[0-9a-f]+$/i.test(t) || isNaN(v)) throw new Error(T('比較値が不正です: ', 'Invalid compare value: ') + text);
     var max = s.width >= 32 ? 0xFFFFFFFF : (1 << s.width) - 1;
-    if (v > max) throw new Error('比較値が範囲外です（最大 0x' + max.toString(16).toUpperCase() + '）');
+    if (v > max) throw new Error(T('比較値が範囲外です（最大 0x', 'Compare value out of range (max 0x') + max.toString(16).toUpperCase() + T('）', ')'));
     return v;
   }
 
@@ -160,18 +162,20 @@ function initLaCtrl(opts) {
       var s    = curSig();
       var mode = selMode.value;
       var post = inPost.value.trim() === '' ? 0 : parseInt(inPost.value, 10);
-      if (isNaN(post) || post < 0) throw new Error('post は 0 以上の整数（クロック数）で指定してください');
+      if (isNaN(post) || post < 0) throw new Error(T('post は 0 以上の整数（クロック数）で指定してください', 'post must be an integer >= 0 (clock count)'));
       backend.setPostDelay(post);
 
       var word = s.word || 0;
       if (mode === 'rise' || mode === 'fall') {
         backend.setEdgeTrigger(word, s.bit, mode === 'fall' ? 1 : 0);
-        showMsg(s.label + (mode === 'fall' ? ' 立ち下がり' : ' 立ち上がり') + ' で停止します');
+        showMsg(T(s.label + (mode === 'fall' ? ' 立ち下がり' : ' 立ち上がり') + ' で停止します',
+                  'Stops on ' + s.label + (mode === 'fall' ? ' falling edge' : ' rising edge')));
       } else {
         var v    = parseValue(s, inVal.value);
         var mask = (s.width >= 32 ? 0xFFFFFFFF : ((1 << s.width) - 1)) << s.bit;
         backend.setValueTrigger(word, mask | 0, (v << s.bit) | 0);
-        showMsg(s.label + ' == 0x' + v.toString(16).toUpperCase() + ' で停止します');
+        showMsg(T(s.label + ' == 0x' + v.toString(16).toUpperCase() + ' で停止します',
+                  'Stops when ' + s.label + ' == 0x' + v.toString(16).toUpperCase()));
       }
       la.setTrigFireHead(-1);
       syncFreeze(false);
@@ -186,7 +190,7 @@ function initLaCtrl(opts) {
     backend.clearTrigger();
     la.setTrigFireHead(-1);
     syncFreeze(false);
-    showMsg('トリガーを解除しました');
+    showMsg(T('トリガーを解除しました', 'Trigger cleared'));
   });
 
   need('btn-goto-trig').addEventListener('click', function() {
@@ -210,7 +214,7 @@ function initLaCtrl(opts) {
         return Object.assign({}, p, { fields: f });
       }),
       onApply: function (p, restored) {
-        showMsg('プリセット「' + p.label + '」を入れました。Set で設定します');
+        showMsg(T('プリセット「' + p.label + '」を入れました。Set で設定します', 'Preset "' + p.label + '" loaded. Press Set to arm it'));
         if (opts.onPreset) opts.onPreset(p, restored);
       }
     });

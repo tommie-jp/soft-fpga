@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -45,13 +45,13 @@
   <div class="controls">
     <button id="btn-run">Run</button>
     <button id="btn-reset">Reset</button>
-    <label>速度: <input id="speed" type="range" min="1" max="500" value="60"></label>
+    <label><span data-ja="速度:">Speed:</span> <input id="speed" type="range" min="1" max="500" value="60"></label>
     <span id="cycle-info">0 cycles</span>
   </div>
   <div class="send-row">
-    <input id="send-input" type="text" placeholder='送信文字列 (例: Hello)' maxlength="32">
+    <input id="send-input" type="text" placeholder='Text to send (e.g. Hello)' data-ja-placeholder='送信文字列 (例: Hello)' maxlength="32">
     <button id="btn-send">Send</button>
-    <span style="font-size:11px;color:#555;">または Enter キー</span>
+    <span style="font-size:11px;color:#555;" data-ja="または Enter キー">or press Enter</span>
   </div>
 
   <!-- Logic Analyzer（js/rtlscope-la.js: 06-8080 と同じ UI） -->
@@ -69,7 +69,7 @@
     </div>
     <!-- 受信履歴 -->
     <div id="rx-history">
-      <div class="title">受信履歴</div>
+      <div class="title" data-ja="受信履歴">Received</div>
     </div>
   </div>
 

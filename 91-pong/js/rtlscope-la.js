@@ -23,11 +23,19 @@
   // ---- 信号名ツールチップの部品（DOM に触れない純粋関数。試験できるよう静的に公開する） ----
   var TIP_WORDS = { ja: { bit: 'ビット' }, en: { bit: 'bit' } };
 
-  /** 使う言語。設定 lang → <html lang> → ブラウザの言語 → 'ja'。'ja' か 'en' に丸める */
+  /** 使う言語。設定 lang → URL の ?lang= → localStorage の sft-doc-lang (文書ビューアの EN/JA ボタン) → 'en'。
+   *  既定は英語。日本語は ?lang=jp (?lang=ja も可)。'ja' か 'en' に丸める */
   function _pickLang(cfg) {
-    var l = cfg || (typeof document !== 'undefined' && document.documentElement && document.documentElement.lang) ||
-            (typeof navigator !== 'undefined' && navigator.language) || 'ja';
-    return String(l).slice(0, 2).toLowerCase() === 'en' ? 'en' : 'ja';
+    var l = cfg;
+    if (!l) {
+      try {
+        l = new URLSearchParams(window.location.search).get('lang') || localStorage.getItem('sft-doc-lang');
+      } catch (e) {
+        console.error('RTLScopeLA: 表示言語を読めなかった (英語で表示):', e);
+      }
+    }
+    var s = String(l || '').toLowerCase();
+    return (s === 'jp' || s.slice(0, 2) === 'ja') ? 'ja' : 'en';
   }
 
   /** 文字列か { ja, en } を、言語に合わせて文字列にする。無い側は ja → en の順に探す */
@@ -490,7 +498,7 @@
       'padding:1px 4px;cursor:pointer;font-size:9px;line-height:1;' +
       'font-family:monospace;flex-shrink:0;transition:transform 0.15s;';
     colBtn.textContent = '▼';  // ▼
-    colBtn.title = 'チップバーを折りたたむ / 展開する';
+    colBtn.title = _tr({ ja: 'チップバーを折りたたむ / 展開する', en: 'Collapse / expand the chip bar' }, self._lang);
     el.appendChild(colBtn);
 
     // "Signal" ラベル（常時表示）
@@ -524,7 +532,7 @@
         lbl.className = 'sig-tog' + (on ? ' on' : '');
         lbl.style.background = on ? colorOn : '';
       }
-      lbl.title = 'マーカー ' + label + ' ON/OFF';
+      lbl.title = _tr({ ja: 'マーカー ' + label + ' ON/OFF', en: 'Marker ' + label + ' ON/OFF' }, self._lang);
       lbl.innerHTML = '<input type="checkbox"' + (getOn() ? ' checked' : '') +
                       '><span class="sw-track"></span> ' + label;
       var cb = lbl.querySelector('input');
@@ -585,7 +593,7 @@
       var decChip = document.createElement('label');
       decChip.className = 'sig-tog' + (self._showDec ? ' on' : '');
       decChip.style.background = self._showDec ? '#445566' : '';
-      decChip.title = 'マシンサイクルデコードレーンの表示切替';
+      decChip.title = _tr({ ja: 'マシンサイクルデコードレーンの表示切替', en: 'Show / hide the machine-cycle decode lane' }, self._lang);
       decChip.innerHTML = '<input type="checkbox"' + (self._showDec ? ' checked' : '') +
                           '><span class="sw-track"></span> ' + decLabel;
       var decCb = decChip.querySelector('input');
@@ -611,7 +619,7 @@
       var chip = document.createElement('label');
       chip.className = 'sig-tog' + (isOn ? ' on' : '');
       chip.style.background = isOn ? gc : '';
-      if (s.tip) chip.title = s.tip;
+      if (s.tip) chip.title = _tr(s.tip, self._lang);
       chip.innerHTML = '<input type="checkbox"' + (isOn ? ' checked' : '') +
                        '><span class="sw-track"></span> ' + s.label;
       var chipCb = chip.querySelector('input');
@@ -654,7 +662,7 @@
     ctx.fillStyle = '#aaa';
     ctx.font = 'bold 14px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('Logic Analyzer OFF  (速度優先モード)', this._LA_W / 2, (this._laH || 60) / 2 + 5);
+    ctx.fillText(_tr({ ja: 'Logic Analyzer OFF  (速度優先モード)', en: 'Logic Analyzer OFF  (speed-priority mode)' }, this._lang), this._LA_W / 2, (this._laH || 60) / 2 + 5);
   };
 
   // ==================== 内部: アクティブ信号取得 ====================

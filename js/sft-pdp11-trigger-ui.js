@@ -15,7 +15,8 @@
     var opt = document.createElement('option');
     opt.value = k.pc.toString(8);
     opt.textContent = k.label + ' (0o' + k.pc.toString(8) + ')';
-    opt.title = k.tip;
+    // tip は文字列か { ja, en } (RTLScopeLA.tr が表示言語の側を選ぶ)
+    opt.title = RTLScopeLA.tr(k.tip, RTLScopeLA.pickLang());
     sel.appendChild(opt);
   });
   sel.addEventListener('change', function() {
