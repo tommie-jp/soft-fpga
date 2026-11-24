@@ -17,7 +17,7 @@
 //       <button id="doc-prev">‹</button>
 //       <select id="doc-select"></select>
 //       <button id="doc-next">›</button>
-//       <button id="doc-lang-btn">JA</button>   ← optional language toggle
+//       <button id="doc-lang-btn">JA</button>   ← optional language toggle (shows the language it switches to)
 //       <button id="doc-close">✕ Close</button>
 //       <div id="doc-content"></div>
 //     </div>
@@ -196,18 +196,23 @@
     var self = this;
     var btn = this._el(this._idLangBtn);
     if (!btn) return;
-    btn.textContent = this._lang.toUpperCase();
+    btn.textContent = this._langBtnText();
     btn.addEventListener('click', function () {
       var newLang = self._lang === 'en' ? 'ja' : 'en';
       self.setLang(newLang);
     });
   };
 
+  // ボタンには、押すと移る先の言語を出す (いま英語なら JA、いま日本語なら EN)
+  SftDocViewer.prototype._langBtnText = function () {
+    return this._lang === 'en' ? 'JA' : 'EN';
+  };
+
   SftDocViewer.prototype.setLang = function (lang) {
     this._lang = lang;
     try { localStorage.setItem('sft-doc-lang', lang); } catch (e) {}
     var btn = this._idLangBtn ? this._el(this._idLangBtn) : null;
-    if (btn) btn.textContent = lang.toUpperCase();
+    if (btn) btn.textContent = this._langBtnText();
     this._populateSelect();
     if (this._idx >= 0) this.openDoc(this.list[this._idx].file);
   };

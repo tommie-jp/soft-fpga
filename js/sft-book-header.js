@@ -10,6 +10,10 @@
   'use strict';
 
   const REPO = 'https://github.com/tommie-jp/tommie-circuit-workbook';
+  // 教科書の英語版 (リポジトリの en/06-fpga/) がある文書。06-fpga の下の相対パスで書く ('README.md' は章の目次)。
+  // 英語表示のリンクとメニューは、ここにある文書だけ英語版へ飛ぶ。無い文書は、教科書の約束どおり日本語のファイルへ飛ぶ
+  // (2026-11 時点では en/ に 01-circuits だけが訳されていて、06-fpga はまだ無い)。訳せたらここへ足す。
+  const EN_DOCS = new Set([]);
   const BOOK = { title: 'FPGA の教科書', titleEn: 'FPGA Textbook (Japanese)', dir: '06-fpga' };
   const CHAPTERS = {
     0: { title: '道具と準備', titleEn: 'Tools and setup', anchor: '第-0-章-道具と準備' },
@@ -88,8 +92,12 @@
   function link(href, text) {
     return el('a', { href: href, target: '_blank', rel: 'noopener' }, [text]);
   }
-  function topicHref(t) { return REPO + '/blob/main/' + BOOK.dir + '/' + t.path; }
-  function chapterHref(ch) { return REPO + '/blob/main/' + BOOK.dir + '/README.md#' + encodeURIComponent(ch.anchor); }
+  function docHref(path, anchor) {
+    if (EN && EN_DOCS.has(path)) return REPO + '/blob/main/en/' + BOOK.dir + '/' + path;   // 英語版の見出しは別なので、アンカーは付けない
+    return REPO + '/blob/main/' + BOOK.dir + '/' + path + (anchor ? '#' + encodeURIComponent(anchor) : '');
+  }
+  function topicHref(t) { return docHref(t.path); }
+  function chapterHref(ch) { return docHref('README.md', ch.anchor); }
   function topicLink(t) {
     return link(topicHref(t), t.id + ' ' + pick(t, 'title'));
   }
