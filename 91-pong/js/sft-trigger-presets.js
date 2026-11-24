@@ -6,7 +6,7 @@
 //   mountTriggerPresets({
 //     host:       document.getElementById('trig-detail'),  // この要素の先頭にドロップダウンを置く
 //     before:     null,                // 置く位置を変えたいとき、この子要素の前に置く (省略可)
-//     presets:    [{ label: 'ヒット', tip: '説明' または { ja: '説明', en: 'Description' }, fields: { 'trig-sig': 'snd_kind', 'trig-val': '1' } }, ...],
+//     presets:    [{ label: 'ヒット' または { ja: 'ヒット', en: 'Hit' }, tip: '説明' または { ja: '説明', en: 'Description' }, fields: { 'trig-sig': 'snd_kind', 'trig-val': '1' } }, ...],
 //     storageKey: 'pong_la_trig_theme',// 最後に選んだプリセットを覚える localStorage のキー (省略可)
 //     onApply:    function (preset, restored) {},   // 欄に入れた後に呼ぶ (省略可。restored = 起動時の復元)
 //     text:       { label: 'Preset', manual: '(manual)', tip: '...' },   // 文言 (省略可。既定は表示言語に合わせる)
@@ -29,6 +29,20 @@ function mountTriggerPresets(opts) {
     if (v == null) return '';
     if (typeof v === 'string') return v;
     return (ja ? v.ja : v.en) || v.ja || v.en || '';
+  }
+  // label も文字列か { ja, en }。表示は tipText と同じ選び方。
+  // localStorage に覚える鍵は言語に依らない英語の側 (文字列ならそのもの)。復元ではどの言語の綴りでも探す
+  function labelText(p) { return tipText(p.label); }
+  function labelKey(p) {
+    var l = p.label;
+    if (l == null) return '';
+    return typeof l === 'string' ? l : (l.en || l.ja || '');
+  }
+  function labelMatches(p, saved) {
+    var l = p.label;
+    if (l == null) return false;
+    if (typeof l === 'string') return l === saved;
+    return l.en === saved || l.ja === saved;
   }
   var text = Object.assign(ja ? {
     label:  'プリセット',
@@ -53,7 +67,7 @@ function mountTriggerPresets(opts) {
   presets.forEach(function (p, i) {
     var o = document.createElement('option');
     o.value = String(i);
-    o.textContent = p.label;
+    o.textContent = labelText(p);
     if (p.tip) o.title = tipText(p.tip);
     sel.appendChild(o);
   });
@@ -100,7 +114,7 @@ function mountTriggerPresets(opts) {
   sel.addEventListener('change', function () {
     if (sel.value === MANUAL) { lsSet(''); sel.title = ''; return; }
     var i = parseInt(sel.value, 10);
-    lsSet(presets[i].label);
+    lsSet(labelKey(presets[i]));
     apply(i, false);
   });
 
@@ -120,7 +134,7 @@ function mountTriggerPresets(opts) {
   // 起動時: 前に選んだプリセットを (ラベルで探して) 欄に入れ直す。Set はしない
   var saved = lsGet();
   if (saved) {
-    var j = presets.findIndex(function (p) { return p.label === saved; });
+    var j = presets.findIndex(function (p) { return labelMatches(p, saved); });
     if (j >= 0) apply(j, true);
   }
 

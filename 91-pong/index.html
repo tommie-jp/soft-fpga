@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ja">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -23,6 +23,8 @@
   #about code { color: #fc8; }
   #about summary { cursor: pointer; }
   #about summary h1 { display: inline; }
+  /* 説明は英語と日本語の 2 本立て。表示するほうだけ残す (html の lang は js/sft-la-glue.js が ja に替える) */
+  html[lang="ja"] #about .en, html:not([lang="ja"]) #about .ja { display: none; }
   #game { width: 480px; max-width: 100%; }
   #screen { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; }
   #pads { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
@@ -33,7 +35,7 @@
   #score { min-width: 3.5ch; }
   #frames { min-width: 6ch; }
   #fps { min-width: 3em; color: #999; }
-  #note { display: inline-block; min-width: 7.5em; color: #fc8; overflow: hidden; text-overflow: ellipsis; }
+  #note { display: inline-block; min-width: 11em; color: #fc8; overflow: hidden; text-overflow: ellipsis; }
   #snd-err { color: #fc8; font-size: 13px; margin-top: 2px; }
   #snd-err:empty { display: none; }
   /* スマホ: 長押しで文字選択・メニュー・拡大が出て、押したままになるのを防ぐ */
@@ -66,50 +68,82 @@
 <div id="game">
 <canvas id="screen" width="160" height="120"></canvas>
 <div id="pads">
-  <div class="pad">左 <button id="ul"><span class="arw">▲ </span>上<span class="key"> (W)</span></button><button id="dl"><span class="arw">▼ </span>下<span class="key"> (S)</span></button><button id="al" class="auto">AUTO</button></div>
-  <div class="pad">右 <button id="ur"><span class="arw">▲ </span>上<span class="key"> (↑)</span></button><button id="dr"><span class="arw">▼ </span>下<span class="key"> (↓)</span></button><button id="ar" class="auto">AUTO</button></div>
+  <div class="pad"><span data-ja="左">Left</span> <button id="ul"><span class="arw">▲ </span><span data-ja="上">Up</span><span class="key"> (W)</span></button><button id="dl"><span class="arw">▼ </span><span data-ja="下">Down</span><span class="key"> (S)</span></button><button id="al" class="auto">AUTO</button></div>
+  <div class="pad"><span data-ja="右">Right</span> <button id="ur"><span class="arw">▲ </span><span data-ja="上">Up</span><span class="key"> (↑)</span></button><button id="dr"><span class="arw">▼ </span><span data-ja="下">Down</span><span class="key"> (↓)</span></button><button id="ar" class="auto">AUTO</button></div>
 </div>
 <div id="status">
-  <div class="srow"><button id="run">Pause</button> <button id="snd">音 OFF</button> <span id="fps">– fps</span></div>
-  <div class="srow">点 <span id="score">0 - 0</span> / <span id="frames">0</span> 画面 <span id="note"></span></div>
+  <div class="srow"><button id="run">Pause</button> <button id="snd" data-ja="音 OFF">Sound OFF</button> <span id="fps">– fps</span></div>
+  <div class="srow"><span data-ja="点">Score</span> <span id="score">0 - 0</span> / <span id="frames">0</span> <span data-ja="画面">frames</span> <span id="note"></span></div>
 </div>
 <div id="snd-err"></div>
 </div>
 
 <aside id="about">
 <details id="about-d" open>
-  <summary><h1>Pong — カウンタと比較器だけ (CPU なし)</h1></summary>
-  <p>横 160 × 縦 120 画素の白黒の画面を、1 クロックで 1 画素ずつ出す回路 (Verilog) です。
-     いまの (<code>h</code>, <code>v</code>) が壁・ネット・ラケット・球・点の形に入ったかを比べ、入っていれば白にします。
-     1 画面は 19 200 クロックで、画面の最後に球とラケットを 1 回動かします。</p>
-  <h2>このページに出ているもの</h2>
-  <ul>
-    <li><b>左のゲーム画面</b>: 回路が出した画素を並べたもの。上の数字が点 (左 0〜9・右 0〜9)、中央の点線がネット。</li>
-    <li><b>下の Logic Analyzer</b>: 回路の中の信号の波形。球の位置 <code>bx</code>・<code>by</code>、ラケット <code>pl</code>・<code>pr</code>、点 <code>sl</code>・<code>sr</code>、当たり <code>hit_l</code>・<code>hit_r</code>、端を越えた <code>out_l</code>・<code>out_r</code>、音 <code>snd_kind</code>・<code>sound</code>、走査 <code>h</code>・<code>v</code>・<code>pixel</code>。</li>
-  </ul>
-  <h2>音</h2>
-  <ul>
-    <li>1972 年の Pong と同じ手で、<b>垂直カウンタの 1 ビットを、出来事の間だけスピーカーへ通します</b> (発振器は足していません)。ヒットは <code>v[3]</code> の 450 Hz、壁で返したときと点が入ったときは <code>v[4]</code> の 225 Hz (元の Pong は 491 Hz と 246 Hz)。</li>
-    <li>「音 ON」を押すと鳴ります (ブラウザは、操作のあとでないと音を出せません)。ヒットと壁は 1 画面 (約 16 ms)、点は 16 画面 (約 0.27 秒) です。</li>
-    <li>iPhone では、消音スイッチが入っていても鳴るようにしてあります (音量は本体のボタンで)。着信などで止まったら、画面のどこかをタップすると戻ります。</li>
-  </ul>
-  <h2>操作</h2>
-  <ul>
-    <li><b>最初は左右とも AUTO が入っていて</b>、回路どうしが打ち合います。AUTO を切ると手で打てます (左は W・S、右は ↑・↓。スマホでは ▲・▼ のボタンを押している間だけ動きます)。</li>
-    <li>記録のしかた (1 画面ごと / 1 クロックごと) は、LA の上の選択で切り替えます。</li>
-    <li>Trigger の<b>プリセット</b> (ヒット・壁と点の音・点が入った・音の矩形波など) を選ぶと、条件が欄に入ります。<b>Set</b> を押すと、その瞬間に止まります。<b>Run</b> か <b>Resume</b> で再開します。条件は手でも書けます (例 <code>sr == 3</code>)。</li>
-  </ul>
-  <h2>くわしく</h2>
-  <ul>
-    <li><a href="https://github.com/tommie-jp/tommie-circuit-workbook/blob/main/06-fpga/12-projects/03-pong.md" target="_blank" rel="noopener">教科書 12-3「Pong — ゲートだけで動くゲーム」(GitHub)</a>: 回路の作り方・試験・この波形の見方</li>
-    <li><a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/91-pong" target="_blank" rel="noopener">ソース (soft-fpga の examples/91-pong)</a></li>
-  </ul>
+  <summary>
+    <h1 class="en">Pong — just counters and comparators (no CPU)</h1>
+    <h1 class="ja">Pong — カウンタと比較器だけ (CPU なし)</h1>
+  </summary>
+  <div class="en">
+    <p>A Verilog circuit that outputs a 160 × 120 black-and-white screen, one pixel per clock.
+       It checks whether the current (<code>h</code>, <code>v</code>) falls inside the shape of a wall, the net, a paddle, the ball or a score digit, and makes the pixel white if it does.
+       One frame is 19,200 clocks, and the ball and paddles move once at the end of each frame.</p>
+    <h2>What is on this page</h2>
+    <ul>
+      <li><b>Game screen</b>: the pixels the circuit outputs. The digits at the top are the score (left 0–9, right 0–9); the dotted line in the middle is the net.</li>
+      <li><b>Logic Analyzer (below)</b>: waveforms of the signals inside the circuit. Ball position <code>bx</code>·<code>by</code>, paddles <code>pl</code>·<code>pr</code>, score <code>sl</code>·<code>sr</code>, hits <code>hit_l</code>·<code>hit_r</code>, ball out of bounds <code>out_l</code>·<code>out_r</code>, sound <code>snd_kind</code>·<code>sound</code>, scan <code>h</code>·<code>v</code>·<code>pixel</code>.</li>
+    </ul>
+    <h2>Sound</h2>
+    <ul>
+      <li>Like the 1972 Pong, <b>one bit of the vertical counter is routed to the speaker only while an event lasts</b> (no oscillator is added). A paddle hit is 450 Hz from <code>v[3]</code>; a wall bounce or a point is 225 Hz from <code>v[4]</code> (the original Pong used 491 Hz and 246 Hz).</li>
+      <li>Press “Sound ON” to hear it (browsers only play audio after a user action). A hit or wall bounce lasts 1 frame (about 16 ms); a point lasts 16 frames (about 0.27 s).</li>
+      <li>On iPhone the sound plays even with the silent switch on (use the volume buttons for loudness). If it stops after a call or similar, tap anywhere on the page to bring it back.</li>
+    </ul>
+    <h2>Controls</h2>
+    <ul>
+      <li><b>Both sides start with AUTO on</b>, so the two circuits play each other. Turn AUTO off to play by hand (left: W/S, right: ↑/↓; on a phone, the ▲/▼ buttons move the paddle only while held).</li>
+      <li>Switch the recording mode (per frame / per clock) with the selector above the LA.</li>
+      <li>Pick a Trigger <b>preset</b> (paddle hit, wall/point sound, point scored, sound square wave, …) to fill in the condition. Press <b>Set</b> to stop at that moment; press <b>Run</b> or <b>Resume</b> to continue. You can also write a condition by hand (e.g. <code>sr == 3</code>).</li>
+    </ul>
+    <h2>More</h2>
+    <ul>
+      <li><a href="https://github.com/tommie-jp/tommie-circuit-workbook/blob/main/06-fpga/12-projects/03-pong.md" target="_blank" rel="noopener">Textbook 12-3 “Pong — a game that runs on gates alone” (GitHub, in Japanese)</a>: how the circuit is built, how it is tested, and how to read these waveforms</li>
+      <li><a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/91-pong" target="_blank" rel="noopener">Source (examples/91-pong in soft-fpga)</a></li>
+    </ul>
+  </div>
+  <div class="ja">
+    <p>横 160 × 縦 120 画素の白黒の画面を、1 クロックで 1 画素ずつ出す回路 (Verilog) です。
+       いまの (<code>h</code>, <code>v</code>) が壁・ネット・ラケット・球・点の形に入ったかを比べ、入っていれば白にします。
+       1 画面は 19 200 クロックで、画面の最後に球とラケットを 1 回動かします。</p>
+    <h2>このページに出ているもの</h2>
+    <ul>
+      <li><b>左のゲーム画面</b>: 回路が出した画素を並べたもの。上の数字が点 (左 0〜9・右 0〜9)、中央の点線がネット。</li>
+      <li><b>下の Logic Analyzer</b>: 回路の中の信号の波形。球の位置 <code>bx</code>・<code>by</code>、ラケット <code>pl</code>・<code>pr</code>、点 <code>sl</code>・<code>sr</code>、当たり <code>hit_l</code>・<code>hit_r</code>、端を越えた <code>out_l</code>・<code>out_r</code>、音 <code>snd_kind</code>・<code>sound</code>、走査 <code>h</code>・<code>v</code>・<code>pixel</code>。</li>
+    </ul>
+    <h2>音</h2>
+    <ul>
+      <li>1972 年の Pong と同じ手で、<b>垂直カウンタの 1 ビットを、出来事の間だけスピーカーへ通します</b> (発振器は足していません)。ヒットは <code>v[3]</code> の 450 Hz、壁で返したときと点が入ったときは <code>v[4]</code> の 225 Hz (元の Pong は 491 Hz と 246 Hz)。</li>
+      <li>「音 ON」を押すと鳴ります (ブラウザは、操作のあとでないと音を出せません)。ヒットと壁は 1 画面 (約 16 ms)、点は 16 画面 (約 0.27 秒) です。</li>
+      <li>iPhone では、消音スイッチが入っていても鳴るようにしてあります (音量は本体のボタンで)。着信などで止まったら、画面のどこかをタップすると戻ります。</li>
+    </ul>
+    <h2>操作</h2>
+    <ul>
+      <li><b>最初は左右とも AUTO が入っていて</b>、回路どうしが打ち合います。AUTO を切ると手で打てます (左は W・S、右は ↑・↓。スマホでは ▲・▼ のボタンを押している間だけ動きます)。</li>
+      <li>記録のしかた (1 画面ごと / 1 クロックごと) は、LA の上の選択で切り替えます。</li>
+      <li>Trigger の<b>プリセット</b> (ヒット・壁と点の音・点が入った・音の矩形波など) を選ぶと、条件が欄に入ります。<b>Set</b> を押すと、その瞬間に止まります。<b>Run</b> か <b>Resume</b> で再開します。条件は手でも書けます (例 <code>sr == 3</code>)。</li>
+    </ul>
+    <h2>くわしく</h2>
+    <ul>
+      <li><a href="https://github.com/tommie-jp/tommie-circuit-workbook/blob/main/06-fpga/12-projects/03-pong.md" target="_blank" rel="noopener">教科書 12-3「Pong — ゲートだけで動くゲーム」(GitHub)</a>: 回路の作り方・試験・この波形の見方</li>
+      <li><a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/91-pong" target="_blank" rel="noopener">ソース (soft-fpga の examples/91-pong)</a></li>
+    </ul>
+  </div>
 </details>
 </aside>
 </div>
 
 <div id="la-bar">
-  Logic Analyzer の記録:
+  <span data-ja="Logic Analyzer の記録:">Logic Analyzer recording:</span>
   <select id="la-mode"></select>
   <span id="la-note"></span>
 </div>
@@ -121,6 +155,8 @@ var Module = { onRuntimeInitialized: function () {
   Module._sim_init();
   const ctx = document.getElementById('screen').getContext('2d');
   const img = ctx.createImageData(160, 120);
+  const ja = RTLScopeLA.pickLang() === 'ja';   // 表示言語 (既定は英語。?lang=jp で日本語)
+  const T = (jaText, enText) => ja ? jaText : enText;
   let held = 0, sw = 48;                      // held: 押している間のボタン (bit0〜3)、sw: AUTO のスイッチ (bit4・5。最初は両方入れておく)
 
   function hold(id, bit, key) {               // ボタン: 押している間だけ 1
@@ -153,7 +189,8 @@ var Module = { onRuntimeInitialized: function () {
   let ac = null, osc = null, amp = null, keepAlive = null, soundOn = false;
 
   function audioError(what, e) {
-    sndErrEl.textContent = '音を出せません (' + what + ')。音 OFF → ON を押し直してください';
+    sndErrEl.textContent = T('音を出せません (' + what + ')。音 OFF → ON を押し直してください',
+                             'Cannot play sound (' + what + '). Press Sound OFF → ON again.');
     console.warn('91-pong: ' + what, e);
   }
   function silentWavUrl() {                   // 0.5 秒・8 kHz・8 ビットの無音の WAV
@@ -178,11 +215,11 @@ var Module = { onRuntimeInitialized: function () {
         keepAlive.setAttribute('playsinline', '');
       }
       const p = keepAlive.play();
-      if (p && p.catch) p.catch((e) => { if (e.name !== 'AbortError') audioError('無音の audio', e); });
+      if (p && p.catch) p.catch((e) => { if (e.name !== 'AbortError') audioError(T('無音の audio', 'silent audio'), e); });
     }
     if (!ac) {
       const Ctor = window.AudioContext || window.webkitAudioContext;
-      if (!Ctor) { audioError('Web Audio が無い', null); return; }
+      if (!Ctor) { audioError(T('Web Audio が無い', 'no Web Audio'), null); return; }
       ac = new Ctor();
       osc = ac.createOscillator(); osc.type = 'square';
       amp = ac.createGain(); amp.gain.value = 0;
@@ -195,7 +232,7 @@ var Module = { onRuntimeInitialized: function () {
   }
   sndBtn.addEventListener('click', function () {
     soundOn = !soundOn;
-    sndBtn.textContent = soundOn ? '音 ON' : '音 OFF';
+    sndBtn.textContent = soundOn ? T('音 ON', 'Sound ON') : T('音 OFF', 'Sound OFF');
     if (soundOn) { unlockAudio(); return; }
     if (amp) amp.gain.setValueAtTime(0, ac.currentTime);
     if (keepAlive) keepAlive.pause();
@@ -210,7 +247,7 @@ var Module = { onRuntimeInitialized: function () {
     ac.resume().catch(() => {});              // iOS はタップが要ることがある。そのときは上の pointerdown で起こす
   });
   function play(kind) {
-    const label = kind === 1 ? '♪ ヒット 450 Hz' : kind === 2 ? '♪ 壁・点 225 Hz' : '';
+    const label = kind === 1 ? T('♪ ヒット 450 Hz', '♪ Hit 450 Hz') : kind === 2 ? T('♪ 壁・点 225 Hz', '♪ Wall/point 225 Hz') : '';
     noteEl.textContent = label;
     if (!soundOn || !amp || ac.state !== 'running') return;
     const t = ac.currentTime;
@@ -233,11 +270,13 @@ var Module = { onRuntimeInitialized: function () {
   runBtn.addEventListener('click', function () { if (!running) lag.resume(); stoppedByTrigger = false; setRunning(!running); });
   const modeSel = document.getElementById('la-mode');
   Object.keys(PONG_LA_MODES).sort().reverse().forEach(function (m) {
-    const o = document.createElement('option'); o.value = m; o.textContent = PONG_LA_MODES[m].label; modeSel.appendChild(o);
+    const o = document.createElement('option'); o.value = m; o.textContent = RTLScopeLA.tr(PONG_LA_MODES[m].label, ja ? 'ja' : 'en'); modeSel.appendChild(o);
   });
   const NOTES = {
-    1: '1 画面に 1 サンプル。リングは 4096 サンプルなので約 68 秒ぶん。トリガーに hit_l・out_l・snd_kind などを選べる。',
-    0: '1 クロックに 1 サンプル。1 画面は 19 200 クロックで、リングは 4096 なので約 25 行ぶん。pixel の立ち上がりや sound の立ち上がりでトリガーすると、形の縁や音の矩形波が見える。'
+    1: T('1 画面に 1 サンプル。リングは 4096 サンプルなので約 68 秒ぶん。トリガーに hit_l・out_l・snd_kind などを選べる。',
+         '1 sample per frame. The ring holds 4096 samples, about 68 s. You can trigger on hit_l, out_l, snd_kind and others.'),
+    0: T('1 クロックに 1 サンプル。1 画面は 19 200 クロックで、リングは 4096 なので約 25 行ぶん。pixel の立ち上がりや sound の立ち上がりでトリガーすると、形の縁や音の矩形波が見える。',
+         '1 sample per clock. A frame is 19,200 clocks and the ring holds 4096, about 25 lines. Trigger on a rising edge of pixel or sound to see the edges of shapes or the sound square wave.')
   };
   function applyMode(m) {                      // 記録のしかたを替え、そのモードの信号の組に表示を揃える
     Module._set_la_mode(parseInt(m, 10));
@@ -306,6 +345,7 @@ var Module = { onRuntimeInitialized: function () {
 <script src="js/sft-trigger-presets.js"></script>
 <script src="js/sft-la-ctrl.js"></script>
 <script src="js/sft-la-glue.js"></script>
+<script src="js/sft-lang-toggle.js"></script>
 <script src="sim.js"></script>
 </body>
 </html>

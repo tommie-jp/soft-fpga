@@ -207,14 +207,15 @@ function initLaCtrl(opts) {
       storageKey: prefix + 'trig_theme',
       presets: presets.map(function (p) {
         if (!trigSigs.some(function (s) { return s.id === p.sig; }))
-          console.warn('[la-ctrl] プリセット「' + p.label + '」の信号 ' + p.sig + ' がトリガーの選択肢にありません');
+          console.warn('[la-ctrl] プリセット「' + RTLScopeLA.tr(p.label, 'ja') + '」の信号 ' + p.sig + ' がトリガーの選択肢にありません');
         var f = { 'trig-sig': p.sig, 'trig-mode': p.mode || 'eq' };
         if (p.value !== undefined) f['trig-val'] = p.value;
         f['trig-post'] = p.post !== undefined ? p.post : 0;
         return Object.assign({}, p, { fields: f });
       }),
       onApply: function (p, restored) {
-        showMsg(T('プリセット「' + p.label + '」を入れました。Set で設定します', 'Preset "' + p.label + '" loaded. Press Set to arm it'));
+        var name = RTLScopeLA.tr(p.label, la._lang);   // label は文字列か { ja, en }
+        showMsg(T('プリセット「' + name + '」を入れました。Set で設定します', 'Preset "' + name + '" loaded. Press Set to arm it'));
         if (opts.onPreset) opts.onPreset(p, restored);
       }
     });

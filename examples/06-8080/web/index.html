@@ -528,7 +528,7 @@
 </head>
 <body>
 <script src="../../../js/sft-book-header.js" data-page="06-8080"></script>
-  <h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #999;">soft-FPGA</a> | 06 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/06-8080" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #999;">Intel 8080 / CP/M 2.2 RTL Simulator</a> <span style="font-size:11px;color:#999;font-weight:normal;"> Ver.1.0.1 2026/11/24 23:42</span></h2>
+  <h2><a href="https://github.com/tommie-jp/soft-fpga" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #999;">soft-FPGA</a> | 06 — <a href="https://github.com/tommie-jp/soft-fpga/tree/main/examples/06-8080" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px solid #999;">Intel 8080 / CP/M 2.2 RTL Simulator</a> <span style="font-size:11px;color:#999;font-weight:normal;"> Ver.1.0.1 2026/11/25 01:29</span></h2>
   <p style="font-size:13px;color:#555;margin:0 0 4px;"><a href="https://github.com/1801BM1/vm80a" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">vm80a</a> (decapped die RTL) → <a href="https://www.veripool.org/verilator/" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">Verilator</a> → <a href="https://en.wikipedia.org/wiki/WebAssembly" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">WASM</a> &nbsp;|&nbsp; <a href="https://en.wikipedia.org/wiki/CP/M" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">CP/M 2.2</a> + <a href="https://github.com/tommie-jp/soft-fpga/blob/main/docs/06-8080/30-BIOS実装.md" target="_blank" rel="noopener" style="color:inherit;border-bottom:1px solid #aaa;text-decoration:none;">custom BIOS</a></p>
 
   <!-- Top row: drives + CP/M DOCS 横並び -->
@@ -1586,14 +1586,14 @@
   // 主要ファイルの Last-Modified を HEAD リクエストで取得して著作権行に表示する
   (function() {
     var FILES = [
-      { label: 'WASM',   file: 'sim.wasm',        url: 'sim.wasm',                  desc: 'Verilog RTL → Verilator → Emscripten でビルドした WebAssembly バイナリ' },
-      { label: 'worker', file: 'sim-worker.js',  url: 'sim-worker.js',             desc: 'WASM シミュレーションを実行する Web Worker スクリプト' },
-      { label: 'LA',     file: 'rtlscope-la.js', url: '../../../js/rtlscope-la.js',desc: 'Logic Analyzer ライブラリ (RTLScopeLA)' },
-      { label: 'API',    file: 'sft-8080-sim-api.js',      url: '../../../js/sft-8080-sim-api.js',      desc: 'window.sim テスト用 API' },
-      { label: 'bridge', file: 'sft-8080-worker-bridge.js',url: '../../../js/sft-8080-worker-bridge.js',desc: 'Worker 通信・RAF 描画ループ' },
-      { label: 'FS',     file: 'sft-8080-fs.js',           url: '../../../js/sft-8080-fs.js',           desc: 'WASM FS・ドライブ・IndexedDB' },
-      { label: 'trig',   file: 'sft-8080-trigger-ui.js',   url: '../../../js/sft-8080-trigger-ui.js',   desc: 'トリガー UI・Logic Analyzer 制御' },
-      { label: 'UI',     file: 'index.html',     url: '',                          desc: 'ブラウザ UI (HTML / CSS / bootstrap)。UI ロジックは js/sft-8080-*.js に分離' },
+      { label: 'WASM',   file: 'sim.wasm',        url: 'sim.wasm',                  desc: { ja: 'Verilog RTL → Verilator → Emscripten でビルドした WebAssembly バイナリ', en: 'WebAssembly binary built from Verilog RTL → Verilator → Emscripten' } },
+      { label: 'worker', file: 'sim-worker.js',  url: 'sim-worker.js',             desc: { ja: 'WASM シミュレーションを実行する Web Worker スクリプト', en: 'Web Worker script that runs the WASM simulation' } },
+      { label: 'LA',     file: 'rtlscope-la.js', url: '../../../js/rtlscope-la.js',desc: { ja: 'Logic Analyzer ライブラリ (RTLScopeLA)', en: 'Logic Analyzer library (RTLScopeLA)' } },
+      { label: 'API',    file: 'sft-8080-sim-api.js',      url: '../../../js/sft-8080-sim-api.js',      desc: { ja: 'window.sim テスト用 API', en: 'window.sim API for testing' } },
+      { label: 'bridge', file: 'sft-8080-worker-bridge.js',url: '../../../js/sft-8080-worker-bridge.js',desc: { ja: 'Worker 通信・RAF 描画ループ', en: 'Worker messaging and the requestAnimationFrame draw loop' } },
+      { label: 'FS',     file: 'sft-8080-fs.js',           url: '../../../js/sft-8080-fs.js',           desc: { ja: 'WASM FS・ドライブ・IndexedDB', en: 'WASM filesystem, drives and IndexedDB' } },
+      { label: 'trig',   file: 'sft-8080-trigger-ui.js',   url: '../../../js/sft-8080-trigger-ui.js',   desc: { ja: 'トリガー UI・Logic Analyzer 制御', en: 'Trigger UI and Logic Analyzer control' } },
+      { label: 'UI',     file: 'index.html',     url: '',                          desc: { ja: 'ブラウザ UI (HTML / CSS / bootstrap)。UI ロジックは js/sft-8080-*.js に分離', en: 'Browser UI (HTML / CSS / bootstrap). UI logic is split out into js/sft-8080-*.js' } },
     ];
 
     function fmtDate(httpDateStr) {
@@ -1620,7 +1620,8 @@
           if (!el) return;
           // 3列グリッド: ラベル | ファイル名 | 日付 を直接グリッドセルとして並べる
           el.innerHTML = FILES.map(function(f, i) {
-            var escaped = f.desc.replace(/"/g, '&quot;');
+            var desc = (typeof RTLScopeLA !== 'undefined' && RTLScopeLA.pickLang() === 'ja') ? f.desc.ja : f.desc.en;
+            var escaped = desc.replace(/"/g, '&quot;');
             return '<span class="fv-lbl"  title="' + escaped + '">' + f.label    + '</span>' +
                    '<span class="fv-file" title="' + escaped + '">' + f.file     + '</span>' +
                    '<span class="fv-date" title="' + escaped + '">' + results[i] + '</span>';

@@ -209,5 +209,5 @@ function setupLaWorker(opts) {
   var holders = document.querySelectorAll('[data-ja-placeholder]');
   texts.forEach(function (el) { el.textContent = el.getAttribute('data-ja'); });
   holders.forEach(function (el) { el.placeholder = el.getAttribute('data-ja-placeholder'); });
-  if (texts.length || holders.length) document.documentElement.lang = 'ja';
+  document.documentElement.lang = 'ja';   // 切り替える文字が無いページでも、日本語の表示なら lang を合わせる
 })();
