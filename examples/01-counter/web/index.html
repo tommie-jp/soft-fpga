@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -28,7 +28,7 @@
   <div class="controls">
     <button id="btn-run">Run</button>
     <button id="btn-reset">Reset</button>
-    <label>速度: <input id="speed" type="range" min="1" max="2000" value="200"></label>
+    <label><span data-ja="速度:">Speed:</span> <input id="speed" type="range" min="1" max="2000" value="200"></label>
     <span id="cycle-info">0 cycles</span>
   </div>
   <div id="error-box"></div>
@@ -41,7 +41,7 @@
     console.error('[01-counter]', e);
     var box = document.getElementById('error-box');
     box.style.display = 'block';
-    box.textContent = '初期化に失敗しました: ' + (e && e.message ? e.message : e);
+    box.textContent = (RTLScopeLA.pickLang() === 'ja' ? '初期化に失敗しました: ' : 'Initialization failed: ') + (e && e.message ? e.message : e);
   }
 
   var Module = {

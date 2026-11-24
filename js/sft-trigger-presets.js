@@ -6,10 +6,10 @@
 //   mountTriggerPresets({
 //     host:       document.getElementById('trig-detail'),  // この要素の先頭にドロップダウンを置く
 //     before:     null,                // 置く位置を変えたいとき、この子要素の前に置く (省略可)
-//     presets:    [{ label: 'ヒット', tip: '説明', fields: { 'trig-sig': 'snd_kind', 'trig-val': '1' } }, ...],
+//     presets:    [{ label: 'ヒット', tip: '説明' または { ja: '説明', en: 'Description' }, fields: { 'trig-sig': 'snd_kind', 'trig-val': '1' } }, ...],
 //     storageKey: 'pong_la_trig_theme',// 最後に選んだプリセットを覚える localStorage のキー (省略可)
 //     onApply:    function (preset, restored) {},   // 欄に入れた後に呼ぶ (省略可。restored = 起動時の復元)
-//     text:       { label: 'Preset', manual: '(manual)', tip: '...' },   // 文言 (省略可。英語の UI 向け)
+//     text:       { label: 'Preset', manual: '(manual)', tip: '...' },   // 文言 (省略可。既定は表示言語に合わせる)
 //   });
 //
 // - fields は書いた順に入れ、欄ごとに 'change' を送る (種類の欄を先に書くと、その欄に応じた表示の切り替えが先に済む)
@@ -22,10 +22,22 @@ function mountTriggerPresets(opts) {
   var host    = opts.host;
   if (!host || presets.length === 0) return null;
 
-  var text = Object.assign({
+  // 表示言語は LA 本体と同じ (既定は英語。?lang=jp で日本語)。js/rtlscope-la.js が無ければ英語
+  var ja = typeof RTLScopeLA !== 'undefined' && RTLScopeLA.pickLang() === 'ja';
+  // tip は文字列か { ja, en }。表示する言語の文字列にする (無い側は ja → en の順)
+  function tipText(v) {
+    if (v == null) return '';
+    if (typeof v === 'string') return v;
+    return (ja ? v.ja : v.en) || v.ja || v.en || '';
+  }
+  var text = Object.assign(ja ? {
     label:  'プリセット',
     manual: '(手で指定)',
     tip:    '典型的なトリガーの設定を選ぶと、欄に値が入ります。Set で設定します。'
+  } : {
+    label:  'Preset',
+    manual: '(manual)',
+    tip:    'Pick a typical trigger. It fills the fields below; press Set to arm it.'
   }, opts.text || {});
   var MANUAL = '';
   var wrap = document.createElement('label');
@@ -42,7 +54,7 @@ function mountTriggerPresets(opts) {
     var o = document.createElement('option');
     o.value = String(i);
     o.textContent = p.label;
-    if (p.tip) o.title = p.tip;
+    if (p.tip) o.title = tipText(p.tip);
     sel.appendChild(o);
   });
   wrap.appendChild(sel);
@@ -81,7 +93,7 @@ function mountTriggerPresets(opts) {
     applied = {};
     Object.keys(p.fields || {}).forEach(function (id) { setField(id, p.fields[id]); });
     sel.value = String(idx);
-    sel.title = p.tip || '';
+    sel.title = tipText(p.tip);
     if (opts.onApply) opts.onApply(p, !!restored);
   }
 

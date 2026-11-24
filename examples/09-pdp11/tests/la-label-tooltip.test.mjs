@@ -35,7 +35,25 @@ describe('tr / pickLang', () => {
     expect(LA.pickLang('en-US')).toBe('en');
     expect(LA.pickLang('EN')).toBe('en');
     expect(LA.pickLang('ja')).toBe('ja');
-    expect(LA.pickLang('fr')).toBe('ja');
+    expect(LA.pickLang('jp')).toBe('ja');
+    expect(LA.pickLang('ja-JP')).toBe('ja');
+    expect(LA.pickLang('fr')).toBe('en');   // 既定は英語
+  });
+  it('設定が無く URL にも localStorage にも無いときは英語 (既定)', () => {
+    const win = { location: { search: '' }, localStorage: { getItem: () => null } };
+    new Function('window', 'localStorage', readFileSync(path.join(JS, 'rtlscope-la.js'), 'utf8'))(win, win.localStorage);
+    expect(win.RTLScopeLA.pickLang()).toBe('en');
+  });
+  it('?lang=jp (または ja) で日本語、?lang=en で英語。URL が localStorage より先', () => {
+    const load = (search, stored) => {
+      const win = { location: { search }, localStorage: { getItem: () => stored } };
+      new Function('window', 'localStorage', readFileSync(path.join(JS, 'rtlscope-la.js'), 'utf8'))(win, win.localStorage);
+      return win.RTLScopeLA.pickLang();
+    };
+    expect(load('?lang=jp', null)).toBe('ja');
+    expect(load('?lang=ja', null)).toBe('ja');
+    expect(load('?lang=en', 'ja')).toBe('en');
+    expect(load('', 'ja')).toBe('ja');   // EN/JA ボタンの選択 (localStorage)
   });
 });
 

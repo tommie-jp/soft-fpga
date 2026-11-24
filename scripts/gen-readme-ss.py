@@ -221,7 +221,7 @@ def make_02(browser: Browser, base: str, out: Path) -> None:
         time.sleep(4)
         set_slider(page, 1)
         time.sleep(1)
-        page.get_by_role("button", name="歩行者ボタン").click()
+        page.get_by_role("button", name="Pedestrian button").click()
         paths = frames(page, out / "02", 22, 1.0, {"x": 0, "y": 0, "width": 1280, "height": 830},
                        on_frame=lambda _: read_state(page))
     print("    states:", " ".join(states))

@@ -300,204 +300,208 @@ var LA_SIGNALS_PDP11 = [
     id:'addr_p', label:'PhysAddr', word:0, bit:0, type:'hex', width:18, color:'#c86820', on:true,
     fmt:'oct',
     name:{ ja:'Unibus 物理アドレス (18 ビット)', en:'Unibus physical address' },
-    tip:'Unibus 物理アドレス（MMU 変換後 18 ビット）。I/O ページ = 0o760000–0o777777'
+    tip:{ ja:'Unibus 物理アドレス（MMU 変換後 18 ビット）。I/O ページ = 0o760000–0o777777', en:'Unibus physical address (18 bits, after MMU translation). I/O page = 0o760000–0o777777' }
   },
   {
     id:'addr_v', label:'VA', word:2, bit:16, type:'hex', width:16, color:'#a07020', on:false,
     fmt:'oct',
     name:{ ja:'CPU 仮想アドレス (MMU 変換前)', en:'Virtual address (pre-MMU)' },
-    tip:'仮想アドレス（MMU 変換前 CPU 側アドレス）'
+    tip:{ ja:'仮想アドレス（MMU 変換前 CPU 側アドレス）', en:'Virtual address (CPU-side address, before MMU translation)' }
   },
   // === バスデータ ===
   {
     id:'data', label:'Data', word:1, bit:0, type:'hex', width:16, color:'#0a7858', on:true,
     fmt:'oct',
     name:{ ja:'バスデータ (読み出し・書き込み値)', en:'Bus data' },
-    tip:'バスデータ（RD なら読み値、WR なら書き値）'
+    tip:{ ja:'バスデータ（RD なら読み値、WR なら書き値）', en:'Bus data (value read on RD, value written on WR)' }
   },
   // === バス制御 ===
   {
     id:'bus_wr', label:'WR', word:0, bit:18, type:'bit', width:1, color:'#cc2020', on:true,
     name:{ ja:'バス書き込みストローブ', en:'Bus write strobe' },
-    tip:'バス書き込みストローブ（メモリ・I/O への書き込みサイクルで High）'
+    tip:{ ja:'バス書き込みストローブ（メモリ・I/O への書き込みサイクルで High）', en:'Bus write strobe (High during a write cycle to memory or I/O)' }
   },
   {
     id:'bus_rd', label:'RD', word:0, bit:19, type:'bit', width:1, color:'#1a8820', on:true,
     name:{ ja:'バス読み出しストローブ', en:'Bus read strobe' },
-    tip:'バス読み出しストローブ（メモリ・I/O からの読み出しサイクルで High）'
+    tip:{ ja:'バス読み出しストローブ（メモリ・I/O からの読み出しサイクルで High）', en:'Bus read strobe (High during a read cycle from memory or I/O)' }
   },
   {
     id:'byte_op', label:'BYTE', word:0, bit:22, type:'bit', width:1, color:'#4048c8', on:false,
     name:{ ja:'バイト操作フラグ', en:'Byte operation flag' },
-    tip:'バイト操作フラグ（MOVB/CMPB 等のバイト命令で High）'
+    tip:{ ja:'バイト操作フラグ（MOVB/CMPB 等のバイト命令で High）', en:'Byte operation flag (High for byte instructions such as MOVB/CMPB)' }
   },
   // === CPU 状態 ===
   {
     id:'pc', label:'PC', word:2, bit:0, type:'hex', width:16, color:'#0898a8', on:true,
     fmt:'oct',
     name:{ ja:'プログラムカウンタ (PC)', en:'Program counter (PC)' },
-    tip:'プログラムカウンタ（8 進表示）'
+    tip:{ ja:'プログラムカウンタ（8 進表示）', en:'Program counter (shown in octal)' }
   },
   {
     id:'psw', label:'PSW', word:1, bit:16, type:'hex', width:16, color:'#2868b0', on:false,
     fmt:'psw11',
     name:{ ja:'プロセッサ状態語 (PSW)', en:'Processor status word (PSW)' },
-    tip:'プロセッサステータスワード。フォーマット: CM PM P# TNZVC'
+    tip:{ ja:'プロセッサステータスワード。フォーマット: CM PM P# TNZVC', en:'Processor status word. Format: CM PM P# TNZVC' }
   },
   {
     id:'cm', label:'Mode', word:0, bit:20, type:'hex', width:2, color:'#208828', on:true,
     fmt:'mode11',
     name:{ ja:'CPU 現在モード (Kernel/User)', en:'CPU current mode' },
-    tip:'CPU 現在モード (00=Kernel, 11=User)'
+    tip:{ ja:'CPU 現在モード (00=Kernel, 11=User)', en:'CPU current mode (00=Kernel, 11=User)' }
   },
   {
     id:'pri', label:'Pri', word:1, bit:21, type:'dec', width:3, color:'#986010', on:false,
     fmt:'dec',
     name:{ ja:'プロセッサ優先レベル (PSW[7:5])', en:'Processor priority level' },
-    tip:'割り込み優先レベル（PSW[7:5]）。KW11=6, RK11=5'
+    tip:{ ja:'割り込み優先レベル（PSW[7:5]）。KW11=6, RK11=5', en:'Interrupt priority level (PSW[7:5]). KW11=6, RK11=5' }
   },
   // === トラップ / ホルト ===
   {
     id:'trapped', label:'TRAP', word:0, bit:23, type:'bit', width:1, color:'#c04010', on:true,
     name:{ ja:'トラップ発生フラグ', en:'Trap flag' },
-    tip:'トラップ発生フラグ（バストラップ・奇数アドレス・未定義命令）'
+    tip:{ ja:'トラップ発生フラグ（バストラップ・奇数アドレス・未定義命令）', en:'Trap flag (bus trap, odd-address trap, reserved instruction)' }
   },
   {
     id:'halted', label:'HALT', word:0, bit:24, type:'bit', width:1, color:'#cc0000', on:true,
     name:{ ja:'CPU ホルトフラグ', en:'CPU halt flag' },
-    tip:'CPU ホルトフラグ（HALT 命令実行でアサート）'
+    tip:{ ja:'CPU ホルトフラグ（HALT 命令実行でアサート）', en:'CPU halt flag (asserted when a HALT instruction executes)' }
   },
   // === 割り込み ===
   {
     id:'bus_int', label:'INT', word:0, bit:25, type:'bit', width:1, color:'#887010', on:true,
     name:{ ja:'割り込みリクエストフラグ', en:'Interrupt request flag' },
-    tip:'割り込みリクエスト中フラグ（KW11/RK11 等から）'
+    tip:{ ja:'割り込みリクエスト中フラグ（KW11/RK11 等から）', en:'Interrupt request pending flag (from KW11, RK11, etc.)' }
   },
   {
     id:'int_vec', label:'Vec', word:3, bit:0, type:'hex', width:8, color:'#706010', on:false,
     fmt:'oct',
     name:{ ja:'割り込みベクタ番地', en:'Interrupt vector address' },
-    tip:'割り込みベクタ（8 進）。KW11=0o100, RK11=0o220, TTY RX=0o60, TX=0o64'
+    tip:{ ja:'割り込みベクタ（8 進）。KW11=0o100, RK11=0o220, TTY RX=0o60, TX=0o64', en:'Interrupt vector (octal). KW11=0o100, RK11=0o220, TTY RX=0o60, TX=0o64' }
   },
   {
     id:'int_ipl', label:'IPL', word:3, bit:8, type:'dec', width:8, color:'#706010', on:false,
     fmt:'dec',
     name:{ ja:'割り込み優先レベル (IPL)', en:'Interrupt priority level (IPL)' },
-    tip:'割り込み優先レベル'
+    tip:{ ja:'割り込み優先レベル', en:'Interrupt priority level' }
   },
   // === RK11 ディスク ===
   {
     id:'rk_state', label:'RK', word:0, bit:26, type:'hex', width:5, color:'#9020a0', on:true,
     name:{ ja:'RK11 ディスク転送ステート', en:'RK11 disk transfer state' },
-    tip:'RK11 ステート（0=Idle、非 0 でディスク転送中。0x17=シーク待ち: RK seek を On にしたときだけ通る）'
+    tip:{ ja:'RK11 ステート（0=Idle、非 0 でディスク転送中。0x17=シーク待ち: RK seek を On にしたときだけ通る）', en:'RK11 state (0=Idle, non-zero while a disk transfer is in progress. 0x17=waiting for seek: only passed through when RK seek is On)' }
   },
   // === CPU マイクロステート / 命令 ===
   {
     id:'istate', label:'istate', word:4, bit:0, type:'hex', width:5, color:'#803870', on:false,
     fmt:'istate11',
     name:{ ja:'CPU マイクロステート', en:'CPU micro-state' },
-    tip:'CPU マイクロステート（記号表示: f1=fetch c1=decode s*/d*=オペランド e1=execute w1=writeback o*=pop p1=push t*=trap i1=wait h1=halt）'
+    tip:{ ja:'CPU マイクロステート（記号表示: f1=fetch c1=decode s*/d*=オペランド e1=execute w1=writeback o*=pop p1=push t*=trap i1=wait h1=halt）', en:'CPU micro-state (symbolic: f1=fetch c1=decode s*/d*=operand e1=execute w1=writeback o*=pop p1=push t*=trap i1=wait h1=halt)' }
   },
   {
     id:'isn', label:'ISN', word:4, bit:5, type:'hex', width:16, color:'#704828', on:false,
     fmt:'isn11',
     name:{ ja:'現在実行中の命令 (ニモニック)', en:'Current instruction mnemonic' },
-    tip:'現在命令（オペコードを逆アセンブルしたニモニック表示。例: MOV R2,(R1)）'
+    tip:{ ja:'現在命令（オペコードを逆アセンブルしたニモニック表示。例: MOV R2,(R1)）', en:'Current instruction (opcode disassembled to a mnemonic. e.g. MOV R2,(R1))' }
   },
   // === バスエラー / NXM / トラップ詳細 ===
   {
     id:'bus_error',  label:'BUSERR',  word:3, bit:17, type:'bit', width:1, color:'#cc2020', on:false,
     name:{ ja:'バスエラー', en:'Bus error' },
-    tip:'バスエラー（アクセスタイムアウト・NXM）'
+    tip:{ ja:'バスエラー（アクセスタイムアウト・NXM）', en:'Bus error (access timeout, NXM)' }
   },
   {
     id:'nxm_access', label:'NXM',     word:3, bit:19, type:'bit', width:1, color:'#b02828', on:false,
     name:{ ja:'存在しないメモリへのアクセス (NXM)', en:'Non-existent memory access (NXM)' },
-    tip:'存在しないメモリアクセス（Non-eXistent Memory）'
+    tip:{ ja:'存在しないメモリアクセス（Non-eXistent Memory）', en:'Non-existent memory access (NXM)' }
   },
   {
     id:'trap_bus',   label:'TBUS',    word:3, bit:21, type:'bit', width:1, color:'#b03810', on:false,
     name:{ ja:'バストラップ', en:'Bus trap' },
-    tip:'バストラップ（bus abort / bus error trap）'
+    tip:{ ja:'バストラップ（bus abort / bus error trap）', en:'Bus trap (bus abort / bus error trap)' }
   },
   {
     id:'trap_abort', label:'TABORT',  word:3, bit:22, type:'bit', width:1, color:'#b03810', on:false,
     name:{ ja:'アボートトラップ', en:'Abort trap' },
-    tip:'アボートトラップ（スタックオーバーフロー等）'
+    tip:{ ja:'アボートトラップ（スタックオーバーフロー等）', en:'Abort trap (stack overflow, etc.)' }
   },
   {
     id:'trap_odd',   label:'TODD',    word:3, bit:23, type:'bit', width:1, color:'#b03810', on:false,
     name:{ ja:'奇数アドレストラップ', en:'Odd-address trap' },
-    tip:'奇数アドレスアクセストラップ'
+    tip:{ ja:'奇数アドレスアクセストラップ', en:'Odd-address access trap' }
   },
   // === 汎用レジスタ (GPR) ===
   {
     id:'r0', label:'R0', word:5, bit:0,  type:'hex', width:16, color:'#2848a8', on:false,
     fmt:'oct',
     name:{ ja:'汎用レジスタ R0', en:'General register R0' },
-    tip:'R0 汎用レジスタ（8 進表示）'
+    tip:{ ja:'R0 汎用レジスタ（8 進表示）', en:'R0 general register (shown in octal)' }
   },
   {
     id:'r1', label:'R1', word:5, bit:16, type:'hex', width:16, color:'#2848a8', on:false,
     fmt:'oct',
     name:{ ja:'汎用レジスタ R1', en:'General register R1' },
-    tip:'R1 汎用レジスタ（8 進表示）'
+    tip:{ ja:'R1 汎用レジスタ（8 進表示）', en:'R1 general register (shown in octal)' }
   },
   {
     id:'r2', label:'R2', word:6, bit:0,  type:'hex', width:16, color:'#2848a8', on:false,
     fmt:'oct',
     name:{ ja:'汎用レジスタ R2', en:'General register R2' },
-    tip:'R2 汎用レジスタ（8 進表示）'
+    tip:{ ja:'R2 汎用レジスタ（8 進表示）', en:'R2 general register (shown in octal)' }
   },
   {
     id:'r3', label:'R3', word:6, bit:16, type:'hex', width:16, color:'#2848a8', on:false,
     fmt:'oct',
     name:{ ja:'汎用レジスタ R3', en:'General register R3' },
-    tip:'R3 汎用レジスタ（8 進表示）'
+    tip:{ ja:'R3 汎用レジスタ（8 進表示）', en:'R3 general register (shown in octal)' }
   },
   {
     id:'r4', label:'R4', word:7, bit:0,  type:'hex', width:16, color:'#2848a8', on:false,
     fmt:'oct',
     name:{ ja:'汎用レジスタ R4', en:'General register R4' },
-    tip:'R4 汎用レジスタ（8 進表示）'
+    tip:{ ja:'R4 汎用レジスタ（8 進表示）', en:'R4 general register (shown in octal)' }
   },
   {
     id:'r5', label:'R5', word:7, bit:16, type:'hex', width:16, color:'#2848a8', on:false,
     fmt:'oct',
     name:{ ja:'汎用レジスタ R5 (フレームポインタ)', en:'General register R5 (frame pointer)' },
-    tip:'R5 汎用レジスタ / フレームポインタ（8 進表示）'
+    tip:{ ja:'R5 汎用レジスタ / フレームポインタ（8 進表示）', en:'R5 general register / frame pointer (shown in octal)' }
   },
   {
     id:'sp', label:'SP',  word:8, bit:0,  type:'hex', width:16, color:'#2878a0', on:false,
     fmt:'oct',
     name:{ ja:'スタックポインタ (SP / R6)', en:'Stack pointer (SP / R6)' },
-    tip:'SP = r6[current_mode] スタックポインタ（8 進表示）'
+    tip:{ ja:'SP = r6[current_mode] スタックポインタ（8 進表示）', en:'SP = r6[current_mode] stack pointer (shown in octal)' }
   },
   // === メモリプローブ（M1） ===
   {
     id:'mem_m1', label:'M1', word:8, bit:16, type:'hex', width:16, color:'#507030', on:false,
     fmt:'oct',
     name:{ ja:'メモリプローブ値 M1', en:'Memory probe value M1' },
-    tip:'メモリプローブ値: sim_set_mem_probe(addr) で指定アドレスの RAM 内容を毎サンプル記録'
+    tip:{ ja:'メモリプローブ値: sim_set_mem_probe(addr) で指定アドレスの RAM 内容を毎サンプル記録', en:'Memory probe value: records the RAM contents at the address set by sim_set_mem_probe(addr) on every sample' }
   },
   // === プロセスコンテキスト（Word9） ===
   {
     id:'uipar0', label:'UIPAR0', word:9, bit:0, type:'hex', width:12, color:'#8020c0', on:false,
     fmt:'oct',
     name:{ ja:'ユーザ I 空間ページアドレスレジスタ 0 (PAR0)', en:'User I-space PAR0' },
-    tip:'User I-space PAR0 — コンテキストスイッチで変化するプロセス識別子（8 進表示）'
+    tip:{ ja:'User I-space PAR0 — コンテキストスイッチで変化するプロセス識別子（8 進表示）', en:'User I-space PAR0 — a process identifier that changes on a context switch (shown in octal)' }
   },
   {
     id:'ctx_new', label:'CTX', word:9, bit:12, type:'bit', width:1, color:'#c040a0', on:false,
     name:{ ja:'コンテキストスイッチ検出フラグ', en:'Context switch flag' },
-    tip:'プロセスコンテキスト変化フラグ（UIPAR0 が前サンプルから変わった瞬間 = コンテキストスイッチ）'
+    tip:{ ja:'プロセスコンテキスト変化フラグ（UIPAR0 が前サンプルから変わった瞬間 = コンテキストスイッチ）', en:'Process context change flag (the moment UIPAR0 differs from the previous sample = context switch)' }
   },
   {
     id:'kisa6', label:'KISA6', word:9, bit:13, type:'hex', width:12, color:'#a04080', on:false,
     fmt:'oct',
     name:{ ja:'カーネル I 空間ページアドレスレジスタ 6 (PAR6)', en:'Kernel I-space PAR6' },
-    tip:'Kernel PAR6 — u 領域（プロセスごとのカーネルスタックと user 構造体）の物理位置。' +
-        'Unix V6 の retu() が書き換える = カーネル内のプロセス切り替え（8 進表示。物理番地は値 × 0o100）'
+    tip:{
+      ja:'Kernel PAR6 — u 領域（プロセスごとのカーネルスタックと user 構造体）の物理位置。' +
+         'Unix V6 の retu() が書き換える = カーネル内のプロセス切り替え（8 進表示。物理番地は値 × 0o100）',
+      en:'Kernel PAR6 — physical location of the u area (each process\'s kernel stack and user structure). ' +
+         'Rewritten by retu() in Unix V6 = process switch inside the kernel (shown in octal. Physical address = value × 0o100)'
+    }
   },
 ];
 
@@ -621,20 +625,20 @@ var PDP11_LA_CONFIG = {
 
 // 既知の PDP-11 / Unix V6 アドレス（トリガー補完用）
 var PDP11_KNOWN_PCS = [
-  { label: 'bootrom entry',     pc: 0o173000, tip: 'bootrom.v エントリ', boot: true },
-  { label: 'kernel entry',      pc: 0o000000, tip: 'Unix V6 カーネル m40.s エントリ', boot: true },
-  { label: 'printf(mem=)',      pc: 0o004014, tip: 'main.c: printf("mem=")' },
-  { label: 'user mode RTT',     pc: 0o003512, tip: 'ユーザプロセスへの RTT 命令' },
-  { label: 'login wait',        pc: 0o015670, tip: 'getty/login キー入力待ちループ' },
-  { label: 'KW11 vec (0o100)',  pc: 0o000100, tip: 'KW11 ラインクロック割り込みベクタ' },
-  { label: 'RK11 vec (0o220)',  pc: 0o000220, tip: 'RK11 ディスク割り込みベクタ' },
-  { label: 'TTY RX vec (0o60)', pc: 0o000060, tip: 'DL11 受信割り込みベクタ' },
+  { label: 'bootrom entry',     pc: 0o173000, tip: { ja: 'bootrom.v エントリ', en: 'bootrom.v entry point' }, boot: true },
+  { label: 'kernel entry',      pc: 0o000000, tip: { ja: 'Unix V6 カーネル m40.s エントリ', en: 'Unix V6 kernel m40.s entry point' }, boot: true },
+  { label: 'printf(mem=)',      pc: 0o004014, tip: { ja: 'main.c: printf("mem=")', en: 'main.c: printf("mem=")' } },
+  { label: 'user mode RTT',     pc: 0o003512, tip: { ja: 'ユーザプロセスへの RTT 命令', en: 'RTT instruction that enters the user process' } },
+  { label: 'login wait',        pc: 0o015670, tip: { ja: 'getty/login キー入力待ちループ', en: 'getty/login loop waiting for keyboard input' } },
+  { label: 'KW11 vec (0o100)',  pc: 0o000100, tip: { ja: 'KW11 ラインクロック割り込みベクタ', en: 'KW11 line clock interrupt vector' } },
+  { label: 'RK11 vec (0o220)',  pc: 0o000220, tip: { ja: 'RK11 ディスク割り込みベクタ', en: 'RK11 disk interrupt vector' } },
+  { label: 'TTY RX vec (0o60)', pc: 0o000060, tip: { ja: 'DL11 受信割り込みベクタ', en: 'DL11 receive interrupt vector' } },
   { label: 'swtch: SSWAP path', pc: 0o016000,
-    tip: 'slp.c swtch(): rp->p_flag =& ~SSWAP — スワップから戻ったプロセスだけが通る。直後が aretu(u.u_ssav)' },
+    tip: { ja: 'slp.c swtch(): rp->p_flag =& ~SSWAP — スワップから戻ったプロセスだけが通る。直後が aretu(u.u_ssav)', en: 'slp.c swtch(): rp->p_flag =& ~SSWAP — reached only by a process returning from swap. Immediately followed by aretu(u.u_ssav)' } },
   { label: 'swtch: call aretu', pc: 0o016012,
-    tip: 'slp.c swtch(): aretu(u.u_ssav) の jsr — "You are not expected to understand this" の箇所' },
+    tip: { ja: 'slp.c swtch(): aretu(u.u_ssav) の jsr — "You are not expected to understand this" の箇所', en: 'slp.c swtch(): the jsr to aretu(u.u_ssav) — the "You are not expected to understand this" spot' } },
   { label: 'newproc: savu(u_ssav)', pc: 0o016376,
-    tip: 'slp.c newproc(): メモリが足りず子をスワップへ書き出す直前の savu(u.u_ssav)' },
+    tip: { ja: 'slp.c newproc(): メモリが足りず子をスワップへ書き出す直前の savu(u.u_ssav)', en: 'slp.c newproc(): savu(u.u_ssav) just before the child is written out to swap because memory is short' } },
 ];
 
 // トリガーのプリセット (Trigger の「Preset」から選ぶと欄に入る。Set は自分で押す)
@@ -643,35 +647,39 @@ var PDP11_KNOWN_PCS = [
 // ユーザープロセスの同じ番地でも当たるので、カーネルモードで読んだときに絞る。
 // boot: true の番地はブートの間にしか通らず、Reset でトリガーも消えるので、プリセットにしない (Known address の一覧には残る)
 var PDP11_TRIGGER_PRESETS = [
-  { label: 'TRAP (incl. system call)', tip: 'TRAP 系の命令・例外で止まる (Unix の sys 呼び出しは TRAP 命令)',
+  { label: 'TRAP (incl. system call)', tip: { ja: 'TRAP 系の命令・例外で止まる (Unix の sys 呼び出しは TRAP 命令)', en: 'Stops on a TRAP-class instruction or exception (a Unix system call is a TRAP instruction)' },
     fields: { 'trig-type': '4' } },
-  { label: 'Bus error', tip: 'バスエラー (存在しない番地など) で止まる', fields: { 'trig-type': '5' } },
-  { label: 'I/O page access', tip: 'I/O ページ (17760000 以上) を読み書きした瞬間', fields: { 'trig-type': '3' } },
-  { label: 'Interrupt request (INT rising)', tip: '式: INT.rising — 割り込み要求が立った瞬間',
+  { label: 'Bus error', tip: { ja: 'バスエラー (存在しない番地など) で止まる', en: 'Stops on a bus error (e.g. a non-existent address)' }, fields: { 'trig-type': '5' } },
+  { label: 'I/O page access', tip: { ja: 'I/O ページ (17760000 以上) を読み書きした瞬間', en: 'The moment the I/O page (17760000 and above) is read or written' }, fields: { 'trig-type': '3' } },
+  { label: 'Interrupt request (INT rising)', tip: { ja: '式: INT.rising — 割り込み要求が立った瞬間', en: 'Expression: INT.rising — the moment an interrupt request is raised' },
     fields: { 'trig-type': '7' }, expr: 'INT.rising' },
-  { label: 'User-mode fetch', tip: '式: Mode == "USER" && istate == "F1" — ユーザーモードで命令をフェッチした瞬間',
+  { label: 'User-mode fetch', tip: { ja: '式: Mode == "USER" && istate == "F1" — ユーザーモードで命令をフェッチした瞬間', en: 'Expression: Mode == "USER" && istate == "F1" — the moment an instruction is fetched in user mode' },
     fields: { 'trig-type': '7' }, expr: 'Mode == "USER" && istate == "F1"' },
   // Unix V6 swtch() の SSWAP 経路（"You are not expected to understand this"）。
   // PC + Data で命令語まで比べるので、ユーザープロセスの同じ番地には当たらない。Post = 0 で
   // aretu の手前に止め、▶ Step（300 tick）で aretu → return(1) → cret → 戻り先まで進めて見比べる。
   // 1tick/smpl にして、u_ssav の読み出しなどのバスサイクルを取りこぼさない。
   { label: 'V6 swtch: SSWAP path (aretu u_ssav)',
-    tip: 'slp.c swtch(): スワップから戻ったプロセスが aretu(u.u_ssav) へ入る直前（016000 bicb $10,1(r2)）。' +
-         'RK seek を On にし、メモリ不足で fork するプログラムを走らせると止まる',
+    tip: { ja: 'slp.c swtch(): スワップから戻ったプロセスが aretu(u.u_ssav) へ入る直前（016000 bicb $10,1(r2)）。' +
+                'RK seek を On にし、メモリ不足で fork するプログラムを走らせると止まる',
+           en: 'slp.c swtch(): just before a process returning from swap enters aretu(u.u_ssav) (016000 bicb $10,1(r2)). ' +
+                'Stops when you turn RK seek On and run a program that forks while memory is short' },
     fields: { 'trig-type': '6', 'trig-pc': '16000', 'trig-data': '142762', 'trig-post': '0',
               'la-sample-sel': '0' } },
   // newproc() から fork() へ戻った最初の命令（035004 tst r0）。swtch の SSWAP 経路で止めた後、
   // aretu の直後に割り込みが入っても、復帰先で確実に止められる。R0 = 1 なら子、0 なら親。
   { label: 'V6 fork: back from newproc (fork+46)',
-    tip: 'sys1.c fork(): newproc() を呼んだ直後の命令（035004 tst r0）。R0 が 1 なら子プロセス、0 なら親',
+    tip: { ja: 'sys1.c fork(): newproc() を呼んだ直後の命令（035004 tst r0）。R0 が 1 なら子プロセス、0 なら親', en: 'sys1.c fork(): the instruction right after the call to newproc() (035004 tst r0). R0 is 1 in the child, 0 in the parent' },
     fields: { 'trig-type': '6', 'trig-pc': '35004', 'trig-data': '5700', 'trig-post': '0',
               'la-sample-sel': '0' } },
   // C のプログラムの最初の命令 SETD（170011、crt0.s の先頭）。FPU の無いこの CPU では不正命令のトラップに
   // なり、trap.c が黙って無視する。Post = 1600 で、トラップの入口からユーザーへ戻るまで（1477 tick）を
   // 1 回の取り込みに収める。アセンブラで書かれたコマンド（cat など）では止まらない。
   { label: 'V6 crt0: SETD at user 0 (trap ignored)',
-    tip: 'crt0.s の先頭の setd（170011）をユーザーの 0 番地でフェッチした瞬間。' +
-         'C で書かれたコマンド（ls・date など）を実行すると止まる。トラップは無視され、2 番地へ戻る',
+    tip: { ja: 'crt0.s の先頭の setd（170011）をユーザーの 0 番地でフェッチした瞬間。' +
+                'C で書かれたコマンド（ls・date など）を実行すると止まる。トラップは無視され、2 番地へ戻る',
+           en: 'The setd (170011) at the start of crt0.s, fetched at user address 0. ' +
+                'Stops when you run a command written in C (ls, date, etc.). The trap is ignored and execution returns to address 2' },
     fields: { 'trig-type': '6', 'trig-pc': '0', 'trig-data': '170011', 'trig-post': '1600',
               'la-sample-sel': '0' } },
   // 浮動小数点の模擬ルーチン fptrap の入口（/usr/bin/units の 007100 dec reenter）。fcrt0.s は SETD の前に
@@ -679,28 +687,36 @@ var PDP11_TRIGGER_PRESETS = [
   // 積んでここへ来る。Post = 0 で入口に止め、積まれた 2 語を Stack パネルで見る。▶ Step 2 回（600 tick）で
   // fptrap が rti で 000010 へ戻るまで進む。
   { label: 'V6 units: fptrap entry (SIGINS caught)',
-    tip: '/usr/bin/units の fptrap の入口（007100 dec reenter）。units を実行すると、' +
-         '先頭の setd のトラップがシグナル SIGINS としてここへ届く',
+    tip: { ja: '/usr/bin/units の fptrap の入口（007100 dec reenter）。units を実行すると、' +
+                '先頭の setd のトラップがシグナル SIGINS としてここへ届く',
+           en: 'The entry of fptrap in /usr/bin/units (007100 dec reenter). When you run units, ' +
+                'the trap from the leading setd is delivered here as signal SIGINS' },
     fields: { 'trig-type': '6', 'trig-pc': '7100', 'trig-data': '5367', 'trig-post': '0',
               'la-sample-sel': '0' } },
   // sh の fork()（libc の fork.s）。カーネルは親の戻り番地だけを 2 進めるので、親は sys fork の 2 語あと
   // （010002 bec 2f）、子はすぐあと（010000 br 1f）へ戻る。Post = 200 で、戻ったあとの数命令を採る。
   // 親の側は、fork() が R0 と PC を書き換える 2 つの書き込み（約 1000 tick 前）も同じ取り込みに入る。
   { label: 'V6 sh: fork returns in parent (bec 2f)',
-    tip: '/bin/sh の fork() で、親が sys fork から戻った最初の命令（010002 bec 2f）。' +
-         'コマンドを 1 つ実行すると止まる。R0 は子の pid',
+    tip: { ja: '/bin/sh の fork() で、親が sys fork から戻った最初の命令（010002 bec 2f）。' +
+                'コマンドを 1 つ実行すると止まる。R0 は子の pid',
+           en: 'In /bin/sh fork(), the first instruction after the parent returns from sys fork (010002 bec 2f). ' +
+                'Stops when you run one command. R0 holds the pid of the child' },
     fields: { 'trig-type': '6', 'trig-pc': '10002', 'trig-data': '103005', 'trig-post': '200',
               'la-sample-sel': '0' } },
   { label: 'V6 sh: fork returns in child (br 1f)',
-    tip: '/bin/sh の fork() で、子が sys fork から戻った最初の命令（010000 br 1f）。' +
-         'コマンドを 1 つ実行すると止まる。R0 は親の pid で、このあと clr r0 が 0 にする',
+    tip: { ja: '/bin/sh の fork() で、子が sys fork から戻った最初の命令（010000 br 1f）。' +
+                'コマンドを 1 つ実行すると止まる。R0 は親の pid で、このあと clr r0 が 0 にする',
+           en: 'In /bin/sh fork(), the first instruction after the child returns from sys fork (010000 br 1f). ' +
+                'Stops when you run one command. R0 holds the pid of the parent, which the following clr r0 then clears to 0' },
     fields: { 'trig-type': '6', 'trig-pc': '10000', 'trig-data': '403', 'trig-post': '200',
               'la-sample-sel': '0' } },
   // sys1.c fork() の、子だけが通る行 u.u_ar0[R0] = p1->p_pid（035010 mov 12(r4),*u_ar0）。
   // 子が sys fork から戻るまでに一度プロセスを切り替えられるので、ユーザー側の取り込みには入らない。
   { label: 'V6 fork: child gets parent pid (fork+52)',
-    tip: 'sys1.c fork(): 子の側だけが通る u.u_ar0[R0] = p1->p_pid（035010）。' +
-         '直後に 141772 番地（退避した R0）へ親の pid を書く',
+    tip: { ja: 'sys1.c fork(): 子の側だけが通る u.u_ar0[R0] = p1->p_pid（035010）。' +
+                '直後に 141772 番地（退避した R0）へ親の pid を書く',
+           en: 'sys1.c fork(): u.u_ar0[R0] = p1->p_pid (035010), executed only by the child. ' +
+                'Immediately afterwards the pid of the parent is written to address 141772 (the saved R0)' },
     fields: { 'trig-type': '6', 'trig-pc': '35010', 'trig-data': '16477', 'trig-post': '200',
               'la-sample-sel': '0' } },
   // シグナルの 2 段階。psignal() は p_sig に番号を書くだけ（割り込みの中）。配るのは psig() で、
@@ -708,42 +724,52 @@ var PDP11_TRIGGER_PRESETS = [
   // psig を出るまで（1103 tick。途中にクロック割り込みが入ると約 570 tick 延びる）を収める。
   // このあと再スケジュールが挟まるので、ハンドラは別のプリセットで採る。
   { label: 'V6 psignal: signal number written to p_sig',
-    tip: 'sig.c psignal() の入口（022644）。端末で Delete キー（DEL, 0177）を押すと、' +
-         '受信割り込み → ttyinput → signal → ここ、の順で来る。p_sig に 1 バイト書くだけで戻る',
+    tip: { ja: 'sig.c psignal() の入口（022644）。端末で Delete キー（DEL, 0177）を押すと、' +
+                '受信割り込み → ttyinput → signal → ここ、の順で来る。p_sig に 1 バイト書くだけで戻る',
+           en: 'sig.c psignal() entry (022644). When you press the Delete key (DEL, 0177) on the terminal, ' +
+                'the order is receive interrupt → ttyinput → signal → here. It only writes one byte to p_sig and returns' },
     fields: { 'trig-type': '6', 'trig-pc': '22644', 'trig-data': '4567', 'trig-post': '1000',
               'la-sample-sel': '0' } },
   { label: 'V6 psig: frame pushed on user stack',
-    tip: 'sig.c psig() の入口（023144）。シグナルを捕まえているプロセスに配る瞬間。' +
-         'ユーザースタックに PS と PC を積み、戻り先をハンドラに書き換える',
+    tip: { ja: 'sig.c psig() の入口（023144）。シグナルを捕まえているプロセスに配る瞬間。' +
+                'ユーザースタックに PS と PC を積み、戻り先をハンドラに書き換える',
+           en: 'sig.c psig() entry (023144). The moment the signal is delivered to a process that catches it. ' +
+                'Pushes PS and PC on the user stack and rewrites the return address to the handler' },
     fields: { 'trig-type': '6', 'trig-pc': '23144', 'trig-data': '4567', 'trig-post': '1900',
               'la-sample-sel': '0' } },
   // 32 章の sig.c を cc した a.out の、libc の signal.s の tvect にある SIGINT の入口（001410 mov r0,-(sp)）。
   // Post = 400 で、ハンドラ h() を呼び、ユーザーモードの rtt が積まれた 2 語を取り出して戻るまで（316 tick）を採る。
   // 番地はこのソースの a.out のもの。ソースを変えると変わる。
   { label: 'V6 sig.c: SIGINT handler entry (tvect+20)',
-    tip: '32 章の sig.c の a.out で、シグナルのハンドラへ入った最初の命令（001410 mov r0,-(sp)）。' +
-         'a.out を走らせて Delete キーを押すと止まる。SP の先に、カーネルが積んだ PC と PS がある',
+    tip: { ja: '32 章の sig.c の a.out で、シグナルのハンドラへ入った最初の命令（001410 mov r0,-(sp)）。' +
+                'a.out を走らせて Delete キーを押すと止まる。SP の先に、カーネルが積んだ PC と PS がある',
+           en: 'In the a.out built from sig.c in chapter 32, the first instruction on entering the signal handler (001410 mov r0,-(sp)). ' +
+                'Stops when you run the a.out and press the Delete key. Just beyond SP are the PC and PS pushed by the kernel' },
     fields: { 'trig-type': '6', 'trig-pc': '1410', 'trig-data': '10046', 'trig-post': '400',
               'la-sample-sel': '0' } },
   // 最初のユーザープロセスの最初の命令。main() が icode[] の 11 語を User の 0 番地へ写し、start の rtt が
   // そこへ「戻る」。ブートの間に 1 回しか通らず、Reset でトリガーは消える。
   // '@' が出てから Set し、そのあと rkunix を打つ。
   { label: 'V6 icode: first user instruction (sys exec)',
-    tip: 'main.c icode[] の最初の語（104413 sys exec）を User の 0 番地でフェッチした瞬間。' +
-         'Reset して @ が出たあと、rkunix を打つ前に Set する',
+    tip: { ja: 'main.c icode[] の最初の語（104413 sys exec）を User の 0 番地でフェッチした瞬間。' +
+                'Reset して @ が出たあと、rkunix を打つ前に Set する',
+           en: 'main.c icode[]: the first word (104413 sys exec), fetched at User address 0. ' +
+                'Reset, and after "@" appears, Set this before typing rkunix' },
     fields: { 'trig-type': '6', 'trig-pc': '0', 'trig-data': '104413', 'trig-post': '900',
               'la-sample-sel': '0' } },
   // sync システムコールの後半。bflush() が遅延書き込みのバッファに B_ASYNC を立てる命令（046012 bis $400,(r4)）。
   // このあと RK11 に書き込みを出し、完了を待たずにユーザーへ戻る。4tick/smpl・Post = 4000 で 16000 tick 先まで採り、
   // 「ユーザーへ戻る → そのあとで RK11 の割り込み」の順を 1 回の取り込みに収める（RK seek = 4K clk のとき）。
   { label: 'V6 bflush: B_ASYNC set (write not awaited)',
-    tip: 'bio.c bflush(): 遅延書き込みのバッファに B_ASYNC を立てる命令（046012）。' +
-         'date >y; sync のように、ファイルを書いた直後に sync すると止まる',
+    tip: { ja: 'bio.c bflush(): 遅延書き込みのバッファに B_ASYNC を立てる命令（046012）。' +
+                'date >y; sync のように、ファイルを書いた直後に sync すると止まる',
+           en: 'bio.c bflush(): the instruction that sets B_ASYNC on a delayed-write buffer (046012). ' +
+                'Stops when you run sync right after writing a file, as in date >y; sync' },
     fields: { 'trig-type': '6', 'trig-pc': '46012', 'trig-data': '52714', 'trig-post': '4000',
               'la-sample-sel': '3' } },
 ].concat(PDP11_KNOWN_PCS.filter(function (k) { return !k.boot; }).map(function (k) {
   var oct = '0o' + k.pc.toString(8);
   var expr = 'Mode == "KERNEL" && VA == ' + oct + ' && RD == 1';
   return { label: 'Kernel reads ' + k.label + (k.label.indexOf(oct) >= 0 ? '' : ' (' + oct + ')'),
-           tip: k.tip + ' — 式: ' + expr, fields: { 'trig-type': '7' }, expr: expr };
+           tip: { ja: k.tip.ja + ' — 式: ' + expr, en: k.tip.en + ' — expr: ' + expr }, fields: { 'trig-type': '7' }, expr: expr };
 }));
