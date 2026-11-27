@@ -459,10 +459,11 @@ var term = new Terminal({
 term.open(document.getElementById('terminal'));
 window.term = term;  // Playwright テスト用に公開
 
-// xterm の hidden textarea に IME を禁止する属性を付与
+// xterm の hidden textarea に英語入力のヒントを付与
+// inputmode="none" は付けない。iOS / Android でソフトキーボードが出なくなり、入力できなくなる。
 (function() {
   var _ta = document.querySelector('#terminal .xterm-helper-textarea');
-  if (_ta) { _ta.setAttribute('inputmode', 'none'); _ta.setAttribute('lang', 'en'); }
+  if (_ta) { _ta.setAttribute('lang', 'en'); }
 })();
 
 // ── ターミナル UI ヘルパー ────────────────────────────────────────────────
@@ -1255,10 +1256,10 @@ window._initTrigExprCM = async function() {
 
   window._trigExprView = view;
 
-  // CM の contenteditable に IME を禁止する属性を付与
+  // CM の contenteditable に英語入力のヒントを付与
+  // inputmode="none" は付けない。iOS / Android でソフトキーボードが出なくなり、入力できなくなる。
   var _cmContent = container.querySelector('.cm-content');
   if (_cmContent) {
-    _cmContent.setAttribute('inputmode', 'none');
     _cmContent.setAttribute('lang', 'en');
   }
 
