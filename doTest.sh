@@ -16,6 +16,7 @@ usage() {
 
 テストグループ (無指定時は全グループを実行):
   --cocotb      [01] cocotb RTL テスト
+  --td4         [16] TD4 ハーネスのテスト (ネイティブ Verilator、命令表の模型と突き合わせ)
   --6502        [02] Woz Monitor / Integer BASIC 統合テスト
                 [03] Dormann 6502 機能テスト
   --8080        [04] 8080 Vitest タイミングテスト
@@ -45,6 +46,7 @@ EOF
 # 引数解析
 # ---------------------------------------------------------------------------
 RUN_COCOTB=false
+RUN_TD4=false
 RUN_6502=false
 RUN_8080=false
 RUN_WEB=false
@@ -62,6 +64,8 @@ while [[ $# -gt 0 ]]; do
       usage; exit 0 ;;
     --cocotb)
       RUN_COCOTB=true; ANY_FLAG=true ;;
+    --td4)
+      RUN_TD4=true; ANY_FLAG=true ;;
     --6502)
       RUN_6502=true; ANY_FLAG=true ;;
     --8080)
@@ -94,6 +98,7 @@ done
 # フラグ未指定 → 全グループ実行
 if ! $ANY_FLAG; then
   RUN_COCOTB=true
+  RUN_TD4=true
   RUN_6502=true
   RUN_8080=true
   RUN_WEB=true
@@ -188,6 +193,11 @@ fi
 if $RUN_COCOTB; then
   run_step "01" "cocotb RTL テスト" \
     scripts/test-cocotb.sh
+fi
+
+if $RUN_TD4; then
+  run_step "16" "TD4 ハーネスのテスト" \
+    scripts/test-td4.sh
 fi
 
 if $RUN_6502; then

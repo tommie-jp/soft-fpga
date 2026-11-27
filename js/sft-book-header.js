@@ -43,6 +43,11 @@
       { id: '4-14', title: '命令エミュレータに無い信号 — T ステートを数える', titleEn: 'Signals an instruction emulator lacks — counting T-states', path: '04-soft-fpga-web/14-count-t-states.md' },
       { id: '11-9', title: '8080 で CP/M 2.2 を動かす', titleEn: 'Running CP/M 2.2 on the 8080', path: '11-cpu/09-cpm22.md' },
     ],
+    '10-td4': [
+      { id: '11-1', title: 'TD4 の構成 — 4 ビットのレジスタ・加算器・ROM', titleEn: 'How TD4 is built — 4-bit registers, an adder and a ROM', path: '11-cpu/01-td4-architecture.md' },
+      { id: '11-2', title: 'TD4 の命令を 1 つずつ波形で追う', titleEn: 'Following TD4 instructions one at a time in waveforms', path: '11-cpu/02-td4-trace.md' },
+      { id: '11-19', title: 'TD4 の中をブラウザの画面に出す — ハーネスにレーンを足す', titleEn: 'Showing the inside of TD4 in the browser — adding lanes to the harness', path: '11-cpu/19-td4-browser-lanes.md' },
+    ],
     '91-pong': [
       { id: '12-3', title: 'Pong — ゲートだけで動くゲーム', titleEn: 'Pong — a game built from gates only', path: '12-projects/03-pong.md' },
     ],

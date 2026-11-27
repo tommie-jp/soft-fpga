@@ -25,6 +25,7 @@ Verilog で書いたレトロ CPU とデジタル回路を Verilator で C++ に
 | [05-dormann](https://tommie-jp.github.io/soft-fpga/05-dormann/) | 6502 Dormann 命令テスト | Klaus Dormann の機能テストを RTL 上で完走 |
 | [06-8080](https://tommie-jp.github.io/soft-fpga/06-8080/) | Intel 8080 / CP/M 2.2 | MBASIC・BDS C・Turbo Pascal 3、I/O バスアナライザ |
 | [09-pdp11](https://tommie-jp.github.io/soft-fpga/examples/09-pdp11/web/) | PDP-11 / Unix V6 | Unix V6 ブート、MMU パネル、逆アセンブル、63 命令のタイミング図 |
+| [10-td4](https://tommie-jp.github.io/soft-fpga/10-td4/) | TD4（4 ビット CPU） | セレクタが選ぶ入力と書くレジスタを図で光らせる。16 番地のプログラムを画面で書き換え、スイッチで入力、LED で出力 |
 | [RISC-V / Linux](https://tommie-jp.github.io/soft-fpga-riscv-linux/mmrisc2/)（別リポジトリ [soft-fpga-riscv-linux](https://github.com/tommie-jp/soft-fpga-riscv-linux)） | mmRISC-2（RV64GC）/ Linux | 起動を済ませた状態を読み戻して BusyBox のシェルから始める。CPU の中を Logic Analyzer で見る |
 | [91-pong](https://tommie-jp.github.io/soft-fpga/91-pong/) | Pong（CPU なし） | カウンタと比較器だけのゲーム。1 クロック 1 画素、音つき、スマホ対応 |
 
@@ -108,6 +109,7 @@ JS 側の中心は全例共用の Logic Analyzer [`js/rtlscope-la.js`](js/rtlsco
 | 基礎 1 | 二進カウンタ | ring buffer → TypedArray → Canvas の最小検証 | ✅ 完了 |
 | 基礎 2 | 信号機 FSM | State Diagram ビューのお披露目 | ✅ 完了 |
 | 基礎 3 | UART 送受信機 | Logic Analyzer ビューの威力確認 | ✅ 完了 |
+| CPU 入門 | TD4（4 ビット） | データパス図でセレクタの選択と書く先を見せる（教科書 11-1・11-2 と連動） | ✅ 完了 |
 | CPU 第一弾 | 6502 / Apple-I | 対話体験（wozmon → Integer BASIC）、Dormann 命令テスト | ✅ 完了 |
 | CPU 第二弾 | 8080 / CP/M 2.2 | vm80a RTL + CP/M 2.2 + BDS C コンパイラ | ✅ 完了 |
 | CPU 第三弾 | PDP-11 / Unix V6 | `cpus-pdp11` RTL で Unix V6 ブート、MMU と全命令タイミング図 | ✅ 完了 |

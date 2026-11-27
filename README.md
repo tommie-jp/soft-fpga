@@ -25,6 +25,7 @@ The point is not speed but **watching internal signals in real time**. T-states,
 | [05-dormann](https://tommie-jp.github.io/soft-fpga/05-dormann/) | 6502 Dormann test | Klaus Dormann's functional test running to completion on the RTL |
 | [06-8080](https://tommie-jp.github.io/soft-fpga/06-8080/) | Intel 8080 / CP/M 2.2 | MBASIC, BDS C, Turbo Pascal 3, I/O Bus Analyzer |
 | [09-pdp11](https://tommie-jp.github.io/soft-fpga/examples/09-pdp11/web/) | PDP-11 / Unix V6 | Unix V6 boot, MMU panel, disassembly, timing diagrams for all 63 instructions |
+| [10-td4](https://tommie-jp.github.io/soft-fpga/10-td4/) | TD4 (4-bit CPU) | Datapath diagram lights up the selector input and the register written; editable 16-word program, input switches and output LEDs |
 | [RISC-V / Linux](https://tommie-jp.github.io/soft-fpga-riscv-linux/mmrisc2/) (separate repository [soft-fpga-riscv-linux](https://github.com/tommie-jp/soft-fpga-riscv-linux)) | mmRISC-2 (RV64GC) / Linux | Restores a finished boot and starts at the BusyBox shell; the Logic Analyzer shows the inside of the CPU |
 | [91-pong](https://tommie-jp.github.io/soft-fpga/91-pong/) | Pong (no CPU) | Counters and comparators only. One pixel per clock, with sound, playable on phones |
 
@@ -108,6 +109,7 @@ A few non-obvious problems behind the "just run RTL in the browser" pitch. Full 
 | Basic 1 | Binary counter | Minimal ring buffer → TypedArray → Canvas pipeline | ✅ Done |
 | Basic 2 | Traffic light FSM | State Diagram view debut | ✅ Done |
 | Basic 3 | UART transceiver | Logic Analyzer view in action | ✅ Done |
+| CPU #0 | TD4 (4-bit) | Datapath view: which input the selector picks and which register is written, paired with textbook chapter 11-1 / 11-2 | ✅ Done |
 | CPU #1 | 6502 / Apple-I | Interactive experience (wozmon → Integer BASIC), Dormann functional test | ✅ Done |
 | CPU #2 | 8080 / CP/M 2.2 | CP/M 2.2 + BDS C compiler on vm80a RTL | ✅ Done |
 | CPU #3 | PDP-11 / Unix V6 | Unix V6 boot on `cpus-pdp11` RTL, MMU panel, timing diagrams for every instruction | ✅ Done |
