@@ -126,6 +126,17 @@
       </tr>
       <tr>
         <td>
+          <div class="ex-id">RV</div>
+          <!-- 別リポジトリ (soft-fpga-riscv-linux) のページ。言語は ?lang=ja|en で渡す (?lang=jp は効かない) -->
+          <a class="ex-link ex-ext" href="https://tommie-jp.github.io/soft-fpga-riscv-linux/mmrisc2/" data-ja="RISC-V / Linux ↗">RISC-V / Linux ↗</a>
+        </td>
+        <td>
+          <div class="ex-desc" data-ja="mmRISC-2 (RV64GC) の RTL で Linux が動きます。PC で起動を済ませた状態を読み戻し、BusyBox のシェルから始めます。Logic Analyzer で CPU の中の信号を見られます。別リポジトリ soft-fpga-riscv-linux のページです。">mmRISC-2 (RV64GC) RTL running Linux. A boot saved on a PC is restored, so it starts at the BusyBox shell. The Logic Analyzer shows signals inside the CPU. Hosted in the separate soft-fpga-riscv-linux repository.</div>
+        </td>
+        <td><span class="ex-tag">RISC-V</span><span class="ex-tag">Linux</span><span class="ex-tag">Logic Analyzer</span></td>
+      </tr>
+      <tr>
+        <td>
           <div class="ex-id">91</div>
           <a class="ex-link" href="91-pong/" data-ja="Pong (CPU なし)">Pong (gates only)</a>
         </td>
@@ -147,11 +158,13 @@
   <script src="js/sft-la-glue.js"></script>
   <script>
     // 日本語表示のときは、各例のページも日本語で開く
-    if (RTLScopeLA.pickLang() === 'ja') {
-      document.querySelectorAll('a.ex-link').forEach(function (a) {
-        a.setAttribute('href', a.getAttribute('href') + '?lang=jp');
-      });
-    }
+    // 別リポジトリのページ (.ex-ext) は ?lang=ja|en しか受け付けず、既定がブラウザの言語なので、英語のときも渡す
+    var isJa = RTLScopeLA.pickLang() === 'ja';
+    document.querySelectorAll('a.ex-link').forEach(function (a) {
+      var isExt = a.classList.contains('ex-ext');
+      var lang = isExt ? (isJa ? 'ja' : 'en') : (isJa ? 'jp' : '');
+      if (lang) a.setAttribute('href', a.getAttribute('href') + '?lang=' + lang);
+    });
   </script>
 </body>
 </html>

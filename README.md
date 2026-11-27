@@ -25,6 +25,7 @@ The point is not speed but **watching internal signals in real time**. T-states,
 | [05-dormann](https://tommie-jp.github.io/soft-fpga/05-dormann/) | 6502 Dormann test | Klaus Dormann's functional test running to completion on the RTL |
 | [06-8080](https://tommie-jp.github.io/soft-fpga/06-8080/) | Intel 8080 / CP/M 2.2 | MBASIC, BDS C, Turbo Pascal 3, I/O Bus Analyzer |
 | [09-pdp11](https://tommie-jp.github.io/soft-fpga/examples/09-pdp11/web/) | PDP-11 / Unix V6 | Unix V6 boot, MMU panel, disassembly, timing diagrams for all 63 instructions |
+| [RISC-V / Linux](https://tommie-jp.github.io/soft-fpga-riscv-linux/mmrisc2/) (separate repository [soft-fpga-riscv-linux](https://github.com/tommie-jp/soft-fpga-riscv-linux)) | mmRISC-2 (RV64GC) / Linux | Restores a finished boot and starts at the BusyBox shell; the Logic Analyzer shows the inside of the CPU |
 | [91-pong](https://tommie-jp.github.io/soft-fpga/91-pong/) | Pong (no CPU) | Counters and comparators only. One pixel per clock, with sound, playable on phones |
 
 ## Subject selection criteria

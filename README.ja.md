@@ -25,6 +25,7 @@ Verilog で書いたレトロ CPU とデジタル回路を Verilator で C++ に
 | [05-dormann](https://tommie-jp.github.io/soft-fpga/05-dormann/) | 6502 Dormann 命令テスト | Klaus Dormann の機能テストを RTL 上で完走 |
 | [06-8080](https://tommie-jp.github.io/soft-fpga/06-8080/) | Intel 8080 / CP/M 2.2 | MBASIC・BDS C・Turbo Pascal 3、I/O バスアナライザ |
 | [09-pdp11](https://tommie-jp.github.io/soft-fpga/examples/09-pdp11/web/) | PDP-11 / Unix V6 | Unix V6 ブート、MMU パネル、逆アセンブル、63 命令のタイミング図 |
+| [RISC-V / Linux](https://tommie-jp.github.io/soft-fpga-riscv-linux/mmrisc2/)（別リポジトリ [soft-fpga-riscv-linux](https://github.com/tommie-jp/soft-fpga-riscv-linux)） | mmRISC-2（RV64GC）/ Linux | 起動を済ませた状態を読み戻して BusyBox のシェルから始める。CPU の中を Logic Analyzer で見る |
 | [91-pong](https://tommie-jp.github.io/soft-fpga/91-pong/) | Pong（CPU なし） | カウンタと比較器だけのゲーム。1 クロック 1 画素、音つき、スマホ対応 |
 
 ## 題材を選ぶ基準
