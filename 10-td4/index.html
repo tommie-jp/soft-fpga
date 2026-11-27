@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <!-- gh-pages の根元 (/soft-fpga/favicon.ico)。無いとブラウザが /favicon.ico を取りに行って 404 になる -->
+  <link rel="icon" href="../favicon.ico" type="image/x-icon">
+  <title>10-td4 — rtlscope</title>
+  <style>
+    body { background:#1a1a1a; color:#eee; font-family:monospace; margin:20px; }
+    h2   { margin:0 0 12px; font-size:16px; color:#aaa; }
+    .controls { display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+    button, select {
+      background:#2a2a2a; color:#eee; border:1px solid #555; padding:4px 12px; cursor:pointer;
+      font-family:monospace; font-size:13px; touch-action:manipulation;
+    }
+    button:hover { background:#3a3a3a; }
+    label { font-size:12px; color:#aaa; }
+    #cycle-info { font-size:12px; color:#666; }
+    .lead { font-size:12px; color:#999; margin:0 0 12px; max-width:760px; line-height:1.6; }
+    .row { display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap; }
+    .panel { border:1px solid #333; padding:10px 12px; }
+    .panel h3 { margin:0 0 8px; font-size:12px; color:#888; font-weight:normal; }
+
+    /* データパスの図 */
+    #dp { display:block; width:100%; max-width:420px; height:auto; }
+    #dp .box  { fill:#222; stroke:#555; stroke-width:1.5; }
+    #dp .wire { stroke:#444; stroke-width:2; fill:none; }
+    #dp .lbl  { fill:#888; font-size:11px; font-family:monospace; }
+    #dp .val  { fill:#ddd; font-size:15px; font-family:monospace; font-weight:bold; }
+    #dp .on.box  { stroke:#ffb300; fill:#3a2e10; }
+    #dp .on.wire { stroke:#ffb300; }
+    #dp .dst.box  { stroke:#29b6f6; fill:#0f2a38; }
+    #dp .dst.wire { stroke:#29b6f6; }
+    #dp-note { font-size:12px; color:#ccc; margin-top:6px; min-height:1.5em; }
+
+    /* 入出力 */
+    .io { display:flex; gap:6px; align-items:center; margin:4px 0 10px; }
+    .led { width:22px; height:22px; border-radius:50%; background:#3a1010; border:1px solid #552222; }
+    .led.lit { background:#ff3030; box-shadow:0 0 10px #ff3030; border-color:#ff8080; }
+    .sw { width:28px; padding:6px 0; text-align:center; }
+    .sw.on { background:#1d4d2a; border-color:#3c9a55; color:#bfffcf; }
+    .bitno { font-size:10px; color:#666; width:22px; text-align:center; }
+    .kv { font-size:13px; line-height:1.8; color:#ccc; }
+    .kv .k { color:#777; display:inline-block; width:3.5em; }
+
+    /* プログラムの表 */
+    #prog { border-collapse:collapse; font-size:12px; }
+    #prog td { padding:1px 4px; border-bottom:1px solid #2a2a2a; white-space:nowrap; }
+    #prog td.addr { color:#777; }
+    #prog td.code { color:#888; }
+    #prog select { padding:1px 2px; font-size:12px; }
+    #prog tr.cur td { background:#3a2e10; }
+    #prog tr.cur td.addr { color:#ffb300; }
+    #prog-presets { margin-bottom:6px; display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+
+    @media (max-width:500px) {
+      body { margin:12px; }
+      .panel { padding:8px; width:100%; box-sizing:border-box; }
+    }
+  </style>
+</head>
+<body>
+<script src="js/sft-book-header.js" data-page="10-td4"></script>
+  <h2 data-ja="10-td4 — 4 ビット CPU の TD4">10-td4 — the 4-bit TD4 CPU</h2>
+  <p class="lead" data-ja="TD4 は 4 ビットのレジスタ A・B・OUT・PC と、セレクタ 1 つ・加算器 1 つだけでできた CPU です。命令ごとに、セレクタがどの入力を選び、加算器の答えをどこへ書くかが図で光ります。プログラムは右の表で書き換えられます。">TD4 is a CPU made of four 4-bit registers (A, B, OUT, PC), one selector and one adder. For each instruction the diagram lights up which input the selector picks and where the adder's result is written. Edit the program in the table.</p>
+
+  <div class="controls">
+    <button id="btn-run">Run</button>
+    <button id="btn-step" data-ja="1 クロック">Step</button>
+    <button id="btn-reset">Reset</button>
+    <label><span data-ja="クロック:">Clock:</span>
+      <select id="speed">
+        <option value="0.5">0.5 Hz</option>
+        <option value="1">1 Hz</option>
+        <option value="2" selected>2 Hz</option>
+        <option value="5">5 Hz</option>
+        <option value="10">10 Hz</option>
+        <option value="100">100 Hz</option>
+        <option value="1000">1 kHz</option>
+        <option value="100000">100 kHz</option>
+      </select>
+    </label>
+    <span id="cycle-info">0 cycles</span>
+  </div>
+
+  <div class="row">
+    <!-- データパス -->
+    <div class="panel">
+      <h3 data-ja="データパス (次のクロックで起きること)">Datapath (what the next clock does)</h3>
+      <svg id="dp" viewBox="0 0 420 230" role="img" aria-label="TD4 datapath">
+        <!-- 入力側 -->
+        <path class="wire" id="w-src-0" d="M70 30 H100 V100 H120"/>
+        <path class="wire" id="w-src-1" d="M70 80 H100 V108 H120"/>
+        <path class="wire" id="w-src-2" d="M70 130 H100 V116 H120"/>
+        <path class="wire" id="w-src-3" d="M70 180 H100 V124 H120"/>
+        <rect class="box" id="b-src-0" x="10" y="12" width="60" height="36" rx="3"/>
+        <rect class="box" id="b-src-1" x="10" y="62" width="60" height="36" rx="3"/>
+        <rect class="box" id="b-src-2" x="10" y="112" width="60" height="36" rx="3"/>
+        <rect class="box" id="b-src-3" x="10" y="162" width="60" height="36" rx="3"/>
+        <text class="lbl" x="15" y="25">A</text>
+        <text class="lbl" x="15" y="75">B</text>
+        <text class="lbl" x="15" y="125">IN</text>
+        <text class="lbl" x="15" y="175">0</text>
+        <text class="val" id="v-src-0" x="40" y="42" text-anchor="middle">-</text>
+        <text class="val" id="v-src-1" x="40" y="92" text-anchor="middle">-</text>
+        <text class="val" id="v-src-2" x="40" y="142" text-anchor="middle">-</text>
+        <text class="val" x="40" y="192" text-anchor="middle">0000</text>
+        <!-- セレクタ -->
+        <path class="box on" id="b-sel" d="M120 85 L150 97 L150 127 L120 139 Z"/>
+        <text class="lbl" x="122" y="152">SEL</text>
+        <path class="wire on" id="w-sel" d="M150 112 H180"/>
+        <!-- 加算器 -->
+        <rect class="box on" id="b-add" x="180" y="88" width="62" height="48" rx="3"/>
+        <text class="lbl" x="186" y="100">+ Im</text>
+        <text class="lbl" x="211" y="36" text-anchor="middle">ROM[PC] Im</text>
+        <text class="val" id="v-im" x="211" y="56" text-anchor="middle">-</text>
+        <path class="wire on" d="M211 63 V88"/>
+        <text class="val" id="v-alu" x="211" y="126" text-anchor="middle">-</text>
+        <text class="lbl" x="186" y="152" id="v-carry">C→-</text>
+        <!-- 書く先 -->
+        <path class="wire" id="w-dst-0" d="M242 112 H270 V30 H340"/>
+        <path class="wire" id="w-dst-1" d="M270 112 V80 H340"/>
+        <path class="wire" id="w-dst-2" d="M270 112 V130 H340"/>
+        <path class="wire" id="w-dst-3" d="M270 112 V180 H340"/>
+        <rect class="box" id="b-dst-0" x="340" y="12" width="70" height="36" rx="3"/>
+        <rect class="box" id="b-dst-1" x="340" y="62" width="70" height="36" rx="3"/>
+        <rect class="box" id="b-dst-2" x="340" y="112" width="70" height="36" rx="3"/>
+        <rect class="box" id="b-dst-3" x="340" y="162" width="70" height="36" rx="3"/>
+        <text class="lbl" x="345" y="25">A</text>
+        <text class="lbl" x="345" y="75">B</text>
+        <text class="lbl" x="345" y="125">OUT</text>
+        <text class="lbl" x="345" y="175">PC</text>
+        <text class="val" id="v-dst-0" x="375" y="42" text-anchor="middle">-</text>
+        <text class="val" id="v-dst-1" x="375" y="92" text-anchor="middle">-</text>
+        <text class="val" id="v-dst-2" x="375" y="142" text-anchor="middle">-</text>
+        <text class="val" id="v-dst-3" x="375" y="192" text-anchor="middle">-</text>
+        <text class="lbl" x="10" y="222" id="v-cflag">C=-</text>
+      </svg>
+      <div id="dp-note">-</div>
+    </div>
+
+    <!-- 入出力 -->
+    <div class="panel">
+      <h3 data-ja="出力ポート (OUT)">Output port (OUT)</h3>
+      <div class="io" id="leds"></div>
+      <h3 data-ja="入力ポート (IN) — 押して切り替え">Input port (IN) — tap to toggle</h3>
+      <div class="io" id="switches"></div>
+      <div class="io"><span class="bitno">3</span><span class="bitno">2</span><span class="bitno">1</span><span class="bitno">0</span></div>
+      <div class="kv">
+        <div><span class="k">PC</span><span id="r-pc">-</span></div>
+        <div><span class="k">op</span><span id="r-op">-</span></div>
+        <div><span class="k">C</span><span id="r-c">-</span></div>
+      </div>
+    </div>
+
+    <!-- プログラム -->
+    <div class="panel">
+      <h3 data-ja="プログラム (ROM 16 番地)">Program (16-word ROM)</h3>
+      <div id="prog-presets">
+        <select id="preset" aria-label="preset">
+          <option value="" data-ja="サンプルを読み込む…">Load a sample…</option>
+          <option value="all" data-ja="12 命令を全部通る (教科書 11-2)">All 12 instructions (textbook 11-2)</option>
+          <option value="led" data-ja="LED の点き方 (led.s)">LED pattern (led.s)</option>
+          <option value="timer" data-ja="数えて止まる (timer.s)">Count and stop (timer.s)</option>
+          <option value="echo" data-ja="IN を OUT へ映す">Copy IN to OUT</option>
+        </select>
+      </div>
+      <table id="prog"><tbody></tbody></table>
+    </div>
+  </div>
+
+  <!-- Logic Analyzer（js/rtlscope-la.js） -->
+  <div id="la-root" style="margin-top:12px;"></div>
+
+  <p id="copyright" style="font-size:12px;color:#555;margin:6px 0 0;">&copy; 2026 <a href="https://github.com/tommie-jp" target="_blank" rel="noopener" style="color:#666;">tommie.jp</a>
+  &nbsp;&mdash;&nbsp;
+  <span data-ja="TD4 の命令の決め方は asfdrwe/simpleTD4 (MIT) に合わせています">Instruction set follows asfdrwe/simpleTD4 (MIT)</span>
+  </p>
+
+  <script src="js/sft-td4-la-defs.js"></script>
+  <script src="js/rtlscope-la.js"></script>
+  <script src="js/sft-la-toolbar.js"></script>
+  <script src="js/sft-la-ctrl.js"></script>
+  <script src="js/sft-la-glue.js"></script>
+  <script src="js/sft-lang-toggle.js"></script>
+  <script>
+  'use strict';
+
+  // ring buffer / get_state のビットの並び（harness.cpp と一致させる）
+  const S0 = { pc:0, out:4, a:8, b:12, op:16, c:24, rst:25, in:26 };
+  const S1 = { sel:0, load:2, alu:6, aluC:10 };
+
+  // サンプルのプログラム（教科書 11-2 と、教科書 6 の led.s・timer.s）
+  const PRESETS = {
+    all:   [0x35, 0x40, 0x03, 0x5C, 0xE0, 0x20, 0x10, 0x60, 0x90, 0x79, 0xB6, 0x3E, 0x01, 0xEF, 0xBF, 0xF0],
+    led:   [0xB3, 0xB6, 0xBC, 0xB8, 0xB8, 0xBC, 0xB6, 0xB3, 0xB1, 0xF0, 0, 0, 0, 0, 0, 0],
+    timer: [0x90, 0x51, 0xE0, 0xBF, 0xF4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    echo:  [0x60, 0x90, 0xF0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  };
+  // オペコードの選択肢（表の並び）。即値を使う命令は "Im" と書く
+  const OP_CHOICES = [0x3, 0x7, 0x1, 0x4, 0x0, 0x5, 0x2, 0x6, 0x9, 0xB, 0xF, 0xE];
+  const OP_LABEL = {
+    0x0: 'ADD A,Im', 0x1: 'MOV A,B', 0x2: 'IN A',  0x3: 'MOV A,Im',
+    0x4: 'MOV B,A',  0x5: 'ADD B,Im', 0x6: 'IN B', 0x7: 'MOV B,Im',
+    0x9: 'OUT B',    0xB: 'OUT Im',  0xE: 'JNC Im', 0xF: 'JMP Im'
+  };
+
+  const $ = id => document.getElementById(id);
+  const isJa = RTLScopeLA.pickLang() === 'ja';
+  const bits = (w, at, n) => (w >>> at) & ((1 << n) - 1);
+  const hex1 = v => v.toString(16).toUpperCase();
+  const hex2 = v => ('0' + v.toString(16).toUpperCase()).slice(-2);
+
+  let onFrame         = null;   // boot() が設定する
+  let onWorkerStopped = null;
+  let epoch           = 0;      // Reset のたびに増やす。古いフレームを捨てる目印
+  const worker = openLaWorker('sim-worker.js', {
+    onReady: function (m) { boot(m.ringSize, m.ringWords); },
+    onFrame: function (m) { if (onFrame) onFrame(m); },
+    onFault: function (text) {
+      $('cycle-info').textContent = text;
+      if (onWorkerStopped) onWorkerStopped();
+    }
+  });
+  function send(msg) { worker.postMessage(msg); }
+
+  // ── 入出力の部品 ─────────────────────────────────────────
+  const leds = [], switches = [];
+  let inValue = 0xA;   // harness.cpp の IN_DEFAULT と同じ
+  for (let i = 3; i >= 0; i--) {
+    const led = document.createElement('div');
+    led.className = 'led';
+    $('leds').appendChild(led);
+    leds[i] = led;
+    const sw = document.createElement('button');
+    sw.className = 'sw';
+    sw.setAttribute('aria-label', 'IN bit ' + i);
+    sw.addEventListener('click', function () {
+      inValue ^= (1 << i);
+      send({ type: 'setIn', v: inValue });
+      drawSwitches();
+    });
+    $('switches').appendChild(sw);
+    switches[i] = sw;
+  }
+  function drawSwitches() {
+    for (let i = 0; i < 4; i++) {
+      const on = (inValue >> i) & 1;
+      switches[i].textContent = on ? '1' : '0';
+      switches[i].classList.toggle('on', !!on);
+    }
+  }
+  drawSwitches();
+
+  // ── プログラムの表 ─────────────────────────────────────
+  let rom = PRESETS.all.slice();
+  const progRows = [];
+  (function buildProgramTable() {
+    const tbody = $('prog').querySelector('tbody');
+    for (let addr = 0; addr < 16; addr++) {
+      const tr = document.createElement('tr');
+      const tdAddr = document.createElement('td');
+      tdAddr.className = 'addr';
+      tdAddr.textContent = hex1(addr) + ' ' + td4Bin4(addr);
+      const opSel = document.createElement('select');
+      opSel.setAttribute('aria-label', 'opcode ' + addr);
+      OP_CHOICES.forEach(function (op) {
+        const o = document.createElement('option');
+        o.value = op; o.textContent = OP_LABEL[op];
+        opSel.appendChild(o);
+      });
+      const imSel = document.createElement('select');
+      imSel.setAttribute('aria-label', 'immediate ' + addr);
+      for (let v = 0; v < 16; v++) {
+        const o = document.createElement('option');
+        o.value = v; o.textContent = td4Bin4(v);
+        imSel.appendChild(o);
+      }
+      const tdCode = document.createElement('td');
+      tdCode.className = 'code';
+      function onEdit() {
+        rom[addr] = ((+opSel.value) << 4) | (+imSel.value);
+        tdCode.textContent = hex2(rom[addr]);
+        $('preset').value = '';
+        send({ type: 'setRom', rom: rom });
+      }
+      opSel.addEventListener('change', onEdit);
+      imSel.addEventListener('change', onEdit);
+      const tdOp = document.createElement('td'), tdIm = document.createElement('td');
+      tdOp.appendChild(opSel); tdIm.appendChild(imSel);
+      [tdAddr, tdOp, tdIm, tdCode].forEach(td => tr.appendChild(td));
+      tbody.appendChild(tr);
+      progRows[addr] = { tr: tr, opSel: opSel, imSel: imSel, tdCode: tdCode };
+    }
+  })();
+  function drawProgram() {
+    for (let addr = 0; addr < 16; addr++) {
+      const r = progRows[addr], code = rom[addr];
+      let op = code >> 4;
+      if (!(op in OP_LABEL)) op = 0x3;   // 未定義のオペコードは表では MOV A,Im として見せる
+      r.opSel.value = op;
+      r.imSel.value = code & 15;
+      r.tdCode.textContent = hex2(code);
+    }
+  }
+  drawProgram();
+
+  // ── データパスの図 ─────────────────────────────────────
+  const DST_NAMES = ['A', 'B', 'OUT', 'PC'];
+  function drawDatapath(s0, s1) {
+    const vals = [bits(s0, S0.a, 4), bits(s0, S0.b, 4), bits(s0, S0.in, 4)];
+    const sel  = bits(s1, S1.sel, 2), load = bits(s1, S1.load, 4);
+    const alu  = bits(s1, S1.alu, 4), aluC = bits(s1, S1.aluC, 1);
+    const code = bits(s0, S0.op, 8), im = code & 15;
+    for (let i = 0; i < 3; i++) $('v-src-' + i).textContent = td4Bin4(vals[i]);
+    for (let i = 0; i < 4; i++) {
+      $('b-src-' + i).classList.toggle('on', i === sel);
+      $('w-src-' + i).classList.toggle('on', i === sel);
+      const isDst = !!((load >> i) & 1);
+      $('b-dst-' + i).classList.toggle('dst', isDst);
+      $('w-dst-' + i).classList.toggle('dst', isDst);
+    }
+    const now = [bits(s0, S0.a, 4), bits(s0, S0.b, 4), bits(s0, S0.out, 4), bits(s0, S0.pc, 4)];
+    for (let i = 0; i < 4; i++) {
+      const isDst = (load >> i) & 1;
+      $('v-dst-' + i).textContent = isDst ? td4Bin4(alu) : td4Bin4(now[i]);
+    }
+    $('v-im').textContent = td4Bin4(im);
+    $('v-alu').textContent = td4Bin4(alu);
+    $('v-carry').textContent = 'C→' + aluC;
+    $('v-cflag').textContent = 'C=' + bits(s0, S0.c, 1);
+
+    // 一言の説明
+    const src = TD4_SEL_NAMES[sel];
+    const dst = DST_NAMES.filter((n, i) => (load >> i) & 1);
+    const sum = src + '(' + td4Bin4(sel === 3 ? 0 : vals[sel]) + ') + ' + td4Bin4(im) + ' = ' + td4Bin4(alu);
+    let note;
+    if (!dst.length) {
+      note = isJa ? 'どこにも書かない (C=1 なので JNC は跳ばず、PC に 1 を足す)'
+                  : 'nothing is written (C=1, so JNC does not jump; PC adds 1)';
+    } else {
+      note = isJa ? sum + ' を ' + dst.join('・') + ' に書く' : 'write ' + sum + ' to ' + dst.join(', ');
+      if (!((load >> 3) & 1)) note += isJa ? '。PC は 1 増える' : '; PC adds 1';
+    }
+    $('dp-note').textContent = td4Disasm(code) + ' — ' + note;
+  }
+
+  function drawIo(s0) {
+    const out = bits(s0, S0.out, 4);
+    for (let i = 0; i < 4; i++) leds[i].classList.toggle('lit', !!((out >> i) & 1));
+    const pc = bits(s0, S0.pc, 4);
+    $('r-pc').textContent = hex1(pc) + ' (' + td4Bin4(pc) + ')';
+    $('r-op').textContent = hex2(bits(s0, S0.op, 8)) + ' ' + td4Disasm(bits(s0, S0.op, 8));
+    $('r-c').textContent = bits(s0, S0.c, 1);
+    progRows.forEach((r, i) => r.tr.classList.toggle('cur', i === pc));
+  }
+
+  function boot(ringSize, ringWords) {
+    let running    = false;
+    let rafPending = false;
+    let latest     = null;   // 最後に受けたフレーム
+
+    function setRunning(on) {
+      running = on;
+      $('btn-run').textContent = running ? 'Pause' : 'Run';
+    }
+    function applyHz() { send({ type: 'setHz', hz: parseFloat($('speed').value) }); }
+    function startRun() {
+      applyHz();
+      setRunning(true);
+      send({ type: 'setRunning', running: true });   // トリガー停止後は Worker が Thaw して再武装する
+    }
+
+    const lag = setupLaWorker({
+      worker: worker, ringSize: ringSize, ringWords: ringWords,
+      rootId: 'la-root',
+      config: TD4_LA_CONFIG, signals: TD4_LA_SIGNALS,
+      zoomIdx: 8,   // 1 クロックの幅でニーモニックが読める倍率で開始する
+      onArm: startRun
+    });
+
+    onWorkerStopped = function () { setRunning(false); };
+
+    function render() {
+      rafPending = false;
+      if (!latest) return;
+      const head = lag.draw();
+      drawDatapath(latest.state0, latest.state1);
+      drawIo(latest.state0);
+      $('cycle-info').textContent = head + ' cycles';
+    }
+
+    let romSynced = false;
+    onFrame = function (m) {
+      if (m.epoch !== epoch) return;   // Reset より前に作られたフレームは捨てる
+      lag.frame(m);
+      latest = m;
+      if (!romSynced) { rom = m.rom.slice(); drawProgram(); romSynced = true; }
+      if (m.trigPause && running) setRunning(false);   // トリガー停止
+      if (!rafPending) {
+        rafPending = true;
+        requestAnimationFrame(render);
+      }
+    };
+
+    $('speed').addEventListener('change', applyHz);
+
+    $('btn-run').addEventListener('click', function () {
+      if (running) {
+        setRunning(false);
+        send({ type: 'setRunning', running: false });
+      } else {
+        startRun();
+      }
+    });
+
+    $('btn-step').addEventListener('click', function () {
+      if (running) return;
+      send({ type: 'step' });
+    });
+
+    $('btn-reset').addEventListener('click', function () {
+      epoch++;
+      send({ type: 'reset', epoch: epoch });
+      setRunning(false);
+    });
+
+    $('preset').addEventListener('change', function () {
+      const p = PRESETS[$('preset').value];
+      if (!p) return;
+      rom = p.slice();
+      drawProgram();
+      send({ type: 'setRom', rom: rom });
+      epoch++;
+      send({ type: 'reset', epoch: epoch });
+      setRunning(false);
+    });
+
+    applyHz();
+    send({ type: 'setIn', v: inValue });
+  }
+  </script>
+</body>
+</html>
