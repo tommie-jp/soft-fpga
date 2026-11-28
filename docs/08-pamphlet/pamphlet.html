@@ -77,12 +77,9 @@
 
   /* 裏面 */
   .card { display: grid; grid-template-columns: 62mm 1fr; gap: 5mm; padding: 3mm 0; border-bottom: 0.3mm solid #c5ccd8; min-height: 78mm; }
-  .card.compact { min-height: 0; }
   .card:first-of-type { border-top: 0.3mm solid #c5ccd8; }
   .card .shot { display: flex; align-items: flex-start; justify-content: center; overflow: hidden; background: #f4f6fa; border-radius: 1.5mm; height: 78mm; }
   .card .shot img { max-width: 100%; max-height: 100%; }
-  .card .shot.short { display: grid; grid-template-columns: 1fr 1fr; gap: 1mm; height: 74mm; padding: 0; background: none; border-radius: 0; }
-  .card .shot.short img { width: 100%; height: 100%; max-width: none; max-height: none; object-fit: cover; object-position: top; border: 0.2mm solid #d5dae3; border-radius: 1mm; }
   .card .shot.stack { flex-direction: column; justify-content: flex-start; gap: 1.5mm; padding: 0; height: auto; align-self: flex-start; background: none; overflow: visible; }
   .card .shot.stack .tile { width: 100%; border-radius: 1.5mm; overflow: hidden; background: #fff; border: 0.2mm solid #d5dae3; }
   .card .shot.stack .tile img { display: block; width: 100%; max-width: none; max-height: none; height: auto; }
@@ -200,7 +197,7 @@
     <p class="how">ご意見は、当日その場で声をかけるか、<a href="https://github.com/tommie-jp/reversi-uart-protocol/issues">GitHub の Issue</a>（最上段の QR のリポジトリから）へどうぞ。</p>
   </div>
 
-  <p class="note footer"><span>「オセロ」は株式会社メガハウスの登録商標です。本書では一般名詞の「リバーシ」を使っています。</span><span class="pagedate">作成日 2026-11-27</span></p>
+  <p class="note footer"><span>「オセロ」は株式会社メガハウスの登録商標です。本書では一般名詞の「リバーシ」を使っています。</span><span class="pagedate">作成日 2026-11-28</span></p>
 </section>
 
 <!-- 裏面: ほかに作っている物 -->
@@ -220,44 +217,46 @@
 
   <div class="card">
     <div class="shot stack">
+      <div class="tile"><img src="img/tommiechat-world.jpg" alt="tommieChat の 3D ワールドに猫のアバターが集まっている画面"></div>
+      <div class="tile"><img src="img/tommiechat-lobby.png" alt="tommieChat のリバーシロビー（募集中のゲームと対局の履歴）"></div>
+    </div>
+    <div class="body">
+      <h2><span class="tag">対戦</span><span class="nw">tommieChat</span></h2>
+      <p>ブラウザで動く 3D の MMO チャットです。中のリバーシロビーで対局を募集すると、ほかの人が参加したり観戦したりできます。</p>
+      <ul>
+        <li>インストールも登録も要らず、すぐ試せる</li>
+        <li>自作 CPU を Web Serial でつないで対局（RUP v0.2）</li>
+        <li>自作 CPU どうしの対局もできる</li>
+      </ul>
+      <p>QR を読むとリバーシロビーが開きます。最初の表示名の入力は、スキップしてもかまいません。</p>
+      <div class="link">
+        <a href="https://mmo.tommie.jp/?ot"><img class="qr" src="qr/tommiechat.png" alt="tommieChat のリバーシロビー"></a>
+        <div><div class="url"><a href="https://mmo.tommie.jp/?ot">mmo.tommie.jp/?ot</a></div><div class="note">GitHub: <a href="https://github.com/tommie-jp/tommie-chat">tommie-jp/tommie-chat</a></div></div>
+        <img class="mascot" src="img/illust-disc-play.svg" alt="手を振るリバーシ石のキャラクター">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="shot stack">
       <div class="tile art"><img src="img/softfpga-illust.jpg" alt="soft FPGA のイラスト（雷雲の下の青いチップ）"></div>
       <div class="tile"><img src="img/softfpga-8080-cpm.png" alt="8080 / CP/M 2.2 の端末画面（BDS C で Hello, CP/M!）"></div>
       <div class="tile"><img src="img/softfpga-8080-la.png" alt="8080 のロジックアナライザ画面（M サイクル、T ステート、バス信号）"></div>
     </div>
     <div class="body">
       <h2><span class="tag">デモ机</span><span class="nw">soft-FPGA</span> × WebAssembly</h2>
-      <p>Verilog で書いたレトロ CPU を Verilator で C++ にし、WebAssembly にしてブラウザで動かします。命令エミュレータでは見えない内部信号（<span class="nw">T-state</span>、バスサイクル、状態遷移）をリアルタイムに観測できるのが取り柄です。</p>
+      <p>Verilog で書いた CPU を Verilator で C++ にし、WebAssembly にしてブラウザで動かします。命令エミュレータでは見えない内部信号（<span class="nw">T-state</span>、バスサイクル、状態遷移）をリアルタイムに観測できるのが取り柄です。</p>
       <ul>
         <li>6502 / <span class="nw">Apple-I</span>（wozmon → Integer BASIC）</li>
         <li>8080 / CP/M 2.2（MBASIC、BDS C、ゲーム）</li>
         <li><span class="nw">PDP-11</span> / Unix V6（MMU、ロジックアナライザ表示）</li>
+        <li><a href="https://tommie-jp.github.io/soft-fpga-riscv-linux/mmrisc2/?lang=ja"><span class="nw">RISC-V</span> / Linux</a>（M. Maruyama 氏の <span class="nw">mmRISC-2</span>）</li>
       </ul>
       <p>デモ机では 6502 / <span class="nw">Apple-I</span> を Raspberry Pi Pico 2 の実機でも動かします（当日の状況により Wasm 版）。</p>
       <div class="link">
         <a href="https://tommie-jp.github.io/soft-fpga/?lang=jp"><img class="qr" src="qr/softfpga.png" alt="soft-FPGA のデモ"></a>
         <div><div class="url"><a href="https://tommie-jp.github.io/soft-fpga/?lang=jp">tommie-jp.github.io/<br>soft-fpga</a></div><div class="note">GitHub: <a href="https://github.com/tommie-jp/soft-fpga">tommie-jp/soft-fpga</a></div></div>
         <img class="mascot" src="img/illust-chip-wave.svg" alt="手を振るチップのイラスト">
-      </div>
-    </div>
-  </div>
-
-  <div class="card compact">
-    <div class="shot short">
-      <img src="img/qr-note-hero-search.png" alt="QR Note のタグ検索と特性表">
-      <img src="img/qr-note-hero-circuit.png" alt="QR Note のノート（回路図の記法）">
-    </div>
-    <div class="body">
-      <h2><span class="tag">部品管理</span>QR Note</h2>
-      <p>部品に貼った QR シールをスマホで読むと、その部品のノート（特性表、回路図、メモ）が開きます。部品が増えても、読み取るだけで該当ノートにたどり着けます。</p>
-      <ul>
-        <li>タグ検索と特性表</li>
-        <li>数式・回路図・図表の記法、シールの印刷</li>
-      </ul>
-      <p>デモはログイン <code>demo</code> / <code>demo</code>。データは毎時 0 分にすべてリセットされます。</p>
-      <div class="link">
-        <a href="https://qr-demo.tommie.jp"><img class="qr" src="qr/qrnote.png" alt="QR Note のデモ"></a>
-        <div><div class="url"><a href="https://qr-demo.tommie.jp">qr-demo.tommie.jp</a></div><div class="note">GitHub: <a href="https://github.com/tommie-jp/qr-note">tommie-jp/qr-note</a></div></div>
-        <img class="mascot" src="img/illust-qr-sticker.svg" alt="QR シールのキャラクター">
       </div>
     </div>
   </div>
@@ -285,7 +284,7 @@
     </div>
   </div>
 
-  <p class="note footer"><span></span><span class="pagedate">作成日 2026-11-27</span></p>
+  <p class="note footer"><span></span><span class="pagedate">作成日 2026-11-28</span></p>
 </section>
 
 </body>
